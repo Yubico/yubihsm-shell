@@ -38,6 +38,11 @@ include_directories (
   ${CMAKE_SOURCE_DIR}/common
 )
 
+if(${WIN32})
+  list(APPEND SOURCE ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
+  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc @ONLY)
+endif(${WIN32})
+
 if (CMAKE_C_COMPILER_ID MATCHES Clang)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE")
 else ()

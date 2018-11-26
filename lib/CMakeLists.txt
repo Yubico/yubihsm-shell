@@ -33,14 +33,14 @@ if(${WIN32})
     HTTP_SOURCE
     yubihsm_winhttp.c
     lib_util.c
-    version_winhttp.rc
+    ${CMAKE_CURRENT_BINARY_DIR}/version_winhttp.rc
     )
   set (
     USB_SOURCE
     yubihsm_usb.c
     yubihsm_winusb.c
     lib_util.c
-    version_winusb.rc
+    ${CMAKE_CURRENT_BINARY_DIR}/version_winusb.rc
     )
   set(HTTP_LIBRARY -lwinhttp -lws2_32)
   set(USB_LIBRARY -lwinusb -lws2_32 -lsetupapi)
