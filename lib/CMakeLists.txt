@@ -1,0 +1,268 @@
+#
+# Copyright 2015-2018 Yubico AB
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+set (
+  SOURCE
+  ${CMAKE_SOURCE_DIR}/aes_cmac/aes.c
+  ${CMAKE_SOURCE_DIR}/aes_cmac/aes_cmac.c
+  ${CMAKE_SOURCE_DIR}/common/hash.c
+  ${CMAKE_SOURCE_DIR}/common/pkcs5.c
+  ${CMAKE_SOURCE_DIR}/common/rand.c
+  error.c
+  lib_util.c
+  yubihsm.c
+)
+set(STATIC_SOURCE ${SOURCE})
+
+if(${WIN32})
+  set(ADDITIONAL_LIBRARY -lws2_32)
+  set (
+    HTTP_SOURCE
+    yubihsm_winhttp.c
+    lib_util.c
+    version_winhttp.rc
+    )
+  set (
+    USB_SOURCE
+    yubihsm_usb.c
+    yubihsm_winusb.c
+    lib_util.c
+    version_winusb.rc
+    )
+  set(HTTP_LIBRARY -lwinhttp -lws2_32)
+  set(USB_LIBRARY -lwinusb -lws2_32 -lsetupapi)
+  if(${WIN32_BCRYPT})
+    set (CRYPT_LIBRARY -lbcrypt)
+    add_definitions (-D_WIN32_BCRYPT)
+  else(${WIN32_BCRYPT})
+    set(CRYPT_LIBRARY ${LIBCRYPTO_LDFLAGS})
+  endif(${WIN32_BCRYPT})
+  list(APPEND SOURCE ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
+
+  if(${STATIC_USB})
+    list(APPEND STATIC_SOURCE yubihsm_winusb.c yubihsm_usb.c)
+  else(${STATIC_USB})
+    list(APPEND STATIC_SOURCE yubihsm_winhttp.c)
+  endif(${STATIC_USB})
+else(${WIN32})
+  set(ADDITIONAL_LIBRARY -ldl)
+  set (
+    USB_SOURCE
+    yubihsm_usb.c
+    yubihsm_libusb.c
+    lib_util.c
+    )
+  set (
+    HTTP_SOURCE
+    yubihsm_curl.c
+    lib_util.c
+    )
+  set(HTTP_LIBRARY ${LIBCURL_LDFLAGS})
+  set(USB_LIBRARY ${LIBUSB_LDFLAGS})
+  set(CRYPT_LIBRARY ${LIBCRYPTO_LDFLAGS})
+
+  if(${STATIC_USB})
+    list(APPEND STATIC_SOURCE yubihsm_libusb.c yubihsm_usb.c)
+  else(${STATIC_USB})
+    list(APPEND STATIC_SOURCE yubihsm_curl.c)
+  endif(${STATIC_USB})
+endif(${WIN32})
+
+include_directories (
+  ${CMAKE_SOURCE_DIR}/lib
+  ${LIBCRYPTO_INCLUDEDIR}
+)
+
+add_library (yubihsm SHARED ${SOURCE})
+add_library (yubihsm_usb SHARED ${USB_SOURCE})
+add_library (yubihsm_http SHARED ${HTTP_SOURCE})
+
+set_target_properties(yubihsm PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/lib")
+set_target_properties (yubihsm PROPERTIES VERSION "${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}" SOVERSION ${yubihsm_shell_VERSION_MAJOR})
+set_target_properties (yubihsm_usb PROPERTIES VERSION "${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}" SOVERSION ${yubihsm_shell_VERSION_MAJOR})
+set_target_properties (yubihsm_http PROPERTIES VERSION "${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}" SOVERSION ${yubihsm_shell_VERSION_MAJOR})
+
+if (ENABLE_STATIC)
+  add_library (yubihsm_static STATIC ${STATIC_SOURCE})
+  set_target_properties (yubihsm_static PROPERTIES POSITION_INDEPENDENT_CODE on OUTPUT_NAME yubihsm)
+  set_target_properties (yubihsm_static PROPERTIES COMPILE_FLAGS "-DSTATIC")
+  add_coverage (yubihsm_static)
+endif()
+
+if(${WIN32})
+else(${WIN32})
+  if(${LIBUSB_VERSION} VERSION_LESS 1.0.16)
+    set(LIBUSB_CFLAGS "${LIBUSB_CFLAGS} -DNO_LIBUSB_STRERROR")
+  endif()
+  set_target_properties (yubihsm_usb PROPERTIES COMPILE_FLAGS ${LIBUSB_CFLAGS})
+  if(ENABLE_STATIC AND STATIC_USB)
+    set_target_properties (yubihsm_static PROPERTIES COMPILE_FLAGS ${LIBUSB_CFLAGS})
+  endif(ENABLE_STATIC AND STATIC_USB)
+endif(${WIN32})
+
+add_coverage (yubihsm)
+add_coverage (yubihsm_usb)
+add_coverage (yubihsm_http)
+
+add_definitions (-DVERSION="${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}")
+add_definitions (-DSOVERSION="${yubihsm_shell_VERSION_MAJOR}")
+
+target_link_libraries (yubihsm ${CRYPT_LIBRARY} ${ADDITIONAL_LIBRARY})
+target_link_libraries (yubihsm_usb ${USB_LIBRARY})
+target_link_libraries (yubihsm_http ${HTTP_LIBRARY})
+if(ENABLE_STATIC)
+  if(${STATIC_USB})
+    target_link_libraries (yubihsm_static ${CRYPT_LIBRARY} ${ADDITIONAL_LIBRARY} ${USB_LIBRARY})
+  else(${STATIC_USB})
+    target_link_libraries (yubihsm_static ${CRYPT_LIBRARY} ${ADDITIONAL_LIBRARY} ${HTTP_LIBRARY})
+  endif(${STATIC_USB})
+endif(ENABLE_STATIC)
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/yubihsm.pc.in ${CMAKE_CURRENT_BINARY_DIR}/yubihsm.pc @ONLY)
+
+if(${WIN32})
+  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc @ONLY)
+  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version_winhttp.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version_winhttp.rc @ONLY)
+  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version_winusb.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version_winusb.rc @ONLY)
+endif(${WIN32})
+
+install(
+  TARGETS yubihsm
+  ARCHIVE DESTINATION ${YUBIHSM_INSTALL_LIB_DIR}
+  LIBRARY DESTINATION ${YUBIHSM_INSTALL_LIB_DIR}
+  RUNTIME DESTINATION ${YUBIHSM_INSTALL_BIN_DIR})
+install(
+  TARGETS yubihsm_usb
+  ARCHIVE DESTINATION ${YUBIHSM_INSTALL_LIB_DIR}
+  LIBRARY DESTINATION ${YUBIHSM_INSTALL_LIB_DIR}
+  RUNTIME DESTINATION ${YUBIHSM_INSTALL_BIN_DIR})
+install(
+  TARGETS yubihsm_http
+  ARCHIVE DESTINATION ${YUBIHSM_INSTALL_LIB_DIR}
+  LIBRARY DESTINATION ${YUBIHSM_INSTALL_LIB_DIR}
+  RUNTIME DESTINATION ${YUBIHSM_INSTALL_BIN_DIR})
+install(FILES yubihsm.h DESTINATION ${YUBIHSM_INSTALL_INC_DIR})
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/yubihsm.pc DESTINATION ${YUBIHSM_INSTALL_PKGCONFIG_DIR})
+
+add_subdirectory (tests)
+
+add_test(
+  NAME parsing
+  COMMAND test_parsing
+  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/lib/tests/
+  )
+
+add_test(
+  NAME pbkdf2
+  COMMAND test_pbkdf2
+  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/lib/tests/
+  )
+
+add_test(
+  NAME attest
+  COMMAND attest
+  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/examples/
+  )
+
+add_test(
+  NAME generate_ec
+  COMMAND generate_ec
+  )
+
+add_test(
+  NAME generate_hmac
+  COMMAND generate_hmac
+  )
+
+add_test(
+  NAME import_authkey
+  COMMAND import_authkey
+  )
+
+add_test(
+  NAME import_rsa
+  COMMAND import_rsa
+  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/examples/
+  )
+
+add_test(
+  NAME info
+  COMMAND info
+  )
+
+add_test(
+  NAME wrap
+  COMMAND wrap
+  )
+
+add_test(
+  NAME wrap_data
+  COMMAND wrap_data
+  )
+
+add_test(
+  NAME yubico_otp
+  COMMAND yubico_otp
+  )
+
+add_test(
+  NAME echo
+  COMMAND echo
+  )
+
+add_test(
+  NAME import_ec
+  COMMAND import_ec
+  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/examples/
+  )
+
+add_test(
+  NAME generate_rsa
+  COMMAND generate_rsa
+  )
+
+add_test(
+  NAME logs
+  COMMAND logs
+  )
+
+add_test(
+  NAME ssh
+  COMMAND ssh
+  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/examples/
+  )
+
+add_test(
+  NAME decrypt_rsa
+  COMMAND decrypt_rsa
+  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/examples/
+  )
+
+add_test(
+  NAME decrypt_ec
+  COMMAND decrypt_ec
+  )
+
+add_test(
+  NAME import_ed
+  COMMAND import_ed
+  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/examples/
+  )
+
+add_test(
+  NAME change_authkey
+  COMMAND change_authkey
+  )

@@ -1,0 +1,29 @@
+#
+# Copyright 2015-2018 Yubico AB
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+option "action" a "Action to take" values="delete","list","put","reset","version" enum optional
+option "password" p "Credential password" string optional default=""
+option "name" n "Credential name" string optional default=""
+option "reader" r "Only use a matching reader" string optional default="Yubikey"
+option "touch" t "Touch required" values="off","on" enum optional default="off"
+option "verbose" v "Print more information" int optional default="0" argoptional
+
+defmode "derivation" modedesc="Derive keys from a password using PBKDF2"
+modeoption "derivation-password" d "Derivation password for encryption and MAC keys" string mode="derivation" optional default=""
+
+defmode "explicit" modedesc="Explicit encryption and MAC keys"
+modeoption "enckey" e "Encryption key" string optional default="" mode="explicit"
+modeoption "mackey" m "MAC key" string optional default="" mode="explicit"

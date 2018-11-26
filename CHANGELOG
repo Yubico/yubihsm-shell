@@ -1,0 +1,119 @@
+=== Version 2.0.0
+
+lib: Fix issue with session creation if the authentication key ID is too high
+lib: Fix a potential issue with memory operations
+lib: Fix a potential issue with data left after previous transactions or connections
+lib: Better documentation of arguments
+lib: Better handling of errors
+lib: Rename object types, algorithms, capabilities, commands, command options and errors
+lib: API improvements
+lib: Add a feature to derive an authentication key from a password
+lib: Add a feature to change an authentication key
+pkcs11: Added support for C_DeriveKey()
+shell: More efficient use of the keepalive function
+shell: More efficient handling of sessions when a connection is terminated
+shell: Change keepalive command to a toggle (on/off) 
+tests: Make code examples compile
+tests: Add support for running tests using direct USB connection
+all: Drop unused files
+all: Re-organization of file structure
+doc: Drop documentation from the code base and moved the content to Yubico's developers website (https://developers.yubico.com/YubiHSM2/)
+
+=== Version 1.0.4
+
+pkcs11: Fix a potential issue with RSA bit calculation in C_GetMechanismInfo()
+pkcs11: Fix a case where we return the wrong error from C_GetMechanismList()
+pkcs11: Add a way for users to pass in options over the API to C_Initialize()
+connector: Fix a race condition when the usb state was re-created.
+connector: Better error reporting in some failure cases.
+connector: Fix issues where the connector could hang on Windows.
+connector: Fix an issue where the connector would not reconnect on Windows.
+shell: Fix an issue with importing HMAC keys.
+
+=== Version 1.0.3
+
+shell: Handle return values from reset correctly on windows.
+connector: Return HTTP errors when operations fail.
+lib: Handle HTTP errors correctly on windows.
+lib: Fix printing of time in debug on windows.
+pkcs11: Fix a problem in C_FindObjects() where not all items would be returned
+
+=== Version 1.0.2
+
+lib: Fix connect timeout on windows
+lib: Fix debugging to file
+lib/pkcs11/shell: Openssl 1.1 compatibility
+lib: Mark internal symbols as hidden correctly
+pkcs11: Fix an error case leaving the session in a broken state
+pkcs11: Start session IDs from 1, not 0
+pkcs11: Add option to set connect timeout
+pkcs11: Accept C_SetAttributeValue() for CKA_ID and CKA_LABEL if unchanged
+setup: Fix broken debian package
+shell: Implement decrypt-ecdh in non-interactive mode
+connector: On Windows use internal USB libraries instead of libusb
+connector: Implement Host header allow listing (Use to prevent DNS rebinding attacks in applicable environments, e.g., if there is an absolute need to use a web browser on the host where the Yubihsm2 is installed to connect to untrusted web sites on the Internet. This is not a recommended practice.)
+
+=== Version 1.0.1
+
+shell: Fix hashing so signing from windows shell works
+shell: Sorted output
+pkcs11: Handle ecdsa with longer hash than key
+pkcs11: Correct error for trying to extract EC key
+pkcs11: Fix native locking on windows
+pkcs11: Correct linking on macos
+lib: Fix logic in session re-use
+lib: Mark all internal symbols as hidden
+ksp: Handle passwords longer than 8 characters
+all: Provide deb packages on debian/ubuntu
+
+=== Version 0.2.1
+
+doc: add Compatibility.adoc
+doc: fixup GET LOGS text
+doc: fixup GET LOGS stanza
+doc: fixup GET OBJECT INFO text
+doc: add text about pkcs11 configuration
+examples/attest: add reading out of cert after loading it
+examples/import_rsa: change import_rsa example to use pss signing
+examples: add wrap_data example
+examples: change all examples to use yh_parse_domains
+lib/tool/doc: add blink command
+log: add yh_set_connector_option for transport options
+lib: give create_session functions a reopen option
+lib: add OBJECT_EXISTS error
+lib: allow yh_util_get_object_info to not fill in an object
+lib: implement yh_util_reset
+lib: new function for setting debug output: yh_set_debug_output
+pkcs11: add CKA_ENCRYPT and CKA_VERIFY to public keys
+pkcs11: add an offset to the vendor defined values
+pkcs11: add checks for boolean attributes we just accept
+pkcs11: add configfile options for setting verbosity
+pkcs11: add debug output file to pkcs11 config
+pkcs11: don't set CKF_DECRYPT for pkcs+hash mechanisms
+pkcs11: fix verify for CKM_RSA_PKCS_PSS
+pkcs11: fixup for C_FindObjectsInit being called without logging in
+pkcs11: fixup session release in C_CloseSession
+pkcs11: ignore CKA_APPLICATION in object filtering
+pkcs11: ignore CKA_KEY_TYPE in C_FindObjectsInit
+pkcs11: in C_FindObjectsInit make more initial state earlier
+pkcs11: in C_FindObjectsInit set operation type as late as possible
+pkcs11: in C_GetSlotList detect overflow more reliably
+pkcs11: move CKA_ENCRYPT and CKA_VERIFY from hard true on pubkey
+pkcs11: move CKA_VERIFY and CKA_ENCRYPT from hard true for ec pubkey
+pkcs11: move wrap/unwrap on rsa generate to unchecked
+pkcs11: never try to delete a public key, lie and say it's fine instead
+pkcs11: print more debug info on OAEP mechanism error
+pkcs11: remove some skipped pkcs11test tests, we fail them correctly
+pkcs11: return CKR_ATTRIBUTE_SENSITIVE on CKA_PRIVATE_EXPONENT
+pkcs11: truncate CKA_ID to two bytes if it's longer
+pkcs11: when closing the debug output file, reset it to stderr
+tool: drop local connector spawn code
+tool: add decrypt ecdh command
+tool: add decrypt oaep command
+tool: add output for decrypt pkcs1v15
+tool: cleanup created objects after benchmark
+tool: fixup otp decrypt that has to hex decode the otp
+tool: for ecdh benchmarks delete the temporary key
+tool: print a message when doing benchmark setup
+tool: make the reset command print nicer messages
+yhwrap: add hmac key pre-split

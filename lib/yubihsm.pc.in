@@ -1,0 +1,10 @@
+libdir=-L@YUBIHSM_INSTALL_LIB_DIR@
+includedir=-I@INSTALL_INC_DIR@
+
+Name: yubihsm
+Description: Yubico YubiHSM C Library
+URL: https://www.yubico.com/
+Version: @VERSION@
+Requires.private: libcrypto libcurl
+Libs: ${libdir} -lyubihsm
+Cflags: ${includedir}

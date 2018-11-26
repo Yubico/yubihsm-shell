@@ -1,0 +1,120 @@
+== YubiHSM PKCS#11 Module
+
+The YubiHSM PKCS#11 Module is a native library to interact with a
+YubiHSM 2 device using the
+link:http://docs.oasis-open.org/pkcs11/pkcs11-base/v2.40/pkcs11-base-v2.40.html[PKCS#11
+interface].
+
+This library works as a translation layer between `libyubihsm` and
+software using PKCS#11. For example, a function in this implementation
+takes the input as specified by PKCS#11, translates it into the input
+expected by the corresponding function in `libyubihsm`, calls that
+function and then translates the result into the return value expected
+by PKCS#11.
+
+=== Connector Configuration
+
+The
+link:https://developers.yubico.com/YubiHSM2/Component_Reference/yubihsm-connector/[Connector]
+is a component required by a YubiHSM 2 device that performs the
+communication between the device and applications using it.
+
+A connector can be either an external process communicating over HTTP
+(by default `http://localhost:12345`), or directly linked in by
+`libyubihsm` in the case of direct USB access.
+
+The PKCS#11 module requires a configuration file containing the URL of
+the Connector and other configuration options. The default location
+for that file is the current directory and its default name is
+`yubihsm_pkcs11.conf`. However, using the environment variable
+`YUBIHSM_PKCS11_CONF`, one can point to a custom location and name.
+
+Below is an example of a `yubihsm_pkcs11.conf` file:
+
+[source, cfg]
+----
+connector=http://localhost:12345
+debug
+libdebug
+dinout
+----
+
+This file will turn on debug messages for the PKCS#11 module
+(`debug`), `libyubihsm` (`libdebug`) and functions call tracing
+(`dinout`)
+
+A full list of the configuration options can be found on the
+link:https://developers.yubico.com/YubiHSM2/Component_Reference/PKCS_11/[developers
+website].
+
+==== Initialization Arguments
+
+One of the possible parameters given to the PKCS#11 `C_Initialize`
+function, `pReserved`, can also be used to provide configuration
+options to the module. While this is technically in violation of the
+PKCS#11 specifications which requires that field to be set to `NULL`,
+some application such as OpenSSL support this behavior.
+
+An example of using this technique can be found on the
+link:https://developers.yubico.com/YubiHSM2/Component_Reference/PKCS_11/[developers
+website].
+
+=== Logging In
+
+All interesting operations available through the PKCS#11 interface
+require a logged-in session. One peculiarity of the YubiHSM PKCS#11
+module is that the user PIN _MUST_ be prefixed with the ID (16 bits,
+in hexadecimal, zero padded if required) of the Authentication Key
+that should be used to perform the login operation.
+
+For example, to use the default Authentication Key with ID `1` and password
+`password`, the user PIN would then be `0001password`.
+
+=== PKCS#11 Attributes
+
+There are a number of settable attributes defined by PKCS#11 that do
+not accurately translate to YubiHSM 2 Capabilities and are therefore
+treated as always having a fixed value. A list of those attributes and
+their values can be found on the
+link:https://developers.yubico.com/YubiHSM2/Component_Reference/PKCS_11/[developers
+website].
+
+=== Capabilities and Domains
+
+Objects created via the PKCS#11 module inherit the Domains of the
+Authentication Key used to establish the session. The Domains can not
+be changed or modified via the PKCS#11 module.
+
+A table mapping PKCS#11 objects to YubiHSM 2 Capabilities can be found
+on the
+link:https://developers.yubico.com/YubiHSM2/Component_Reference/PKCS_11/[developers
+website].
+
+=== PKCS#11 Objects
+
+Not all PKCS#11 Object Types are implemented. A list of what is
+implemented is available
+link:https://developers.yubico.com/YubiHSM2/Component_Reference/PKCS_11/[here].
+
+=== Examples
+
+==== C Code Example
+
+Code examples of how to use the PKCS#11 module from C programs can be
+found in the test link:tests/ecdh_derive_test.c
+
+==== Pkcs11-tool Example
+
+To derive an ECDH key using a public key in the file `peer.key` and a
+private key in the YubiHSM 2 with OpenSC `pkcs11-tool`, the following
+command can be used:
+
+[source, sh]
+----
+pkcs11-tool -vvv --module yubihsm_pkcs11.so --derive -i peer.key --id 64 --login --pin 0001password
+----
+
+The private key in YubiHSM 2 has Object ID `0x0064` and the public key
+in `peer.key` is expected to be in DER format. By default, this
+command will expect to find a `yubihsm_pkcs11.conf` file in the
+current directory.

@@ -1,0 +1,16 @@
+repos:
+-   repo: git://github.com/pre-commit/pre-commit-hooks
+    sha: v1.4.0
+    hooks:
+    -   id: check-added-large-files
+    -   id: check-case-conflict
+    -   id: check-merge-conflict
+-   repo: local
+    hooks:
+    -   id: indent
+        name: Reticulating splines
+        entry: clang-format
+        args:
+        - -i
+        language: system
+        files: \.(c|h)$

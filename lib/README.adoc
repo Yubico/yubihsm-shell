@@ -1,0 +1,33 @@
+== YubiHSM Library
+
+The YubiHSM C Library `libyubihsm` is a native library to interact
+with a YubiHSM 2 device.
+
+Two main sets of functions are exposed. Functions prefixed with only
+`yh_` are low-level functions (e.g., send byte array to the device)
+that perform a simple single action and can be used to build more
+advanced functionalities. Functions prefixed with `yh_util_` are
+higher-level function that perform multiple actions together (e.g.
+sign the content of a buffer with a specific padding scheme).
+
+=== Documentation
+
+The library is annotated with Doxygen comments and a `Doxyfile` is
+provided. To build the library simply run
+
+[source, bash]
+----
+$ cd lib
+$ doxygen
+----
+
+and open the `doxygen/html/index.html` file with
+your preferred browser.
+
+A pre-built version of the documentation is available
+link:https://developers.yubico.com/YubiHSM2/Releases/libyubihsm-doxygen-1.0.0.tar.gz[here].
+
+=== Examples
+
+Code examples of how to use the library are available in the
+link:../examples[examples] directory.

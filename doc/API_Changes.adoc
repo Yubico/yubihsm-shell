@@ -1,0 +1,217 @@
+== 1.0.4 -> 2.0.0
+
+=== Definitions
+
+==== Return Codes
+
+[options="header"]
+|=======================
+|1.0.4 | 2.0.0 | Numeric value
+|`YHR_MEMORY`                | `YHR_MEMORY_ERROR`                       | `-1`
+|`YHR_NET_ERROR`             | `YHR_CONNECTION_ERROR`                   | `-3`
+|`YHR_INVALID_PARAMS`        | `YHR_INVALID_PARAMETERS`                 | `-5`
+|`YHR_AUTH_SESSION_ERROR`    | `YHR_SESSION_AUTHENTICATION_FAILED`      | `-9`
+|`YHR_DEVICE_INV_COMMAND`    | `YHR_DEVICE_INVALID_COMMAND`             | `-12`
+|`YHR_DEVICE_INV_DATA`       | `YHR_DEVICE_INVALID_DATA`                | `-13`
+|`YHR_DEVICE_INV_SESSION`    | `YHR_DEVICE_INVALID_SESSION`             | `-14`
+|`YHR_DEVICE_AUTH_FAIL`      | `YHR_DEVICE_AUTHENTICATION_FAILED`       | `-15`
+|`YHR_DEVICE_INV_PERMISSION` | `YHR_DEVICE_INSUFFICIENT_PERMISSIONS`    | `-20`
+|`YHR_DEVICE_OBJ_NOT_FOUND`  | `YHR_DEVICE_OBJECT_NOT_FOUND`            | `-22`
+|`YHR_DEVICE_ID_ILLEGAL`     | `YHR_DEVICE_INVALID_ID`                  | `-23`
+|`YHR_DEVICE_CMD_UNEXECUTED` | `YHR_DEVICE_COMMAND_UNEXECUTED`          | `-26`
+| -                          | `YHR_DEVICE_SSH_CA_CONSTRAINT_VIOLATION` | `-30`
+|=======================
+
+==== Object Types
+
+[options="header"]
+|=======================
+|1.0.4 | 2.0.0 | Hex value
+|`YH_AUTHKEY`    | `YH_AUTHENTICATION_KEY` | `0x02`
+|`YH_ASYMMETRIC` | `YH_ASYMMETRIC_KEY`     | `0x03`
+|`YH_WRAPKEY`    | `YH_WRAP_KEY`           | `0x04`
+|`YH_HMACKEY`    | `YH_HMAC_KEY`           | `0x05`
+|`YH_PUBLIC`     | `YH_PUBLIC_KEY`         | `0x83`
+|=======================
+
+==== Algorithms
+
+[options="header"]
+|=======================
+|1.0.4 | 2.0.0 | Numeric value
+|`YH_ALGO_OPAQUE_X509_CERT`  | `YH_ALGO_OPAQUE_X509_CERTIFICATE`      | `31`
+|`YH_ALGO_TEMPL_SSH`         | `YH_ALGO_TEMPLATE_SSH`                 | `36`
+|`YH_ALGO_YUBICO_OTP_AES128` | `YH_ALGO_AES128_YUBICO_OTP`            | `37`
+|`YH_ALGO_YUBICO_AES_AUTH`   | `YH_ALGO_AES128_YUBICO_AUTHENTICATION` | `38`
+|`YH_ALGO_YUBICO_OTP_AES192` | `YH_ALGO_AES192_YUBICO_OTP`            | `39`
+|`YH_ALGO_YUBICO_OTP_AES256` | `YH_ALGO_AES256_YUBICO_OTP`            | `40`
+|=======================
+
+==== Commands
+
+[options="header"]
+|=======================
+|1.0.4 | 2.0.0 | Hex value
+|`YHC_CREATE_SES`         | `YHC_CREATE_SESSION`               | `0x03`
+|`YHC_AUTH_SES`           | `YHC_AUTHENTICATE_SESSION`         | `0x04`
+|`YHC_SES_MSG`            | `YHC_SESSION_MESSAGE`              | `0x05`
+|`YHC_RESET`              | `YHC_RESET_DEVICE`                 | `0x08`
+|`YHC_CLOSE_SES`          | `YHC_CLOSE_SESSION`                | `0x40`
+|`YHC_STATS`              | `YHC_GET_STORAGE_INFO`             | `0x41`
+|`YHC_PUT_AUTHKEY`        | `YHC_PUT_AUTHENTICATION_KEY`       | `0x44`
+|`YHC_GEN_ASYMMETRIC_KEY` | `YHC_GENERATE_ASYMMETRIC_KEY`      | `0x46`
+|`YHC_SIGN_DATA_PKCS1`    | `YHC_SIGN_PKCS1`                   | `0x47`
+|`YHC_LIST`               | `YHC_LIST_OBJECTS`                 | `0x48`
+|`YHC_GET_LOGS`           | `YHC_GET_LOG_ENTRIES`              | `0x4d`
+|`YHC_PUT_OPTION`         | `YHC_SET_OPTION`                   | `0x4f`
+|`YHC_HMAC_DATA`          | `YHC_SIGN_HMAC`                    | `0x53`
+|`YHC_GET_PUBKEY`         | `YHC_GET_PUBLIC_KEY`               | `0x54`
+|`YHC_SIGN_DATA_PSS`      | `YHC_SIGN_PSS`                     | `0x55`
+|`YHC_SIGN_DATA_ECDSA`    | `YHC_SIGN_ECDSA`                   | `0x56`
+|`YHC_DECRYPT_ECDH`       | `YHC_DERIVE_ECDH`                  | `0x57`
+|`YHC_SSH_CERTIFY`        | `YHC_SIGN_SSH_CERTIFICATE`         | `0x5d`
+|`YHC_OTP_DECRYPT`        | `YHC_DECRYPT_OTP`                  | `0x60`
+|`YHC_OTP_AEAD_CREATE`    | `YHC_CREATE_OTP_AEAD`              | `0x61`
+|`YHC_OTP_AEAD_RANDOM`    | `YHC_RANDOMIZE_OTP_AEAD`           | `0x62`
+|`YHC_OTP_AEAD_REWRAP`    | `YHC_REWRAP_OTP_AEAD`              | `0x63`
+|`YHC_ATTEST_ASYMMETRIC`  | `YHC_SIGN_ATTESTATION_CERTIFICATE` | `0x64`
+|`YHC_SIGN_DATA_EDDSA`    | `YHC_SIGN_EDDSA`                   | `0x6a`
+|`YHC_BLINK`              | `YHC_BLINK_DEVICE`                 | `0x6b`
+| -                       | `YHC_CHANGE_AUTHENTICATION_KEY`    | `0x6c`
+|=======================
+
+=== Object Types
+
+[options="header"]
+|=======================
+|1.0.4 | 2.0.0 | Hex value
+|`authkey`    | `authentication-key` | `0x02
+|`asymmetric` | `asymmetric-key`     | `0x03 
+|`hmackey`    | `hmac-key`           | `0x05
+|`otpaeadkey` | `otp-aead-key`       | `0x07
+|`wrapkey`    | `wrap-key`           | `0x04`
+|=======================
+
+=== Capabilities
+
+[options="header"]
+|=======================
+|1.0.4 | 2.0.0 | Hex value
+|`asymmetric_decrypt_ecdh` | `derive-ecdh`                  | `0x0b`
+|`asymmetric_decrypt_oaep` | `decrypt-oaep`                 | `0x0a`
+|`asymmetric_decrypt_pkcs` | `decrypt-pkcs`                 | `0x09`
+|`asymmetric_gen`          | `generate-asymmetric-key`      | `0x04`
+|`asymmetric_sign_ecdsa`   | `sign-ecdsa`                   | `0x07`
+|`asymmetric_sign_eddsa`   | `sign-eddsa`                   | `0x08`
+|`asymmetric_sign_pkcs`    | `sign-pkcs`                    | `0x05`
+|`asymmetric_sign_pss`     | `sign-pss`                     | `0x06`
+|`attest`                  | `sign-attestation-certificate` | `0x22`
+|`audit`                   | `get-log-entries`              | `0x18`
+|`export_ under_wrap`      | `exportable-under-wrap`        | `0x10`
+|`export_wrapped`          | `export-wrapped`               | `0x0c`
+|`delete_asymmetric`       | `delete-asymmetric-key`        | `0x29`
+|`delete_authkey`          | `delete-authentication-key`    | `0x28`
+|`delete_hmackey`          | `delete-hmac-key`              | `0x2b`
+|`delete_opaque`           | `delete-opaque`                | `0x27`
+|`delete_otp_aead_key`     | `delete-otp-aead-key`          | `0x2d`
+|`delete_template`         | `delete-template`              | `0x2c`
+|`delete_wrapkey`          | `delete-wrap-key`              | `0x2a`
+|`generate_otp_aead_key`   | `generate-otp-aead-key`        | `0x24`
+|`generate_wrapkey`        | `generate-wrap-key`            | `0x0f`
+|`get_opaque`              | `get-opaque`                   | `0x00`
+|`get_option`              | `get-option`                   | `0x12`
+|`get_randomness`          | `get-pseudo-random`            | `0x13`
+|`get_template`            | `get-template`                 | `0x1a`
+|`hmackey_generate`        | `generate-hmac-key`            | `0x15`
+|`hmac_data`               | `sign-hmac`                    | `0x16`
+|`hmac_verify`             | `verify-hmac`                  | `0x17`
+|`import_wrapped`          | `import-wrapped`               | `0x0d`
+|`otp_aead_create`         | `create-otp-aead`              | `0x1e`
+|`otp_aead_random`         | `randomize-otp-aead`           | `0x1f`
+|`otp_aead_rewrap_from`    | `rewrap-from-otp-aead-key`     | `0x20`
+|`otp_aead_rewrap_to`      | `rewrap-to-otp-aead-key`       | `0x21`
+|`otp_decrypt`             | `decrypt-otp`                  | `0x1d`
+|`put_asymmetric`          | `put-asymmetric-key`           | `0x03`
+|`put_authkey`             | `put-authentication-key`       | `0x02`
+|`put_hmackey`             | `put-mac-key`                  | `0x14`
+|`put_opaque`              | `put-opaque`                   | `0x01`
+|`put_option`              | `set-option`                   | `0x11`
+|`put_otp_aead_key`        | `put-otp-aead-key`             | `0x23`
+|`put_template`            | `put-template`                 | `0x1b`
+|`put_wrapkey`             | `put-wrap-key`                 | `0x0e`
+|`reset`                   | `reset-device`                 | `0x1c`
+|`ssh_certify`             | `sign-ssh-certificate`         | `0x19`
+|`unwrap_data`             | `unwrap-data`                  | `0x26`
+|`wrap_data`               | `wrap-data`                    | `0x25`
+| -                        | `change-authentication-key`    | `0x2e`
+|=======================
+
+=== Algorithms
+
+[options="header"]
+|=======================
+|1.0.4 | 2.0.0 | Numeric value
+|`yubico-aes-auth`   | `aes128-yubico-authentication` | `38`
+|`yubico-otp-aes128` | `aes128-yubico-otp`            | `37`
+|`yubico-otp-aes192` | `aes192-yubico-otp`            | `39`
+|`yubico-otp-aes256` | `aes256-yubico-otp`            | `40`
+|`opaque`            | `opaque-data`                  | `30`
+|`x509-cert`         | `opaque-x509-certificate`      | `31`
+|=======================
+
+=== Device Options
+
+[options="header"]
+|=======================
+|1.0.4 | 2.0.0 | Numeric value
+|`command_audit` | `command-audit` | `3`
+|`force_audit`   | `force-audit`   | `1`
+|=======================
+
+=== Function Calls
+
+[options="header"]
+|=======================
+|1.0.4 | 2.0.0
+|`yh_rc yh_set_verbosity(uint8_t verbosity)` | `yh_rc yh_set_verbosity(yh_connector *connector, uint8_t verbosity)`
+|`void yh_set_debug_output(FILE *output)` | `void yh_set_debug_output(yh_connector *connector, FILE *output)`
+|`yh_rc yh_connect_all(yh_connector **connectors, size_t *n_connectors, int timeout), yh_rc yh_connect_best(yh_connector **connectors, size_t n_connectors, int *idx` | `yh_rc yh_connect(yh_connector *connector, int timeout)`
+|`yh_rc yh_create_session_derived(yh_connector *connector, uint16_t auth_keyset_id, const uint8_t *password, size_t password_len, bool recreate_session, uint8_t *context, size_t context_len, yh_session **session)` | `yh_rc yh_create_session_derived(yh_connector *connector, uint16_t authkey_id, const uint8_t *password, size_t password_len, bool recreate_session, yh_session **session)`
+|`yh_rc yh_create_session(yh_connector *connector, uint16_t auth_keyset_id, const uint8_t *key_enc, size_t key_enc_len, const uint8_t *key_mac, size_t key_mac_len, bool recreate_session, uint8_t *context, size_t context_len, yh_session **session)` | `yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id, const uint8_t *key_enc, size_t key_enc_len, const uint8_t *key_mac, size_t key_mac_len, bool recreate_session, yh_session **session)`
+|`yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t auth_keyset_id, uint8_t *context, size_t context_len, uint8_t *card_cryptogram, size_t card_cryptogram_len, yh_session **session)` | `yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id, uint8_t **context, uint8_t *card_cryptogram, size_t card_cryptogram_len, yh_session **session)`
+|`yh_rc yh_finish_create_session_ext(yh_connector *connector, yh_session *session, const uint8_t *key_senc, size_t key_senc_len, const uint8_t *key_smac, size_t key_smac_len, const uint8_t *key_srmac, size_t key_srmac_len, uint8_t *context, size_t context_len, uint8_t *card_cryptogram, size_t card_cryptogram_len)` | `yh_rc yh_finish_create_session_ext(yh_connector *connector, yh_session *session, const uint8_t *key_senc, size_t key_senc_len, const uint8_t *key_smac, size_t key_smac_len, const uint8_t *key_srmac, size_t key_srmac_len, uint8_t *card_cryptogram, size_t card_cryptogram_len)`
+|`yh_rc yh_authenticate_session(yh_session *session, uint8_t *context, size_t context_len)` | `yh_rc yh_authenticate_session(yh_session *session)`
+|`yh_rc yh_util_get_pubkey()` | `yh_rc yh_util_get_public_key()`
+|`yh_rc yh_util_hmac()` | `yh_rc yh_util_sign_hmac()`
+|`yh_rc yh_util_get_random()` | `yh_rc yh_util_get_pseudo_random()`
+|`yh_rc yh_util_import_key_rsa()` | `yh_rc yh_util_import_rsa_key()`
+|`yh_rc yh_util_import_key_ec()` | `yh_rc yh_util_import_ec_key()`
+|`yh_rc yh_util_import_key_ed()` | `yh_rc yh_util_import_ed_key()`
+|`yh_rc yh_util_import_key_hmac()` | `yh_rc yh_util_import_hmac_key()`
+|`yh_rc yh_util_generate_key_rsa()` | `yh_rc yh_util_generate_rsa_key()`
+|`yh_rc yh_util_generate_key_ec()` | `yh_rc yh_util_generate_ec_key()`
+|`yh_rc yh_util_generate_key_ed()` | `yh_rc yh_util_generate_ed_key()`
+|`yh_rc yh_util_hmac_verify()` | `yh_rc yh_util_verify_hmac()`
+|`yh_rc yh_util_generate_key_hmac()` | `yh_rc yh_util_generate_hmac_key()`
+|`yh_rc yh_util_decrypt_ecdh()` | `yh_rc yh_util_derive_ecdh()`
+|`yh_rc yh_util_import_key_wrap()` | `yh_rc yh_util_import_wrap_key()`
+|`yh_rc yh_util_generate_key_wrap()` | `yh_rc yh_util_generate_wrap_key()`
+|`yh_rc yh_util_get_logs()` | `yh_rc yh_util_get_log_entries()`
+|`yh_rc yh_util_ssh_certify()` | `yh_rc yh_util_sign_ssh_certificate()`
+|`yh_rc yh_util_import_authkey()` | `yh_rc yh_util_import_authentication_key_derived()`
+| - | `yh_rc yh_util_import_authentication_key(yh_session *session, uint16_t *key_id, const char *label, uint16_t domains, const yh_capabilities *capabilities, const yh_capabilities *delegated_capabilities, const uint8_t *key_enc, size_t key_enc_len, const uint8_t *key_mac, size_t key_mac_len)`
+| - | `yh_rc yh_util_change_authentication_key(yh_session *session, uint16_t *key_id, const uint8_t *key_enc, size_t key_enc_len, const uint8_t *key_mac, size_t key_mac_len)`
+| - | `yh_rc yh_util_change_authentication_key_derived(yh_session *session, uint16_t *key_id, const uint8_t *password, size_t password_len)`
+|`yh_rc yh_util_otp_aead_create()` | `yh_rc yh_util_create_otp_aead()`
+|`yh_rc yh_util_otp_aead_random()` | `yh_rc yh_util_randomize_otp_aead()`
+|`yh_rc yh_util_otp_decrypt()` | `yh_rc yh_util_decrypt_otp()`
+|`yh_rc yh_util_put_otp_aead_key()` | `yh_rc yh_util_import_otp_aead_key()`
+|`yh_rc yh_util_attest_asymmetric()` | `yh_rc yh_util_sign_attestation_certificate()`
+|`yh_rc yh_util_put_option()` | `yh_rc yh_util_set_option()`
+|`yh_rc yh_util_get_storage_stats()` | `yh_rc yh_util_get_storage_info()`
+|`yh_rc yh_util_blink()` | `yh_rc yh_util_blink_device()`
+|`yh_rc yh_util_reset()` | `yh_rc yh_util_reset_device()`
+|`yh_rc yh_capabilities_to_num()` | `yh_rc yh_string_to_capabilities()`
+|`yh_rc yh_num_to_capabilities()` | `yh_rc yh_capabilities_to_strings()`
+|`yh_rc yh_parse_domains()` | `yh_rc yh_string_to_domains()`
+|=======================

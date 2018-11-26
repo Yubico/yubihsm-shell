@@ -1,0 +1,9 @@
+libdir=-L@YUBIHSM_INSTALL_LIB_DIR@
+includedir=@INSTALL_INC_DIR@
+
+Name: ykyh
+Description: Yubico YubiHSM application for YubiKey C Library
+URL: https://www.yubico.com/
+Version: @VERSION@
+Requires.private: libcrypto libpcsclite
+Libs: ${libdir} -lykyh

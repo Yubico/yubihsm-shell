@@ -1,0 +1,110 @@
+== YubiHSM Shell
+
+YubiHSM Shell is a tool to directly interface with a YubiHSM 2 device.
+
+For the most part it is a thin wrapper around `libyubihsm` exposing
+most of its functions directly to the user.
+
+YubiHSM Shell can be invoked in interactive mode and from the command
+line.
+
+=== Interactive Mode
+
+To invoke YubiHSM Shell in interactive mode simply run `yubihsm-shell`
+with no parameters. This mode supports tab-completion (not on Windows)
+and "classic" terminal shortcuts (`C-p`, `C-n`, `C-a`, `C-e`, etc.)
+
+In this mode, the default Connector URL is `http://127.0.01:12345`. If
+a different URL is needed, it can be specified with the
+`--connector` option. For example, to select direct USB run
+
+[source, bash]
+----
+yubihsm-shell --connector yhusb://
+----
+
+Help can be obtained by running
+
+[source, bash]
+----
+yubihsm> help
+----
+
+to get a list of available commands and their syntax, or by running
+
+[source, bash]
+----
+yubihsm> help COMMAND
+----
+
+to get help on a specific command.
+
+Debug messages can be turned on by running
+
+[source, bash]
+----
+yubihsm> debug all
+----
+
+other levels of verbosity are available as well.
+
+Each command has its own default input and output format. Possible
+choices are `PEM`, `base64`, `binary`, `hex`, `password` and
+`default`. Those can be changed by running
+
+[source, bash]
+----
+yubihsm> set informat base64
+----
+
+or
+
+[source, bash]
+----
+yubihsm> set outformat hex
+----
+
+Input and Output formats are a generic modifier and some values may not
+make sense in some cases. The default setting can be restored by using
+the `default` format.
+
+=== Command-line Mode
+
+It is possible to run yubihsm-shell as a non-interactive command-line
+utility. To do so add the `--action` option with the desired command
+to execute.
+
+For example, to generate an RSA 2048 key with Label `Signature_Key`,
+Object ID `10` and Capabilities `sign-pss`, run
+
+[source, bash]
+----
+$ yubihsm-shell -p password -a generate-asymmetric -A rsa2048 -i 10 -c sign-pss -l Signature_Key
+----
+
+to sign a file called `message.dat` using the previously generated
+key, PSS with SHA256 as padding scheme and save the result to a file
+called `signature.dat` run
+
+[source, bash]
+----
+$ yubihsm-shell -p password -a sign-pss -i 10 -A rsa-pss-sha256 --in message.dat --out signature.dat --outformat binary
+----
+
+it is then possible to extract the public key by using
+
+[source, bash]
+----
+yubihsm-shell -p password -a get-public-key -i 10 --out key.pem --outformat PEM
+----
+
+and verify the signature with OpenSSL by running
+
+[source, bash]
+----
+$ openssl dgst -sha256 -binary message.dat > digest.dat
+$ openssl pkutil -verify -in message.dat -sigfile signature.dat -pkeyopt rsa_padding_mode:pss -pubin -inkey key.pem -pkeyopt rsa_pss_saltlen:-1 -pkeyopt digest:sha256
+----
+
+A detailed list of possible actions and parameters is available in the
+manpage or by running `yubihsm-shell --help`.

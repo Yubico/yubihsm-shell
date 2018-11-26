@@ -1,0 +1,76 @@
+== YubiHSM Wrap
+
+YubiHSM Wrap is a command-line tool to create "offline wraps" for a
+YubiHSM 2 device.
+
+One of the functionalities supported by the YubiHSM is to import
+objects under wrap. The typical use is to generate an object on one
+device, export it under wrap using a Wrap Key and import it to a
+different device which has the same Wrap Key.
+
+At times it is also useful to be able to create those wrapped objects
+from a computer, so that they can be encrypted at rest and also easily
+sent to devices for use.
+
+=== Example
+
+This example shows how to generate a private key using OpenSSL, wrap
+it to a pre-shared Wrap Key and import it on a device.
+
+The first thing we need is a Wrap Key that we will use to wrap the
+object. For this example we are going to use
+`00112233445566778899aabbccddeeff`
+
+We first save it to a file called `wrap.key` by running
+
+[source, bash]
+----
+$ echo -en '\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xaa\xbb\xcc\xdd\xee\xff' >wrap.key
+----
+
+The Wrap Key has to also exist on the YubiHSM. We can import it in the
+device and give it Object ID `20` by running
+
+[source, bash]
+----
+$ yubihsm-shell -p password -a put-wrap-key -i 20 -c all --delegated all --informat bin --in wrap.key
+----
+
+At this point we can use OpenSSL to generate the RSA key that we would
+like to wrap and import
+
+[source, bash]
+----
+$ openssl genrsa -out private.pem
+----
+
+We can now use `yubihsm-wrap` to produce the wrapped version of the
+private key. Specifically, we will be asking for the key to have, once
+imported, Object ID `30`, label `RSA_Key` and belong to Domains `1`,
+`2` and `5`.
+
+[source, bash]
+----
+$ yubihsm-wrap -a rsa2048 -c sign-pkcs -d 1,2,5 --id 30 --label RSA_Key --in private.pem --wrapkey wrap.key --out private.yhw
+----
+
+The output file `private.yhw` is the wrapped version of the key and it
+is ready to be imported in the device using the Wrap Key that we
+stored before. The command to do that is
+
+[source, bash]
+----
+$ yubihsm-shell -p password -a put-wrapped --wrap-id 20 --in private.yhw
+----
+
+We should now be able to retrieve information about the Asymmetric Key
+with Object ID `30` by running
+
+[source, bash]
+----
+$ yubihsm-shell -p password -a get-object-info -i 30 -t asymmetric-key
+Using default connector URL: http://127.0.0.1:12345
+Session keepalive set up to run every 15 seconds
+Created session 0
+id: 0x001e, type: asymmetric-key, algorithm: rsa2048, label: "RSA_Key", length: 896, domains: 1:2:5, sequence: 0, origin: imported:imported_wrapped, capabilities: sign-pkcs
+----
