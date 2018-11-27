@@ -29,5 +29,4 @@ link:https://developers.yubico.com/YubiHSM2/Releases/libyubihsm-doxygen-1.0.0.ta
 
 === Examples
 
-Code examples of how to use the library are available in the
-link:../examples[examples] directory.
+Code examples of how to use the library are available in the examples directory.
