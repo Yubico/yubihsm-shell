@@ -183,8 +183,10 @@ static void backend_disconnect(yh_backend *connection) {
 }
 
 static yh_rc backend_connect(yh_connector *connector, int timeout) {
-  uint8_t buf[MAX_STR_LEN];
+  uint8_t buf[MAX_STR_LEN + 1];
   yh_rc res = YHR_CONNECTOR_ERROR;
+
+  ZeroMemory(buf, MAX_STR_LEN + 1);
 
   if (timeout == 0) {
     // TODO: what does winhttp do if it gets timeout 0?
