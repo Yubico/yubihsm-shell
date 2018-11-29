@@ -25,6 +25,7 @@ The available components are:
 - libcrypto
 - libcurl
 - libedit
+- libusb
 - libpcsclite (optional)
 - llvm/clang and friends
 - pkg-config
