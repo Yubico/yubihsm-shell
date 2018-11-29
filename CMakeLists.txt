@@ -27,7 +27,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
 # Set various install paths
 if (NOT DEFINED YUBIHSM_INSTALL_LIB_DIR)
-  set(YUBIHSM_INSTALL_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib" CACHE PATH "Installation directory for libraries")
+  set(YUBIHSM_INSTALL_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}" CACHE PATH "Installation directory for libraries")
 endif ()
 
 if (NOT DEFINED YUBIHSM_INSTALL_INC_DIR)
