@@ -78,10 +78,12 @@ static yh_backend *backend_create() { return curl_easy_init(); }
 
 static yh_rc backend_connect(yh_connector *connector, int timeout) {
 
+  CURLcode rc;
   struct url_data {
     char scratch[257];
     struct curl_data curl_data;
   } data;
+  char curl_error[CURL_ERROR_SIZE] = {0};
 
   DBG_INFO("Trying to connect to %s", connector->status_url);
 
@@ -97,13 +99,21 @@ static yh_rc backend_connect(yh_connector *connector, int timeout) {
   curl_easy_setopt(connector->connection, CURLOPT_WRITEFUNCTION,
                    curl_callback_write);
 
+  curl_easy_setopt(connector->connection, CURLOPT_ERRORBUFFER, curl_error);
+
   memset((uint8_t *) data.scratch, 0, sizeof(data.scratch));
   data.curl_data.data = (uint8_t *) data.scratch;
   data.curl_data.size = 0;
   data.curl_data.max_size = sizeof(data.scratch) - 1;
   curl_easy_setopt(connector->connection, CURLOPT_WRITEDATA, &data.curl_data);
 
-  if (curl_easy_perform(connector->connection) != CURLE_OK) {
+  rc = curl_easy_perform(connector->connection);
+  if (rc != CURLE_OK) {
+    if (strlen(curl_error) > 0) {
+      DBG_ERR("Failure when connecting: '%s'", curl_error);
+    } else {
+      DBG_ERR("Failure when connecting: '%s'", curl_easy_strerror(rc));
+    }
     return YHR_CONNECTOR_NOT_FOUND;
   }
 
@@ -133,6 +143,7 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response) {
   int32_t trf_len = msg->st.len + 3;
   struct curl_data data = {response->raw, 0, SCP_MSG_BUF_SIZE};
   struct curl_slist *headers = NULL;
+  char curl_error[CURL_ERROR_SIZE] = {0};
 
   headers =
     curl_slist_append(headers, "Content-Type: application/octet-stream");
@@ -142,6 +153,7 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response) {
   curl_easy_setopt(connection, CURLOPT_POSTFIELDSIZE, trf_len);
 
   curl_easy_setopt(connection, CURLOPT_WRITEDATA, &data);
+  curl_easy_setopt(connection, CURLOPT_ERRORBUFFER, curl_error);
 
   // Endian swap length
   msg->st.len = htons(msg->st.len);
@@ -169,7 +181,11 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response) {
 
 sm_failure:
 
-  DBG_ERR("Curl perform failed: %s", curl_easy_strerror(rc));
+  if (strlen(curl_error) > 0) {
+    DBG_ERR("Curl perform failed: '%s'", curl_error);
+  } else {
+    DBG_ERR("Curl perform failed: '%s'", curl_easy_strerror(rc));
+  }
 
   // Restore original value
   msg->st.len = ntohs(msg->st.len);
