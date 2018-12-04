@@ -1501,9 +1501,9 @@ int validate_and_call(yubihsm_context *ctx, CommandList l, const char *line) {
   char *argv[64];
   int i = 0;
 
-  char data[1025];
+  char data[4097];
 
-  char arg_data[1025] = {0};
+  char arg_data[4097] = {0};
 
   Command *command = l;
 
@@ -1522,8 +1522,8 @@ int validate_and_call(yubihsm_context *ctx, CommandList l, const char *line) {
 
   CommandFunction *func = NULL;
 
-  if (strlen(line) > 1024) {
-    printf("Command to long\n");
+  if (strlen(line) > 4096) {
+    printf("Command too long\n");
     return 0;
   }
 
