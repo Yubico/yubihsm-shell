@@ -2338,6 +2338,7 @@ int main(int argc, char *argv[]) {
           LIB_SUCCEED_OR_DIE(YHR_GENERIC_ERROR, "Command not implemented: ");
           // TODO(adma): this requires a hex parser
 
+        case action_arg_signMINUS_eddsa:
         case action_arg_signMINUS_ecdsa: {
           if (args_info.algorithm_given == 0) {
             fprintf(stderr, "Missing argument algorithm\n");
@@ -2359,14 +2360,17 @@ int main(int argc, char *argv[]) {
             break;
           }
 
-          comrc = yh_com_sign_ecdsa(&ctx, arg,
-                                    ctx.out_fmt == fmt_nofmt ? fmt_base64
-                                                             : ctx.out_fmt);
+          if (args_info.action_arg[i] == action_arg_signMINUS_ecdsa)
+            comrc = yh_com_sign_ecdsa(&ctx, arg,
+                                      ctx.out_fmt == fmt_nofmt ? fmt_base64
+                                                              : ctx.out_fmt);
+          else
+            comrc = yh_com_sign_eddsa(&ctx, arg,
+                                      ctx.out_fmt == fmt_nofmt ? fmt_base64
+                                                              : ctx.out_fmt);
+
           COM_SUCCEED_OR_DIE(comrc, "Unable to sign data");
         } break;
-
-        case action_arg_signMINUS_eddsa:
-          LIB_SUCCEED_OR_DIE(YHR_GENERIC_ERROR, "Command not implemented: ");
 
         case action_arg_signMINUS_pkcs1v15: {
           if (args_info.algorithm_given == 0) {
