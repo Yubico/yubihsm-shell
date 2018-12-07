@@ -38,6 +38,8 @@
 
 #define PROMPT "yubihsm> "
 
+#define ARGS_BUFFER_SIZE 4096
+
 #define COMPLETION_CANDIDATES 256
 #define MAX_COMMAND_NAME 32
 #define MAX_ARGUMENTS 32
@@ -1162,7 +1164,7 @@ unsigned char yubihsm_complete(EditLine *el, int ch) {
 
   int argc, cursorc, cursoro;
   char *argv[64];
-  char data[1025] = {0};
+  char data[ARGS_BUFFER_SIZE + 1] = {0};
 
   li = el_line(el);
 
@@ -1377,8 +1379,10 @@ static bool get_input_data(const char *name, uint8_t *out, size_t *len,
 int validate_arg(yubihsm_context *ctx, char type, const char *value,
                  Argument *parsed, cmd_format fmt) {
 
-  char buffer[1025];
+  char buffer[ARGS_BUFFER_SIZE + 1];
 
+  memset(buffer, 0x0, sizeof(buffer));
+  
   switch (type) {
     case 'b':   // byte
     case 'w':   // word
@@ -1433,11 +1437,11 @@ int validate_arg(yubihsm_context *ctx, char type, const char *value,
       break;
 
     case 'i':
-      parsed->x = calloc(4096, 1);
+      parsed->x = calloc(ARGS_BUFFER_SIZE+1, 1);
       if (parsed->x == NULL) {
         return -1;
       }
-      parsed->len = 4096;
+      parsed->len = ARGS_BUFFER_SIZE;
       if (get_input_data(value, parsed->x, &parsed->len, fmt) == false) {
         return -1;
       }
@@ -1453,7 +1457,7 @@ int validate_arg(yubihsm_context *ctx, char type, const char *value,
 
     case 'k':
       if (strcmp(value, "stdin:") == 0) {
-        if (EVP_read_pw_string(buffer, 1024, "Enter hex key: ", 0) != 0) {
+        if (EVP_read_pw_string(buffer, ARGS_BUFFER_SIZE, "Enter hex key: ", 0) != 0) {
           return -1;
         }
         value = buffer;
@@ -1501,9 +1505,9 @@ int validate_and_call(yubihsm_context *ctx, CommandList l, const char *line) {
   char *argv[64];
   int i = 0;
 
-  char data[4097];
+  char data[ARGS_BUFFER_SIZE + 1];
 
-  char arg_data[4097] = {0};
+  char arg_data[ARGS_BUFFER_SIZE + 1] = {0};
 
   Command *command = l;
 
@@ -1522,7 +1526,10 @@ int validate_and_call(yubihsm_context *ctx, CommandList l, const char *line) {
 
   CommandFunction *func = NULL;
 
-  if (strlen(line) > 4096) {
+  memset(data, 0x0, sizeof(data));
+  memset(arg_data, 0x0, sizeof(data));
+  
+  if (strlen(line) > ARGS_BUFFER_SIZE) {
     printf("Command too long\n");
     return 0;
   }
@@ -1552,7 +1559,7 @@ int validate_and_call(yubihsm_context *ctx, CommandList l, const char *line) {
 
             args = command->args;
             strncpy(arg_data, args,
-                    1024); // since tokenize() modifies the buffer..
+                    ARGS_BUFFER_SIZE); // since tokenize() modifies the buffer..
             int num_args = tokenize(arg_data, arg_toks, 64, NULL, NULL, ",");
             if (num_args + 1 + i !=
                 argc) { // some arguments might have default values
@@ -1623,8 +1630,9 @@ int validate_and_call(yubihsm_context *ctx, CommandList l, const char *line) {
     }
   } else {
     if (invalid_arg == true) {
-      char arg[1024];
-      strcpy(arg, args);
+      char arg[ARGS_BUFFER_SIZE + 1];
+      memset(arg, 0x0, sizeof(arg));
+      strncpy(arg, args, ARGS_BUFFER_SIZE);
       char *end = strchr(args, ',');
       if (end) {
         arg[end - args] = '\0';
