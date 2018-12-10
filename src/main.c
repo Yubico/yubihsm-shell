@@ -2369,14 +2369,15 @@ int main(int argc, char *argv[]) {
             break;
           }
 
-          if (args_info.action_arg[i] == action_arg_signMINUS_ecdsa)
+          if (args_info.action_arg[i] == action_arg_signMINUS_ecdsa) {
             comrc = yh_com_sign_ecdsa(&ctx, arg,
                                       ctx.out_fmt == fmt_nofmt ? fmt_base64
-                                                              : ctx.out_fmt);
-          else
+                                                               : ctx.out_fmt);
+          } else {
             comrc = yh_com_sign_eddsa(&ctx, arg,
                                       ctx.out_fmt == fmt_nofmt ? fmt_base64
-                                                              : ctx.out_fmt);
+                                                               : ctx.out_fmt);
+          }
 
           COM_SUCCEED_OR_DIE(comrc, "Unable to sign data");
         } break;
