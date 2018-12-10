@@ -1382,7 +1382,7 @@ int validate_arg(yubihsm_context *ctx, char type, const char *value,
   char buffer[ARGS_BUFFER_SIZE + 1];
 
   memset(buffer, 0x0, sizeof(buffer));
-  
+
   switch (type) {
     case 'b':   // byte
     case 'w':   // word
@@ -1437,7 +1437,7 @@ int validate_arg(yubihsm_context *ctx, char type, const char *value,
       break;
 
     case 'i':
-      parsed->x = calloc(ARGS_BUFFER_SIZE+1, 1);
+      parsed->x = calloc(ARGS_BUFFER_SIZE + 1, 1);
       if (parsed->x == NULL) {
         return -1;
       }
@@ -1457,7 +1457,8 @@ int validate_arg(yubihsm_context *ctx, char type, const char *value,
 
     case 'k':
       if (strcmp(value, "stdin:") == 0) {
-        if (EVP_read_pw_string(buffer, ARGS_BUFFER_SIZE, "Enter hex key: ", 0) != 0) {
+        if (EVP_read_pw_string(buffer, ARGS_BUFFER_SIZE,
+                               "Enter hex key: ", 0) != 0) {
           return -1;
         }
         value = buffer;
@@ -1528,7 +1529,7 @@ int validate_and_call(yubihsm_context *ctx, CommandList l, const char *line) {
 
   memset(data, 0x0, sizeof(data));
   memset(arg_data, 0x0, sizeof(data));
-  
+
   if (strlen(line) > ARGS_BUFFER_SIZE) {
     printf("Command too long\n");
     return 0;
