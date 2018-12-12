@@ -1908,13 +1908,16 @@ int yh_com_get_device_info(yubihsm_context *ctx, Argument *argv,
   fprintf(ctx->out, "Log used:\t\t%d/%d\n", log_used, log_total);
 
   fprintf(ctx->out, "Supported algorithms:\t");
+  int line = 0;
   for (size_t i = 0; i < n_algorithms; i++) {
     const char *algo_str;
     yh_algo_to_string(algorithms[i], &algo_str);
-    fprintf(ctx->out, "%s, ", algo_str);
-    if ((i + 1) % 3 == 0 && i != 0) {
+    if (line + strlen(algo_str) + 2 > 50) {
       fprintf(ctx->out, "\n\t\t\t");
+      line = 0;
     }
+    line += strlen(algo_str) + 2;
+    fprintf(ctx->out, "%s, ", algo_str);
   }
   fprintf(ctx->out, "\n");
 
