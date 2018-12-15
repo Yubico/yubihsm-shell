@@ -168,9 +168,9 @@ set (
 
 include_directories (
   ${LIBCRYPTO_INCLUDEDIR}
-  ${CMAKE_SOURCE_DIR}/lib
-  ${CMAKE_SOURCE_DIR}/pkcs11
-  ${CMAKE_SOURCE_DIR}/common
+  ${CMAKE_CURRENT_SOURCE_DIR}/../lib
+  ${CMAKE_CURRENT_SOURCE_DIR}/../pkcs11
+  ${CMAKE_CURRENT_SOURCE_DIR}/../common
   )
 
 configure_file (

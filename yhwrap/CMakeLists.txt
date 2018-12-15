@@ -34,8 +34,8 @@ message("${GGO_C}")
 
 include_directories (
   ${LIBCRYPTO_INCLUDEDIR}
-  ${CMAKE_SOURCE_DIR}/lib
-  ${CMAKE_SOURCE_DIR}/common
+  ${CMAKE_CURRENT_SOURCE_DIR}/../lib
+  ${CMAKE_CURRENT_SOURCE_DIR}/../common
 )
 
 if(${WIN32})

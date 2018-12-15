@@ -29,8 +29,8 @@ message("${GGO_C}")
 
 include_directories (
   ${LIBCRYPTO_INCLUDEDIR}
-  ${CMAKE_SOURCE_DIR}/ykyh
-  ${CMAKE_SOURCE_DIR}/common
+  ${CMAKE_CURRENT_SOURCE_DIR}/../ykyh
+  ${CMAKE_CURRENT_SOURCE_DIR}/../common
 )
 
 if (CMAKE_C_COMPILER_ID MATCHES Clang)

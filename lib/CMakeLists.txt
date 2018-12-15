@@ -16,11 +16,11 @@
 
 set (
   SOURCE
-  ${CMAKE_SOURCE_DIR}/aes_cmac/aes.c
-  ${CMAKE_SOURCE_DIR}/aes_cmac/aes_cmac.c
-  ${CMAKE_SOURCE_DIR}/common/hash.c
-  ${CMAKE_SOURCE_DIR}/common/pkcs5.c
-  ${CMAKE_SOURCE_DIR}/common/rand.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../aes_cmac/aes.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../aes_cmac/aes_cmac.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../common/hash.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../common/pkcs5.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../common/rand.c
   error.c
   lib_util.c
   yubihsm.c
@@ -82,7 +82,7 @@ else(${WIN32})
 endif(${WIN32})
 
 include_directories (
-  ${CMAKE_SOURCE_DIR}/lib
+  ${CMAKE_CURRENT_SOURCE_DIR}
   ${LIBCRYPTO_INCLUDEDIR}
 )
 

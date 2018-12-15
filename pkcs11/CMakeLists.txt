@@ -29,8 +29,8 @@ set(
   )
 
 include_directories(
-  ${CMAKE_SOURCE_DIR}/lib
-  ${CMAKE_SOURCE_DIR}/pkcs11
+  ${CMAKE_CURRENT_SOURCE_DIR}/../lib
+  ${CMAKE_CURRENT_SOURCE_DIR}
   ${LIBCRYPTO_INCLUDEDIR}
   )
 
