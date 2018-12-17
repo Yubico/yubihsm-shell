@@ -45,7 +45,7 @@ set (
   )
 
 include_directories (
-  ${CMAKE_SOURCE_DIR}/lib
+  ${CMAKE_CURRENT_SOURCE_DIR}/../lib
   )
 
 add_executable (test_parsing ${SOURCE_PARSING})
