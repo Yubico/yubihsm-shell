@@ -1784,6 +1784,18 @@ int main(int argc, char *argv[]) {
     ctx.proxy = strdup(args_info.proxy_arg);
   }
 
+#ifndef __WIN32
+    struct sigaction act;
+    act.sa_handler = timer_handler;
+    act.sa_flags = SA_RESTART;
+    sigaction(SIGALRM, &act, NULL);
+
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGALRM);
+    sigprocmask(SIG_UNBLOCK, &set, NULL);
+#endif
+
   if (args_info.action_given) {
     uint8_t buf[4096] = {0};
 
@@ -2588,18 +2600,6 @@ int main(int argc, char *argv[]) {
 #endif
 
     create_command_list(&g_commands);
-
-#ifndef __WIN32
-    struct sigaction act;
-    act.sa_handler = timer_handler;
-    act.sa_flags = SA_RESTART;
-    sigaction(SIGALRM, &act, NULL);
-
-    sigset_t set;
-    sigemptyset(&set);
-    sigaddset(&set, SIGALRM);
-    sigprocmask(SIG_UNBLOCK, &set, NULL);
-#endif
 
     while (g_running == true) {
 #ifdef __WIN32
