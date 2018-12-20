@@ -1874,6 +1874,8 @@ int main(int argc, char *argv[]) {
         break;
     }
 
+    calling_device = true;
+
     for (unsigned i = 0; i < args_info.action_given; i++) {
       switch (args_info.action_arg[i]) {
         case action_arg_decryptMINUS_pkcs1v15: {
@@ -2564,6 +2566,8 @@ int main(int argc, char *argv[]) {
         break;
       }
     }
+
+    calling_device = false;
 
     yh_util_close_session(arg[0].e);
 
