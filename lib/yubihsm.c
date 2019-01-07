@@ -40,6 +40,9 @@
 
 #include "../common/insecure_memzero.h"
 
+#define STATIC_USB_BACKEND "usb"
+#define STATIC_HTTP_BACKEND "http"
+
 // If any of the values in scp.h are changed
 // they should be mirrored in yubihsm.h
 _Static_assert(SCP_HOST_CHAL_LEN == YH_HOST_CHAL_LEN,
@@ -3859,14 +3862,30 @@ yh_rc yh_init(void) {
 }
 
 #ifdef STATIC
-static yh_rc load_backend(const char *name __attribute__((unused)),
+static yh_rc load_backend(const char *name,
                           void **backend __attribute__((unused)),
                           struct backend_functions **bf) {
+  if (name == NULL) {
+    DBG_ERR("No name given to load_backend");
+    return YHR_GENERIC_ERROR;
+  }
+  else if (strncmp(name, STATIC_USB_BACKEND, strlen(STATIC_USB_BACKEND)) == 0) {
+    *bf = usb_backend_functions();
+  }
+  else if (strncmp(name, STATIC_HTTP_BACKEND, strlen(STATIC_HTTP_BACKEND)) == 0) {
+    *bf = http_backend_functions();
+  }
+  else {
+    DBG_ERR("Failed finding backend named '%s'", name);
+    return YHR_GENERIC_ERROR;
+  }
+
+  return (*bf)->backend_init(_yh_verbosity, _yh_output);
+}
 #else
 static yh_rc load_backend(const char *name, void **backend,
                           struct backend_functions **bf) {
   struct backend_functions *(*backend_functions)(void);
-
 #ifdef WIN32
   *backend = LoadLibrary(name);
   if (*backend == NULL) {
@@ -3883,10 +3902,10 @@ static yh_rc load_backend(const char *name, void **backend,
   }
   *(void **) (&backend_functions) = dlsym(*backend, "backend_functions");
 #endif
-#endif
   *bf = backend_functions();
   return (*bf)->backend_init(_yh_verbosity, _yh_output);
 }
+#endif
 
 yh_rc yh_exit(void) { return YHR_SUCCESS; }
 
@@ -4008,7 +4027,10 @@ yh_rc yh_init_connector(const char *url, yh_connector **connector) {
     return YHR_INVALID_PARAMETERS;
   }
 
-#ifdef WIN32
+#ifdef STATIC
+#define USB_LIB STATIC_USB_BACKEND
+#define HTTP_LIB STATIC_HTTP_BACKEND
+#elif defined WIN32
 #define USB_LIB "libyubihsm_usb.dll"
 #define HTTP_LIB "libyubihsm_http.dll"
 #elif defined __APPLE__

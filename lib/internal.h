@@ -75,7 +75,8 @@ struct backend_functions {
 };
 
 #ifdef STATIC
-struct backend_functions YH_INTERNAL *backend_functions(void);
+struct backend_functions YH_INTERNAL *usb_backend_functions(void);
+struct backend_functions YH_INTERNAL *http_backend_functions(void);
 #endif
 
 #endif
