@@ -407,6 +407,10 @@ static struct backend_functions f = {backend_init,     backend_create,
                                      backend_send_msg, backend_cleanup,
                                      backend_option,   backend_set_verbosity};
 
+#ifdef STATIC
+struct backend_functions *http_backend_functions(void) {
+#else
 struct backend_functions *backend_functions(void) {
+#endif
   return &f;
 }
