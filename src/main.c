@@ -227,7 +227,7 @@ void create_command_list(CommandList *c) {
                                       fmt_nofmt, "Deal with audit log", NULL,
                                       NULL});
   register_subcommand(*c,
-                      (Command){"get", yh_com_audit, "e:session", fmt_ASCII,
+                      (Command){"get", yh_com_audit, "e:session,F:file=-", fmt_ASCII,
                                 fmt_nofmt, "Extract log entries", NULL, NULL});
   register_subcommand(*c, (Command){"set", yh_com_set_log_index,
                                     "e:session,w:index", fmt_nofmt, fmt_nofmt,
