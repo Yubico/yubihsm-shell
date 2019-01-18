@@ -451,6 +451,8 @@ void create_command_list(CommandList *c) {
                                     NULL, NULL});
   *c = register_command(*c, (Command){"quit", yh_com_quit, NULL, fmt_nofmt,
                                       fmt_nofmt, "Quit yubihsm", NULL, NULL});
+  *c = register_command(*c, (Command){"exit", yh_com_quit, NULL, fmt_nofmt,
+                                      fmt_nofmt, "Quit yubihsm", NULL, NULL});
   *c =
     register_command(*c, (Command){"session", yh_com_noop, NULL, fmt_nofmt,
                                    fmt_nofmt, "Manage sessions", NULL, NULL});
