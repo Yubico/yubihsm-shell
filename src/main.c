@@ -2559,6 +2559,21 @@ int main(int argc, char *argv[]) {
           COM_SUCCEED_OR_DIE(comrc, "Unable to extract logs");
         } break;
 
+        case action_arg_setMINUS_logMINUS_index: {
+          if (args_info.log_index_given == 0) {
+            fprintf(stderr, "Missing argument log-index\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          arg[1].w = args_info.log_index_arg;
+
+          comrc =
+            yh_com_set_log_index(&ctx, arg,
+                         ctx.out_fmt == fmt_nofmt ? fmt_ASCII : ctx.out_fmt);
+          COM_SUCCEED_OR_DIE(comrc, "Unable to set log index");
+        } break;
+
         case action__NULL:
           printf("ERROR !%u \n", args_info.action_given);
           rc = EXIT_FAILURE;

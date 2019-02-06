@@ -14,47 +14,48 @@
 # limitations under the License.
 #
 
-option "action" a "Action to perform" values="decrypt-pkcs1v15",
-                                             "decrypt-oaep",
-                                             "derive-ecdh",
+option "action" a "Action to perform" values="benchmark",
+                                             "create-otp-aead",
                                              "decrypt-aesccm",
+                                             "decrypt-oaep",
+                                             "decrypt-otp",
+                                             "decrypt-pkcs1v15",
+                                             "delete-object",
+                                             "derive-ecdh",
                                              "encrypt-aesccm",
                                              "generate-asymmetric-key",
                                              "generate-hmac-key",
-                                             "generate-wrap-key",
                                              "generate-otp-aead-key",
+                                             "generate-wrap-key",
+                                             "get-device-info",
                                              "get-logs",
+                                             "get-object-info",
                                              "get-opaque",
                                              "get-pseudo-random",
-                                             "get-storage-info",
                                              "get-public-key",
-                                             "get-object-info",
-                                             "get-wrapped",
-                                             "get-device-info",
+                                             "get-storage-info",
                                              "get-template",
+                                             "get-wrapped",
                                              "list-objects",
                                              "put-asymmetric-key",
                                              "put-authentication-key",
-                                             "put-opaque",
                                              "put-hmac-key",
+                                             "put-opaque",
+                                             "put-otp-aead-key",
+                                             "put-template",
                                              "put-wrap-key",
                                              "put-wrapped",
-                                             "put-template",
-                                             "put-otp-aead-key",
+                                             "randomize-otp-aead",
+                                             "reset",
+                                             "set-log-index",
                                              "set-option",
+                                             "sign-attestation-certificate",
                                              "sign-ecdsa",
-                                             "sign-pkcs1v15",
-                                             "sign-pss",
                                              "sign-eddsa",
                                              "sign-hmac",
-                                             "reset",
-                                             "delete-object",
-                                             "sign-ssh-certificate",
-                                             "benchmark",
-                                             "create-otp-aead",
-                                             "randomize-otp-aead",
-                                             "decrypt-otp",
-                                             "sign-attestation-certificate" enum optional multiple
+                                             "sign-pkcs1v15",
+                                             "sign-pss",
+                                             "sign-ssh-certificate" enum optional multiple
 option "password" p "Authentication password" string optional
 option "authkey" - "Authentication key" int optional default="1"
 option "object-id" i "Object ID" short optional default="0"
@@ -71,6 +72,7 @@ option "count" - "Number of bytes to request" int optional default="256"
 option "wrap-id" - "Wrap key ID" int optional
 option "template-id" - "Template ID" int optional
 option "attestation-id" - "Attestation ID" int optional
+option "log-index" - "Log index" int optional
 
 option "in" - "Input data (filename)" string optional default="-"
 option "out" - "Output data (filename)" string optional default="-"
