@@ -389,7 +389,7 @@ static bool test_ecdh_value(const char *curve, CK_OBJECT_HANDLE yh_privkey,
   return true;
 }
 
-static bool test_dublicate_ecdh(const char *curve, CK_OBJECT_HANDLE yh_privkey,
+static bool test_duplicate_ecdh(const char *curve, CK_OBJECT_HANDLE yh_privkey,
                                 CK_OBJECT_HANDLE_PTR ecdh2,
                                 CK_OBJECT_HANDLE_PTR ecdh3) {
   EVP_PKEY *openssl_keypair = generate_keypair_openssl(curve);
@@ -862,7 +862,7 @@ int main(int argc, char **argv) {
 
     printf(
       "Testing that 2 ECDH keys derived from the same base keys are equal... ");
-    if (test_dublicate_ecdh(CURVES[i], yh_privkey, &ecdh2, &ecdh3)) {
+    if (test_duplicate_ecdh(CURVES[i], yh_privkey, &ecdh2, &ecdh3)) {
       printf("OK!\n");
     } else {
       printf("FAIL!\n");
