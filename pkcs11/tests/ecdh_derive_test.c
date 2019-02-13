@@ -190,7 +190,7 @@ static EVP_PKEY *generate_keypair_openssl(const char *curve) {
 static CK_ULONG get_yhsize(CK_OBJECT_HANDLE object) {
   CK_ULONG len;
   if ((p11->C_GetObjectSize(session, object, &len)) != CKR_OK) {
-    printf("Failed to get size of object 0x%lx from yubi library. FAIL\n",
+    printf("Failed to get size of object 0x%lx from yubihsm-pkcs11. FAIL\n",
            object);
     return 0;
   }
@@ -204,7 +204,7 @@ static CK_ULONG get_yhvalue(CK_OBJECT_HANDLE object, unsigned char *value,
     if ((p11->C_GetAttributeValue(session, object, template, 1)) == CKR_OK) {
       return object_size;
     } else {
-      printf("Failed to retrieve object value from Yubi library. 0x%lx\n",
+      printf("Failed to retrieve object value from yubihsm-pkcs11. 0x%lx\n",
              object);
     }
   }
@@ -252,7 +252,7 @@ static bool yh_derive_ecdh(CK_OBJECT_HANDLE priv_key, EVP_PKEY *peer_keypair,
 
   if (!yh_derive(peerkey_bytes, peerkey_len, priv_key, label, ecdh_key)) {
     if (print_fail) {
-      fail("Failed to derive ECDH key on yubi library");
+      fail("Failed to derive ECDH key on yubihsm-pkcs11");
     }
     return false;
   }
@@ -321,7 +321,7 @@ static unsigned char *openssl_derive_ecdh(EVP_PKEY *private_key,
 
   unsigned char peerkey_bytes[peerkey_len]; // public key in DER
   if (get_yhvalue(peer_key, peerkey_bytes, peerkey_len) == 0) {
-    fail("Failed to retrieve public key from Yubi library");
+    fail("Failed to retrieve public key from yubihsm-pkcs11");
     return 0;
   }
 
@@ -346,7 +346,7 @@ static bool test_ecdh_value(const char *curve, CK_OBJECT_HANDLE yh_privkey,
     return false;
   }
 
-  // Derive with yubi
+  // Derive with yubihsm
   yh_derive_ecdh(yh_privkey, openssl_keypair, ecdh1, "ecdh1", true);
 
   // Derive with openssl
@@ -361,7 +361,7 @@ static bool test_ecdh_value(const char *curve, CK_OBJECT_HANDLE yh_privkey,
   // Compare sizes
   CK_ULONG ecdh1_len = get_yhsize(*ecdh1);
   if (ecdh1_len != ecdh_openssl_len) {
-    fail("ECDH keys derived with yubi library and with openssl do not have the "
+    fail("ECDH keys derived with yubihsm-pkcs11 and with openssl do not have the "
          "same size");
     return false;
   }
@@ -369,7 +369,7 @@ static bool test_ecdh_value(const char *curve, CK_OBJECT_HANDLE yh_privkey,
   // Compare values
   unsigned char ecdh1_bytes[BUFSIZE]; // public key in DER
   if (get_yhvalue(*ecdh1, ecdh1_bytes, ecdh1_len) == 0) {
-    fail("Failed to retrieve derived key from Yubi library");
+    fail("Failed to retrieve derived key from yubihsm-pkcs11");
     return false;
   }
 
@@ -381,7 +381,7 @@ static bool test_ecdh_value(const char *curve, CK_OBJECT_HANDLE yh_privkey,
     }
   }
   if (!equal) {
-    fail("ECDH keys derived with yubi library and with openssl do not have the "
+    fail("ECDH keys derived with yubihsm-pkcs11 and with openssl do not have the "
          "same value");
     return false;
   }
@@ -549,7 +549,7 @@ static bool validate_ecdh_attributes(CK_OBJECT_HANDLE key_id,
   CK_RV rv =
     p11->C_GetAttributeValue(session, key_id, template, attribute_count);
   if (rv != CKR_OK) {
-    fail("Failed to retrieve ECDH key attributes from Yubi library");
+    fail("Failed to retrieve ECDH key attributes from yubihsm-pkcs11");
     return false;
   }
 
@@ -851,7 +851,7 @@ int main(int argc, char **argv) {
     generate_keypair_yh(CURVE_PARAMS[i], &yh_pubkey, &yh_privkey);
     CK_OBJECT_HANDLE ecdh1, ecdh2, ecdh3;
 
-    printf("Testing the value of ECDH key derived by Yubi library... ");
+    printf("Testing the value of ECDH key derived by yubihsm-pkcs11... ");
     if (test_ecdh_value(CURVES[i], yh_privkey, yh_pubkey, &ecdh1)) {
       printf("OK!\n");
     } else {
