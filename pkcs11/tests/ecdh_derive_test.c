@@ -33,6 +33,8 @@
 #define DEFAULT_CONNECTOR_URL "http://127.0.0.1:12345"
 #endif
 
+#define BUFSIZE 1024
+
 CK_BYTE P224_PARAMS[] = {0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x21};
 CK_BYTE P256_PARAMS[] = {0x06, 0x08, 0x2a, 0x86, 0x48,
                          0xce, 0x3d, 0x03, 0x01, 0x07};
@@ -365,7 +367,7 @@ static bool test_ecdh_value(const char *curve, CK_OBJECT_HANDLE yh_privkey,
   }
 
   // Compare values
-  unsigned char ecdh1_bytes[ecdh1_len]; // public key in DER
+  unsigned char ecdh1_bytes[BUFSIZE]; // public key in DER
   if (get_yhvalue(*ecdh1, ecdh1_bytes, ecdh1_len) == 0) {
     fail("Failed to retrieve derived key from Yubi library");
     return false;
@@ -416,7 +418,7 @@ static bool test_dublicate_ecdh(const char *curve, CK_OBJECT_HANDLE yh_privkey,
     return false;
   }
 
-  unsigned char ecdh1_value[ecdh1_len], ecdh2_value[ecdh2_len];
+  unsigned char ecdh1_value[BUFSIZE], ecdh2_value[BUFSIZE];
   if (get_yhvalue(*ecdh2, ecdh1_value, ecdh1_len) == 0) {
     return false;
   }
