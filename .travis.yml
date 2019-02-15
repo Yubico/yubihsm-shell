@@ -40,3 +40,5 @@ script:
   - test -e ./build/lib/libyubihsm.so -o -e ./build/lib/libyubihsm.dylib
   - test -e ./build/pkcs11/yubihsm_pkcs11.so -o -e ./build/pkcs11/yubihsm_pkcs11.dylib
   - test -e ./build/yhwrap/yubihsm-wrap
+  - cd build
+  - ctest --output-on-failure -R "parsing|pbkdf2"
