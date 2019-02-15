@@ -1,0 +1,42 @@
+language: c
+
+addons:
+  apt:
+    packages:
+    - cmake
+    - gengetopt
+    - help2man
+    - libcurl4-openssl-dev
+    - libedit-dev
+    - libpcsclite-dev
+    - libssl-dev
+    - libusb-1.0-0-dev
+    - pkg-config
+  homebrew:
+    packages:
+    - cmake
+    - gengetopt
+    - help2man
+    - libedit
+    - libusb
+    - openssl@1.1
+    - pcsc-lite
+    - pkg-config
+
+matrix:
+  include:
+    - os: linux
+      compiler: gcc
+    - os: linux
+      compiler: clang
+    - os: osx
+      compiler: clang
+#      env: PKG_CONFIG_PATH="/usr/local/opt/openssl@1.1/lib/pkgconfig:/usr/local/opt/pcsc-lite/lib/pkgconfig:/usr/local/opt/libedit/lib/pkgconfig"
+
+script:
+  - cmake -Bbuild -H. -DENABLE_EXPERIMENTAL_YKYH=1
+  - cmake --build build -- --jobs=2 VERBOSE=1
+  - test -e ./build/src/yubihsm-shell
+  - test -e ./build/lib/libyubihsm.so -o -e ./build/lib/libyubihsm.dylib
+  - test -e ./build/pkcs11/yubihsm_pkcs11.so -o -e ./build/pkcs11/yubihsm_pkcs11.dylib
+  - test -e ./build/yhwrap/yubihsm-wrap
