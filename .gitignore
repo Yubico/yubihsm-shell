@@ -57,3 +57,4 @@ cscope.*
 /yhwrap/cmdline.c
 /yhwrap/cmdline.h
 lib/*doxygen*
+.ci/client-combined.pem
