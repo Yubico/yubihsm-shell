@@ -174,7 +174,9 @@ if(NOT BUILD_ONLY_LIB)
   add_subdirectory (pkcs11)
 
   if (ENABLE_EXPERIMENTAL_YKYH)
-    pkg_search_module (LIBPCSC REQUIRED libpcsclite)
+    if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+      pkg_search_module (LIBPCSC REQUIRED libpcsclite)
+    endif()
     add_subdirectory (ykyh)
   endif()
 
