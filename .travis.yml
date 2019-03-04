@@ -54,4 +54,5 @@ script:
   - sleep 3
   - cd build
   - ./src/yubihsm-shell -p password -a reset
+  - sleep 3
   - ctest --output-on-failure
