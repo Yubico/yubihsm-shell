@@ -29,6 +29,7 @@ addons:
     - openssl@1.1
     - pcsc-lite
     - pkg-config
+    - truncate
 
 matrix:
   include:
