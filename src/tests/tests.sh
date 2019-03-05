@@ -35,7 +35,7 @@ OUTPUT=$($PROG -a generate-asymmetric -A ecp256 -csign-ecdsa -p password 2>&1)
 OBJ_ID=$(echo "$OUTPUT" | grep -o -E '0x[a-f0-9]{4}$')
 
 $PROG -a sign-ecdsa -i $OBJ_ID -A ecdsa-sha256 --in "$DATA" --out "$SIG" -p password
-base64 -d "$SIG" >"$BIN_SIG"
+base64 --decode "$SIG" >"$BIN_SIG"
 $PROG -a get-public-key -i $OBJ_ID --out "$PUBLIC_KEY" -p password
 openssl dgst -sha256 -verify "$PUBLIC_KEY" -signature "$BIN_SIG" "$DATA"
 
@@ -43,7 +43,7 @@ truncate -s 0 "$SIG"
 truncate -s 0 "$PUBLIC_KEY"
 #$PROG -a generate-asymmetric -i 0x1234 -A ecp256 -csign_ecdsa
 $PROG -a sign-ecdsa -i $OBJ_ID -A ecdsa-sha1 --in "$DATA" --out "$SIG" -p password
-base64 -d "$SIG" >"$BIN_SIG"
+base64 --decode "$SIG" >"$BIN_SIG"
 $PROG -a get-public-key -i $OBJ_ID --out "$PUBLIC_KEY" -p password
 openssl dgst -sha1 -verify "$PUBLIC_KEY" -signature "$BIN_SIG" "$DATA"
 
@@ -52,7 +52,7 @@ truncate -s 0 "$PUBLIC_KEY"
 OUTPUT=$($PROG -a generate-asymmetric -A ecp384 -csign-ecdsa -p password 2>&1)
 OBJ_ID=$(echo "$OUTPUT" | grep -o -E '0x[a-f0-9]{4}$')
 $PROG -a sign-ecdsa -i $OBJ_ID -A ecdsa-sha384 --in "$DATA" --out "$SIG" -p password
-base64 -d "$SIG" >"$BIN_SIG"
+base64 --decode "$SIG" >"$BIN_SIG"
 $PROG -a get-public-key -i $OBJ_ID --out "$PUBLIC_KEY" -p password
 openssl dgst -sha384 -verify "$PUBLIC_KEY" -signature "$BIN_SIG" "$DATA"
 
@@ -61,6 +61,6 @@ truncate -s 0 "$PUBLIC_KEY"
 OUTPUT=$($PROG -a generate-asymmetric -A ecp521 -csign-ecdsa -p password 2>&1)
 OBJ_ID=$(echo "$OUTPUT" | grep -o -E '0x[a-f0-9]{4}$')
 $PROG -a sign-ecdsa -i $OBJ_ID -A ecdsa-sha512 --in "$DATA" --out "$SIG" -p password
-base64 -d "$SIG" >"$BIN_SIG"
+base64 --decode "$SIG" >"$BIN_SIG"
 $PROG -a get-public-key -i $OBJ_ID --out "$PUBLIC_KEY" -p password
 openssl dgst -sha512 -verify "$PUBLIC_KEY" -signature "$BIN_SIG" "$DATA"
