@@ -254,6 +254,6 @@ target_link_libraries (
 
 add_test (
   NAME ecdh_derive_test
-  COMMAND ${CMAKE_CURRENT_BINARY_DIR}/ecdh_derive_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.so
+  COMMAND ${CMAKE_CURRENT_BINARY_DIR}/ecdh_derive_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
   )
 endif()
