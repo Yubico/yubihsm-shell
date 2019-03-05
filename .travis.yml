@@ -55,4 +55,4 @@ script:
   - cd build
   - ./src/yubihsm-shell -p password -a reset
   - sleep 3
-  - ctest --output-on-failure
+  - ctest --output-on-failure -E "engine_tests|pkcs11test|wrapped_tests"
