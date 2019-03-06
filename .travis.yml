@@ -35,14 +35,24 @@ matrix:
   include:
     - os: linux
       compiler: gcc
+      env:
+        - CONNECTOR_ADDR="127.0.0.1:12346"
+        - PUBLIC_PORT="6443"
     - os: linux
       compiler: clang
+      env:
+        - CONNECTOR_ADDR="127.0.0.1:12347"
+        - PUBLIC_PORT="7443"
     - os: osx
       compiler: clang
+      env:
+        - CONNECTOR_ADDR="127.0.0.1:12348"
+        - PUBLIC_PORT="8443"
 #      env: PKG_CONFIG_PATH="/usr/local/opt/openssl@1.1/lib/pkgconfig:/usr/local/opt/pcsc-lite/lib/pkgconfig:/usr/local/opt/libedit/lib/pkgconfig"
 
 script:
-  - cmake -Bbuild -H. -DENABLE_EXPERIMENTAL_YKYH=1
+  - export DEFAULT_CONNECTOR_URL="http://$CONNECTOR_ADDR"
+  - cmake -Bbuild -H. -DENABLE_EXPERIMENTAL_YKYH=1 -DDEFAULT_CONNECTOR_URL="http://$CONNECTOR_ADDR"
   - cmake --build build -- --jobs=2 VERBOSE=1
   - test -e ./build/src/yubihsm-shell
   - test -e ./build/lib/libyubihsm.so -o -e ./build/lib/libyubihsm.dylib
@@ -51,9 +61,9 @@ script:
   - export krnl="$(uname -s | tr '[:upper:]' '[:lower:]')"
   - wget https://github.com/square/ghostunnel/releases/download/v1.3.1/ghostunnel-v1.3.1-$krnl-amd64-with-pkcs11 -O ghostunnel
   - chmod +x ./ghostunnel
-  - ./ghostunnel client --listen localhost:12345 --target hsm-connector01.sthlm.in.yubico.org:8443 --keystore ./.ci/client-combined.pem --cacert ./.ci/server-crt.pem &
+  - ./ghostunnel client --listen $CONNECTOR_ADDR --target hsm-connector01.sthlm.in.yubico.org:$PUBLIC_PORT --keystore ./.ci/client-combined.pem --cacert ./.ci/server-crt.pem &
   - sleep 3
   - cd build
-  - ./src/yubihsm-shell -p password -a reset
+  - ./src/yubihsm-shell --connector "http://$CONNECTOR_ADDR" -p password -a reset
   - sleep 3
   - ctest --output-on-failure -E "engine_tests|pkcs11test|wrapped_tests"
