@@ -550,7 +550,7 @@ void create_command_list(CommandList *c) {
                                     NULL, NULL});
   register_subcommand(*c, (Command){"outformat", yh_com_set_outformat,
                                     "I:format", fmt_nofmt, fmt_nofmt,
-                                    "Set input format", NULL, NULL});
+                                    "Set output format", NULL, NULL});
   register_subcommand(*c, (Command){"cacert", yh_com_set_cacert, "s:file",
                                     fmt_nofmt, fmt_nofmt,
                                     "Set CA cert to use for https to connector",
