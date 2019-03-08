@@ -511,7 +511,7 @@ bool base64_decode(const char *in, uint8_t *out, size_t *len) {
   (void) BIO_flush(bio);
   ret = BIO_read(b64, out, *len);
 
-  BIO_free_all(bio);
+  BIO_free_all(b64);
 
   if (ret <= 0) {
     return false;
