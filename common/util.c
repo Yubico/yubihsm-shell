@@ -95,7 +95,7 @@ bool read_ed25519_key(uint8_t *in, size_t in_len, uint8_t *out,
   (void) BIO_flush(bio);
   ret = BIO_read(b64, decoded, decoded_len);
 
-  BIO_free_all(bio);
+  BIO_free_all(b64);
 
   if (ret <= 0 || ret != 48) {
     return false;
