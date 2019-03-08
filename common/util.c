@@ -562,10 +562,10 @@ bool write_file(const uint8_t *buf, size_t buf_len, FILE *fp, format_t format) {
   uint8_t *data = NULL;
   size_t length = buf_len;
   size_t written = 0;
-  BIO *bio = NULL;
+  BIO *b64 = NULL;
 
   if (format == _base64) {
-    BIO *b64;
+    BIO *bio;
     BUF_MEM *bufferPtr;
 
     b64 = BIO_new(BIO_f_base64());
@@ -600,9 +600,9 @@ bool write_file(const uint8_t *buf, size_t buf_len, FILE *fp, format_t format) {
     fprintf(fp, "\n");
   }
 
-  if (bio != NULL) {
-    (void) BIO_free_all(bio);
-    bio = NULL;
+  if (b64 != NULL) {
+    BIO_free_all(b64);
+    b64 = NULL;
   }
 
   if (data != NULL) {
