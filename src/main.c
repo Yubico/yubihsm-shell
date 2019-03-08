@@ -1790,6 +1790,7 @@ int main(int argc, char *argv[]) {
 
 #ifndef __WIN32
   struct sigaction act;
+  memset(&act, 0, sizeof(act));
   act.sa_handler = timer_handler;
   act.sa_flags = SA_RESTART;
   sigaction(SIGALRM, &act, NULL);
