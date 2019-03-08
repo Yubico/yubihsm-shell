@@ -86,6 +86,9 @@ int main(void) {
     printf("%s\n", str);
   }
 
+  yrc = yh_disconnect(connector);
+  assert(yrc == YHR_SUCCESS);
+
   yrc = yh_exit();
   assert(yrc == YHR_SUCCESS);
 
