@@ -131,12 +131,10 @@ bool read_private_key(uint8_t *buf, size_t len, yh_algorithm *algo,
   (void) BIO_write(bio, buf, len);
 
   private_key = PEM_read_bio_PrivateKey(bio, NULL, NULL, /*password*/ NULL);
+  BIO_free_all(bio);
   if (private_key == NULL) {
-    BIO_free_all(bio);
     return false;
   }
-
-  BIO_free_all(bio);
 
   bool ret = false;
 
@@ -319,6 +317,8 @@ cleanup:
     EC_KEY_free(ec_private);
     ec_private = NULL;
   }
+
+  EVP_PKEY_free(private_key);
 
   return ret;
 }
