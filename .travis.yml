@@ -1,3 +1,10 @@
+env:
+  global:
+    - secure: "hg3zpwTsdl1hawBZjLlZw5ErUMSqQA+FEvnbeAXTPW1d+5oa/Yu5z6bYl9MqnKxx0Kyux9QJdgov/nkqQLTVy88U4w9qkEtQ6auKQxYdku9OWeduFy3P5oeI6IUkhOibxkqY9EDolBRKctTKyyDwKjDanTTttGYFeQq4jz7xkb05WmZ9gB1HPO0QPYljzPJyDw26pt2b4KC6eszeyHkwwOEAPblKkdpKILMrL/AWSiA6XkE9WN6pepHEKgfVf4g9tRupYJ9Ika9NAJpH0xHRIMb5Blu+8ccgXnyFGNVxcWrsgSYrMhXXP5MREMB4GuD2FbZya4bOZJwEGE5h3Q8wbLjneVpJsMk1zTZfWpKFs9o6gvJ4nzFWm0fcpvM7FeDmAmdvUtZk032SKEtQ337heSwS3F8pRjNdo2mqHkuH8CoKIxHI7W3kkRSnVCbLZ0HnvKh6UNcGPrn1Lm+3mfXvudjHLwchMr+XOgY41OahLhtcL+hhQhxvznapJnHbwyn3IItiurK+9x5q66UZ2ZUXwN8QiNrZKWSe4Ixb1ccaC3W7uOhiX859O7JxgCuSBbhrXqpDbUpF2VVn5+m/gJl9//hqPhI/m++EoP+ZgxB5xwD3cn2VZlKRSXSoT80zYP1ZrjG2CMJT9dPTwC4mtGNvdDZ1oUL9HeeUtVvp4E4bqIs="
+
+before_install:
+  - openssl aes-256-cbc -k "$tlspwd" -md sha256 -in ./.ci/client-combined.pem.enc -out ./.ci/client-combined.pem -d
+
 language: c
 
 addons:
@@ -22,23 +29,41 @@ addons:
     - openssl@1.1
     - pcsc-lite
     - pkg-config
+    - truncate
 
 matrix:
   include:
     - os: linux
       compiler: gcc
+      env:
+        - CONNECTOR_ADDR="127.0.0.1:12346"
+        - PUBLIC_PORT="6443"
     - os: linux
       compiler: clang
+      env:
+        - CONNECTOR_ADDR="127.0.0.1:12347"
+        - PUBLIC_PORT="7443"
     - os: osx
       compiler: clang
+      env:
+        - CONNECTOR_ADDR="127.0.0.1:12348"
+        - PUBLIC_PORT="8443"
 #      env: PKG_CONFIG_PATH="/usr/local/opt/openssl@1.1/lib/pkgconfig:/usr/local/opt/pcsc-lite/lib/pkgconfig:/usr/local/opt/libedit/lib/pkgconfig"
 
 script:
-  - cmake -Bbuild -H. -DENABLE_EXPERIMENTAL_YKYH=1
+  - export DEFAULT_CONNECTOR_URL="http://$CONNECTOR_ADDR"
+  - cmake -Bbuild -H. -DENABLE_EXPERIMENTAL_YKYH=1 -DDEFAULT_CONNECTOR_URL="http://$CONNECTOR_ADDR"
   - cmake --build build -- --jobs=2 VERBOSE=1
   - test -e ./build/src/yubihsm-shell
   - test -e ./build/lib/libyubihsm.so -o -e ./build/lib/libyubihsm.dylib
   - test -e ./build/pkcs11/yubihsm_pkcs11.so -o -e ./build/pkcs11/yubihsm_pkcs11.dylib
   - test -e ./build/yhwrap/yubihsm-wrap
+  - export krnl="$(uname -s | tr '[:upper:]' '[:lower:]')"
+  - wget https://github.com/square/ghostunnel/releases/download/v1.3.1/ghostunnel-v1.3.1-$krnl-amd64-with-pkcs11 -O ghostunnel
+  - chmod +x ./ghostunnel
+  - ./ghostunnel client --listen $CONNECTOR_ADDR --target hsm-connector01.sthlm.in.yubico.org:$PUBLIC_PORT --keystore ./.ci/client-combined.pem --cacert ./.ci/server-crt.pem &
+  - sleep 3
   - cd build
-  - ctest --output-on-failure -R "parsing|pbkdf2"
+  - ./src/yubihsm-shell --connector "http://$CONNECTOR_ADDR" -p password -a reset
+  - sleep 3
+  - ctest --output-on-failure -E "engine_tests|pkcs11test|wrapped_tests"
