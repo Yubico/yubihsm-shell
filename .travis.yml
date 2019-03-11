@@ -72,5 +72,5 @@ script:
   - pushd build
   - ./src/yubihsm-shell --connector "http://$CONNECTOR_ADDR" -p password -a reset
   - sleep 3
-  - ctest --output-on-failure -E "engine_tests|pkcs11test|wrapped_tests"
+  - ctest --output-on-failure -E "engine_tests|pkcs11test"
   - popd
