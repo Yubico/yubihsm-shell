@@ -1119,6 +1119,9 @@ static bool load_public_key(yh_session *session, uint16_t id, EVP_PKEY *key) {
     if (EVP_PKEY_assign_EC_KEY(key, ec_key) == 0) {
       goto l_p_k_failure;
     }
+
+    EC_POINT_free(ec_point);
+    EC_GROUP_free(ec_group);
   }
 
   return true;

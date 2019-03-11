@@ -162,6 +162,7 @@ int main(void) {
 
   X509 *attestation_template = PEM_read_X509(fp, NULL, NULL, NULL);
   assert(attestation_template != NULL);
+  fclose(fp);
 
   uint8_t attestation_template_buffer[3072];
   uint16_t attestation_template_buffer_len =
@@ -172,6 +173,7 @@ int main(void) {
   unsigned char *certptr = attestation_template_buffer;
 
   i2d_X509(attestation_template, &certptr);
+  X509_free(attestation_template);
 
   memset(capabilities.capabilities, 0, YH_CAPABILITIES_LEN);
   yrc =
@@ -207,11 +209,9 @@ int main(void) {
                                              &attestation_len);
   assert(yrc == YHR_SUCCESS);
 
-  X509 *x509 = X509_new();
   const unsigned char *ptr = attestation;
-  assert(x509 != NULL);
 
-  x509 = d2i_X509(NULL, &ptr, attestation_len);
+  X509 *x509 = d2i_X509(NULL, &ptr, attestation_len);
   assert(x509 != NULL);
 
   BIO *STDout = BIO_new_fp(stdout, BIO_NOCLOSE);
@@ -239,7 +239,7 @@ int main(void) {
   yrc = yh_destroy_session(&session);
   assert(yrc == YHR_SUCCESS);
 
-  yh_disconnect(connector);
+  yrc = yh_disconnect(connector);
   assert(yrc == YHR_SUCCESS);
 
   yrc = yh_exit();

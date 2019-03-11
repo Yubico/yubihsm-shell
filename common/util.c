@@ -95,7 +95,7 @@ bool read_ed25519_key(uint8_t *in, size_t in_len, uint8_t *out,
   (void) BIO_flush(bio);
   ret = BIO_read(b64, decoded, decoded_len);
 
-  BIO_free_all(bio);
+  BIO_free_all(b64);
 
   if (ret <= 0 || ret != 48) {
     return false;
@@ -131,12 +131,10 @@ bool read_private_key(uint8_t *buf, size_t len, yh_algorithm *algo,
   (void) BIO_write(bio, buf, len);
 
   private_key = PEM_read_bio_PrivateKey(bio, NULL, NULL, /*password*/ NULL);
+  BIO_free_all(bio);
   if (private_key == NULL) {
-    BIO_free_all(bio);
     return false;
   }
-
-  BIO_free_all(bio);
 
   bool ret = false;
 
@@ -319,6 +317,8 @@ cleanup:
     EC_KEY_free(ec_private);
     ec_private = NULL;
   }
+
+  EVP_PKEY_free(private_key);
 
   return ret;
 }
@@ -511,7 +511,7 @@ bool base64_decode(const char *in, uint8_t *out, size_t *len) {
   (void) BIO_flush(bio);
   ret = BIO_read(b64, out, *len);
 
-  BIO_free_all(bio);
+  BIO_free_all(b64);
 
   if (ret <= 0) {
     return false;
@@ -562,10 +562,10 @@ bool write_file(const uint8_t *buf, size_t buf_len, FILE *fp, format_t format) {
   uint8_t *data = NULL;
   size_t length = buf_len;
   size_t written = 0;
-  BIO *bio = NULL;
+  BIO *b64 = NULL;
 
   if (format == _base64) {
-    BIO *b64;
+    BIO *bio;
     BUF_MEM *bufferPtr;
 
     b64 = BIO_new(BIO_f_base64());
@@ -600,9 +600,9 @@ bool write_file(const uint8_t *buf, size_t buf_len, FILE *fp, format_t format) {
     fprintf(fp, "\n");
   }
 
-  if (bio != NULL) {
-    (void) BIO_free_all(bio);
-    bio = NULL;
+  if (b64 != NULL) {
+    BIO_free_all(b64);
+    b64 = NULL;
   }
 
   if (data != NULL) {

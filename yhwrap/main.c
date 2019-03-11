@@ -438,6 +438,8 @@ int main(int argc, char *argv[]) {
 
 main_exit:
 
+  cmdline_parser_free(&args_info);
+
   if (input_file != NULL) {
     fclose(input_file);
     input_file = NULL;

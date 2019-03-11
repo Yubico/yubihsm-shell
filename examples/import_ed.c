@@ -113,7 +113,7 @@ int main(void) {
 
   printf("Key imported with ID %04x\n", key_id);
 
-  printf("Data to sign (%zu bytes) is: %s\n", sizeof(data), data);
+  printf("Signing %zu bytes of data\n", sizeof(data));
 
   uint8_t signature[128];
   size_t signature_len = sizeof(signature);

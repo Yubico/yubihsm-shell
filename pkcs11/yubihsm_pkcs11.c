@@ -296,6 +296,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     goto c_i_failure;
   }
 
+  cmdline_parser_free(&args_info);
+  free(connector_list);
+
   DBG_INFO("Found %zu usable connector(s)", n_connectors);
 
   g_yh_initialized = true;
@@ -316,6 +319,9 @@ c_i_failure:
       yh_disconnect(connector_list[i]);
     }
   }
+
+  cmdline_parser_free(&args_info);
+  free(connector_list);
 
   if (g_ctx.mutex != NULL) {
     g_ctx.destroy_mutex(g_ctx.mutex);

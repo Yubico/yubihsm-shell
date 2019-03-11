@@ -250,12 +250,18 @@ static bool yh_derive_ecdh(CK_OBJECT_HANDLE priv_key, EVP_PKEY *peer_keypair,
     return false;
   }
 
+  EC_KEY_free(peerkey);
+
   if (!yh_derive(peerkey_bytes, peerkey_len, priv_key, label, ecdh_key)) {
     if (print_fail) {
       fail("Failed to derive ECDH key on yubihsm-pkcs11");
     }
+    OPENSSL_free(peerkey_bytes);
     return false;
   }
+
+  OPENSSL_free(peerkey_bytes);
+
   return true;
 }
 
@@ -361,8 +367,9 @@ static bool test_ecdh_value(const char *curve, CK_OBJECT_HANDLE yh_privkey,
   // Compare sizes
   CK_ULONG ecdh1_len = get_yhsize(*ecdh1);
   if (ecdh1_len != ecdh_openssl_len) {
-    fail("ECDH keys derived with yubihsm-pkcs11 and with openssl do not have the "
-         "same size");
+    fail(
+      "ECDH keys derived with yubihsm-pkcs11 and with openssl do not have the "
+      "same size");
     return false;
   }
 
@@ -380,9 +387,13 @@ static bool test_ecdh_value(const char *curve, CK_OBJECT_HANDLE yh_privkey,
       break;
     }
   }
+
+  OPENSSL_free(ecdh_openssl);
+
   if (!equal) {
-    fail("ECDH keys derived with yubihsm-pkcs11 and with openssl do not have the "
-         "same value");
+    fail(
+      "ECDH keys derived with yubihsm-pkcs11 and with openssl do not have the "
+      "same value");
     return false;
   }
 
@@ -405,6 +416,8 @@ static bool test_duplicate_ecdh(const char *curve, CK_OBJECT_HANDLE yh_privkey,
     EVP_PKEY_free(openssl_keypair);
     return false;
   }
+
+  EVP_PKEY_free(openssl_keypair);
 
   size_t ecdh1_len = get_yhsize(*ecdh2);
   size_t ecdh2_len = get_yhsize(*ecdh3);

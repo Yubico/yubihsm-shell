@@ -293,6 +293,8 @@ int main(void) {
   (void) BIO_flush(bio);
   fprintf(stdout, "\n");
 
+  BIO_free_all(bio);
+
   yrc = yh_util_close_session(session);
   assert(yrc == YHR_SUCCESS);
 
