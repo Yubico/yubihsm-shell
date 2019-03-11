@@ -13,6 +13,7 @@ addons:
     - cmake
     - gengetopt
     - help2man
+    - lcov
     - libcurl4-openssl-dev
     - libedit-dev
     - libpcsclite-dev
@@ -38,6 +39,11 @@ matrix:
       env:
         - CONNECTOR_ADDR="127.0.0.1:12346"
         - PUBLIC_PORT="6443"
+        - CMAKE_EXTRA="-DENABLE_COVERAGE=1"
+      after_success:
+        - gem install coveralls-lcov
+        - cmake --build build --target lcov
+        - coveralls-lcov build/lcov/data/capture/all_targets.info
     - os: linux
       compiler: clang
       env:
@@ -52,7 +58,7 @@ matrix:
 
 script:
   - export DEFAULT_CONNECTOR_URL="http://$CONNECTOR_ADDR"
-  - cmake -Bbuild -H. -DENABLE_EXPERIMENTAL_YKYH=1 -DDEFAULT_CONNECTOR_URL="http://$CONNECTOR_ADDR"
+  - cmake -Bbuild -H. -DENABLE_EXPERIMENTAL_YKYH=1 -DDEFAULT_CONNECTOR_URL="http://$CONNECTOR_ADDR" $CMAKE_EXTRA
   - cmake --build build -- --jobs=2 VERBOSE=1
   - test -e ./build/src/yubihsm-shell
   - test -e ./build/lib/libyubihsm.so -o -e ./build/lib/libyubihsm.dylib
@@ -63,7 +69,8 @@ script:
   - chmod +x ./ghostunnel
   - ./ghostunnel client --listen $CONNECTOR_ADDR --target hsm-connector01.sthlm.in.yubico.org:$PUBLIC_PORT --keystore ./.ci/client-combined.pem --cacert ./.ci/server-crt.pem 2>/dev/null &
   - sleep 3
-  - cd build
+  - pushd build
   - ./src/yubihsm-shell --connector "http://$CONNECTOR_ADDR" -p password -a reset
   - sleep 3
   - ctest --output-on-failure -E "engine_tests|pkcs11test|wrapped_tests"
+  - popd
