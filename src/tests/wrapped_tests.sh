@@ -244,10 +244,15 @@ put_yhwrapped_asymmetric_ecdsa() {
     ["secp384r1"]="ecp384"
     ["secp521r1"]="ecp521"
     ["prime256v1"]="ecp256"
-    ["brainpoolP256r1"]="ecbp256"
-    ["brainpoolP384r1"]="ecbp384"
-    ["brainpoolP512r1"]="ecbp512"
   )
+
+  if openssl ecparam -list_curves | grep -q brainpoolP256r1; then
+    curves+=(
+      ["brainpoolP256r1"]="ecbp256"
+      ["brainpoolP384r1"]="ecbp384"
+      ["brainpoolP512r1"]="ecbp512"
+    )
+  fi
   for curve in "${!curves[@]}"; do
     $YHSHELL --action="get-object-info" --password="password" --authkey="1"   \
       --object-id="$keyid" --object-type="asymmetric-key" && {
