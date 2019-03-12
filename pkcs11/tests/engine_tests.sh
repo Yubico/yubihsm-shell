@@ -129,5 +129,8 @@ test_ecdh_derive() {
 test_rsa_sig 2048
 for curve in secp224r1 prime256v1 secp256k1 secp384r1 secp521r1; do
   test_ecdsa_sig $curve
-  test_ecdh_derive $curve
+  if ! openssl version | grep -q "OpenSSL 1.0"; then
+    # OpenSSL gets engine support for ECDH from version 1.1
+    test_ecdh_derive $curve
+  fi
 done
