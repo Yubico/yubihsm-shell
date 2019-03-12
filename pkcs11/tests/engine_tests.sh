@@ -17,6 +17,7 @@
 #
 
 set -eo pipefail
+set -x
 
 p11="`pwd`/../yubihsm_pkcs11.so"
 
