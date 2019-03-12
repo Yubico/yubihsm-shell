@@ -238,35 +238,37 @@ put_yhwrapped_asymmetric_ecdsa() {
     --capabilities="all" --delegated="all"                                     \
     --in="$wrapkey" --informat="binary"
 
-  declare -A curves
-  curves=(
-    ["secp256k1"]="eck256"
-    ["secp384r1"]="ecp384"
-    ["secp521r1"]="ecp521"
-    ["prime256v1"]="ecp256"
-    ["brainpoolP256r1"]="ecbp256"
-    ["brainpoolP384r1"]="ecbp384"
-    ["brainpoolP512r1"]="ecbp512"
-  )
-  for curve in "${!curves[@]}"; do
+  curves="secp256k1 secp384r1 secp521r1 prime256v1"
+  secp256k1=eck256
+  secp384r1=ecp384
+  secp521r1=ecp521
+  prime256v1=ecp256
+
+  if openssl ecparam -list_curves | grep -q brainpoolP256r1; then
+    curves="$curves brainpoolP256r1 brainpoolP384r1 brainpoolP512r1"
+    brainpoolP256r1=ecbp256
+    brainpoolP384r1=ecbp384
+    brainpoolP512r1=ecbp512
+  fi
+  for curve in $curves; do
     $YHSHELL --action="get-object-info" --password="password" --authkey="1"   \
       --object-id="$keyid" --object-type="asymmetric-key" && {
       echo "${FUNCNAME[0]}: delete ec key"
       $YHSHELL --action="delete-object" --password="password" --authkey="1"   \
         --object-id="$keyid" --object-type="asymmetric-key"
     }
-    echo "${FUNCNAME[0]}: creating ${curves[$curve]} key"
+    echo "${FUNCNAME[0]}: creating ${!curve} key"
     openssl ecparam -genkey -noout -name $curve > "$keyfile.$curve"
-    $YHWRAP --algorithm="${curves[$curve]}"                                  \
+    $YHWRAP --algorithm="${!curve}"                                            \
       --capabilities="all" --delegated="all"                                   \
       --domains="all" --id="$keyid" --in="$keyfile.$curve"                     \
       --out="$keyfilew.$curve" --label="${FUNCNAME[0]}" --wrapkey="$wrapkey"
 
-    echo "${FUNCNAME[0]}: put-wrapped ${curves[$curve]}"
+    echo "${FUNCNAME[0]}: put-wrapped ${!curve}"
     $YHSHELL --action="put-wrapped" --password="password" --authkey="1"       \
       --wrap-id="$wrapid" --in="$keyfilew.$curve" --informat="base64"
 
-    echo "${FUNCNAME[0]}: comparing pubs ${curves[$curve]}"
+    echo "${FUNCNAME[0]}: comparing pubs ${!curve}"
     openssl ec -in "$keyfile.$curve" -pubout > "$keyfile.$curve.pub"
     $YHSHELL --action="get-public-key" --password="password" --authkey="1"        \
       --object-id="$keyid" --out="$keyfile.$curve.pub.shell"
