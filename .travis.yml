@@ -16,9 +16,11 @@ addons:
     - lcov
     - libcurl4-openssl-dev
     - libedit-dev
+      libengine-pkcs11-openssl
     - libpcsclite-dev
     - libssl-dev
     - libusb-1.0-0-dev
+    - opensc
     - pkg-config
   homebrew:
     packages:
@@ -72,5 +74,5 @@ script:
   - pushd build
   - ./src/yubihsm-shell --connector "http://$CONNECTOR_ADDR" -p password -a reset
   - sleep 3
-  - ctest --output-on-failure -E "engine_tests|pkcs11test"
+  - ctest --output-on-failure -E "pkcs11test"
   - popd

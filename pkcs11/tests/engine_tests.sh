@@ -29,6 +29,11 @@ elif [ "x$os" = "xLinux" ]; then
     engine="/usr/lib/ssl/engines/libpkcs11.so"
   elif [ -f "/usr/lib/x86_64-linux-gnu/engines-1.1/pkcs11.so" ]; then
     engine="/usr/lib/x86_64-linux-gnu/engines-1.1/pkcs11.so"
+  elif [ -f "/usr/lib/ssl/engines/engine_pkcs11.so" ]; then
+    engine="/usr/lib/ssl/engines/engine_pkcs11.so"
+  else
+    echo "No engine found"
+    exit 0
   fi
   ssl_cnf="/etc/ssl/openssl.cnf"
 else
