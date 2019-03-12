@@ -37,6 +37,7 @@ addons:
 matrix:
   include:
     - os: linux
+      dist: xenial
       compiler: gcc
       env:
         - CONNECTOR_ADDR="127.0.0.1:12346"
@@ -47,6 +48,7 @@ matrix:
         - cmake --build build --target lcov
         - coveralls-lcov build/lcov/data/capture/all_targets.info
     - os: linux
+      dist: xenial
       compiler: clang
       env:
         - CONNECTOR_ADDR="127.0.0.1:12347"
