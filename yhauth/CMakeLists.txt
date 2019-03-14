@@ -43,6 +43,8 @@ endif ()
 add_definitions (-DPACKAGE="yhauth")
 add_definitions (-DVERSION="${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}")
 
+list(APPEND LCOV_REMOVE_PATTERNS "'${PROJECT_SOURCE_DIR}/yhauth/cmdline.c'")
+
 if ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
 set_property(SOURCE ${GGO_C} APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-unused-but-set-variable ")
 endif()
