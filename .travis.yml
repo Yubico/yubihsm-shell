@@ -17,9 +17,11 @@ addons:
     - lcov
     - libcurl4-openssl-dev
     - libedit-dev
+      libengine-pkcs11-openssl
     - libpcsclite-dev
     - libssl-dev
     - libusb-1.0-0-dev
+    - opensc
     - pkg-config
     - swig
   homebrew:
@@ -38,6 +40,7 @@ addons:
 matrix:
   include:
     - os: linux
+      dist: xenial
       compiler: gcc
       env:
         - CONNECTOR_ADDR="127.0.0.1:12346"
@@ -49,6 +52,7 @@ matrix:
         - cmake --build build --target lcov
         - coveralls-lcov build/lcov/data/capture/all_targets.info
     - os: linux
+      dist: xenial
       compiler: clang
       env:
         - CONNECTOR_ADDR="127.0.0.1:12347"
@@ -78,7 +82,7 @@ script:
   - pushd build
   - ./src/yubihsm-shell --connector "http://$CONNECTOR_ADDR" -p password -a reset
   - sleep 3
-  - ctest --output-on-failure -E "engine_tests|pkcs11test"
+  - ctest --output-on-failure -E "pkcs11test"
   - export YUBIHSM_PKCS11_MODULE="$PWD/pkcs11/yubihsm_pkcs11.$LIBEXT"
   - popd
   - pushd /tmp/python-pkcs11tester

@@ -29,6 +29,11 @@ elif [ "x$os" = "xLinux" ]; then
     engine="/usr/lib/ssl/engines/libpkcs11.so"
   elif [ -f "/usr/lib/x86_64-linux-gnu/engines-1.1/pkcs11.so" ]; then
     engine="/usr/lib/x86_64-linux-gnu/engines-1.1/pkcs11.so"
+  elif [ -f "/usr/lib/ssl/engines/engine_pkcs11.so" ]; then
+    engine="/usr/lib/ssl/engines/engine_pkcs11.so"
+  else
+    echo "No engine found"
+    exit 0
   fi
   ssl_cnf="/etc/ssl/openssl.cnf"
 else
@@ -124,5 +129,8 @@ test_ecdh_derive() {
 test_rsa_sig 2048
 for curve in secp224r1 prime256v1 secp256k1 secp384r1 secp521r1; do
   test_ecdsa_sig $curve
-  test_ecdh_derive $curve
+  if ! openssl version | grep -q "OpenSSL 1.0"; then
+    # OpenSSL gets engine support for ECDH from version 1.1
+    test_ecdh_derive $curve
+  fi
 done
