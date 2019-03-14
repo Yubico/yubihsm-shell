@@ -4,6 +4,7 @@ env:
 
 before_install:
   - openssl aes-256-cbc -k "$tlspwd" -md sha256 -in ./.ci/client-combined.pem.enc -out ./.ci/client-combined.pem -d
+  - git clone https://github.com/YubicoLabs/python-pkcs11tester.git /tmp/python-pkcs11tester
 
 language: c
 
@@ -20,6 +21,7 @@ addons:
     - libssl-dev
     - libusb-1.0-0-dev
     - pkg-config
+    - swig
   homebrew:
     packages:
     - cmake
@@ -30,6 +32,7 @@ addons:
     - openssl@1.1
     - pcsc-lite
     - pkg-config
+    - swig
     - truncate
 
 matrix:
@@ -40,6 +43,7 @@ matrix:
         - CONNECTOR_ADDR="127.0.0.1:12346"
         - PUBLIC_PORT="6443"
         - CMAKE_EXTRA="-DENABLE_COVERAGE=1"
+        - LIBEXT="so"
       after_success:
         - gem install coveralls-lcov
         - cmake --build build --target lcov
@@ -49,11 +53,13 @@ matrix:
       env:
         - CONNECTOR_ADDR="127.0.0.1:12347"
         - PUBLIC_PORT="7443"
+        - LIBEXT="so"
     - os: osx
       compiler: clang
       env:
         - CONNECTOR_ADDR="127.0.0.1:12348"
         - PUBLIC_PORT="8443"
+        - LIBEXT="dylib"
 #      env: PKG_CONFIG_PATH="/usr/local/opt/openssl@1.1/lib/pkgconfig:/usr/local/opt/pcsc-lite/lib/pkgconfig:/usr/local/opt/libedit/lib/pkgconfig"
 
 script:
@@ -73,4 +79,10 @@ script:
   - ./src/yubihsm-shell --connector "http://$CONNECTOR_ADDR" -p password -a reset
   - sleep 3
   - ctest --output-on-failure -E "engine_tests|pkcs11test"
+  - export YUBIHSM_PKCS11_MODULE="$PWD/pkcs11/yubihsm_pkcs11.$LIBEXT"
+  - popd
+  - pushd /tmp/python-pkcs11tester
+  - echo "connector=http://$CONNECTOR_ADDR" >yubihsm_pkcs11.conf
+  - pip install --user pykcs11==1.5.2
+  - python setup.py test
   - popd
