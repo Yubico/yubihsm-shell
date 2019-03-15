@@ -43,8 +43,6 @@ matrix:
       dist: xenial
       compiler: gcc
       env:
-        - CONNECTOR_ADDR="127.0.0.1:12346"
-        - PUBLIC_PORT="6443"
         - CMAKE_EXTRA="-DENABLE_COVERAGE=1"
         - LIBEXT="so"
       after_success:
@@ -55,38 +53,37 @@ matrix:
       dist: xenial
       compiler: clang
       env:
-        - CONNECTOR_ADDR="127.0.0.1:12347"
-        - PUBLIC_PORT="7443"
         - LIBEXT="so"
     - os: osx
       compiler: clang
       env:
-        - CONNECTOR_ADDR="127.0.0.1:12348"
-        - PUBLIC_PORT="8443"
         - LIBEXT="dylib"
-#      env: PKG_CONFIG_PATH="/usr/local/opt/openssl@1.1/lib/pkgconfig:/usr/local/opt/pcsc-lite/lib/pkgconfig:/usr/local/opt/libedit/lib/pkgconfig"
 
 script:
-  - export DEFAULT_CONNECTOR_URL="http://$CONNECTOR_ADDR"
-  - cmake -Bbuild -H. -DENABLE_EXPERIMENTAL_YKYH=1 -DDEFAULT_CONNECTOR_URL="http://$CONNECTOR_ADDR" $CMAKE_EXTRA
-  - cmake --build build -- --jobs=2 VERBOSE=1
-  - test -e ./build/src/yubihsm-shell
-  - test -e ./build/lib/libyubihsm.so -o -e ./build/lib/libyubihsm.dylib
-  - test -e ./build/pkcs11/yubihsm_pkcs11.so -o -e ./build/pkcs11/yubihsm_pkcs11.dylib
-  - test -e ./build/yhwrap/yubihsm-wrap
   - export krnl="$(uname -s | tr '[:upper:]' '[:lower:]')"
   - wget https://github.com/square/ghostunnel/releases/download/v1.3.1/ghostunnel-v1.3.1-$krnl-amd64-with-pkcs11 -O ghostunnel
   - chmod +x ./ghostunnel
-  - ./ghostunnel client --listen $CONNECTOR_ADDR --target hsm-connector01.sthlm.in.yubico.org:$PUBLIC_PORT --keystore ./.ci/client-combined.pem --cacert ./.ci/server-crt.pem 2>/dev/null &
+  - ./ghostunnel client --listen localhost:12345 --target hsm-connector01.sthlm.in.yubico.org:8443 --keystore ./.ci/client-combined.pem --cacert ./.ci/server-crt.pem 2>/dev/null &
   - sleep 3
+  - export DEFAULT_CONNECTOR_URL=$(curl http://localhost:12345/dispatcher/request)
+  - echo $DEFAULT_CONNECTOR_URL
+  - cmake -Bbuild -H. -DENABLE_EXPERIMENTAL_YKYH=1 -DDEFAULT_CONNECTOR_URL="$DEFAULT_CONNECTOR_URL" $CMAKE_EXTRA
+  - cmake --build build -- --jobs=2 VERBOSE=1
+  - test -e ./build/src/yubihsm-shell
+  - test -e ./build/lib/libyubihsm.$LIBEXT
+  - test -e ./build/pkcs11/yubihsm_pkcs11.$LIBEXT
+  - test -e ./build/yhwrap/yubihsm-wrap
   - pushd build
-  - ./src/yubihsm-shell --connector "http://$CONNECTOR_ADDR" -p password -a reset
+  - ./src/yubihsm-shell --connector "$DEFAULT_CONNECTOR_URL" -p password -a reset
   - sleep 3
   - ctest --output-on-failure -E "pkcs11test"
   - export YUBIHSM_PKCS11_MODULE="$PWD/pkcs11/yubihsm_pkcs11.$LIBEXT"
   - popd
   - pushd /tmp/python-pkcs11tester
-  - echo "connector=http://$CONNECTOR_ADDR" >yubihsm_pkcs11.conf
+  - echo "connector=$DEFAULT_CONNECTOR_URL" >yubihsm_pkcs11.conf
   - pip install --user pykcs11==1.5.2
   - python setup.py test
   - popd
+
+after_script:
+  curl "http://localhost:12345/dispatcher/release?connector=$DEFAULT_CONNECTOR_URL"
