@@ -35,7 +35,7 @@ void yh_dbg_init(int dbg, int dinout, int libdbg, const char *debug_file) {
   } else if (strcmp(debug_file, "stdout") == 0) {
     _YHP11_OUTPUT = stdout;
   } else {
-    FILE *file = fopen(debug_file, "a");
+    FILE *file = fopen(debug_file, "ab");
     if (file) {
       _YHP11_OUTPUT = file;
     } else {

@@ -1291,13 +1291,13 @@ static FILE *open_file(const char *name, bool input) {
     if (strcmp(name, "-") == 0) {
       return stdin;
     } else {
-      return fopen(name, "r");
+      return fopen(name, "rb");
     }
   } else {
     if (strcmp(name, "-") == 0) {
       return stdout;
     } else {
-      return fopen(name, "a");
+      return fopen(name, "ab");
     }
   }
 }
