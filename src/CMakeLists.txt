@@ -56,6 +56,8 @@ endif ()
 add_definitions (-DPACKAGE="yubihsm-shell")
 add_definitions (-DVERSION="${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}")
 
+list(APPEND LCOV_REMOVE_PATTERNS "'${PROJECT_SOURCE_DIR}/src/cmdline.c'")
+
 add_executable (yubihsm-shell ${SOURCE})
 if (ENABLE_STATIC)
   add_executable (yubihsm-shell_static ${SOURCE})

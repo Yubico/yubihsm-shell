@@ -46,6 +46,8 @@ add_definitions(-DVERSION_MAJOR=${yubihsm_shell_VERSION_MAJOR})
 add_definitions(-DVERSION_MINOR=${yubihsm_shell_VERSION_MINOR})
 add_definitions(-DVERSION_PATCH=${yubihsm_shell_VERSION_PATCH})
 
+list(APPEND LCOV_REMOVE_PATTERNS "'${PROJECT_SOURCE_DIR}/pkcs11/cmdline.c'")
+
 if ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
 set_property(SOURCE ${GGO_C} APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-unused-but-set-variable ")
 endif()
