@@ -5,6 +5,7 @@ env:
 before_install:
   - openssl aes-256-cbc -k "$tlspwd" -md sha256 -in ./.ci/client-combined.pem.enc -out ./.ci/client-combined.pem -d
   - git clone https://github.com/YubicoLabs/python-pkcs11tester.git /tmp/python-pkcs11tester
+  - git clone https://github.com/YubicoLabs/pkcs11test.git /tmp/pkcs11test
 
 language: c
 
@@ -60,6 +61,10 @@ matrix:
         - LIBEXT="dylib"
 
 script:
+  - pushd /tmp/pkcs11test
+  - make
+  - export PKCS11TEST_PATH="/tmp/pkcs11test"
+  - popd
   - export krnl="$(uname -s | tr '[:upper:]' '[:lower:]')"
   - wget https://github.com/square/ghostunnel/releases/download/v1.3.1/ghostunnel-v1.3.1-$krnl-amd64-with-pkcs11 -O ghostunnel
   - chmod +x ./ghostunnel
@@ -76,7 +81,7 @@ script:
   - pushd build
   - ./src/yubihsm-shell --connector "$DEFAULT_CONNECTOR_URL" -p password -a reset
   - sleep 3
-  - ctest --output-on-failure -E "pkcs11test"
+  - ctest --output-on-failure
   - export YUBIHSM_PKCS11_MODULE="$PWD/pkcs11/yubihsm_pkcs11.$LIBEXT"
   - popd
   - pushd /tmp/python-pkcs11tester
