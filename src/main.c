@@ -2577,6 +2577,19 @@ int main(int argc, char *argv[]) {
           COM_SUCCEED_OR_DIE(comrc, "Unable to set log index");
         } break;
 
+        case action_arg_blink: {
+          if(args_info.duration_arg < 0 || args_info.duration_arg > 0xff) {
+            fprintf(stderr, "Duration must be in [0, 256]\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          arg[1].w = args_info.duration_arg;
+
+          comrc = yh_com_blink(&ctx, arg, fmt_nofmt);
+          COM_SUCCEED_OR_DIE(comrc, "Unable to blink device");
+        } break;
+
         case action__NULL:
           printf("ERROR !%u \n", args_info.action_given);
           rc = EXIT_FAILURE;

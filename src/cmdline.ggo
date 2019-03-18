@@ -15,6 +15,7 @@
 #
 
 option "action" a "Action to perform" values="benchmark",
+                                             "blink",
                                              "create-otp-aead",
                                              "decrypt-aesccm",
                                              "decrypt-oaep",
@@ -69,6 +70,7 @@ option "new-password" - "New authentication password" string optional
 option "algorithm" A "Operation algorithm" string optional
 option "nonce" - "OTP nonce" int optional
 option "count" - "Number of bytes to request" int optional default="256"
+option "duration" - "Blink duration in seconds" int optional default="10"
 option "wrap-id" - "Wrap key ID" int optional
 option "template-id" - "Template ID" int optional
 option "attestation-id" - "Attestation ID" int optional
