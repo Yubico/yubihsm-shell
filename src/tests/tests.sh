@@ -64,3 +64,9 @@ $PROG -a sign-ecdsa -i $OBJ_ID -A ecdsa-sha512 --in "$DATA" --out "$SIG" -p pass
 base64 --decode "$SIG" >"$BIN_SIG"
 $PROG -a get-public-key -i $OBJ_ID --out "$PUBLIC_KEY" -p password
 openssl dgst -sha512 -verify "$PUBLIC_KEY" -signature "$BIN_SIG" "$DATA"
+
+$PROG -a blink-device -p password
+
+$PROG -a get-device-info
+
+$PROG -a get-storage-info -p password
