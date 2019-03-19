@@ -2597,7 +2597,7 @@ int main(int argc, char *argv[]) {
           COM_SUCCEED_OR_DIE(comrc, "Unable to set log index");
         } break;
 
-        case action_arg_blink: {
+        case action_arg_blinkMINUS_device: {
           if(args_info.duration_arg < 0 || args_info.duration_arg > 0xff) {
             fprintf(stderr, "Duration must be in [0, 256]\n");
             rc = EXIT_FAILURE;

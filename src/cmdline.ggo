@@ -15,7 +15,7 @@
 #
 
 option "action" a "Action to perform" values="benchmark",
-                                             "blink",
+                                             "blink-device",
                                              "create-otp-aead",
                                              "decrypt-aesccm",
                                              "decrypt-oaep",
