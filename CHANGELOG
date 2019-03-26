@@ -1,3 +1,25 @@
+=== Version 2.0.1
+
+shell: Add "blink-device" command in CLI mode
+shell: Add "set-log-index" command to CLI mode
+shell: Add "exit" as an alias to the "quit" command.
+shell: Add an optional output file to "audit get" command
+shell: No openning a session for commands that do not need one
+shell/yhwrap/pkcs11: open all files in binary mode to keep Windows from changing line ends
+shell: Install the sigalarm handler in CLI mode
+build: Add support for installing to lib64 on Fedora
+build: Only use LTO on clang > 7
+build: Add a library only build option
+examples: Improve code examples
+test: Tests are improved and are better adapted for MacOS
+pkcs11/tests: Only run ecdh engine tests on openssl 1.1+
+lib: Improve handling of device memory
+lib: Allow both USB and HTTP support to be compiled in static library
+lib: Implement signing using sign-eddsa
+lib: Add the possibility to generate authkey specifying all the capabilities in their string form
+lib/curl: Include the curl strerror in debug when a connection fails
+doc: Improvement in documentation, README files and command help
+
 === Version 2.0.0
 
 lib: Fix issue with session creation if the authentication key ID is too high
