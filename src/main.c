@@ -113,6 +113,11 @@ Command *register_command(CommandList list, Command command) {
 
   Command *c = calloc(1, sizeof(Command));
 
+  if (c == NULL) {
+    fprintf(stderr, "Failed to allocate memory\n");
+    exit(EXIT_FAILURE);
+  }
+
   assert(strlen(command.name) <= MAX_COMMAND_NAME);
 
   memcpy(c, &command, sizeof(Command));
