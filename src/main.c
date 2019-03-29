@@ -112,6 +112,10 @@ typedef Command *CommandList;
 Command *register_command(CommandList list, Command command) {
 
   Command *c = calloc(1, sizeof(Command));
+  if (c == NULL) {
+    fprintf(stderr, "Failed to allocate memory\n");
+    exit(EXIT_FAILURE);
+  }
 
   assert(strlen(command.name) <= MAX_COMMAND_NAME);
 
@@ -124,11 +128,11 @@ Command *register_command(CommandList list, Command command) {
 void register_subcommand(Command *parent, Command command) {
 
   Command *c = malloc(sizeof(Command));
-
   if (c == NULL) {
     fprintf(stderr, "Failed to allocate memory\n");
     exit(EXIT_FAILURE);
   }
+
   memcpy(c, &command, sizeof(Command));
   c->next = parent->subcommands;
   parent->subcommands = c;

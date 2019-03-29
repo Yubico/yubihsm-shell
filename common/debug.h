@@ -59,8 +59,8 @@
 
 #define DLN(var, file, col, who, lev, ...)                                     \
   if (var) {                                                                   \
-    D(var, file, col, who, lev, __VA_ARGS__);                                  \
-    fprintf(file, "\n");                                                       \
+    D(var, file != NULL ? file : stderr, col, who, lev, __VA_ARGS__);          \
+    fprintf(file != NULL ? file : stderr, "\n");                               \
   }
 
 #endif
