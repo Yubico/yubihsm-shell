@@ -709,7 +709,7 @@ static bool probe_session(yubihsm_context *ctx, int index) {
 }
 
 #ifdef __WIN32
-static void timer_handler(void *lpParam __attribute__((unused)),
+static void WINAPI timer_handler(void *lpParam __attribute__((unused)),
                           unsigned char TimerOrWaitFired
                           __attribute__((unused))) {
 #else
