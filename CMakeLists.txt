@@ -121,9 +121,12 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
   if ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,--high-entropy-va")
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,--image-base -Wl,0x140000000")
+    # mingw64 gcc with -pie puts the entry address in the wrong place, help it..
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-emainCRTStartup")
+  else()
+    # mingw32 gcc with -pie puts the entry address in the wrong place, with a different symbol than mingw64, help it..
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-e_mainCRTStartup")
   endif ()
-  # gcc with -pie puts the entry adress in the wrong spot, help it..
-  set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-emainCRTStartup")
   add_definitions (-D_POSIX_THREAD_SAFE_FUNCTIONS=1)
   add_definitions (-D__USE_MINGW_ANSI_STDIO=1)
   add_definitions (-DWIN32_LEAN_AND_MEAN=1)

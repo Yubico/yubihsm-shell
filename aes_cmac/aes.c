@@ -19,6 +19,7 @@
 
 #include <string.h>
 #include <assert.h>
+#include <stdlib.h>
 
 #ifdef _WIN32_BCRYPT
 #include <ntstatus.h>

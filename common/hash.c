@@ -21,6 +21,8 @@
 #include <openssl/evp.h>
 #endif
 
+#include <stdlib.h>
+
 #include "hash.h"
 #include "insecure_memzero.h"
 
