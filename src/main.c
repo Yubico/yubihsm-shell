@@ -710,8 +710,8 @@ static bool probe_session(yubihsm_context *ctx, int index) {
 
 #ifdef __WIN32
 static void WINAPI timer_handler(void *lpParam __attribute__((unused)),
-                          unsigned char TimerOrWaitFired
-                          __attribute__((unused))) {
+                                 unsigned char TimerOrWaitFired
+                                 __attribute__((unused))) {
 #else
 static void timer_handler(int signo __attribute__((unused))) {
 #endif
@@ -1839,7 +1839,8 @@ int main(int argc, char *argv[]) {
       arg[0].w = args_info.authkey_arg;
       arg[1].x = buf;
       arg[1].len = sizeof(buf);
-      if (get_input_data(args_info.password_given ? args_info.password_arg : "-",
+      if (get_input_data(args_info.password_given ? args_info.password_arg
+                                                  : "-",
                          arg[1].x, &arg[1].len, fmt_password) == false) {
         fprintf(stderr, "Failed to get password\n");
         rc = EXIT_FAILURE;
@@ -2602,7 +2603,7 @@ int main(int argc, char *argv[]) {
         } break;
 
         case action_arg_blinkMINUS_device: {
-          if(args_info.duration_arg < 0 || args_info.duration_arg > 0xff) {
+          if (args_info.duration_arg < 0 || args_info.duration_arg > 0xff) {
             fprintf(stderr, "Duration must be in [0, 256]\n");
             rc = EXIT_FAILURE;
             break;
