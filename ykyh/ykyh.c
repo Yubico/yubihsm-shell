@@ -540,26 +540,32 @@ ykyh_rc ykyh_list_keys(ykyh_state *state, ykyh_list_entry *list,
     return YKYHR_SUCCESS;
   }
 
-  if (*list_items < data[0]) {
-    return YKYHR_GENERIC_ERROR; // TODO(adma): not enough space, better error?
-  }
-  *list_items = data[0];
+  size_t element = 0;
+  size_t i = 0;
 
-  size_t i = 1;
-  for (size_t j = 0; j < *list_items; j++) {
+  while (i < recv_len) {
     if (data[i++] == YKYH_TAG_NAME_LIST) {
       size_t len = data[i++];
-      list[j].algo = data[i++];
-      memset(list[j].name, 0, sizeof(list[j].name));
-      memcpy(list[j].name, data + i, len - 2);
-      i += len - 2;
-      list[j].ctr = data[i++];
-    } else {
-      return YKYHR_GENERIC_ERROR;
+      if (list != NULL) {
+        if (element >= *list_items) {
+          return YKYHR_MEMORY_ERROR;
+        }
+
+        list[element].algo = data[i++];
+        memset(list[element].name, 0, sizeof(list[element].name));
+        memcpy(list[element].name, data + i, len - 2);
+        i += len - 2;
+        list[element].ctr = data[i++];
+      } else {
+        i += len;
+      }
+      element++;
     }
   }
 
-  if (i != recv_len - 2) {
+  *list_items = element;
+
+  if (i != recv_len) {
     return YKYHR_GENERIC_ERROR;
   }
 
