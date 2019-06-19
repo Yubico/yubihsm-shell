@@ -252,6 +252,9 @@ static ykyh_rc send_data(ykyh_state *state, APDU *apdu, unsigned char *data,
   }
   if (*recv_len >= 2) {
     *sw = (data[*recv_len - 2] << 8) | data[*recv_len - 1];
+    *recv_len -= 2;
+  } else {
+    *sw = 0;
   }
 
   return YKYHR_SUCCESS;
