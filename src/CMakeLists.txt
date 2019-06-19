@@ -26,6 +26,7 @@ set (
   main.c
   ../common/util.c
   ../common/hash.c
+  ../common/parsing.c
   )
 
 if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
