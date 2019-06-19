@@ -1250,12 +1250,14 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
     }
 
     char *name;
-    char *pw;
-    if (parse_yk_password((char *) (argv[1].x + 3), &name, &pw) == -1) {
+    char pw[YKYH_MAX_NAME_LEN + 2] = {0};
+    if (parse_yk_password((char *) (argv[1].x + 3), &name, pw, sizeof(pw)) ==
+        -1) {
       fprintf(stderr,
               "Failed to decode password, format must be "
-              "yk:NAME[%d-%d]:PASSWORD[%d]\n",
-              YKYH_MIN_NAME_LEN, YKYH_MAX_NAME_LEN, YKYH_PW_LEN);
+              "yk:NAME[%d-%d]:PASSWORD[%d] or yk:NAME[%d-%d]:-\n",
+              YKYH_MIN_NAME_LEN, YKYH_MAX_NAME_LEN, YKYH_PW_LEN,
+              YKYH_MIN_NAME_LEN, YKYH_MAX_NAME_LEN);
       return -1;
     }
 

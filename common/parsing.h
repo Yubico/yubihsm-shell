@@ -29,9 +29,10 @@
 #define YH_INTERNAL
 #endif
 
-bool YH_INTERNAL parse_pw(const char *prompt, char *pw, char *parsed,
-                          size_t *parsed_len);
+enum input_visibility { VISIBLE, HIDDEN_CHECKED, HIDDEN_UNCHECKED };
+
 bool YH_INTERNAL read_string(const char *name, char *str_buf,
-                             size_t str_buf_len, bool hidden);
+                             size_t str_buf_len,
+                             enum input_visibility visibility);
 
 #endif

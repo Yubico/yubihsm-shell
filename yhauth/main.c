@@ -84,6 +84,26 @@ static bool parse_name(const char *prompt, char *name, char *parsed,
   return true;
 }
 
+static bool parse_pw(const char *prompt, char *pw, char *parsed,
+                     size_t *parsed_len) {
+  if (strlen(pw) > *parsed_len) {
+    fprintf(stderr, "Unable to read password, buffer too small\n");
+    return false;
+  }
+
+  if (strlen(pw) == 0) {
+    if (read_string(prompt, parsed, *parsed_len, HIDDEN_CHECKED) == false) {
+      return false;
+    }
+  } else {
+    strncpy(parsed, pw, *parsed_len);
+  }
+
+  *parsed_len = strlen(parsed);
+
+  return true;
+}
+
 static bool parse_key(const char *prompt, char *key, uint8_t *parsed,
                       size_t *parsed_len) {
   char buf[128];
