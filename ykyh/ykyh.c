@@ -112,7 +112,7 @@ ykyh_rc ykyh_connect(ykyh_state *state, const char *wanted) {
   for (reader_ptr = reader_buf; *reader_ptr != '\0';
        reader_ptr += strlen(reader_ptr) + 1) {
     if (wanted) {
-      if (!strstr(reader_ptr, wanted)) {
+      if (!strncasecmp(reader_ptr, wanted, strlen(wanted))) {
         if (state->verbose) {
           fprintf(stderr, "skipping reader '%s' since it doesn't match '%s'\n",
                   reader_ptr, wanted);
