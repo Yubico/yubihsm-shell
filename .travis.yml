@@ -37,6 +37,7 @@ addons:
     - pkg-config
     - swig
     - truncate
+    update: true
 
 matrix:
   include:

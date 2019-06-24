@@ -24,7 +24,7 @@
 #define READ_STR_PROMPT_BASE "Enter %s: "
 
 bool read_string(const char *name, char *str_buf, size_t str_buf_len,
-                 bool hidden) {
+                 enum input_visibility visibility) {
 
   char prompt[sizeof(READ_STR_PROMPT_BASE) + 32] = {0};
   int ret;
@@ -40,39 +40,29 @@ bool read_string(const char *name, char *str_buf, size_t str_buf_len,
     return false;
   }
 
-  if (hidden == true) {
-    ret = EVP_read_pw_string(str_buf, str_buf_len, prompt, true);
-    if (ret != 0) {
-      fprintf(stderr, "Retrieving %s failed (%d)\n", name, ret);
-      return false;
-    }
-  } else {
-    fprintf(stdout, "%s", prompt);
-    str_buf = fgets(str_buf, str_buf_len, stdin);
-    if (str_buf == NULL) {
-      return false;
-    }
-    str_buf[strlen(str_buf) - 1] = '\0';
+  bool checked = false;
+  switch (visibility) {
+    case VISIBLE:
+      fprintf(stdout, "%s", prompt);
+      str_buf = fgets(str_buf, str_buf_len, stdin);
+      if (str_buf == NULL) {
+        return false;
+      }
+      str_buf[strlen(str_buf) - 1] = '\0';
+
+      break;
+
+    case HIDDEN_CHECKED:
+      checked = true;
+    case HIDDEN_UNCHECKED:
+      ret = EVP_read_pw_string(str_buf, str_buf_len, prompt, checked);
+      if (ret != 0) {
+        fprintf(stderr, "Retrieving %s failed (%d)\n", name, ret);
+        return false;
+      }
+
+      break;
   }
-
-  return true;
-}
-
-bool parse_pw(const char *prompt, char *pw, char *parsed, size_t *parsed_len) {
-  if (strlen(pw) > *parsed_len) {
-    fprintf(stderr, "Unable to read name, buffer too small\n");
-    return false;
-  }
-
-  if (strlen(pw) == 0) {
-    if (read_string(prompt, parsed, *parsed_len, true) == false) {
-      return false;
-    }
-  } else {
-    strncpy(parsed, pw, *parsed_len);
-  }
-
-  *parsed_len = strlen(parsed);
 
   return true;
 }

@@ -22,6 +22,7 @@
 #include "commands.h"
 #include "yubihsm-shell.h"
 #include "../common/insecure_memzero.h"
+#include "../common/parsing.h"
 
 #include "hash.h"
 #include "util.h"
@@ -1179,19 +1180,48 @@ int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 }
 
 #ifdef USE_YKYH
-static int parse_yk_password(char *line, char **name, char **pw) {
+static int parse_yk_password(char *line, char **name, char *pw, size_t pw_len) {
 
   int len = strlen(line);
+  char *tmp_pw = NULL;
 
   *name = line;
   for (int i = 0; i < len; i++) {
     if (line[i] == ':') {
-      if (len - i - 1 != YKYH_PW_LEN) {
+      if (len - i - 1 != YKYH_PW_LEN &&
+          (len - i - 1 != 1 && line[i + 1] != '-')) {
         return -1;
       }
 
       line[i] = '\0';
-      *pw = line + i + 1;
+      tmp_pw = line + i + 1;
+
+      if (strcmp(tmp_pw, "-") == 0) {
+#ifndef __WIN32
+        // NOTE: we have to stop the timer around the call to
+        // EVP_read_pw_string(), openssl gets sad if a signal hits while waiting
+        // for input from the user. So we stop the timer and restore it when
+        // we're done
+        struct itimerval stoptimer, oldtimer;
+        memset(&stoptimer, 0, sizeof(stoptimer));
+        if (setitimer(ITIMER_REAL, &stoptimer, &oldtimer) != 0) {
+          fprintf(stderr, "Failed to setup timer\n");
+          return false;
+        }
+#endif
+        if (read_string("Credential password", pw, pw_len, HIDDEN_UNCHECKED) ==
+            false) {
+          return -1;
+        }
+#ifndef __WIN32
+        if (setitimer(ITIMER_REAL, &oldtimer, NULL) != 0) {
+          fprintf(stderr, "Failed to restore timer\n");
+          return false;
+        }
+#endif
+      } else {
+        strncpy(pw, tmp_pw, YKYH_PW_LEN);
+      }
 
       return 0;
     }
@@ -1250,12 +1280,14 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
     }
 
     char *name;
-    char *pw;
-    if (parse_yk_password((char *) (argv[1].x + 3), &name, &pw) == -1) {
+    char pw[YKYH_MAX_NAME_LEN + 2] = {0};
+    if (parse_yk_password((char *) (argv[1].x + 3), &name, pw, sizeof(pw)) ==
+        -1) {
       fprintf(stderr,
               "Failed to decode password, format must be "
-              "yk:NAME[%d-%d]:PASSWORD[%d]\n",
-              YKYH_MIN_NAME_LEN, YKYH_MAX_NAME_LEN, YKYH_PW_LEN);
+              "yk:NAME[%d-%d]:PASSWORD[%d] or yk:NAME[%d-%d]:-\n",
+              YKYH_MIN_NAME_LEN, YKYH_MAX_NAME_LEN, YKYH_PW_LEN,
+              YKYH_MIN_NAME_LEN, YKYH_MAX_NAME_LEN);
       return -1;
     }
 
