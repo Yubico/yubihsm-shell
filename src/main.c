@@ -2148,11 +2148,11 @@ int main(int argc, char *argv[]) {
             break;
           }
 
-          arg[1].w = args_info.object_id_arg;
+          arg[1].w = args_info.wrap_id_arg;
           yrc = yh_string_to_type(args_info.object_type_arg, &arg[2].t);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse type: ");
 
-          arg[3].w = args_info.wrap_id_arg;
+          arg[3].w = args_info.object_id_arg;
 
           arg[4].s = args_info.out_arg;
           arg[4].len = strlen(args_info.out_arg);
