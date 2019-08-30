@@ -24,6 +24,14 @@ os=`uname`
 if [ "x$os" = "xDarwin" ]; then
   echo "mac os not supported yet"
   exit 0
+elif [ "x$os" = "xFreeBSD" ]; then
+  if [ -f "/usr/local/lib/engines/pkcs11.so" ]; then
+    engine="/usr/local/lib/engines/pkcs11.so"
+  else
+    echo "No engine found"
+    exit 0
+  fi
+  ssl_cnf="/etc/ssl/openssl.cnf"
 elif [ "x$os" = "xLinux" ]; then
   if [ -f "/usr/lib/ssl/engines/libpkcs11.so" ]; then
     engine="/usr/lib/ssl/engines/libpkcs11.so"

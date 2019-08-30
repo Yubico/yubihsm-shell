@@ -213,6 +213,8 @@ message(STATUS "Using PKCS11_TESTER: $ENV{PKCS11TEST_PATH}/pkcs11test")
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set(LIBEXT "dylib")
+elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+  set(LIBEXT "so")
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   set(LIBEXT "so")
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
