@@ -56,11 +56,7 @@
 // TODO: cheat on windows, cheat better?
 #define S_ISLNK S_ISREG
 #else
-#if defined(__FreeBSD__)
-#include <edit/readline/readline.h>
-#else
 #include <editline/readline.h>
-#endif
 #include <histedit.h>
 
 History *g_hist;
