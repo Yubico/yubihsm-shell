@@ -26,6 +26,7 @@
 #include "openssl-compat.h"
 #include "util.h"
 #include "insecure_memzero.h"
+#include "hash.h"
 
 bool set_component(unsigned char *in_ptr, const BIGNUM *bn, int element_len) {
   int real_len = BN_num_bytes(bn);
@@ -118,6 +119,40 @@ bool read_private_key(uint8_t *buf, size_t len, yh_algorithm *algo,
 
   if (read_ed25519_key(buf, len, bytes, bytes_len) == true) {
     *algo = YH_ALGO_EC_ED25519;
+
+    if (internal_repr == true) {
+#if OPENSSL_VERSION_NUMBER < 0x10101000L
+      return false;
+#else
+      EVP_PKEY *pkey =
+        EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519, NULL, bytes, *bytes_len);
+      if (pkey == NULL) {
+        return false;
+      }
+
+      size_t public_key_len = 0xff;
+      if (EVP_PKEY_get_raw_public_key(pkey, bytes + 64, &public_key_len) != 1 ||
+          public_key_len != 32) {
+        EVP_PKEY_free(pkey);
+        return false;
+      }
+
+      EVP_PKEY_free(pkey);
+
+      for (uint8_t i = 0; i < 16; i++) {
+        uint8_t tmp = bytes[i];
+        bytes[i] = bytes[31 - i];
+        bytes[31 - i] = tmp;
+      }
+
+      if (hash_bytes(bytes, *bytes_len, _SHA512, bytes, bytes_len) == false) {
+        return false;
+      }
+
+      *bytes_len += public_key_len;
+#endif
+    }
+
     return true;
   }
 
