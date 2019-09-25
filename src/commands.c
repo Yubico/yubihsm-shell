@@ -49,6 +49,8 @@ static format_t fmt_to_fmt(cmd_format fmt) {
       return _binary;
     case fmt_hex:
       return _hex;
+    case fmt_PEM:
+      return _PEM;
     default:
       return 0;
   }
@@ -899,11 +901,14 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
     EC_KEY_free(eckey);
     EC_GROUP_free(group);
   } else {
-    // NOTE(adma): ED25519, there is no support for thi in OpenSSL, so
-    // we manually export them
+    // NOTE(adma): ED25519, there is (was) no support for this in
+    // OpenSSL, so we manually export them
     EVP_PKEY_free(public_key);
-    write_ed25519_key(response, response_len, ctx->out,
-                      ctx->out_fmt == fmt_PEM); // FIXME: do something
+    if (write_ed25519_key(response, response_len, ctx->out, fmt_to_fmt(fmt)) ==
+        false) {
+      fprintf(stderr, "Unable to format ed25519 key\n");
+      return -1;
+    }
     return 0;
   }
 

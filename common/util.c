@@ -71,9 +71,9 @@ static unsigned const char ed25519private_oid[] = {0x30, 0x2e, 0x02, 0x01,
                                                    0x00, 0x30, 0x05, 0x06,
                                                    0x03, 0x2b, 0x65, 0x70,
                                                    0x04, 0x22, 0x04, 0x20};
-static unsigned const char ed25519public_oid[] = {0x30, 0x29, 0x30, 0x05,
+static unsigned const char ed25519public_oid[] = {0x30, 0x2a, 0x30, 0x05,
                                                   0x06, 0x03, 0x2b, 0x65,
-                                                  0x70, 0x03, 0x20};
+                                                  0x70, 0x03, 0x21, 0x00};
 
 bool read_ed25519_key(uint8_t *in, size_t in_len, uint8_t *out,
                       size_t *out_len) {
@@ -623,6 +623,9 @@ bool write_file(const uint8_t *buf, size_t buf_len, FILE *fp, format_t format) {
     }
     p = data;
     length = buf_len * 2;
+  } else if (format == _PEM) {
+    p = buf;
+    length = buf_len;
   }
 
   do {
@@ -655,31 +658,45 @@ bool write_file(const uint8_t *buf, size_t buf_len, FILE *fp, format_t format) {
 }
 
 bool write_ed25519_key(uint8_t *buf, size_t buf_len, FILE *fp,
-                       bool b64_encode) {
+                       format_t format) {
 
-  if (b64_encode == true) {
-    uint8_t newline = '\n';
+  if (format == _base64 || format == _PEM) {
     uint8_t asn1[64];
-    uint8_t padding = 0;
+    uint8_t drop_newline;
 
-    if ((buf[0] & 0x80) != 0) {
-      padding = 1;
+    if (fp == stdout || fp == stderr) {
+      drop_newline = 1;
+    } else {
+      drop_newline = 0;
     }
 
     memcpy(asn1, ed25519public_oid, sizeof(ed25519public_oid));
-    asn1[1] += padding;
-    memset(asn1 + sizeof(ed25519public_oid), 0, padding);
-    asn1[10] += padding;
-    memcpy(asn1 + sizeof(ed25519public_oid) + padding, buf, buf_len);
+    memcpy(asn1 + sizeof(ed25519public_oid), buf, buf_len);
 
-    write_file((uint8_t *) PEM_public_header, sizeof(PEM_public_header) - 1, fp,
-               false);
-    write_file(asn1, sizeof(ed25519public_oid) + padding + buf_len, fp, true);
-    write_file(&newline, 1, fp, false);
-    write_file((uint8_t *) PEM_public_trailer, sizeof(PEM_public_trailer) - 1,
-               fp, false);
+    if (format == _PEM) {
+      write_file((uint8_t *) PEM_public_header,
+                 sizeof(PEM_public_header) - 1 - drop_newline, fp, _PEM);
+    }
+
+    write_file(asn1, sizeof(ed25519public_oid) + buf_len, fp, _base64);
+    if (fp != stdout && fp != stderr) {
+      uint8_t newline = '\n';
+      write_file(&newline, 1, fp, _PEM);
+    }
+
+    if (format == _PEM) {
+      write_file((uint8_t *) PEM_public_trailer,
+                 sizeof(PEM_public_trailer) - 1 - drop_newline, fp, _PEM);
+    }
+  } else if (format == _hex) {
+    write_file(buf, buf_len, fp, _hex);
+
+    if (fp != stdout && fp != stderr) {
+      uint8_t newline = '\n';
+      write_file(&newline, 1, fp, _PEM);
+    }
   } else {
-    write_file(buf, buf_len, fp, false);
+    return false; // TODO(adma): _binary?
   }
 
   return true;
