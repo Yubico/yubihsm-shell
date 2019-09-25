@@ -277,6 +277,11 @@ put_yhwrapped_asymmetric_ecdsa() {
 }
 
 put_yhwrapped_asymmetric_eddsa() {
+  if [ $(openssl list -public-key-methods | grep -i ed25519 -c) -eq 0 ]; then
+    echo "OpenSSL version without Ed25519, skipping put_yhwrapped_asymmetric_eddsa"
+    return
+  fi
+
   local -r wrapid="0xdead"
   local -r wrapkey="$TMPDIR/${FUNCNAME[0]}_wrapkey"
   local -r keyid="0xfefe"
