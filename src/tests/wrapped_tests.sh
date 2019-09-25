@@ -319,9 +319,6 @@ put_yhwrapped_asymmetric_eddsa() {
   $YHSHELL --action="get-public-key" --password="password" --authkey="1"        \
     --object-id="$keyid" --out="$keyfile.pub.shell"
 
-  cat "$keyfile.pub"
-  echo "----"
-  cat "$keyfile.pub.shell"
   diff -u "$keyfile.pub" "$keyfile.pub.shell"
 }
 
