@@ -77,7 +77,7 @@ script:
   - export PKCS11TEST_PATH="/tmp/pkcs11test"
   - popd
   - export krnl="$(uname -s | tr '[:upper:]' '[:lower:]')"
-  - wget https://github.com/square/ghostunnel/releases/download/v1.3.1/ghostunnel-v1.3.1-$krnl-amd64-with-pkcs11 -O ghostunnel
+  - wget -q https://github.com/square/ghostunnel/releases/download/v1.3.1/ghostunnel-v1.3.1-$krnl-amd64-with-pkcs11 -O ghostunnel
   - chmod +x ./ghostunnel
   - ./ghostunnel client --listen localhost:12345 --target hsm-connector01.sthlm.in.yubico.org:8443 --keystore ./.ci/client-combined.pem --cacert ./.ci/server-crt.pem 2>/dev/null &
   - sleep 3
