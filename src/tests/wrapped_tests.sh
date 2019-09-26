@@ -276,6 +276,57 @@ put_yhwrapped_asymmetric_ecdsa() {
   done
 }
 
+put_yhwrapped_asymmetric_eddsa() {
+  if [ $(openssl list -public-key-methods | grep -i ed25519 -c) -eq 0 ]; then
+    echo "OpenSSL version without Ed25519, skipping put_yhwrapped_asymmetric_eddsa"
+    return
+  fi
+
+  local -r wrapid="0xdead"
+  local -r wrapkey="$TMPDIR/${FUNCNAME[0]}_wrapkey"
+  local -r keyid="0xfefe"
+  local -r keyfile="$TMPDIR/${FUNCNAME[0]}_keyfile.pem"
+  local -r keyfilew="$TMPDIR/${FUNCNAME[0]}_keyfile.wrapped"
+
+  $YHSHELL --action="get-object-info" --password="password" --authkey="1"     \
+    --object-id="$wrapid" --object-type="wrap-key" && {
+    echo "${FUNCNAME[0]}: delete wrapkey"
+    $YHSHELL --action="delete-object" --password="password" --authkey="1"     \
+      --object-id="$wrapid" --object-type="wrap-key"
+  }
+
+  echo "${FUNCNAME[0]}: creating wrapkey"
+  openssl rand 16 > "$wrapkey"
+  $YHSHELL --action="put-wrap-key" --password="password" --authkey="1"        \
+    --object-id="$wrapid" --label="${FUNCNAME[0]}" --domains="all"             \
+    --capabilities="all" --delegated="all"                                     \
+    --in="$wrapkey" --informat="binary"
+
+  $YHSHELL --action="get-object-info" --password="password" --authkey="1"   \
+    --object-id="$keyid" --object-type="asymmetric-key" && {
+    echo "${FUNCNAME[0]}: delete ed key"
+    $YHSHELL --action="delete-object" --password="password" --authkey="1"   \
+      --object-id="$keyid" --object-type="asymmetric-key"
+  }
+  echo "${FUNCNAME[0]}: creating ed key"
+  openssl genpkey -algorithm Ed25519 -out "$keyfile"
+  $YHWRAP --algorithm="ed25519"                                              \
+    --capabilities="all" --delegated="all"                                   \
+    --domains="all" --id="$keyid" --in="$keyfile"                            \
+    --out="$keyfilew" --label="${FUNCNAME[0]}" --wrapkey="$wrapkey"
+
+  echo "${FUNCNAME[0]}: put-wrapped ed25519"
+  $YHSHELL --action="put-wrapped" --password="password" --authkey="1"       \
+    --wrap-id="$wrapid" --in="$keyfilew" --informat="base64"
+
+  echo "${FUNCNAME[0]}: comparing pubs ed25519"
+  openssl pkey -in "$keyfile" -pubout > "$keyfile.pub"
+  $YHSHELL --action="get-public-key" --password="password" --authkey="1"        \
+    --object-id="$keyid" --out="$keyfile.pub.shell"
+
+  diff -u "$keyfile.pub" "$keyfile.pub.shell"
+}
+
 main() {
   put_yhwrapped_authkey
   put_yhwrapped_authkey_fail_cap
@@ -283,6 +334,7 @@ main() {
 
   put_yhwrapped_asymmetric_rsa
   put_yhwrapped_asymmetric_ecdsa
+  put_yhwrapped_asymmetric_eddsa
 }
 
 main "$@"

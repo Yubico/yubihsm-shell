@@ -56,6 +56,16 @@ matrix:
       compiler: clang
       env:
         - LIBEXT="so"
+    - os: linux
+      dist: bionic
+      compiler: gcc
+      env:
+        - LIBEXT="so"
+    - os: linux
+      dist: bionic
+      compiler: clang
+      env:
+        - LIBEXT="so"
     - os: osx
       compiler: clang
       env:

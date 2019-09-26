@@ -28,6 +28,7 @@ typedef enum {
   _base64,
   _binary,
   _hex,
+  _PEM,
 } format_t;
 
 #ifndef __WIN32
@@ -52,7 +53,7 @@ bool YH_INTERNAL write_file(const uint8_t *buf, size_t buf_len, FILE *fp,
 bool YH_INTERNAL read_ed25519_key(uint8_t *in, size_t in_len, uint8_t *out,
                                   size_t *out_len);
 bool YH_INTERNAL write_ed25519_key(uint8_t *buf, size_t buf_len, FILE *fp,
-                                   bool b64_encode);
+                                   format_t format);
 
 bool YH_INTERNAL base64_decode(const char *in, uint8_t *out, size_t *len);
 bool YH_INTERNAL hex_decode(const char *in, uint8_t *out, size_t *len);
