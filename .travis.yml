@@ -83,6 +83,7 @@ script:
   - sleep 3
   - export DEFAULT_CONNECTOR_URL=$(curl http://localhost:12345/dispatcher/request)
   - echo $DEFAULT_CONNECTOR_URL
+  - test -z "$DEFAULT_CONNECTOR_URL" && (echo "Unable to obtain a connector URL, aborting"; exit 1)
   - cmake -Bbuild -H. -DENABLE_EXPERIMENTAL_YKYH=1 -DDEFAULT_CONNECTOR_URL="$DEFAULT_CONNECTOR_URL" $CMAKE_EXTRA
   - cmake --build build -- --jobs=2 VERBOSE=1
   - test -e ./build/src/yubihsm-shell
