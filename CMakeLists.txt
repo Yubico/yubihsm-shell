@@ -69,7 +69,9 @@ set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-format-zero-length -Wno-implicit-fallt
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wformat -Wformat-security")
 
 # fortify can only be used with -O2 and higher, so only enable for release builds
-set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2")
+if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+  set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2")
+endif ()
 if (NOT DISABLE_LTO)
   if (CMAKE_C_COMPILER_ID STREQUAL GNU)
     if (CMAKE_C_COMPILER_VERSION VERSION_GREATER 6.0)
