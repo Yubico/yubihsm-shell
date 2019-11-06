@@ -269,6 +269,7 @@ void usb_close(yh_backend *state) {
 
 void usb_destroy(yh_backend **state) {
   if (state && *state) {
+    usb_close(*state);
     free(*state);
     *state = NULL;
   }
