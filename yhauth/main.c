@@ -191,10 +191,11 @@ static bool list_credentials(ykyh_state *state) {
   }
 
   fprintf(stdout, "Found %lu item(s)\n", list_items);
-  fprintf(stdout, "Algo\tCounter\tName\n");
+  fprintf(stdout, "Algo\tTouch\tCounter\tName\n");
 
   for (size_t i = 0; i < list_items; i++) {
-    fprintf(stdout, "%d\t%d\t%s\n", list[i].algo, list[i].ctr, list[i].name);
+    fprintf(stdout, "%d\t%d\t%d\t%s\n", list[i].algo, list[i].touch,
+            list[i].ctr, list[i].name);
   }
 
   return true;
