@@ -957,7 +957,7 @@ int yh_com_get_object_info(yubihsm_context *ctx, Argument *argv,
   yh_domains_to_string(object.domains, domains, 255);
 
   for (size_t i = 0; i < label_len; i++) {
-    if(isprint(label[i]==0)) {
+    if(isprint(label[i])==0) {
       label[i] = '.';
     }
   }
