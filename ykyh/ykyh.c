@@ -552,9 +552,10 @@ ykyh_rc ykyh_list_keys(ykyh_state *state, ykyh_list_entry *list,
         }
 
         list[element].algo = data[i++];
+        list[element].touch = data[i++];
         memset(list[element].name, 0, sizeof(list[element].name));
-        memcpy(list[element].name, data + i, len - 2);
-        i += len - 2;
+        memcpy(list[element].name, data + i, len - 3);
+        i += len - 3;
         list[element].ctr = data[i++];
       } else {
         i += len;

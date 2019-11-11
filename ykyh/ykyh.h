@@ -85,6 +85,7 @@ typedef enum {
 
 typedef struct {
   uint8_t algo;
+  uint8_t touch;
   char name[YKYH_MAX_NAME_LEN + 1];
   uint8_t ctr;
 } ykyh_list_entry;

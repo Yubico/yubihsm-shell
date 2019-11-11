@@ -14,11 +14,12 @@
 # limitations under the License.
 #
 
-option "action" a "Action to take" values="delete","list","put","reset","version" enum optional
+option "action" a "Action to take" values="calculate","delete","list","put","reset","version" enum optional
 option "password" p "Credential password" string optional default=""
 option "name" n "Credential name" string optional default=""
 option "reader" r "Only use a matching reader" string optional default="Yubikey"
 option "touch" t "Touch required" values="off","on" enum optional default="off"
+option "context" c "Session keys calculation context" string optional default=""
 option "verbose" v "Print more information" int optional default="0" argoptional
 
 defmode "derivation" modedesc="Derive keys from a password using PBKDF2"
