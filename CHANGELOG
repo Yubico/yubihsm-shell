@@ -1,3 +1,19 @@
+=== Version 2.0.2
+
+yhauth: Report touch policy as part of the "list" command
+ykyh: Allow reading the password from stdin
+yhwrap: Fix wrapping of ED25519 keys
+shell: Fix ED25519 public key PEM formatting
+shell: Replace unprintable characters in the object label with '.'
+ci: Fail early if DEFAULT_CONNECTOR_URL is not set
+ci: Update homebrew dependencies
+build: Add two bionic-based builds
+build: Fix 32-bit Windows builds with mingw32/gcc7
+build: Ensure that PCSC is not automatically used on Windows
+tool: Stop the timer for keepalive functionality while reading the password string
+misc: Allow disabling link time optimization.
+misc: Fixes and improvements to build, work and test on FreeBSD.
+
 === Version 2.0.1
 
 shell: Add "blink-device" command in CLI mode
