@@ -749,6 +749,7 @@ int yh_com_get_opaque(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 
   uint8_t response[YH_MSG_BUF_SIZE];
   size_t response_len = sizeof(response);
+  int ret = -1;
 
   yh_rc yrc = yh_util_get_opaque(argv[0].e, argv[1].w, response, &response_len);
   if (yrc != YHR_SUCCESS) {
@@ -756,11 +757,24 @@ int yh_com_get_opaque(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
     return -1;
   }
 
-  if (write_file(response, response_len, ctx->out, fmt_to_fmt(fmt))) {
-    return 0;
+  if (fmt == fmt_PEM) {
+    X509 *x509;
+    const unsigned char *ptr = response;
+    x509 = d2i_X509(NULL, &ptr, response_len);
+    if (!x509) {
+      fprintf(stderr, "Failed parsing x509 information\n");
+    } else {
+      PEM_write_X509(ctx->out, x509);
+      ret = 0;
+    }
+    X509_free(x509);
+  } else {
+    if (write_file(response, response_len, ctx->out, fmt_to_fmt(fmt))) {
+      ret = 0;
+    }
   }
 
-  return -1;
+  return ret;
 }
 
 // NOTE(adma): Get a global option value
