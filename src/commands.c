@@ -957,7 +957,7 @@ int yh_com_get_object_info(yubihsm_context *ctx, Argument *argv,
   yh_domains_to_string(object.domains, domains, 255);
 
   for (size_t i = 0; i < label_len; i++) {
-    if(isprint(label[i])==0) {
+    if (isprint(label[i]) == 0) {
       label[i] = '.';
     }
   }
@@ -965,8 +965,8 @@ int yh_com_get_object_info(yubihsm_context *ctx, Argument *argv,
   fprintf(ctx->out,
           "id: 0x%04x, type: %s%s%s, label: \"%s\", length: %d, "
           "domains: %s, sequence: %hhu, origin: ",
-          object.id, type, extra_algo, algorithm, label, object.len,
-          domains, object.sequence);
+          object.id, type, extra_algo, algorithm, label, object.len, domains,
+          object.sequence);
 
   if (object.origin & YH_ORIGIN_GENERATED) {
     fprintf(ctx->out, "generated");
