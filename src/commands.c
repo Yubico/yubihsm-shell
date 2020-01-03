@@ -764,8 +764,11 @@ int yh_com_get_opaque(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
     if (!x509) {
       fprintf(stderr, "Failed parsing x509 information\n");
     } else {
-      PEM_write_X509(ctx->out, x509);
-      ret = 0;
+      if (PEM_write_X509(ctx->out, x509) == 1) {
+        ret = 0;
+      } else {
+        fprintf(stderr, "Failed writing x509 information\n");
+      }
     }
     X509_free(x509);
   } else {
