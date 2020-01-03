@@ -749,6 +749,7 @@ int yh_com_get_opaque(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 
   uint8_t response[YH_MSG_BUF_SIZE];
   size_t response_len = sizeof(response);
+  int ret = -1;
 
   yh_rc yrc = yh_util_get_opaque(argv[0].e, argv[1].w, response, &response_len);
   if (yrc != YHR_SUCCESS) {
@@ -756,11 +757,27 @@ int yh_com_get_opaque(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
     return -1;
   }
 
-  if (write_file(response, response_len, ctx->out, fmt_to_fmt(fmt))) {
-    return 0;
+  if (fmt == fmt_PEM) {
+    X509 *x509;
+    const unsigned char *ptr = response;
+    x509 = d2i_X509(NULL, &ptr, response_len);
+    if (!x509) {
+      fprintf(stderr, "Failed parsing x509 information\n");
+    } else {
+      if (PEM_write_X509(ctx->out, x509) == 1) {
+        ret = 0;
+      } else {
+        fprintf(stderr, "Failed writing x509 information\n");
+      }
+    }
+    X509_free(x509);
+  } else {
+    if (write_file(response, response_len, ctx->out, fmt_to_fmt(fmt))) {
+      ret = 0;
+    }
   }
 
-  return -1;
+  return ret;
 }
 
 // NOTE(adma): Get a global option value
@@ -957,7 +974,7 @@ int yh_com_get_object_info(yubihsm_context *ctx, Argument *argv,
   yh_domains_to_string(object.domains, domains, 255);
 
   for (size_t i = 0; i < label_len; i++) {
-    if(isprint(label[i])==0) {
+    if (isprint(label[i]) == 0) {
       label[i] = '.';
     }
   }
@@ -965,8 +982,8 @@ int yh_com_get_object_info(yubihsm_context *ctx, Argument *argv,
   fprintf(ctx->out,
           "id: 0x%04x, type: %s%s%s, label: \"%s\", length: %d, "
           "domains: %s, sequence: %hhu, origin: ",
-          object.id, type, extra_algo, algorithm, label, object.len,
-          domains, object.sequence);
+          object.id, type, extra_algo, algorithm, label, object.len, domains,
+          object.sequence);
 
   if (object.origin & YH_ORIGIN_GENERATED) {
     fprintf(ctx->out, "generated");
