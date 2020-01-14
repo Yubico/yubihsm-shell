@@ -137,16 +137,22 @@ static void backend_disconnect(yh_backend *connection) {
   curl_easy_cleanup(connection);
 }
 
-static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response) {
+static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
+                              const char *identifier) {
   CURLcode rc;
   yh_rc yrc = YHR_CONNECTION_ERROR;
   int32_t trf_len = msg->st.len + 3;
   struct curl_data data = {response->raw, 0, SCP_MSG_BUF_SIZE};
   struct curl_slist *headers = NULL;
   char curl_error[CURL_ERROR_SIZE] = {0};
+  char hsm_identifier[64];
 
-  headers =
-    curl_slist_append(headers, "Content-Type: application/octet-stream");
+  headers = curl_slist_append(NULL, "Content-Type: application/octet-stream");
+
+  if (identifier != NULL && strlen(identifier) > 0 && strlen(identifier) < 32) {
+    snprintf(hsm_identifier, 63, "YubiHSM-Session: %s", identifier);
+    headers = curl_slist_append(headers, hsm_identifier);
+  }
 
   curl_easy_setopt(connection, CURLOPT_HTTPHEADER, headers);
   curl_easy_setopt(connection, CURLOPT_POSTFIELDS, (void *) msg->raw);

@@ -72,7 +72,8 @@ static void compute_full_mac(uint8_t *data, uint16_t data_len, uint8_t *key,
   insecure_memzero(&ctx, sizeof(ctx));
 }
 
-static yh_rc send_msg(yh_connector *connector, Msg *msg, Msg *response) {
+static yh_rc send_msg(yh_connector *connector, Msg *msg, Msg *response,
+                      const char *identifier) {
 
   yh_rc yrc;
   if (connector == NULL || connector->bf == NULL) {
@@ -80,7 +81,8 @@ static yh_rc send_msg(yh_connector *connector, Msg *msg, Msg *response) {
     return YHR_INVALID_PARAMETERS;
   }
   DBG_NET(msg, dump_msg);
-  yrc = connector->bf->backend_send_msg(connector->connection, msg, response);
+  yrc = connector->bf->backend_send_msg(connector->connection, msg, response,
+                                        identifier);
   if (yrc == YHR_SUCCESS) {
     DBG_NET(response, dump_response);
   }
@@ -111,7 +113,7 @@ static yh_rc send_authenticated_msg(yh_session *session, Msg *msg,
   memcpy(msg->st.data + msg->st.len - SCP_MAC_LEN,
          session->s.mac_chaining_value, SCP_MAC_LEN);
 
-  return send_msg(session->parent, msg, response);
+  return send_msg(session->parent, msg, response, session->s.identifier);
 }
 
 static void increment_ctr(uint8_t ctr[SCP_PRF_LEN]) {
@@ -154,7 +156,7 @@ yh_rc yh_send_plain_msg(yh_connector *connector, yh_cmd cmd,
   DBG_DUMPINFO(msg.raw, data_len + 3, "Sending cmd %02x (%3zu Bytes): ", cmd,
                data_len + 3);
 
-  yrc = send_msg(connector, &msg, &response_msg);
+  yrc = send_msg(connector, &msg, &response_msg, NULL);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("%s", yh_strerror(yrc));
     return yrc;
@@ -625,6 +627,7 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
   uint8_t card_cryptogram[SCP_CARD_CRYPTO_LEN];
   yh_session *new_session;
   uint8_t host_challenge[YH_HOST_CHAL_LEN];
+  uint8_t identifier[8];
 
   if (connector == NULL || key_enc == NULL || key_enc_len != SCP_KEY_LEN ||
       key_mac == NULL || key_mac_len != SCP_KEY_LEN || session == NULL) {
@@ -654,6 +657,15 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
     memcpy(new_session->key_mac, key_mac, SCP_KEY_LEN);
   }
 
+  if (!rand_generate(identifier, sizeof(identifier))) {
+    DBG_ERR("Failed getting randomness");
+    yrc = YHR_GENERIC_ERROR;
+    goto cs_failure;
+  }
+  snprintf(new_session->s.identifier, 17, "%02x%02x%02x%02x%02x%02x%02x%02x",
+           identifier[0], identifier[1], identifier[2], identifier[3],
+           identifier[4], identifier[5], identifier[6], identifier[7]);
+
   // Send CREATE SESSION command
   msg.st.cmd = YHC_CREATE_SESSION;
   msg.st.len = SCP_AUTHKEY_ID_LEN + SCP_HOST_CHAL_LEN;
@@ -665,7 +677,7 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
 
   DBG_INT(host_challenge, SCP_HOST_CHAL_LEN, "Host challenge: ");
 
-  yrc = send_msg(connector, &msg, &response_msg);
+  yrc = send_msg(connector, &msg, &response_msg, new_session->s.identifier);
   if (yrc != YHR_SUCCESS) {
     goto cs_failure;
   }
@@ -759,6 +771,7 @@ yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
   uint8_t *ptr;
   yh_session *new_session;
   uint8_t host_challenge[YH_HOST_CHAL_LEN];
+  uint8_t identifier[8];
 
   if (connector == NULL || context == NULL || card_cryptogram == NULL ||
       card_cryptogram_len != SCP_CARD_CRYPTO_LEN || session == NULL) {
@@ -788,9 +801,18 @@ yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
   memcpy(msg.st.data + SCP_AUTHKEY_ID_LEN, host_challenge, SCP_HOST_CHAL_LEN);
   memcpy(new_session->context, host_challenge, SCP_HOST_CHAL_LEN);
 
+  if (!rand_generate(identifier, sizeof(identifier))) {
+    DBG_ERR("Failed getting randomness");
+    yrc = YHR_GENERIC_ERROR;
+    goto bcse_failure;
+  }
+  snprintf(new_session->s.identifier, 17, "%02x%02x%02x%02x%02x%02x%02x%02x",
+           identifier[0], identifier[1], identifier[2], identifier[3],
+           identifier[4], identifier[5], identifier[6], identifier[7]);
+
   DBG_INT(host_challenge, SCP_HOST_CHAL_LEN, "Host challenge: ");
 
-  yrc = send_msg(connector, &msg, &response_msg);
+  yrc = send_msg(connector, &msg, &response_msg, new_session->s.identifier);
   if (yrc != YHR_SUCCESS) {
     goto bcse_failure;
   }
@@ -2968,7 +2990,7 @@ yh_rc yh_authenticate_session(yh_session *session) {
   memset(session->s.ctr, 0, SCP_PRF_LEN);
   session->s.ctr[SCP_PRF_LEN - 1]++;
 
-  yrc = send_msg(session->parent, &msg, &response_msg);
+  yrc = send_msg(session->parent, &msg, &response_msg, session->s.identifier);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("%s", yh_strerror(yrc));
     return yrc;
@@ -3868,14 +3890,13 @@ static yh_rc load_backend(const char *name,
   if (name == NULL) {
     DBG_ERR("No name given to load_backend");
     return YHR_GENERIC_ERROR;
-  }
-  else if (strncmp(name, STATIC_USB_BACKEND, strlen(STATIC_USB_BACKEND)) == 0) {
+  } else if (strncmp(name, STATIC_USB_BACKEND, strlen(STATIC_USB_BACKEND)) ==
+             0) {
     *bf = usb_backend_functions();
-  }
-  else if (strncmp(name, STATIC_HTTP_BACKEND, strlen(STATIC_HTTP_BACKEND)) == 0) {
+  } else if (strncmp(name, STATIC_HTTP_BACKEND, strlen(STATIC_HTTP_BACKEND)) ==
+             0) {
     *bf = http_backend_functions();
-  }
-  else {
+  } else {
     DBG_ERR("Failed finding backend named '%s'", name);
     return YHR_GENERIC_ERROR;
   }
