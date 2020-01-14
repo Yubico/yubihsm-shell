@@ -60,7 +60,6 @@ struct state {
   HINTERNET internet;
   HINTERNET con;
   yh_connector *connector;
-  struct context *context;
 };
 
 uint8_t YH_INTERNAL _yh_verbosity;
@@ -163,12 +162,6 @@ static yh_backend *backend_create(void) {
     WinHttpOpen(L"YubiHSM WinHttp/" VERSION, WINHTTP_ACCESS_TYPE_NO_PROXY,
                 WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS,
                 WINHTTP_FLAG_ASYNC);
-  backend->context = calloc(1, sizeof(struct context));
-  InitializeCriticalSection(&backend->context->mtx);
-  WinHttpSetOption(backend->internet, WINHTTP_OPTION_CONTEXT_VALUE,
-                   &backend->context, sizeof(backend->context));
-  WinHttpSetStatusCallback(backend->internet, http_callback,
-                           WINHTTP_CALLBACK_FLAG_ALL_NOTIFICATIONS, 0);
   return backend;
 }
 
@@ -176,15 +169,18 @@ static void backend_disconnect(yh_backend *connection) {
   WinHttpCloseHandle(connection->con);
   WinHttpCloseHandle(connection->internet);
   Sleep(1);
-  EnterCriticalSection(&connection->context->mtx);
-  DeleteCriticalSection(&connection->context->mtx);
-  free(connection->context);
   free(connection);
 }
 
 static yh_rc backend_connect(yh_connector *connector, int timeout) {
   uint8_t buf[MAX_STR_LEN + 1];
   yh_rc res = YHR_CONNECTOR_ERROR;
+  struct context *context = calloc(1, sizeof(struct context));
+
+  if (context == NULL) {
+    DBG_ERR("Failed allocating memory for context");
+    return YHR_MEMORY_ERROR;
+  }
 
   ZeroMemory(buf, MAX_STR_LEN + 1);
 
@@ -198,22 +194,28 @@ static yh_rc backend_connect(yh_connector *connector, int timeout) {
   backend->connector = connector;
   DBG_INFO("setting up connection to %s", connector->status_url);
   if (parseUrl(connector->status_url, &components) == false) {
+    free(context);
     DBG_INFO("URL parsing failed.");
     return YHR_INVALID_PARAMETERS;
   }
   backend->con =
     WinHttpConnect(backend->internet, components.hostname, components.port, 0);
-  backend->context->stage = NO_INIT;
-  backend->context->len = 0;
-  backend->context->req =
-    WinHttpOpenRequest(backend->con, L"GET", components.path, NULL, NULL,
-                       WINHTTP_DEFAULT_ACCEPT_TYPES,
-                       components.https ? WINHTTP_FLAG_SECURE : 0);
+
+  context->stage = NO_INIT;
+  context->len = 0;
+  context->req = WinHttpOpenRequest(backend->con, L"GET", components.path, NULL,
+                                    NULL, WINHTTP_DEFAULT_ACCEPT_TYPES,
+                                    components.https ? WINHTTP_FLAG_SECURE : 0);
+  InitializeCriticalSection(&context->mtx);
+  WinHttpSetOption(context->req, WINHTTP_OPTION_CONTEXT_VALUE, &context,
+                   sizeof(context));
+  WinHttpSetStatusCallback(context->req, http_callback,
+                           WINHTTP_CALLBACK_FLAG_ALL_NOTIFICATIONS, 0);
   if (timeout > 0) {
-    WinHttpSetTimeouts(backend->context->req, timeout * 1000, timeout * 1000,
+    WinHttpSetTimeouts(context->req, timeout * 1000, timeout * 1000,
                        timeout * 1000, timeout * 1000);
   }
-  WinHttpSendRequest(backend->context->req, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
+  WinHttpSendRequest(context->req, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
                      WINHTTP_NO_REQUEST_DATA, 0, 0, 0);
 
   DWORD dwStatusCode = 0;
@@ -222,21 +224,20 @@ static yh_rc backend_connect(yh_connector *connector, int timeout) {
 
   while (!complete) {
     enum stage new_stage = 0;
-    EnterCriticalSection(&backend->context->mtx);
-    switch (backend->context->stage) {
+    EnterCriticalSection(&context->mtx);
+    switch (context->stage) {
       case REQUEST_SENT:
         DBG_INFO("Request sent");
-        WinHttpReceiveResponse(backend->context->req, NULL);
+        WinHttpReceiveResponse(context->req, NULL);
         new_stage = RESPONSE_WAITING;
         break;
       case RESPONSE_RECEIVED:
         DBG_INFO("Response received");
-        WinHttpQueryDataAvailable(backend->context->req, NULL);
+        WinHttpQueryDataAvailable(context->req, NULL);
         break;
       case DATA_AVAILABLE:
         DBG_INFO("Data available");
-        if (WinHttpReadData(backend->context->req, buf, MAX_STR_LEN, NULL) ==
-            FALSE) {
+        if (WinHttpReadData(context->req, buf, MAX_STR_LEN, NULL) == FALSE) {
           DBG_ERR("Failed request for new data: %lu", GetLastError());
           new_stage = REQUEST_ERROR;
         } else {
@@ -245,13 +246,13 @@ static yh_rc backend_connect(yh_connector *connector, int timeout) {
         break;
       case READ_COMPLETE:
         DBG_INFO("Read complete");
-        WinHttpQueryHeaders(backend->context->req,
+        WinHttpQueryHeaders(context->req,
                             WINHTTP_QUERY_STATUS_CODE |
                               WINHTTP_QUERY_FLAG_NUMBER,
                             WINHTTP_HEADER_NAME_BY_INDEX, &dwStatusCode,
                             &dwSize, WINHTTP_NO_HEADER_INDEX);
 
-        WinHttpCloseHandle(backend->context->req);
+        WinHttpCloseHandle(context->req);
         if (dwStatusCode != HTTP_STATUS_OK) {
           DBG_ERR("Got HTTP error from server: %lu", dwStatusCode);
           new_stage = REQUEST_ERROR;
@@ -271,11 +272,15 @@ static yh_rc backend_connect(yh_connector *connector, int timeout) {
       default:
         break;
     }
-    if (new_stage > backend->context->stage) {
-      backend->context->stage = new_stage;
+    if (new_stage > context->stage) {
+      context->stage = new_stage;
     }
-    LeaveCriticalSection(&backend->context->mtx);
+    LeaveCriticalSection(&context->mtx);
   }
+  EnterCriticalSection(&context->mtx);
+  DeleteCriticalSection(&context->mtx);
+
+  free(context);
 
   return res;
 }
@@ -287,47 +292,59 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response) {
   uint16_t raw_len = msg->st.len + 3;
   DWORD dwStatusCode = 0;
   DWORD dwSize = sizeof(dwStatusCode);
+  struct context *context = calloc(1, sizeof(struct context));
+
+  if (context == NULL) {
+    DBG_ERR("Failed allocating memory for context");
+    return YHR_MEMORY_ERROR;
+  }
 
   DBG_INFO("sending message to %s", connection->connector->api_url);
   if (parseUrl(connection->connector->api_url, &components) == false) {
+    free(context);
     return yrc;
   }
 
   // swap the length in the message
   msg->st.len = htons(msg->st.len);
 
-  connection->context->stage = NO_INIT;
-  connection->context->len = 0;
-  connection->context->req =
-    WinHttpOpenRequest(connection->con, L"POST", components.path, NULL, NULL,
-                       WINHTTP_DEFAULT_ACCEPT_TYPES,
-                       components.https ? WINHTTP_FLAG_SECURE : 0);
+  context->stage = NO_INIT;
+  context->len = 0;
+  context->req = WinHttpOpenRequest(connection->con, L"POST", components.path,
+                                    NULL, NULL, WINHTTP_DEFAULT_ACCEPT_TYPES,
+                                    components.https ? WINHTTP_FLAG_SECURE : 0);
+  InitializeCriticalSection(&context->mtx);
   // TODO: replace these magic numbers with something better.
   //  of note here is the 250s timeout on receive, generating rsa4096 might take
   //  some time..
-  WinHttpSetTimeouts(connection->context->req, 30 * 1000, 30 * 1000, 250 * 1000,
+  WinHttpSetTimeouts(context->req, 30 * 1000, 30 * 1000, 250 * 1000,
                      250 * 1000);
 
-  WinHttpSendRequest(connection->context->req, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
-                     msg->raw, raw_len, raw_len, 0);
+  WinHttpSetOption(context->req, WINHTTP_OPTION_CONTEXT_VALUE, &context,
+                   sizeof(context));
+  WinHttpSetStatusCallback(context->req, http_callback,
+                           WINHTTP_CALLBACK_FLAG_ALL_NOTIFICATIONS, 0);
+
+  WinHttpSendRequest(context->req, WINHTTP_NO_ADDITIONAL_HEADERS, 0, msg->raw,
+                     raw_len, raw_len, 0);
 
   while (!complete) {
     enum stage new_stage = 0;
-    EnterCriticalSection(&connection->context->mtx);
-    switch (connection->context->stage) {
+    EnterCriticalSection(&context->mtx);
+    switch (context->stage) {
       case REQUEST_SENT:
         DBG_INFO("Request sent");
-        WinHttpReceiveResponse(connection->context->req, NULL);
+        WinHttpReceiveResponse(context->req, NULL);
         new_stage = RESPONSE_WAITING;
         break;
       case RESPONSE_RECEIVED:
         DBG_INFO("Response received");
-        WinHttpQueryDataAvailable(connection->context->req, NULL);
+        WinHttpQueryDataAvailable(context->req, NULL);
         break;
       case DATA_AVAILABLE:
         DBG_INFO("Data available");
-        if (WinHttpReadData(connection->context->req, response->raw,
-                            SCP_MSG_BUF_SIZE, NULL) == FALSE) {
+        if (WinHttpReadData(context->req, response->raw, SCP_MSG_BUF_SIZE,
+                            NULL) == FALSE) {
           DBG_ERR("Failed request for new data: %lu", GetLastError());
           new_stage = REQUEST_ERROR;
         } else {
@@ -336,16 +353,16 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response) {
         break;
       case READ_COMPLETE:
         DBG_INFO("Read complete");
-        if (connection->context->len == 0) {
+        if (context->len == 0) {
           // NOTE: this is a hack to try to handle the case where we get 0
           // bytes..
           DBG_INFO(
             "Got a 0 length response, hoping there's more on the wire for us.");
-          new_stage = connection->context->stage = RESPONSE_RECEIVED;
+          new_stage = context->stage = RESPONSE_RECEIVED;
           break;
         }
 
-        WinHttpQueryHeaders(connection->context->req,
+        WinHttpQueryHeaders(context->req,
                             WINHTTP_QUERY_STATUS_CODE |
                               WINHTTP_QUERY_FLAG_NUMBER,
                             WINHTTP_HEADER_NAME_BY_INDEX, &dwStatusCode,
@@ -356,14 +373,14 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response) {
           new_stage = REQUEST_ERROR;
           yrc = YHR_CONNECTOR_ERROR;
         } else {
-          WinHttpCloseHandle(connection->context->req);
+          WinHttpCloseHandle(context->req);
           response->st.len = ntohs(response->st.len);
-          if (response->st.len + 3 == connection->context->len) {
+          if (response->st.len + 3 == context->len) {
             new_stage = REQUEST_SUCCESS;
             yrc = YHR_SUCCESS;
           } else {
             DBG_ERR("Wrong length received, %d vs %d", response->st.len + 3,
-                    connection->context->len);
+                    context->len);
             new_stage = REQUEST_ERROR;
             yrc = YHR_WRONG_LENGTH;
           }
@@ -372,7 +389,7 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response) {
       case REQUEST_ERROR:
         DBG_ERR("Request error");
         yrc = YHR_CONNECTOR_ERROR;
-        WinHttpCloseHandle(connection->context->req);
+        WinHttpCloseHandle(context->req);
       case REQUEST_CLOSED:
         complete = true;
         new_stage = REQUEST_DONE;
@@ -380,11 +397,15 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response) {
       default:
         break;
     }
-    if (new_stage > connection->context->stage) {
-      connection->context->stage = new_stage;
+    if (new_stage > context->stage) {
+      context->stage = new_stage;
     }
-    LeaveCriticalSection(&connection->context->mtx);
+    LeaveCriticalSection(&context->mtx);
   }
+  EnterCriticalSection(&context->mtx);
+  DeleteCriticalSection(&context->mtx);
+
+  free(context);
 
   // restore the msg len
   msg->st.len = ntohs(msg->st.len);
