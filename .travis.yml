@@ -23,6 +23,8 @@ addons:
     - libssl-dev
     - libusb-1.0-0-dev
     - opensc
+    - python3-pip
+    - python3-setuptools
     - pkg-config
     - swig
   homebrew:
@@ -98,8 +100,8 @@ script:
   - popd
   - pushd /tmp/python-pkcs11tester
   - echo "connector=$DEFAULT_CONNECTOR_URL" >yubihsm_pkcs11.conf
-  - pip install --user pykcs11==1.5.2
-  - python setup.py test
+  - pip3 install --user pykcs11==1.5.2
+  - python3 setup.py test
   - popd
 
 after_script:
