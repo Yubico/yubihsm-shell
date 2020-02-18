@@ -14,7 +14,9 @@
 # limitations under the License.
 #
 
-option "action" a "Action to take" values="calculate","delete","list","put","reset","version" enum optional
+option "action" a "Action to take" values="calculate", "change", "delete", "list", "put", "reset", "retries", "version" enum optional
+option "authkey" k "Authentication key" string optional default="00000000000000000000000000000000"
+option "newkey" K "New authentication key" string optional default=""
 option "password" p "Credential password" string optional default=""
 option "name" n "Credential name" string optional default=""
 option "reader" r "Only use a matching reader" string optional default="Yubikey"
