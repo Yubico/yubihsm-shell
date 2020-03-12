@@ -39,6 +39,7 @@
 #include <openssl/rand.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
+#include <openssl/bio.h>
 #include <sys/time.h>
 
 static format_t fmt_to_fmt(cmd_format fmt) {
@@ -933,6 +934,26 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
     PEM_write_PUBKEY(ctx->out, public_key);
   } else if (fmt == fmt_binary) {
     i2d_PUBKEY_fp(ctx->out, public_key);
+  } else if (fmt == fmt_base64) {
+    BIO *bio;
+    BIO *b64;
+
+    b64 = BIO_new(BIO_f_base64());
+    bio = BIO_new_fp(ctx->out, BIO_NOCLOSE);
+
+    if (b64 == NULL || bio == NULL) {
+      fprintf(stderr, "Unable to allocate BIO\n");
+      EVP_PKEY_free(public_key);
+
+      return -1;
+    }
+
+    bio = BIO_push(b64, bio);
+
+    (void) i2d_PUBKEY_bio(bio, public_key);
+
+    (void) BIO_flush(bio);
+    (void) BIO_free_all(bio);
   } // FIXME: other formats or error.
   EVP_PKEY_free(public_key);
 
