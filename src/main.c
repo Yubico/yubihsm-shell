@@ -1170,7 +1170,7 @@ unsigned char yubihsm_complete(EditLine *el, int ch) {
 
   const LineInfo *li;
 
-  int argc, cursorc, cursoro;
+  int argc, cursorc = 0, cursoro = 0;
   char *argv[64];
   char data[ARGS_BUFFER_SIZE + 1] = {0};
 
