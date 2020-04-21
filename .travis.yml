@@ -100,6 +100,7 @@ script:
   - popd
   - pushd /tmp/python-pkcs11tester
   - echo "connector=$DEFAULT_CONNECTOR_URL" >yubihsm_pkcs11.conf
+  - export PATH="$(brew --prefix python3)/bin:$PATH"
   - pip3 install --user pykcs11==1.5.2
   - python3 setup.py test
   - popd
