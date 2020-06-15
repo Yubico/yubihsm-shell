@@ -72,6 +72,7 @@ typedef struct {
   uint8_t s_rmac[SCP_KEY_LEN];
   uint8_t mac_chaining_value[SCP_PRF_LEN];
   uint8_t ctr[SCP_PRF_LEN];
+  char identifier[17];
   bool in_use;
   bool authenticated;
 } Scp_ctx;

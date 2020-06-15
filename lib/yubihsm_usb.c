@@ -70,11 +70,14 @@ static void backend_disconnect(yh_backend *connection) {
   usb_destroy(&connection);
 }
 
-static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response) {
+static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
+                              const char *identifier) {
   int32_t trf_len = msg->st.len + 3;
   yh_rc ret = YHR_GENERIC_ERROR;
   unsigned long read_len;
   msg->st.len = htons(msg->st.len);
+
+  (void) identifier;
 
   for (int i = 0; i <= 1; i++) {
     if (ret != YHR_GENERIC_ERROR) {
