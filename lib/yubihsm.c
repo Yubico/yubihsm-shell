@@ -700,6 +700,11 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
 
   // Save sid
   new_session->s.sid = (*ptr++);
+  if (new_session->s.sid > YH_MAX_SESSIONS - 1) {
+    DBG_ERR("Received invalid session ID %d", new_session->s.sid);
+    yrc = YHR_GENERIC_ERROR;
+    goto cs_failure;
+  }
 
   // Save card challenge
   memcpy(new_session->context + SCP_HOST_CHAL_LEN, ptr, SCP_CARD_CHAL_LEN);
