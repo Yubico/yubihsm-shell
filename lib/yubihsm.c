@@ -348,6 +348,12 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
 
   // Response is MAC'ed and encrypted. Unwrap it
   out_len = response_msg.st.len;
+  if (out_len < SCP_MAC_LEN - 3 ||
+      (size_t)(3 + out_len - SCP_MAC_LEN) >= sizeof(work_buf)) {
+    DBG_ERR("Received invalid length %u", out_len);
+    yrc = YHR_BUFFER_TOO_SMALL;
+    goto cleanup;
+  }
 
   memcpy(work_buf, session->s.mac_chaining_value, SCP_PRF_LEN);
   response_msg.st.len = htons(response_msg.st.len);
