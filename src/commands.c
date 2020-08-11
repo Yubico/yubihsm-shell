@@ -70,7 +70,7 @@ int yh_com_audit(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
   uint16_t unlogged_boot = 0;
   uint16_t unlogged_auth = 0;
   yh_log_entry logs[YH_MAX_LOG_ENTRIES];
-  size_t n_items = sizeof(logs);
+  size_t n_items = sizeof(logs) / sizeof(logs[0]);
 
   switch (fmt) {
     case fmt_binary:
