@@ -298,7 +298,11 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
   decrypted_data[0] = cmd;
   decrypted_data[1] = (data_len & 0xff00) >> 8;
   decrypted_data[2] = data_len & 0x00ff;
-  memcpy(decrypted_data + 3, data, data_len);
+  if (data != NULL) {
+    // NOTE(adma): when data_len is 0, data can be NULL. This is UB for
+    // memcpy. Explicitly check against that
+    memcpy(decrypted_data + 3, data, data_len);
+  }
   work_buf_len = 3 + data_len;
 
   DBG_DUMPINFO(decrypted_data, data_len + 3,
