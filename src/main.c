@@ -1710,7 +1710,7 @@ static int parse_configured_connectors(yubihsm_context *ctx, char **connectors,
 pcc_failure:
   for (int i = 0; i < ctx->n_connectors; i++) {
     free(ctx->connector_list[i]);
-    ctx->connector_list = NULL;
+    ctx->connector_list[i] = NULL;
   }
 
   free(ctx->connector_list);
@@ -2736,6 +2736,15 @@ main_exit:
   ykyh_done(ctx.state); // TODO(adma): more consistent naming
   ctx.state = NULL;
 #endif
+
+  if (ctx.connector_list != NULL) {
+    for (int i = 0; i < ctx.n_connectors; i++) {
+      free(ctx.connector_list[i]);
+      ctx.connector_list[i] = NULL;
+    }
+    free(ctx.connector_list);
+    ctx.connector_list = NULL;
+  }
 
   return rc;
 }
