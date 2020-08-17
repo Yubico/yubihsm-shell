@@ -157,7 +157,8 @@ bool parse_usb_url(const char *url, unsigned long *serial) {
         if ((errno == ERANGE && *serial == ULONG_MAX) || endptr == str ||
             (errno != 0 && *serial == 0)) {
           *serial = 0;
-          DBG_INFO("Failed to parse serial argument: '%s'.", str);
+          DBG_ERR("Failed to parse serial argument: '%s'.", str);
+          return false;
         }
       } else {
         DBG_INFO("Unknown USB option '%s'.", str);
