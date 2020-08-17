@@ -164,7 +164,7 @@ bool parse_usb_url(const char *url, unsigned long *serial) {
         DBG_INFO("Unknown USB option '%s'.", str);
       }
     }
-    DBG_INFO("USB url parsed with serial %lu.", *serial);
+    DBG_INFO("USB url parsed with serial decimal %lu.", *serial);
     free(copy);
     return true;
   }
