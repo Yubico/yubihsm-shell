@@ -155,7 +155,7 @@ bool parse_usb_url(const char *url, unsigned long *serial) {
         errno = 0;
         *serial = strtoul(str, &endptr, 10);
         if ((errno == ERANGE && *serial == ULONG_MAX) || endptr == str ||
-            (errno != 0 && *serial == 0)) {
+            *endptr != '\0' || (errno != 0 && *serial == 0)) {
           *serial = 0;
           DBG_ERR("Failed to parse serial argument: '%s'.", str);
           return false;
