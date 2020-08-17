@@ -153,7 +153,7 @@ bool parse_usb_url(const char *url, unsigned long *serial) {
         str += strlen("serial=");
 
         errno = 0;
-        *serial = strtoul(str, &endptr, 0);
+        *serial = strtoul(str, &endptr, 10);
         if ((errno == ERANGE && *serial == ULONG_MAX) || endptr == str ||
             (errno != 0 && *serial == 0)) {
           *serial = 0;
