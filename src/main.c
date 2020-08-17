@@ -2744,6 +2744,7 @@ main_exit:
     }
     free(ctx.connector_list);
     ctx.connector_list = NULL;
+    ctx.n_connectors = 0;
   }
 
   return rc;
