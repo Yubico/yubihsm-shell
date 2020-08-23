@@ -23,6 +23,7 @@
 #define _AESCMAC_AES_H_
 
 #include <stdint.h>
+#include "../lib/yubihsm-config.h"
 
 #ifdef _WIN32_BCRYPT
 #include <windows.h>
@@ -60,20 +61,14 @@ typedef struct {
 #define YH_INTERNAL
 #endif
 
-uint8_t YH_INTERNAL aes_set_encrypt_key(uint8_t *key, uint16_t key_len,
-                                        aes_context *ctx);
-uint8_t YH_INTERNAL aes_set_decrypt_key(uint8_t *key, uint16_t key_len,
-                                        aes_context *ctx);
+uint8_t YH_INTERNAL aes_set_encrypt_key(uint8_t *key, uint16_t key_len, aes_context *ctx);
+uint8_t YH_INTERNAL aes_set_decrypt_key(uint8_t *key, uint16_t key_len, aes_context *ctx);
 
-uint8_t YH_INTERNAL aes_encrypt(uint8_t *in, uint8_t *out,
-                                const aes_context *ctx);
-uint8_t YH_INTERNAL aes_decrypt(uint8_t *in, uint8_t *out,
-                                const aes_context *ctx);
+uint8_t YH_INTERNAL aes_encrypt(uint8_t *in, uint8_t *out, const aes_context *ctx);
+uint8_t YH_INTERNAL aes_decrypt(uint8_t *in, uint8_t *out, const aes_context *ctx);
 
-uint8_t YH_INTERNAL aes_cbc_encrypt(uint8_t *in, uint8_t *out, uint16_t len,
-                                    uint8_t *iv, aes_context *ctx);
-uint8_t YH_INTERNAL aes_cbc_decrypt(uint8_t *in, uint8_t *out, uint16_t len,
-                                    uint8_t *iv, aes_context *ctx);
+uint8_t YH_INTERNAL aes_cbc_encrypt(uint8_t *in, uint8_t *out, uint16_t len, uint8_t *iv, aes_context *ctx);
+uint8_t YH_INTERNAL aes_cbc_decrypt(uint8_t *in, uint8_t *out, uint16_t len, uint8_t *iv, aes_context *ctx);
 
 void YH_INTERNAL aes_add_padding(uint8_t *in, uint16_t *len);
 void YH_INTERNAL aes_remove_padding(uint8_t *in, uint16_t *len);

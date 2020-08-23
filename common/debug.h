@@ -17,7 +17,13 @@
 #ifndef DEBUG_H
 #define DEBUG_H
 
+#include "../lib/yubihsm-config.h"
+
+#ifdef __WIN32
+#include <winsock.h>
+#else
 #include <sys/time.h>
+#endif
 #include <time.h>
 
 #ifdef __linux__
@@ -47,9 +53,7 @@
     struct tm _tm;                                                             \
     char _tbuf[20];                                                            \
     time_t _tsecs;                                                             \
-    gettimeofday(&_tv, NULL);                                                  \
     _tsecs = _tv.tv_sec;                                                       \
-    localtime_r(&_tsecs, &_tm);                                                \
     strftime(_tbuf, 20, "%H:%M:%S", &_tm);                                     \
     fprintf(file, "[" col who " - " lev ANSI_RESET " %s.%06ld] ", _tbuf,       \
             (long) _tv.tv_usec);                                               \

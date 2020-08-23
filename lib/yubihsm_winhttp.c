@@ -102,7 +102,7 @@ static bool parseUrl(char *url, struct urlComponents *components) {
   return true;
 }
 
-static void CALLBACK http_callback(HINTERNET internet __attribute__((unused)),
+static void CALLBACK http_callback(HINTERNET internet,
                                    DWORD_PTR context, DWORD status,
                                    LPVOID statusInfo, DWORD statusInfoLen) {
   struct context *c = (struct context *) context;

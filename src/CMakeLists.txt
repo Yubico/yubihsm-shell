@@ -14,14 +14,9 @@
 # limitations under the License.
 #
 
-include(gengetopt)
-
-find_gengetopt ()
-add_gengetopt_files (cmdline "--conf-parser")
-
 set (
   SOURCE
-  ${GGO_C}
+  cmdline.c
   commands.c
   main.c
   ../common/util.c
@@ -33,6 +28,18 @@ if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
   set(SOURCE ${SOURCE}
     ../common/openssl-compat.c)
 endif()
+
+if(WIN32)
+  set(SOURCE ${SOURCE} cmdline.c)
+  find_library(GETOPT getopt PATHS ${GETOPT_LIB_DIR})
+  set(GETOPT_LIBS ${GETOPT})
+  include_directories(${GETOPT_INCLUDE_DIR})
+else(WIN32)
+  include(gengetopt)
+  find_gengetopt ()
+  add_gengetopt_files (cmdline "--conf-parser")
+  set(SOURCE ${SOURCE} ${GGO_C})
+endif(WIN32)
 
 include_directories (
   ${LIBCRYPTO_INCLUDEDIR}
@@ -67,6 +74,7 @@ if (ENABLE_STATIC)
   target_link_libraries(yubihsm-shell_static
     ${LIBCRYPTO_LDFLAGS}
     ${LIBEDIT_LDFLAGS}
+    ${LINK_LIBS_WIN}
     yubihsm_static)
   add_coverage (yubihsm-shell_static)
 endif ()
@@ -75,6 +83,7 @@ target_link_libraries (
   yubihsm-shell
   ${LIBCRYPTO_LDFLAGS}
   ${LIBEDIT_LDFLAGS}
+  ${LINK_LIBS_WIN}
   yubihsm
   )
 

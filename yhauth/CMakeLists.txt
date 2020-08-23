@@ -14,13 +14,13 @@
 # limitations under the License.
 #
 
-include(gengetopt)
-
-add_gengetopt_files (cmdline)
+#include(gengetopt)
+#add_gengetopt_files (cmdline)
 
 set (
   SOURCE
-  ${GGO_C}
+  #${GGO_C}
+  cmdline.c
   main.c
   ../common/parsing.c
   )

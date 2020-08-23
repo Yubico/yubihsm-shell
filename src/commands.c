@@ -34,13 +34,14 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <sys/time.h>
 #endif
 
 #include <openssl/rand.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
 #include <openssl/bio.h>
-#include <sys/time.h>
+#include <time.h>
 
 static format_t fmt_to_fmt(cmd_format fmt) {
   switch (fmt) {

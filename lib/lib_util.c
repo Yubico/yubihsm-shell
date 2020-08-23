@@ -30,6 +30,10 @@
 #define ADDRESS_STR "address="
 #define PORT_STR "port="
 
+#ifdef __WIN32
+#define strtok_r strtok_s
+#endif
+
 void dump_hex(FILE *file, const uint8_t *ptr, uint16_t len) {
 
   uint32_t i;

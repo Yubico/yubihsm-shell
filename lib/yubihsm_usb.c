@@ -16,6 +16,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include "yubihsm-config.h"
 #ifdef __WIN32
 #include <winsock.h>
 #else

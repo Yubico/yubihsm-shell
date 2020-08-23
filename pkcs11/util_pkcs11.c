@@ -20,12 +20,13 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
+#include "../lib/yubihsm-config.h"
 
 #ifdef __WIN32
 #include <winsock.h>
 #else
 #include <arpa/inet.h>
+#include <pthread.h>
 #endif
 
 #include <openssl/ec.h>
@@ -2147,14 +2148,12 @@ CK_RV apply_sign_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
   return CKR_OK;
 }
 
-CK_RV apply_verify_mechanism_finalize(yubihsm_pkcs11_op_info *op_info
-                                      __attribute((unused))) {
+CK_RV apply_verify_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
 
   return CKR_OK;
 }
 
-CK_RV apply_decrypt_mechanism_finalize(yubihsm_pkcs11_op_info *op_info
-                                       __attribute((unused))) {
+CK_RV apply_decrypt_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
 
   op_info->op.decrypt.finalized = true;
   return CKR_OK;

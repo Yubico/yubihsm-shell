@@ -14,13 +14,12 @@
 # limitations under the License.
 #
 
-include(gengetopt)
-
-add_gengetopt_files(cmdline "--conf-parser" "--no-handle-error" "--string-parser")
+#include(gengetopt)
+#add_gengetopt_files(cmdline "--conf-parser" "--no-handle-error" "--string-parser")
 
 set(
   SOURCE
-  ${GGO_C}
+  cmdline.c
   ../common/hash.c
   ../common/util.c
   util_pkcs11.c
@@ -28,6 +27,17 @@ set(
   list.c
   debug_p11.c
   )
+
+if(WIN32)
+  set(SOURCE ${SOURCE} cmdline.c)
+  find_library(GETOPT getopt PATHS ${GETOPT_LIB_DIR})
+  set(GETOPT_LIBS ${GETOPT})
+  include_directories(${GETOPT_INCLUDE_DIR})
+else(WIN32)
+  include(gengetopt)
+  add_gengetopt_files(cmdline "--conf-parser" "--no-handle-error" "--string-parser")
+  set(SOURCE ${SOURCE} ${GGO_C})
+endif(WIN32)
 
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/../lib
@@ -75,6 +85,7 @@ target_link_libraries(
   yubihsm_pkcs11
   yubihsm
   ${LIBCRYPTO_LDFLAGS}
+  ${GETOPT_LIBS}
   )
 
 install(

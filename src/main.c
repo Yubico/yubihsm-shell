@@ -23,11 +23,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <unistd.h>
-#include <sys/time.h>
 
 #include "util.h"
 #include "commands.h"
@@ -56,6 +53,9 @@
 // TODO: cheat on windows, cheat better?
 #define S_ISLNK S_ISREG
 #else
+#include <strings.h>
+#include <unistd.h>
+#include <sys/time.h>
 #include <editline/readline.h>
 #include <histedit.h>
 
@@ -709,9 +709,7 @@ static bool probe_session(yubihsm_context *ctx, int index) {
 }
 
 #ifdef __WIN32
-static void WINAPI timer_handler(void *lpParam __attribute__((unused)),
-                                 unsigned char TimerOrWaitFired
-                                 __attribute__((unused))) {
+static void WINAPI timer_handler(void *lpParam, unsigned char TimerOrWaitFired) {
 #else
 static void timer_handler(int signo __attribute__((unused))) {
 #endif

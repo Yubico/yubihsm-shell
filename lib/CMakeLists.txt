@@ -28,7 +28,7 @@ set (
 set(STATIC_SOURCE ${SOURCE})
 
 if(${WIN32})
-  set(ADDITIONAL_LIBRARY -lws2_32)
+  set(ADDITIONAL_LIBRARY ws2_32)
   set (
     HTTP_SOURCE
     yubihsm_winhttp.c
@@ -42,10 +42,11 @@ if(${WIN32})
     lib_util.c
     ${CMAKE_CURRENT_BINARY_DIR}/version_winusb.rc
     )
-  set(HTTP_LIBRARY -lwinhttp -lws2_32)
-  set(USB_LIBRARY -lwinusb -lws2_32 -lsetupapi)
+  set(HTTP_LIBRARY winhttp ws2_32)
+  set(USB_LIBRARY winusb ws2_32 setupapi)
+
   if(${WIN32_BCRYPT})
-    set (CRYPT_LIBRARY -lbcrypt)
+    set (CRYPT_LIBRARY bcrypt)
     add_definitions (-D_WIN32_BCRYPT)
   else(${WIN32_BCRYPT})
     set(CRYPT_LIBRARY ${LIBCRYPTO_LDFLAGS})
@@ -121,12 +122,13 @@ if(ENABLE_STATIC)
 endif(ENABLE_STATIC)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/yubihsm.pc.in ${CMAKE_CURRENT_BINARY_DIR}/yubihsm.pc @ONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/yubihsm-config.h.in ${CMAKE_CURRENT_SOURCE_DIR}/yubihsm-config.h @ONLY)
 
-if(${WIN32})
+if(WIN32)
   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc @ONLY)
   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version_winhttp.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version_winhttp.rc @ONLY)
   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version_winusb.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version_winusb.rc @ONLY)
-endif(${WIN32})
+endif(WIN32)
 
 install(
   TARGETS yubihsm

@@ -20,13 +20,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-
-#ifdef __WIN32
-#include <winsock.h>
-#else
-#include <arpa/inet.h>
-#endif
+//#include <unistd.h>
 
 #include <cmdline.h>
 #include <yubihsm.h>
@@ -37,6 +31,12 @@
 #include "util_pkcs11.h"
 #include "yubihsm_pkcs11.h"
 #include "../common/insecure_memzero.h"
+
+#ifdef __WIN32
+#include <winsock.h>
+#else
+#include <arpa/inet.h>
+#endif
 
 #define YUBIHSM_PKCS11_MANUFACTURER "Yubico (www.yubico.com)"
 #define YUBIHSM_PKCS11_LIBDESC "YubiHSM PKCS#11 Library"

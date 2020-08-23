@@ -160,6 +160,7 @@ bool read_private_key(uint8_t *buf, size_t len, yh_algorithm *algo,
 
   BIO *bio = BIO_new(BIO_s_mem());
   if (bio == NULL) {
+    fprintf(stderr, "bio is null\n");
     return false;
   }
 
@@ -168,6 +169,7 @@ bool read_private_key(uint8_t *buf, size_t len, yh_algorithm *algo,
   private_key = PEM_read_bio_PrivateKey(bio, NULL, NULL, /*password*/ NULL);
   BIO_free_all(bio);
   if (private_key == NULL) {
+    fprintf(stderr, "private key is null\n");
     return false;
   }
 
@@ -179,6 +181,7 @@ bool read_private_key(uint8_t *buf, size_t len, yh_algorithm *algo,
   BIGNUM *y = NULL;
   EC_KEY *ec_private = NULL;
 
+  fprintf(stderr, "EVP_PKEY_base_id(private_key): %d\n", EVP_PKEY_base_id(private_key));
   switch (EVP_PKEY_base_id(private_key)) {
     case EVP_PKEY_RSA: {
       rsa = EVP_PKEY_get1_RSA(private_key);

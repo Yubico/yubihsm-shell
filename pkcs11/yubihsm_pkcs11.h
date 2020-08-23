@@ -20,7 +20,12 @@
 #include "pkcs11y.h"
 #include "list.h"
 #include <openssl/evp.h>
+#include "../lib/yubihsm-config.h"
+
+#ifndef __WIN32
 #include <sys/time.h>
+#endif
+#include <time.h>
 
 #define YUBIHSM_PKCS11_OP_BUFSIZE 4096
 #define MAX_ECDH_SESSION_KEYS 255
