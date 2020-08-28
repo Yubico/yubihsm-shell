@@ -1013,7 +1013,7 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
   yh_session *new_session = NULL;
   yh_rc rc = YHR_SUCCESS;
 
-  if (ctx == NULL || sk_oce == NULL || pk_sd == NULL || epk_sd == NULL ||
+  if (ctx == NULL || sk_oce == NULL || pk_sd == NULL || esk_oce == NULL ||
       epk_sd == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
     rc = YHR_MEMORY_ERROR;
