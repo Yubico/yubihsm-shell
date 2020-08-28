@@ -30,6 +30,9 @@
 #include <stdio.h>
 #include <limits.h>
 
+#include <openssl/ec.h>
+#include <openssl/rand.h>
+
 #include "../common/rand.h"
 #include "../common/pkcs5.h"
 #include "../common/hash.h"
@@ -54,7 +57,7 @@ _Static_assert(SCP_KEY_LEN == YH_KEY_LEN, "Message buffer size mismatch");
 
 #define LIST_SEPARATORS ":,;|"
 
-uint8_t _yh_verbosity YH_INTERNAL = 0;
+uint8_t _yh_verbosity YH_INTERNAL = YH_VERB_ALL;
 FILE *_yh_output YH_INTERNAL = NULL;
 
 static void compute_full_mac(uint8_t *data, uint16_t data_len, uint8_t *key,
@@ -116,12 +119,12 @@ static yh_rc send_authenticated_msg(yh_session *session, Msg *msg,
   return send_msg(session->parent, msg, response, session->s.identifier);
 }
 
-static void increment_ctr(uint8_t ctr[SCP_PRF_LEN]) {
+static void increment_ctr(uint8_t *ctr, uint16_t len) {
 
-  if (++ctr[SCP_PRF_LEN - 1] == 0) {
-    uint8_t i = SCP_PRF_LEN - 2;
-    while (!++ctr[i--] && i > 0)
-      ;
+  while (len > 0) {
+    if (++ctr[--len]) {
+      break;
+    }
   }
 }
 
@@ -394,7 +397,7 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
 
   DBG_CRYPTO(decrypted_data, out_len, "Plaintext (%3d Bytes): ", out_len);
 
-  increment_ctr(session->s.ctr);
+  increment_ctr(session->s.ctr, SCP_PRF_LEN);
 
   out_len -= 3;
   if (out_len > *response_len) {
@@ -907,6 +910,289 @@ yh_rc yh_finish_create_session_ext(
   DBG_INFO("Card cryptogram successfully verified");
 
   return YHR_SUCCESS;
+}
+
+static const uint8_t shared[] =
+  {0x3c, 0x88, 0x10}; // sharedInfo as per SCP11 spec, Section 6.5.2.3
+
+static void x9_63_sha256_kdf(const uint8_t *shsee, size_t shsee_len,
+                             const uint8_t *shsss, size_t shsss_len,
+                             const uint8_t *shared, size_t shared_len,
+                             uint8_t *dst, size_t dst_len) {
+  uint8_t *end, cnt[4] = {0};
+  size_t hash_len;
+  hash_ctx hashctx = NULL;
+  hash_create(&hashctx, _SHA256);
+  for (end = dst + dst_len; dst < end; dst += hash_len) {
+    increment_ctr(cnt, sizeof(cnt));
+    hash_init(hashctx);
+    hash_update(hashctx, shsee, shsee_len);
+    hash_update(hashctx, shsss, shsss_len);
+    hash_update(hashctx, cnt, sizeof(cnt));
+    if (shared) {
+      hash_update(hashctx, shared, shared_len);
+    }
+    hash_final(hashctx, dst, &hash_len);
+  }
+  hash_destroy(hashctx);
+}
+
+yh_rc yh_get_device_pubkey(yh_connector *connector, uint8_t *device_pubkey,
+                           size_t *device_pubkey_len) {
+
+  if (connector == NULL || device_pubkey == NULL || device_pubkey_len == NULL) {
+    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  uint8_t identifier[8];
+  if (!rand_generate(identifier, sizeof(identifier))) {
+    DBG_ERR("Failed getting randomness");
+    return YHR_GENERIC_ERROR;
+  }
+
+  char s_identifier[17];
+  snprintf(s_identifier, 17, "%02x%02x%02x%02x%02x%02x%02x%02x", identifier[0],
+           identifier[1], identifier[2], identifier[3], identifier[4],
+           identifier[5], identifier[6], identifier[7]);
+
+  Msg msg;
+  Msg response_msg;
+
+  // Send GET DEVICE PUBKEY command
+  msg.st.cmd = YHC_GET_DEVICE_PUBKEY;
+  msg.st.len = 0;
+
+  yh_rc rc = send_msg(connector, &msg, &response_msg, s_identifier);
+  if (rc != YHR_SUCCESS) {
+    return rc;
+  }
+
+  // Parse response
+  if (response_msg.st.cmd != YHC_GET_DEVICE_PUBKEY_R) {
+    rc = translate_device_error(response_msg.st.data[0]);
+    DBG_ERR("Device error %s (%d)", yh_strerror(rc), response_msg.st.data[0]);
+    return rc;
+  }
+
+  // Check algorithm of returned key
+  if (response_msg.st.data[0] != 0x31) {
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  // Replace algorithm with uncompressed EC point marker
+  response_msg.st.data[0] = 0x04;
+
+  // Tell the caller the length of the key if it is shorter than the provided
+  // length
+  if (*device_pubkey_len > response_msg.st.len)
+    *device_pubkey_len = response_msg.st.len;
+
+  // We won't overflow the buffer by only copying *device_pubkey_len bytes
+  memcpy(device_pubkey, response_msg.st.data, *device_pubkey_len);
+
+  return YHR_SUCCESS;
+}
+
+yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
+                             uint8_t *privkey, size_t privkey_len,
+                             uint8_t *device_pubkey, size_t device_pubkey_len,
+                             bool recreate, yh_session **session) {
+
+  if (connector == NULL || privkey == NULL || device_pubkey == NULL ||
+      session == NULL) {
+    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  BN_CTX *ctx = BN_CTX_new();
+  EC_KEY *sk_oce = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+  EC_KEY *pk_sd = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+  EC_KEY *esk_oce = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+  EC_KEY *epk_sd = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+  yh_session *new_session = NULL;
+  yh_rc rc = YHR_SUCCESS;
+
+  if (ctx == NULL || sk_oce == NULL || pk_sd == NULL || epk_sd == NULL ||
+      epk_sd == NULL) {
+    DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
+    rc = YHR_MEMORY_ERROR;
+    goto err;
+  }
+
+  if (!*session) {
+    new_session = calloc(1, sizeof(yh_session));
+    if (new_session == NULL) {
+      DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
+      rc = YHR_MEMORY_ERROR;
+      goto err;
+    }
+  } else {
+    new_session = *session;
+  }
+
+  uint8_t identifier[8];
+  if (!rand_generate(identifier, sizeof(identifier))) {
+    DBG_ERR("Failed getting randomness");
+    rc = YHR_GENERIC_ERROR;
+    goto err;
+  }
+  snprintf(new_session->s.identifier, 17, "%02x%02x%02x%02x%02x%02x%02x%02x",
+           identifier[0], identifier[1], identifier[2], identifier[3],
+           identifier[4], identifier[5], identifier[6], identifier[7]);
+
+  if (!EC_KEY_set_private_key(sk_oce, BN_bin2bn(privkey, privkey_len, NULL))) {
+    DBG_ERR("privkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
+    rc = YHR_INVALID_PARAMETERS;
+    goto err;
+  }
+
+  const EC_GROUP *group = EC_KEY_get0_group(sk_oce);
+  EC_POINT *point = EC_POINT_new(group);
+  if (!EC_POINT_mul(group, point, EC_KEY_get0_private_key(sk_oce), NULL, NULL,
+                    ctx)) {
+    DBG_ERR("Privkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
+    rc = YHR_INVALID_PARAMETERS;
+    goto err;
+  }
+
+  if (!EC_KEY_set_public_key(sk_oce, point) || !EC_KEY_check_key(sk_oce)) {
+    DBG_ERR("Privkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
+    rc = YHR_INVALID_PARAMETERS;
+    goto err;
+  }
+
+  point = EC_POINT_new(group);
+  if (!EC_POINT_oct2point(group, point, device_pubkey, device_pubkey_len,
+                          ctx)) {
+    DBG_ERR("Device pubkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
+    rc = YHR_INVALID_PARAMETERS;
+    goto err;
+  }
+
+  if (!EC_KEY_set_public_key(pk_sd, point) || !EC_KEY_check_key(pk_sd)) {
+    DBG_ERR("Device pubkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
+    rc = YHR_INVALID_PARAMETERS;
+    goto err;
+  }
+
+  uint8_t shsss[32];
+  int len = ECDH_compute_key(shsss, sizeof(shsss),
+                             EC_KEY_get0_public_key(pk_sd), sk_oce, NULL);
+  if (len != sizeof(shsss)) {
+    DBG_ERR("ECDH_compute_key shsss %s", yh_strerror(YHR_INVALID_PARAMETERS));
+    rc = YHR_INVALID_PARAMETERS;
+    goto err;
+  }
+
+  if (esk_oce == NULL || !EC_KEY_generate_key(esk_oce)) {
+    DBG_ERR("ESK OCE generate privkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
+    rc = YHR_INVALID_PARAMETERS;
+    goto err;
+  }
+
+  uint8_t epk_oce[65];
+  if (EC_POINT_point2oct(group, EC_KEY_get0_public_key(esk_oce),
+                         POINT_CONVERSION_UNCOMPRESSED, epk_oce,
+                         sizeof(epk_oce), ctx) != sizeof(epk_oce)) {
+    DBG_ERR("ESK CE pubkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
+    rc = YHR_INVALID_PARAMETERS;
+    goto err;
+  }
+
+  DBG_INT(epk_oce, sizeof(epk_oce), "EPK-OCE: ");
+
+  Msg msg;
+  Msg response_msg;
+  uint16_t authkey_id_n = htons(authkey_id);
+
+  // Send CREATE SESSION command
+  msg.st.cmd = YHC_CREATE_SESSION;
+  msg.st.len = sizeof(authkey_id_n) + sizeof(epk_oce);
+
+  memcpy(msg.st.data, &authkey_id_n, sizeof(authkey_id_n));
+  memcpy(msg.st.data + sizeof(authkey_id_n), epk_oce, sizeof(epk_oce));
+
+  rc = send_msg(connector, &msg, &response_msg, new_session->s.identifier);
+  if (rc != YHR_SUCCESS) {
+    goto err;
+  }
+
+  // Parse response
+  if (response_msg.st.cmd != YHC_CREATE_SESSION_R) {
+    rc = translate_device_error(response_msg.st.data[0]);
+    DBG_ERR("Device error %s (%d)", yh_strerror(rc), response_msg.st.data[0]);
+    goto err;
+  }
+
+  DBG_INT(response_msg.st.data, 1, "SessionId: ");
+  DBG_INT(response_msg.st.data + 1, sizeof(epk_oce), "EPK-SD: ");
+  DBG_INT(response_msg.st.data + 1 + sizeof(epk_oce), SCP_PRF_LEN, "Receipt: ");
+
+  point = EC_POINT_new(group);
+  if (!EC_POINT_oct2point(group, point, response_msg.st.data + 1,
+                          sizeof(epk_oce), ctx)) {
+    DBG_ERR("Device ephemeral pubkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
+    rc = YHR_INVALID_PARAMETERS;
+    goto err;
+  }
+
+  if (!EC_KEY_set_public_key(epk_sd, point) || !EC_KEY_check_key(epk_sd)) {
+    DBG_ERR("Device ephemeral pubkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
+    rc = YHR_INVALID_PARAMETERS;
+    goto err;
+  }
+
+  uint8_t shsee[32];
+  len = ECDH_compute_key(shsee, sizeof(shsee), EC_KEY_get0_public_key(epk_sd),
+                         esk_oce, NULL);
+  if (len != sizeof(shsee)) {
+    DBG_ERR("ECDH_compute_key ephemeral %s",
+            yh_strerror(YHR_INVALID_PARAMETERS));
+    rc = YHR_INVALID_PARAMETERS;
+    goto err;
+  }
+
+  uint8_t shs[4 * SCP_KEY_LEN];
+  x9_63_sha256_kdf(shsee, sizeof(shsee), shsss, sizeof(shsss), shared,
+                   sizeof(shared), shs, sizeof(shs));
+
+  DBG_INT(shs, sizeof(shs), "SHS: ");
+
+  uint8_t keys[2 * sizeof(epk_oce)], mac[SCP_PRF_LEN];
+  memcpy(keys, response_msg.st.data + 1, sizeof(epk_oce));
+  memcpy(keys + sizeof(epk_oce), epk_oce, sizeof(epk_oce));
+  compute_full_mac(keys, sizeof(keys), shs, SCP_KEY_LEN, mac);
+
+  if (memcmp(mac, response_msg.st.data + 1 + sizeof(epk_oce), SCP_PRF_LEN)) {
+    DBG_ERR("Verify receipt %s", yh_strerror(YHR_INVALID_PARAMETERS));
+    rc = YHR_INVALID_PARAMETERS;
+    goto err;
+  }
+
+  memcpy(new_session->s.s_enc, shs + SCP_KEY_LEN, SCP_KEY_LEN);
+  memcpy(new_session->s.s_mac, shs + 2 * SCP_KEY_LEN, SCP_KEY_LEN);
+  memcpy(new_session->s.s_rmac, shs + 3 * SCP_KEY_LEN, SCP_KEY_LEN);
+  memcpy(new_session->s.mac_chaining_value, mac, SCP_PRF_LEN);
+
+  memset(new_session->s.ctr, 0, SCP_PRF_LEN);
+  increment_ctr(new_session->s.ctr, SCP_PRF_LEN);
+
+  new_session->parent = connector;
+  new_session->authkey_id = authkey_id;
+  new_session->recreate = recreate;
+  new_session->s.sid = response_msg.st.data[0];
+  *session = new_session;
+
+err:
+  if (new_session != *session)
+    free(new_session);
+  EC_KEY_free(epk_sd);
+  EC_KEY_free(esk_oce);
+  EC_KEY_free(pk_sd);
+  EC_KEY_free(sk_oce);
+  BN_CTX_free(ctx);
+  return rc;
 }
 
 yh_rc yh_destroy_session(yh_session **session) {
@@ -2988,7 +3274,7 @@ yh_rc yh_authenticate_session(yh_session *session) {
 
   // Reset counter to 1
   memset(session->s.ctr, 0, SCP_PRF_LEN);
-  session->s.ctr[SCP_PRF_LEN - 1]++;
+  increment_ctr(session->s.ctr, SCP_PRF_LEN);
 
   yrc = send_msg(session->parent, &msg, &response_msg, session->s.identifier);
   if (yrc != YHR_SUCCESS) {

@@ -253,6 +253,8 @@ typedef enum {
   ADD_COMMAND(YHC_GET_DEVICE_INFO, 0x06),
   /// Factory reset a device
   ADD_COMMAND(YHC_RESET_DEVICE, 0x08),
+  /// Get the device pubkey for asym auth
+  ADD_COMMAND(YHC_GET_DEVICE_PUBKEY, 0x10),
   /// Close session
   ADD_COMMAND(YHC_CLOSE_SESSION, 0x40),
   /// Get storage information
@@ -554,7 +556,8 @@ typedef struct {
   uint8_t sequence;
   /// Object origin
   uint8_t origin;
-  /// Object label. The label consists of raw bytes and is not restricted to printable characters or valid UTF-8 glyphs
+  /// Object label. The label consists of raw bytes and is not restricted to
+  /// printable characters or valid UTF-8 glyphs
   char label[YH_OBJ_LABEL_LEN + 1];
   /// Object delegated capabilities
   yh_capabilities delegated_capabilities;
@@ -974,6 +977,14 @@ yh_rc yh_finish_create_session_ext(yh_connector *connector, yh_session *session,
                                    size_t key_srmac_len,
                                    uint8_t *card_cryptogram,
                                    size_t card_cryptogram_len);
+
+yh_rc yh_get_device_pubkey(yh_connector *connector, uint8_t *device_pubkey,
+                           size_t *device_pubkey_len);
+
+yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
+                             uint8_t *privkey, size_t privkey_len,
+                             uint8_t *device_pubkey, size_t device_pubkey_len,
+                             bool recreate, yh_session **session);
 
 /**
  * Free data associated with the session
