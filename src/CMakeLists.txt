@@ -74,7 +74,7 @@ if (ENABLE_STATIC)
   target_link_libraries(yubihsm-shell_static
     ${LIBCRYPTO_LDFLAGS}
     ${LIBEDIT_LDFLAGS}
-    ${LINK_LIBS_WIN}
+    ${GETOPT_LIBS}
     yubihsm_static)
   add_coverage (yubihsm-shell_static)
 endif ()
@@ -83,7 +83,7 @@ target_link_libraries (
   yubihsm-shell
   ${LIBCRYPTO_LDFLAGS}
   ${LIBEDIT_LDFLAGS}
-  ${LINK_LIBS_WIN}
+  ${GETOPT_LIBS}
   yubihsm
   )
 

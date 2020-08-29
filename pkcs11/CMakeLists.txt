@@ -14,14 +14,12 @@
 # limitations under the License.
 #
 
-#include(gengetopt)
-#add_gengetopt_files(cmdline "--conf-parser" "--no-handle-error" "--string-parser")
-
 set(
   SOURCE
   cmdline.c
   ../common/hash.c
   ../common/util.c
+  ../common/time-compat.c
   util_pkcs11.c
   yubihsm_pkcs11.c
   list.c

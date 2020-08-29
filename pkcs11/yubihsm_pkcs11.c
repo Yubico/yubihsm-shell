@@ -34,6 +34,7 @@
 
 #ifdef __WIN32
 #include <winsock.h>
+#define strtok_r strtok_s
 #else
 #include <arpa/inet.h>
 #endif

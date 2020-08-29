@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "../lib/yubihsm-config.h"
+#include "../common/time-compat.h"
 
 #ifdef __WIN32
 #include <winsock.h>
@@ -1639,7 +1640,7 @@ yubihsm_pkcs11_object_desc *get_object_desc(yh_session *session,
 
   object->object.type = type;
 
-  gettimeofday(&object->tv, NULL);
+  get_time_of_day(&object->tv, NULL);
 
   return object;
 }

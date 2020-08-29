@@ -23,6 +23,7 @@
 #include "yubihsm-shell.h"
 #include "../common/insecure_memzero.h"
 #include "../common/parsing.h"
+#include "../common/time-compat.h"
 
 #include "hash.h"
 #include "util.h"
@@ -42,6 +43,10 @@
 #include <openssl/x509.h>
 #include <openssl/bio.h>
 #include <time.h>
+
+#ifdef __WIN32
+#define localtime_r(a, b) localtime_s(b, a)
+#endif
 
 static format_t fmt_to_fmt(cmd_format fmt) {
   switch (fmt) {
@@ -1369,6 +1374,7 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
     }
   } else {
 #endif
+    fprintf(stderr, "----------------------- password: %s\n", argv[1].x);
     yrc = yh_create_session_derived(ctx->connector, authkey, argv[1].x,
                                     argv[1].len, false, &ses);
     insecure_memzero(argv[1].x, argv[1].len);
@@ -2425,7 +2431,8 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
       struct timeval before, after, result;
 
       memset(data, j, sizeof(data));
-      gettimeofday(&before, NULL);
+      get_time_of_day(&before, NULL);
+      localtime_r(NULL, NULL);
       if (yh_is_rsa(benchmarks[i].algo) &&
           (benchmarks[i].algo2 == YH_ALGO_RSA_PKCS1_SHA256 ||
            benchmarks[i].algo2 == YH_ALGO_RSA_PKCS1_SHA384 ||
@@ -2490,7 +2497,7 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
         return -1;
       }
 
-      gettimeofday(&after, NULL);
+      get_time_of_day(&after, NULL);
 
       if (yrc != YHR_SUCCESS) {
         fprintf(stderr, "Failed running benchmark %u for %s%s%s\n", j, str1,

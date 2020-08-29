@@ -14,16 +14,12 @@
  * limitations under the License.
  */
 
-#include "aes.h"
-#include "../common/insecure_memzero.h"
-
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
 
-#ifdef _WIN32_BCRYPT
-#include <ntstatus.h>
-#endif
+#include "aes.h"
+#include "../common/insecure_memzero.h"
 
 #ifdef _WIN32_BCRYPT
 static NTSTATUS init_ctx(aes_context *ctx) {

@@ -18,6 +18,7 @@
 #define DEBUG_H
 
 #include "../lib/yubihsm-config.h"
+#include "time-compat.h"
 
 #ifdef __WIN32
 #include <winsock.h>
@@ -47,13 +48,19 @@
 #define __FILENAME__                                                           \
   (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
+#ifdef __WIN32
+#define localtime_r(a, b) localtime_s(b, a)
+#endif
+
 #define D(var, file, col, who, lev, ...)                                       \
   if (var) {                                                                   \
     struct timeval _tv;                                                        \
     struct tm _tm;                                                             \
     char _tbuf[20];                                                            \
     time_t _tsecs;                                                             \
+    get_time_of_day(&_tv, NULL);                                               \
     _tsecs = _tv.tv_sec;                                                       \
+    localtime_r(&_tsecs, &_tm);                                                \
     strftime(_tbuf, 20, "%H:%M:%S", &_tm);                                     \
     fprintf(file, "[" col who " - " lev ANSI_RESET " %s.%06ld] ", _tbuf,       \
             (long) _tv.tv_usec);                                               \

@@ -15,7 +15,6 @@
  */
 
 #include "pkcs5.h"
-//#include "hash.h"
 
 #ifdef _WIN32_BCRYPT
 #include <windows.h>

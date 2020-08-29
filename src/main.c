@@ -51,7 +51,10 @@
 #include <windows.h>
 
 // TODO: cheat on windows, cheat better?
-#define S_ISLNK S_ISREG
+#define S_ISLNK(m) (((m) & S_IFMT) == 0120000) // todo: verify correctness: https://github.com/fluent/fluent-bit/blob/f07fdab96b05bba77af2da302c379c9e3f6433f4/lib/libbacktrace-ca0de05/elf.c
+#define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
+#define strcasecmp _stricmp
+#define strncasecmp _strnicmp
 #else
 #include <strings.h>
 #include <unistd.h>

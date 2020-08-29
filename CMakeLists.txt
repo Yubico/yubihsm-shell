@@ -122,7 +122,10 @@ enable_testing()
 find_package(codecov)
 
 if(WIN32)
-  add_definitions(-DWIN32_LEAN_AND_MEAN)
+  add_definitions(-DWIN32_LEAN_AND_MEAN=1)
+  set(WIN32_LEAN_AND_MEAN 1)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /D WIN32_LEAN_AND_MEAN /MP")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /D WIN32_LEAN_AND_MEAN /MP")
   set(_WIN32 ${WIN32})
   set(_WINDOWS ${WIN32})
   set(_WIN32_BCRYPT ${WIN32})
@@ -217,7 +220,7 @@ if(NOT BUILD_ONLY_LIB)
 
   add_subdirectory (src)
 
-  #add_subdirectory (examples)
+  add_subdirectory (examples)
 
   if (ENABLE_EXPERIMENTAL_YKYH)
     add_subdirectory (yhauth)

@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
+
 set (
   SOURCE
   ${CMAKE_CURRENT_SOURCE_DIR}/../aes_cmac/aes.c
@@ -21,6 +23,7 @@ set (
   ${CMAKE_CURRENT_SOURCE_DIR}/../common/hash.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../common/pkcs5.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../common/rand.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../common/time-compat.c
   error.c
   lib_util.c
   yubihsm.c
@@ -34,6 +37,7 @@ if(${WIN32})
     yubihsm_winhttp.c
     lib_util.c
     ${CMAKE_CURRENT_BINARY_DIR}/version_winhttp.rc
+    ${CMAKE_CURRENT_SOURCE_DIR}/../common/time-compat.c
     )
   set (
     USB_SOURCE
@@ -41,6 +45,7 @@ if(${WIN32})
     yubihsm_winusb.c
     lib_util.c
     ${CMAKE_CURRENT_BINARY_DIR}/version_winusb.rc
+    ${CMAKE_CURRENT_SOURCE_DIR}/../common/time-compat.c
     )
   set(HTTP_LIBRARY winhttp ws2_32)
   set(USB_LIBRARY winusb ws2_32 setupapi)
@@ -88,6 +93,15 @@ set_target_properties(yubihsm PROPERTIES BUILD_RPATH "${CMAKE_BINARY_DIR}/lib")
 set_target_properties (yubihsm PROPERTIES VERSION "${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}" SOVERSION ${yubihsm_shell_VERSION_MAJOR})
 set_target_properties (yubihsm_usb PROPERTIES VERSION "${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}" SOVERSION ${yubihsm_shell_VERSION_MAJOR})
 set_target_properties (yubihsm_http PROPERTIES VERSION "${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}" SOVERSION ${yubihsm_shell_VERSION_MAJOR})
+if(WIN32)
+  set_target_properties(yubihsm PROPERTIES OUTPUT_NAME libyubihsm)
+  set_target_properties(yubihsm_usb PROPERTIES OUTPUT_NAME libyubihsm_usb)
+  set_target_properties(yubihsm_http PROPERTIES OUTPUT_NAME libyubihsm_http)
+else(WIN32)
+  set_target_properties(yubihsm PROPERTIES OUTPUT_NAME yubihsm)
+  set_target_properties(yubihsm_usb PROPERTIES OUTPUT_NAME yubihsm_usb)
+  set_target_properties(yubihsm_http PROPERTIES OUTPUT_NAME yubihsm_http)
+endif(WIN32)
 
 if (ENABLE_STATIC)
   add_library (yubihsm_static STATIC ${STATIC_SOURCE})

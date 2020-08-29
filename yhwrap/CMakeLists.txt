@@ -16,7 +16,6 @@
 
 set (
   SOURCE
-  #${GGO_C}
   cmdline.c
   ../common/hash.c
   ../common/parsing.c
