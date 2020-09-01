@@ -1085,7 +1085,7 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
     goto err;
   }
 
-  if (esk_oce == NULL || !EC_KEY_generate_key(esk_oce)) {
+  if (!EC_KEY_generate_key(esk_oce)) {
     DBG_ERR("ESK OCE generate privkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
     rc = YHR_INVALID_PARAMETERS;
     goto err;
