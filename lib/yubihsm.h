@@ -254,7 +254,7 @@ typedef enum {
   /// Factory reset a device
   ADD_COMMAND(YHC_RESET_DEVICE, 0x08),
   /// Get the device pubkey for asym auth
-  ADD_COMMAND(YHC_GET_DEVICE_PUBKEY, 0x10),
+  ADD_COMMAND(YHC_GET_DEVICE_PUBKEY, 0x0a),
   /// Close session
   ADD_COMMAND(YHC_CLOSE_SESSION, 0x40),
   /// Get storage information
