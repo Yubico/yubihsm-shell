@@ -51,10 +51,7 @@
 #include <windows.h>
 
 // TODO: cheat on windows, cheat better?
-#define S_ISLNK(m) (((m) & S_IFMT) == 0120000) // todo: verify correctness: https://github.com/fluent/fluent-bit/blob/f07fdab96b05bba77af2da302c379c9e3f6433f4/lib/libbacktrace-ca0de05/elf.c
-#define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
-#define strcasecmp _stricmp
-#define strncasecmp _strnicmp
+#define S_ISLNK S_ISREG
 #else
 #include <strings.h>
 #include <unistd.h>
@@ -63,6 +60,13 @@
 #include <histedit.h>
 
 History *g_hist;
+#endif
+
+#ifdef _MSVC
+//#define S_ISLNK(m) (((m) & S_IFMT) == 0120000) // todo: verify correctness: https://github.com/fluent/fluent-bit/blob/f07fdab96b05bba77af2da302c379c9e3f6433f4/lib/libbacktrace-ca0de05/elf.c
+#define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
+#define strcasecmp _stricmp
+#define strncasecmp _strnicmp
 #endif
 
 #define LIB_SUCCEED_OR_DIE(x, s)                                               \

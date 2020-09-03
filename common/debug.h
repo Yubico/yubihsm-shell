@@ -17,15 +17,12 @@
 #ifndef DEBUG_H
 #define DEBUG_H
 
-#include "../lib/yubihsm-config.h"
-#include "time-compat.h"
+#include "../lib/platform-config.h"
+#include "time_util.h"
 
-#ifdef __WIN32
+#ifdef _MSVC
 #include <winsock.h>
-#else
-#include <sys/time.h>
 #endif
-#include <time.h>
 
 #ifdef __linux__
 #define ANSI_RED "\x1b[31m"
@@ -48,7 +45,7 @@
 #define __FILENAME__                                                           \
   (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
-#ifdef __WIN32
+#ifdef _MSVC
 #define localtime_r(a, b) localtime_s(b, a)
 #endif
 

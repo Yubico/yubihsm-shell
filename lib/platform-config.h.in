@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016,2020 Yubico AB
+ * Copyright (c) 2020 Yubico AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,9 +36,10 @@ extern "C"
 {
 #endif
 
-#cmakedefine _WIN32_BCRYPT @_WIN32_BCRYPT@
+#cmakedefine _WIN32_BCRYPT @WIN32_BCRYPT@
 #cmakedefine __WIN32 @__WIN32@
-
+#cmakedefine _WIN32 @_WIN32@
+#cmakedefine _MSVC @_MSVC@
 
 #ifdef __cplusplus
 }

@@ -23,7 +23,7 @@
 #include <stdint.h>
 
 #include <yubihsm.h>
-#include "../lib/yubihsm-config.h"
+#include "../lib/platform-config.h"
 
 typedef enum {
   _base64,

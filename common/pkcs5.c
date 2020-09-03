@@ -19,7 +19,6 @@
 #ifdef _WIN32_BCRYPT
 #include <windows.h>
 #include <bcrypt.h>
-
 #else
 #include <openssl/evp.h>
 #endif
@@ -33,30 +32,6 @@ bool pkcs5_pbkdf2_hmac(const uint8_t *password, size_t cb_password,
   NTSTATUS status = 0;
   LPCWSTR alg = NULL;
   BCRYPT_ALG_HANDLE hAlg = 0;
-
-  /* mingw64 defines the BCryptDeriveKeyPBKDF2 function, but its import library
-   *doesn't include the export.
-   **
-   ** Once this is fixed, we can just call the function directly.  Until then,
-   *we need to dynamically load the function.
-   */
-
-/*  typedef NTSTATUS WINAPI (
-    *PFN_BCryptDeriveKeyPBKDF2)(BCRYPT_ALG_HANDLE hPrf, PUCHAR pbPassword,
-                                ULONG cbPassword, PUCHAR pbSalt, ULONG cbSalt,
-                                ULONGLONG cIterations, PUCHAR pbDerivedKey,
-                                ULONG cbDerivedKey, ULONG dwFlags);
-  HMODULE hBCrypt = NULL;
-  PFN_BCryptDeriveKeyPBKDF2 fnBCryptDeriveKeyPBKDF2 = NULL;
-
-  if (!(hBCrypt = LoadLibrary("bcrypt.dll"))) {
-    goto cleanup;
-  }
-
-  if (!(fnBCryptDeriveKeyPBKDF2 = (PFN_BCryptDeriveKeyPBKDF2)(
-          (void (*)(void)) GetProcAddress(hBCrypt, "BCryptDeriveKeyPBKDF2")))) {
-    goto cleanup;
-  }*/
 
   if (!(alg = get_hash(hash))) {
     goto cleanup;
@@ -83,9 +58,6 @@ cleanup:
   if (hAlg) {
     BCryptCloseAlgorithmProvider(hAlg, 0);
   }
-  //if (hBCrypt) {
-  //  FreeLibrary(hBCrypt);
-  //}
 
 #else
   const EVP_MD *md = NULL;

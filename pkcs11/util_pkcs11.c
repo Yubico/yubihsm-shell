@@ -20,8 +20,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "../lib/yubihsm-config.h"
-#include "../common/time-compat.h"
+#include "../lib/platform-config.h"
+#include "../common/time_util.h"
 
 #ifdef __WIN32
 #include <winsock.h>
@@ -2149,7 +2149,7 @@ CK_RV apply_sign_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
   return CKR_OK;
 }
 
-CK_RV apply_verify_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
+CK_RV apply_verify_mechanism_finalize() {
 
   return CKR_OK;
 }

@@ -36,14 +36,14 @@ set (
   SOURCE_USB_URL
   test_usb_url.c
   ../lib_util.c
-  ../../common/time-compat.c
+        ../../common/time_util.c
   )
 
 set (
   SOURCE_UTIL
   test_util.c
   ../lib_util.c
-  ../../common/time-compat.c
+        ../../common/time_util.c
   )
 
 include_directories (

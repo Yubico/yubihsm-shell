@@ -22,7 +22,6 @@ else ()
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE -pie")
 endif ()
 
-include_directories(${OPENSSL_INCLUDE_DIR})
 set (
   SOURCE_IMPORT_RSA
   import_rsa.c

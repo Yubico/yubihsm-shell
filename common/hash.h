@@ -25,7 +25,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
-#include "../lib/yubihsm-config.h"
+#include "../lib/platform-config.h"
 
 #ifdef __cplusplus
 extern "C" {

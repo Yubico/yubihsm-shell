@@ -26,6 +26,7 @@ endif ()
 project (yubihsm-shell)
 
 option(BUILD_ONLY_LIB "Library only build" OFF)
+option(SUPRESS_MSVC_WARNINGS "Suppresses a lot of the warnings when compiling with MSVC" ON)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
@@ -50,13 +51,6 @@ if (NOT DEFINED YUBIHSM_INSTALL_PKGCONFIG_DIR)
   set(YUBIHSM_INSTALL_PKGCONFIG_DIR "${CMAKE_INSTALL_PREFIX}/share/pkgconfig" CACHE PATH "Installation directory for pkgconfig (.pc) files")
 endif ()
 
-message("Install targets")
-message("Libraries ${YUBIHSM_INSTALL_LIB_DIR}")
-message("Includes ${YUBIHSM_INSTALL_INC_DIR}")
-message("Binaries ${YUBIHSM_INSTALL_BIN_DIR}")
-message("Manuals ${YUBIHSM_INSTALL_MAN_DIR}")
-message("Pkg-config ${YUBIHSM_INSTALL_PKGCONFIG_DIR}")
-
 if (NOT CMAKE_BUILD_TYPE)
    if (${RELEASE_BUILD} MATCHES 1)
       set (CMAKE_BUILD_TYPE Release)
@@ -64,11 +58,6 @@ if (NOT CMAKE_BUILD_TYPE)
       set (CMAKE_BUILD_TYPE Debug)
    endif ()
 endif ()
-
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic")
-#set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror")
-#set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-format-zero-length -Wno-implicit-fallthrough")
-#set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wformat -Wformat-security")
 
 # fortify can only be used with -O2 and higher, so only enable for release builds
 if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
@@ -123,49 +112,64 @@ find_package(codecov)
 
 if(WIN32)
   add_definitions(-DWIN32_LEAN_AND_MEAN=1)
-  set(WIN32_LEAN_AND_MEAN 1)
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /D WIN32_LEAN_AND_MEAN /MP")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /D WIN32_LEAN_AND_MEAN /MP")
-  set(_WIN32 ${WIN32})
-  set(_WINDOWS ${WIN32})
-  set(_WIN32_BCRYPT ${WIN32})
-  set(__WIN32 ${WIN32})
+  set(_WIN32 1)
+  set(_WIN32_BCRYPT 1)
+  set(__WIN32 1)
 endif()
 
-if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+if(MSVC)
   message("win32")
-#[[
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-use-linker-plugin -static-libgcc")
-#  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,--nxcompat")
-#  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,--disable-auto-image-base -Wl,--dynamicbase")
-  if ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,--high-entropy-va")
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,--image-base -Wl,0x140000000")
-    # mingw64 gcc with -pie puts the entry address in the wrong place, help it..
-    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-emainCRTStartup")
-  else()
-    # mingw32 gcc with -pie puts the entry address in the wrong place, with a different symbol than mingw64, help it..
-    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-e_mainCRTStartup")
-  endif ()
-  add_definitions (-D_POSIX_THREAD_SAFE_FUNCTIONS=1)
-  add_definitions (-D__USE_MINGW_ANSI_STDIO=1)
-  add_definitions (-DWIN32_LEAN_AND_MEAN=1)
-]]
+  set(_MSVC 1)
+
+  if(SUPRESS_MSVC_WARNINGS)
+  set(MSVC_DISABLED_WARNINGS_LIST
+            "C4200" # nonstandard extension used: zero-sized array in struct/union;
+            "C4204" # nonstandard extension used: non-constant aggregate initializer;
+            "C4706" # assignment within conditional expression;
+            "C4996" # The POSIX name for this item is deprecated. Instead, use the ISO C and C++ conformant name
+
+            "C4005"
+            "C4267"
+            "C4245"
+            "C4115"
+            "C4244"
+            "C4100"
+            "C4201"
+            "C4295"
+            "C4459"
+            "C4456"
+            "C4127"
+            "C4702"
+            "C4018"
+            "C4701"
+            )
+    # The construction in the following 3 lines was taken from LibreSSL's
+    # CMakeLists.txt.
+    string(REPLACE "C" " -wd" MSVC_DISABLED_WARNINGS_STR ${MSVC_DISABLED_WARNINGS_LIST})
+    string(REGEX REPLACE "[/-]W[1234][ ]?" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -MP -W4 ${MSVC_DISABLED_WARNINGS_STR}")
+  endif(SUPRESS_MSVC_WARNINGS)
   set (WITHOUT_MANPAGES 1)
   if (NOT WITHOUT_WIN32_BCRYPT)
     set (WIN32_BCRYPT 1)
   endif()
-  if (NOT LIBCRYPTO_LDFLAGS)
-    #set (LIBCRYPTO_LDFLAGS "-lcrypto")
+  if(NOT LIBCRYPTO_LDFLAGS)
+    #set (LIBCRYPTO_LDFLAGS "Bcrypt.lib")
     find_package(OpenSSL REQUIRED)
     set (LIBCRYPTO_LDFLAGS "OpenSSL::Crypto")
-  endif()
-  if (NOT LIBCRYPTO_VERSION)
-    # msys now installs openssl 1.1.1, hardcode to that until we come up with something cleverer
-    set(LIBCRYPTO_VERSION "1.1.1")
-  endif()
+    set(LIBCRYPTO_VERSION ${OPENSSL_VERSION})
+  endif(NOT LIBCRYPTO_LDFLAGS)
+  #if (NOT LIBCRYPTO_VERSION)
+  #  # msys now installs openssl 1.1.1, hardcode to that until we come up with something cleverer
+  #  set(LIBCRYPTO_VERSION "1.1.1")
+  #endif()
 else()
   message("not win32")
+
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-format-zero-length -Wno-implicit-fallthrough")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wformat -Wformat-security")
 
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-all")
   if (NOT CMAKE_C_COMPILER_ID MATCHES Clang)
@@ -267,8 +271,8 @@ message("        Build type:       ${CMAKE_BUILD_TYPE}")
 message("")
 message("        Install prefix:    ${CMAKE_INSTALL_PREFIX}")
 message("        Install targets")
-message("                Libraries  ${YKPIV_INSTALL_LIB_DIR}")
-message("                Includes   ${YKPIV_INSTALL_INC_DIR}")
-message("                Binaries   ${YKPIV_INSTALL_BIN_DIR}")
-message("                Manuals    ${YKPIV_INSTALL_MAN_DIR}")
-message("                Pkg-config ${YKPIV_INSTALL_PKGCONFIG_DIR}")
+message("             Libraries     ${YUBIHSM_INSTALL_LIB_DIR}")
+message("             Includes      ${YUBIHSM_INSTALL_INC_DIR}")
+message("             Binaries      ${YUBIHSM_INSTALL_BIN_DIR}")
+message("             Manuals       ${YUBIHSM_INSTALL_MAN_DIR}")
+message("             Pkg-config    ${YUBIHSM_INSTALL_PKGCONFIG_DIR}")

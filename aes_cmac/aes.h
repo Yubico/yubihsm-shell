@@ -23,12 +23,9 @@
 #define _AESCMAC_AES_H_
 
 #include <stdint.h>
-#include "../lib/yubihsm-config.h"
+#include "../lib/platform-config.h"
 
 #ifdef _WIN32_BCRYPT
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
 #include <windows.h>
 #include <bcrypt.h>
 #include <ntstatus.h>

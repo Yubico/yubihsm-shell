@@ -16,10 +16,9 @@
 
 set(
   SOURCE
-  cmdline.c
   ../common/hash.c
   ../common/util.c
-  ../common/time-compat.c
+  ../common/time_util.c
   util_pkcs11.c
   yubihsm_pkcs11.c
   list.c

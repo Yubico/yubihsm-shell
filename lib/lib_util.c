@@ -30,7 +30,7 @@
 #define ADDRESS_STR "address="
 #define PORT_STR "port="
 
-#ifdef __WIN32
+#ifdef _MSVC
 #define strtok_r strtok_s
 #endif
 

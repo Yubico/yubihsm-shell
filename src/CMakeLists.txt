@@ -16,7 +16,6 @@
 
 set (
   SOURCE
-  cmdline.c
   commands.c
   main.c
   ../common/util.c

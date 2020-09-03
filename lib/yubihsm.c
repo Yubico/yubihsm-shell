@@ -19,7 +19,6 @@
 
 #ifdef __WIN32
 #include <winsock.h>
-//#include <crtdbg.h>
 #else
 #include <arpa/inet.h>
 #include <dlfcn.h>
@@ -46,7 +45,7 @@
 
 // If any of the values in scp.h are changed
 // they should be mirrored in yubihsm.h
-#ifdef __WIN32
+#ifdef _MSVC
 _STATIC_ASSERT(SCP_HOST_CHAL_LEN == YH_HOST_CHAL_LEN);
 _STATIC_ASSERT(SCP_CONTEXT_LEN == YH_CONTEXT_LEN);
 _STATIC_ASSERT(SCP_MSG_BUF_SIZE == YH_MSG_BUF_SIZE);
@@ -615,7 +614,7 @@ yh_rc yh_create_session_derived(yh_connector *connector, uint16_t authkey_id,
   uint8_t key_mac[SCP_KEY_LEN];
 
   yh_rc yrc = derive_keys(password, password_len, key_enc, key_mac);
-  fprintf(stderr, "---------------------- keys derived\n");
+
   if (yrc == YHR_SUCCESS) {
     yrc = yh_create_session(connector, authkey_id, key_enc, SCP_KEY_LEN,
                             key_mac, SCP_KEY_LEN, recreate, session);
@@ -658,7 +657,6 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
   } else {
     new_session = *session;
   }
-  fprintf(stderr, "----------------------- new session set\n");
 
   new_session->authkey_id = authkey_id;
 
@@ -676,9 +674,6 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
   snprintf(new_session->s.identifier, 17, "%02x%02x%02x%02x%02x%02x%02x%02x",
            identifier[0], identifier[1], identifier[2], identifier[3],
            identifier[4], identifier[5], identifier[6], identifier[7]);
-  fprintf(stderr, new_session->s.identifier, 17, "%02x%02x%02x%02x%02x%02x%02x%02x",
-           identifier[0], identifier[1], identifier[2], identifier[3],
-           identifier[4], identifier[5], identifier[6], identifier[7]);
 
   // Send CREATE SESSION command
   msg.st.cmd = YHC_CREATE_SESSION;
@@ -690,12 +685,11 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
   memcpy(new_session->context, host_challenge, SCP_HOST_CHAL_LEN);
 
   DBG_INT(host_challenge, SCP_HOST_CHAL_LEN, "Host challenge: ");
-  fprintf(stderr, "----------------------- sending message to connector\n");
+
   yrc = send_msg(connector, &msg, &response_msg, new_session->s.identifier);
   if (yrc != YHR_SUCCESS) {
     goto cs_failure;
   }
-  fprintf(stderr, "----------------------- message back successfully\n");
 
   // Parse response
   if (response_msg.st.cmd != YHC_CREATE_SESSION_R) {
@@ -766,7 +760,6 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
   return YHR_SUCCESS;
 
 cs_failure:
-  fprintf(stderr, "----------------------- cs_failure\n");
   insecure_memzero(new_session, sizeof(yh_session));
   free(new_session);
   (new_session) = NULL;

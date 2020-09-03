@@ -16,7 +16,6 @@
 
 set (
   SOURCE
-  cmdline.c
   ../common/hash.c
   ../common/parsing.c
   ../common/util.c

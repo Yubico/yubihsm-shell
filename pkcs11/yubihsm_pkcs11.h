@@ -20,9 +20,9 @@
 #include "pkcs11y.h"
 #include "list.h"
 #include <openssl/evp.h>
-#include "../lib/yubihsm-config.h"
+#include "../lib/platform-config.h"
 
-#ifndef __WIN32
+#ifndef _MSVC
 #include <sys/time.h>
 #endif
 #include <time.h>

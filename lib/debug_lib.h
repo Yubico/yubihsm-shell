@@ -17,7 +17,7 @@
 #ifndef DEBUG_LIB_H
 #define DEBUG_LIB_H
 
-#ifdef __WIN32
+#ifdef _MSVC
 #include <winsock.h>
 #else
 #include <sys/time.h>
