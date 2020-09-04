@@ -9,8 +9,7 @@
 #include <time.h>
 #endif
 
-
-int get_time_of_day (struct timeval *__restrict tv,  struct timezone * tz) {
+int get_time_of_day(struct timeval *__restrict tv, struct timezone *tz) {
   // There's no equivalent implementation of gettimeofday() on Windows
 #ifdef _MSVC
   struct timespec ts;
@@ -22,4 +21,3 @@ int get_time_of_day (struct timeval *__restrict tv,  struct timezone * tz) {
   return gettimeofday(tv, tz);
 #endif
 }
-

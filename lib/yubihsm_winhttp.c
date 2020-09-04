@@ -102,9 +102,9 @@ static bool parseUrl(char *url, struct urlComponents *components) {
   return true;
 }
 
-static void CALLBACK http_callback(HINTERNET internet,
-                                   DWORD_PTR context, DWORD status,
-                                   LPVOID statusInfo, DWORD statusInfoLen) {
+static void CALLBACK http_callback(HINTERNET internet, DWORD_PTR context,
+                                   DWORD status, LPVOID statusInfo,
+                                   DWORD statusInfoLen) {
   struct context *c = (struct context *) context;
   enum stage new_stage = NO_INIT;
   EnterCriticalSection(&c->mtx);
@@ -248,7 +248,7 @@ static yh_rc backend_connect(yh_connector *connector, int timeout) {
         DBG_INFO("Read complete");
         WinHttpQueryHeaders(context->req,
                             WINHTTP_QUERY_STATUS_CODE |
-                            WINHTTP_QUERY_FLAG_NUMBER,
+                              WINHTTP_QUERY_FLAG_NUMBER,
                             WINHTTP_HEADER_NAME_BY_INDEX, &dwStatusCode,
                             &dwSize, WINHTTP_NO_HEADER_INDEX);
 
@@ -376,7 +376,7 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
 
         WinHttpQueryHeaders(context->req,
                             WINHTTP_QUERY_STATUS_CODE |
-                            WINHTTP_QUERY_FLAG_NUMBER,
+                              WINHTTP_QUERY_FLAG_NUMBER,
                             WINHTTP_HEADER_NAME_BY_INDEX, &dwStatusCode,
                             &dwSize, WINHTTP_NO_HEADER_INDEX);
 

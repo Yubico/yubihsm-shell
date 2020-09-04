@@ -11,6 +11,6 @@
 #include <sys/time.h>
 #endif
 
-int get_time_of_day (struct timeval *__restrict tv,  struct timezone * tz);
+int get_time_of_day(struct timeval *__restrict tv, struct timezone *tz);
 
-#endif //YUBIHSM_SHELL_TIME_UTIL_H
+#endif // YUBIHSM_SHELL_TIME_UTIL_H

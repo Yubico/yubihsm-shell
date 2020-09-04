@@ -2147,10 +2147,7 @@ CK_RV apply_sign_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
   return CKR_OK;
 }
 
-CK_RV apply_verify_mechanism_finalize() {
-
-  return CKR_OK;
-}
+CK_RV apply_verify_mechanism_finalize() { return CKR_OK; }
 
 CK_RV apply_decrypt_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
 

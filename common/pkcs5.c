@@ -46,8 +46,8 @@ bool pkcs5_pbkdf2_hmac(const uint8_t *password, size_t cb_password,
   if (!BCRYPT_SUCCESS(
         status =
           BCryptDeriveKeyPBKDF2(hAlg, (PUCHAR) password, (ULONG) cb_password,
-                                  (PUCHAR) salt, (ULONG) cb_salt, iterations,
-                                  key, (ULONG) cb_key, 0))) {
+                                (PUCHAR) salt, (ULONG) cb_salt, iterations, key,
+                                (ULONG) cb_key, 0))) {
     goto cleanup;
   }
 

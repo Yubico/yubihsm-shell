@@ -554,7 +554,8 @@ typedef struct {
   uint8_t sequence;
   /// Object origin
   uint8_t origin;
-  /// Object label. The label consists of raw bytes and is not restricted to printable characters or valid UTF-8 glyphs
+  /// Object label. The label consists of raw bytes and is not restricted to
+  /// printable characters or valid UTF-8 glyphs
   char label[YH_OBJ_LABEL_LEN + 1];
   /// Object delegated capabilities
   yh_capabilities delegated_capabilities;
