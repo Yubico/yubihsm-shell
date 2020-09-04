@@ -14,6 +14,9 @@
 # limitations under the License.
 #
 
+include(${CMAKE_SOURCE_DIR}/cmake/openssl.cmake)
+find_libcrypto()
+
 set(
   SOURCE
   ../common/hash.c
@@ -69,7 +72,9 @@ set_target_properties(yubihsm_pkcs11 PROPERTIES PREFIX "")
 # Set install RPATH
 set_target_properties(yubihsm_pkcs11 PROPERTIES INSTALL_RPATH "${YUBIHSM_INSTALL_LIB_DIR}")
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden")
+if(NOT MSVC)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden")
+endif()
 add_definitions(-DCRYPTOKI_EXPORTS)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")

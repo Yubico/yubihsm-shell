@@ -63,6 +63,9 @@ endif ()
 if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
   set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2")
 endif ()
+if(MSVC)
+  set(DISABLE_LTO 1)
+endif()
 if (NOT DISABLE_LTO)
   if (CMAKE_C_COMPILER_ID STREQUAL GNU)
     if (CMAKE_C_COMPILER_VERSION VERSION_GREATER 6.0)
@@ -113,8 +116,8 @@ find_package(codecov)
 if(WIN32)
   add_definitions(-DWIN32_LEAN_AND_MEAN=1)
   set(_WIN32 1)
-  set(_WIN32_BCRYPT 1)
   set(__WIN32 1)
+  set(_WIN32_BCRYPT 1)
 endif()
 
 if(MSVC)
@@ -128,20 +131,12 @@ if(MSVC)
             "C4706" # assignment within conditional expression;
             "C4996" # The POSIX name for this item is deprecated. Instead, use the ISO C and C++ conformant name
 
-            "C4005"
-            "C4267"
-            "C4245"
-            "C4115"
-            "C4244"
-            "C4100"
-            "C4201"
-            "C4295"
-            "C4459"
-            "C4456"
-            "C4127"
-            "C4702"
-            "C4018"
-            "C4701"
+            "C4005" # redefinition of micros. Status codes are defined in winnt.h and then redefined in ntstatus.h with the same values
+            "C4267" # conversion of size_t to other types. Since we don't have sizes that occupy more than 2 bytes, this should be safe to ignore
+            "C4100" # unreferenced formal parameter
+            "C4201" # nonstandard extension used: nameless struct/union
+            "C4295" # array is too small to include a terminating null character. They arrays it's complaining about aren't meant to include terminating null character (triggered in tests and examples only)
+            "C4127" # conditional expression is constant
             )
     # The construction in the following 3 lines was taken from LibreSSL's
     # CMakeLists.txt.
@@ -153,16 +148,6 @@ if(MSVC)
   if (NOT WITHOUT_WIN32_BCRYPT)
     set (WIN32_BCRYPT 1)
   endif()
-  if(NOT LIBCRYPTO_LDFLAGS)
-    #set (LIBCRYPTO_LDFLAGS "Bcrypt.lib")
-    find_package(OpenSSL REQUIRED)
-    set (LIBCRYPTO_LDFLAGS "OpenSSL::Crypto")
-    set(LIBCRYPTO_VERSION ${OPENSSL_VERSION})
-  endif(NOT LIBCRYPTO_LDFLAGS)
-  #if (NOT LIBCRYPTO_VERSION)
-  #  # msys now installs openssl 1.1.1, hardcode to that until we come up with something cleverer
-  #  set(LIBCRYPTO_VERSION "1.1.1")
-  #endif()
 else()
   message("not win32")
 
@@ -197,7 +182,8 @@ else()
       set (LIBCRYPTO_VERSION "1.1.1")
     endif()
   else()
-    pkg_search_module (LIBCRYPTO REQUIRED libcrypto)
+    include(${CMAKE_SOURCE_DIR}/cmake/openssl.cmake)
+    find_libcrypto()
   endif()
   if(NOT BUILD_ONLY_LIB)
     if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
@@ -264,6 +250,7 @@ message("        Host type:        ${CMAKE_SYSTEM_NAME}")
 message("        Path prefix:      ${CMAKE_PREFIX_PATH}")
 message("        Compiler:         ${CMAKE_C_COMPILER}")
 message("        Compiler ID:      ${CMAKE_C_COMPILER_ID}")
+message("        Compiler version: ${CMAKE_C_COMPILER_VERSION}")
 message("        CFLAGS:           ${CMAKE_C_FLAGS}")
 message("        CPPFLAGS:         ${CMAKE_CXX_FLAGS}")
 message("        Warnings:         ${WARN_FLAGS}")

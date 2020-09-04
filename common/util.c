@@ -402,8 +402,6 @@ int algo2nid(yh_algorithm algo) {
     default:
       return 0;
   }
-
-  return 0;
 }
 
 bool algo2type(yh_algorithm algorithm, yh_object_type *type) {

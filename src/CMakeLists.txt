@@ -14,6 +14,9 @@
 # limitations under the License.
 #
 
+include(${CMAKE_SOURCE_DIR}/cmake/openssl.cmake)
+find_libcrypto()
+
 set (
   SOURCE
   commands.c
@@ -49,14 +52,14 @@ include_directories (
   ${CMAKE_CURRENT_SOURCE_DIR}/../ykyh
   )
 
-if(${WIN32})
+if(WIN32)
   list(APPEND SOURCE ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc @ONLY)
-endif(${WIN32})
+endif(WIN32)
 
 if (CMAKE_C_COMPILER_ID MATCHES Clang)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE")
-else ()
+elseif (NOT MSVC)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE -pie")
 endif ()
 

@@ -1897,8 +1897,6 @@ CK_RV apply_decrypt_mechanism_init(yubihsm_pkcs11_op_info *op_info) {
       DBG_ERR("Mechanism %lu not supported", op_info->mechanism.mechanism);
       return CKR_MECHANISM_INVALID;
   }
-
-  return CKR_OK;
 }
 
 CK_RV apply_digest_mechanism_init(yubihsm_pkcs11_op_info *op_info) {
@@ -3151,7 +3149,7 @@ CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
                         yubihsm_pkcs11_object_template *template) {
 
   uint8_t *ecparams = NULL;
-  uint16_t ecparams_len;
+  uint16_t ecparams_len = 0;
   CK_RV rv;
 
   for (CK_ULONG i = 0; i < ulCount; i++) {

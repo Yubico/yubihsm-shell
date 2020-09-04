@@ -2657,7 +2657,7 @@ int main(int argc, char *argv[]) {
     }
 
   } else {
-    int num;
+    int num = 0;
 #ifndef __WIN32
     EditLine *el;
 

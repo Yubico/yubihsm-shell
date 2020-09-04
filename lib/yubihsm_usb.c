@@ -75,7 +75,7 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
                               const char *identifier) {
   int32_t trf_len = msg->st.len + 3;
   yh_rc ret = YHR_GENERIC_ERROR;
-  unsigned long read_len;
+  unsigned long read_len = 0;
   msg->st.len = htons(msg->st.len);
 
   (void) identifier;
