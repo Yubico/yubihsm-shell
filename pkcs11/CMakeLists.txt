@@ -21,7 +21,6 @@ set(
   SOURCE
   ../common/hash.c
   ../common/util.c
-  ../common/time_util.c
   util_pkcs11.c
   yubihsm_pkcs11.c
   list.c
@@ -29,7 +28,7 @@ set(
   )
 
 if(WIN32)
-  set(SOURCE ${SOURCE} cmdline.c)
+  set(SOURCE ${SOURCE} cmdline.c ../common/time_win.c)
   find_library(GETOPT getopt PATHS ${GETOPT_LIB_DIR})
   set(GETOPT_LIBS ${GETOPT})
   include_directories(${GETOPT_INCLUDE_DIR})

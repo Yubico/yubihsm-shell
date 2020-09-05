@@ -18,7 +18,7 @@
 #define DEBUG_H
 
 #include "../lib/platform-config.h"
-#include "time_util.h"
+#include "time_win.h"
 
 #ifdef _MSVC
 #include <winsock.h>
@@ -46,16 +46,29 @@
   (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
 #ifdef _MSVC
-#define localtime_r(a, b) localtime_s(b, a)
-#endif
-
 #define D(var, file, col, who, lev, ...)                                       \
   if (var) {                                                                   \
     struct timeval _tv;                                                        \
     struct tm _tm;                                                             \
     char _tbuf[20];                                                            \
     time_t _tsecs;                                                             \
-    get_time_of_day(&_tv, NULL);                                               \
+    gettimeofday_win(&_tv);                                                    \
+    _tsecs = _tv.tv_sec;                                                       \
+    localtime_s(&_tm, &_tsecs);                                                \
+    strftime(_tbuf, 20, "%H:%M:%S", &_tm);                                     \
+    fprintf(file, "[" col who " - " lev ANSI_RESET " %s.%06ld] ", _tbuf,       \
+            (long) _tv.tv_usec);                                               \
+    fprintf(file, "%s:%d (%s): ", __FILENAME__, __LINE__, __func__);           \
+    fprintf(file, __VA_ARGS__);                                                \
+  }
+#else
+#define D(var, file, col, who, lev, ...)                                       \
+  if (var) {                                                                   \
+    struct timeval _tv;                                                        \
+    struct tm _tm;                                                             \
+    char _tbuf[20];                                                            \
+    time_t _tsecs;                                                             \
+    gettimeofday(&_tv, NULL);                                                  \
     _tsecs = _tv.tv_sec;                                                       \
     localtime_r(&_tsecs, &_tm);                                                \
     strftime(_tbuf, 20, "%H:%M:%S", &_tm);                                     \
@@ -64,6 +77,7 @@
     fprintf(file, "%s:%d (%s): ", __FILENAME__, __LINE__, __func__);           \
     fprintf(file, __VA_ARGS__);                                                \
   }
+#endif
 
 #define DLN(var, file, col, who, lev, ...)                                     \
   if (var) {                                                                   \

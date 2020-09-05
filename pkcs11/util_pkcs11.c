@@ -21,7 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "../lib/platform-config.h"
-#include "../common/time_util.h"
+#include "../common/time_win.h"
 
 #ifdef __WIN32
 #include <winsock.h>
@@ -1639,8 +1639,11 @@ yubihsm_pkcs11_object_desc *get_object_desc(yh_session *session,
   }
 
   object->object.type = type;
-
-  get_time_of_day(&object->tv, NULL);
+#ifdef _MSVC
+  gettimeofday_win(&object->tv);
+#else
+  gettimeofday(&object->tv, NULL);
+#endif
 
   return object;
 }

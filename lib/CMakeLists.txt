@@ -25,11 +25,13 @@ set (
   ${CMAKE_CURRENT_SOURCE_DIR}/../common/hash.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../common/pkcs5.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../common/rand.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/../common/time_util.c
   error.c
   lib_util.c
   yubihsm.c
 )
+if(MSVC)
+  set(SOURCE ${SOURCE} ${CMAKE_CURRENT_SOURCE_DIR}/../common/time_win.c)
+endif(MSVC)
 set(STATIC_SOURCE ${SOURCE})
 
 if(WIN32)
@@ -39,7 +41,7 @@ if(WIN32)
     yubihsm_winhttp.c
     lib_util.c
     ${CMAKE_CURRENT_BINARY_DIR}/version_winhttp.rc
-    ${CMAKE_CURRENT_SOURCE_DIR}/../common/time_util.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../common/time_win.c
     )
   set (
     USB_SOURCE
@@ -47,7 +49,7 @@ if(WIN32)
     yubihsm_winusb.c
     lib_util.c
     ${CMAKE_CURRENT_BINARY_DIR}/version_winusb.rc
-    ${CMAKE_CURRENT_SOURCE_DIR}/../common/time_util.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../common/time_win.c
     )
   set(HTTP_LIBRARY winhttp ws2_32)
   set(USB_LIBRARY winusb ws2_32 setupapi)
