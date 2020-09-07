@@ -40,6 +40,7 @@
 #include "../common/util.h"
 #include "../common/openssl-compat.h"
 
+#define UNUSED(x) (void) (x)
 #define ASN1_OID 0x06
 static const uint8_t oid_secp224r1[] = {ASN1_OID, 0x05, 0x2b, 0x81,
                                         0x04,     0x00, 0x21};
@@ -2150,7 +2151,10 @@ CK_RV apply_sign_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
   return CKR_OK;
 }
 
-CK_RV apply_verify_mechanism_finalize() { return CKR_OK; }
+CK_RV apply_verify_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
+  UNUSED(op_info);
+  return CKR_OK;
+}
 
 CK_RV apply_decrypt_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
 
