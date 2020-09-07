@@ -53,6 +53,10 @@ Note that `ninja` builds are available as well:
  $ cmake -GNinja ..
  $ ninja
 
+During the build step on a Windows system, it's possible to see errors due to unrecognized variables in `.rc` files.
+This is most likely because these files were generated with unexpected encoding. To fix this, run the `convert_rc.ps1`
+script from the `yubihsm-shell` directory to convert these files' encoding into ASCII before building again.
+
 Manpages are built by default using `help2man`. It is possible to skip this step with:
 
  $ mkdir build && cd build

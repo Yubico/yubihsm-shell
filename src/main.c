@@ -63,12 +63,12 @@ History *g_hist;
 #endif
 
 #ifdef _MSVC
-//#define S_ISLNK(m) (((m) & S_IFMT) == 0120000) // todo: verify correctness:
-// https://github.com/fluent/fluent-bit/blob/f07fdab96b05bba77af2da302c379c9e3f6433f4/lib/libbacktrace-ca0de05/elf.c
 #define S_ISREG(m) (((m) &S_IFMT) == S_IFREG)
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp
 #endif
+
+#define UNUSED(x) (void) (x)
 
 #define LIB_SUCCEED_OR_DIE(x, s)                                               \
   if ((x) != YHR_SUCCESS) {                                                    \
@@ -719,6 +719,7 @@ static bool probe_session(yubihsm_context *ctx, int index) {
 #ifdef __WIN32
 static void WINAPI timer_handler(void *lpParam,
                                  unsigned char TimerOrWaitFired) {
+  UNUSED(TimerOrWaitFired);
 #else
 static void timer_handler(int signo __attribute__((unused))) {
 #endif

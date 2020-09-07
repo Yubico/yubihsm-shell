@@ -26,6 +26,7 @@
 #include "debug_lib.h"
 
 #define MAX_STR_LEN 128
+#define UNUSED(x) (void) (x)
 
 struct urlComponents {
   bool https;
@@ -105,6 +106,7 @@ static bool parseUrl(char *url, struct urlComponents *components) {
 static void CALLBACK http_callback(HINTERNET internet, DWORD_PTR context,
                                    DWORD status, LPVOID statusInfo,
                                    DWORD statusInfoLen) {
+  UNUSED(internet);
   struct context *c = (struct context *) context;
   enum stage new_stage = NO_INIT;
   EnterCriticalSection(&c->mtx);
