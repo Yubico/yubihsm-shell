@@ -47,6 +47,7 @@
 
 #ifdef _MSVC
 #define localtime_r(a, b) localtime_s(b, a)
+#define gettimeofday(a, b) gettimeofday_win(a)
 #endif
 
 #define D(var, file, col, who, lev, ...)                                       \

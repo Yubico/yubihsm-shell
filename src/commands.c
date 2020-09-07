@@ -44,6 +44,10 @@
 #include <openssl/bio.h>
 #include <time.h>
 
+#ifdef _MSVC
+#define gettimeofday(a, b) gettimeofday_win(a)
+#endif
+
 static format_t fmt_to_fmt(cmd_format fmt) {
   switch (fmt) {
     case fmt_base64:

@@ -19,6 +19,6 @@
 
 #include <time.h>
 
-int gettimeofday(struct timeval *tv, void *tz);
+int gettimeofday_win(struct timeval *tv);
 
 #endif // YUBIHSM_SHELL_TIME_WIN_H
