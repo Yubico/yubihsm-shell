@@ -17,8 +17,11 @@
 #include "time_win.h"
 #include <winsock2.h>
 
-int gettimeofday_win(struct timeval *tv) {
+#define UNUSED(x) (void) (x)
+
+int gettimeofday(struct timeval *tv, void *tz) {
   // There's no equivalent implementation of gettimeofday() on Window
+  UNUSED(tz);
   struct timespec ts;
   timespec_get(&ts, TIME_UTC);
   tv->tv_sec = ts.tv_sec;

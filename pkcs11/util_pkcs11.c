@@ -1640,11 +1640,7 @@ yubihsm_pkcs11_object_desc *get_object_desc(yh_session *session,
   }
 
   object->object.type = type;
-#ifdef _MSVC
-  gettimeofday_win(&object->tv);
-#else
   gettimeofday(&object->tv, NULL);
-#endif
 
   return object;
 }

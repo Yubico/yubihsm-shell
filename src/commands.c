@@ -2426,11 +2426,7 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
       struct timeval before, after, result;
 
       memset(data, j, sizeof(data));
-#ifdef _MSVC
-      gettimeofday_win(&before);
-#else
       gettimeofday(&before, NULL);
-#endif
       if (yh_is_rsa(benchmarks[i].algo) &&
           (benchmarks[i].algo2 == YH_ALGO_RSA_PKCS1_SHA256 ||
            benchmarks[i].algo2 == YH_ALGO_RSA_PKCS1_SHA384 ||
@@ -2495,11 +2491,7 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
         return -1;
       }
 
-#ifdef _MSVC
-      gettimeofday_win(&after);
-#else
       gettimeofday(&after, NULL);
-#endif
 
       if (yrc != YHR_SUCCESS) {
         fprintf(stderr, "Failed running benchmark %u for %s%s%s\n", j, str1,
