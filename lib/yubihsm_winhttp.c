@@ -295,8 +295,6 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
   DWORD dwSize = sizeof(dwStatusCode);
   struct context *context = calloc(1, sizeof(struct context));
   wchar_t hsm_identifier[129];
-  wchar_t *tmp_identifier;
-  size_t tmp_identifier_len;
   wchar_t *headers = WINHTTP_NO_ADDITIONAL_HEADERS;
 
   if (context == NULL) {
@@ -311,10 +309,7 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
   }
 
   if (identifier != NULL && strlen(identifier) > 0 && strlen(identifier) < 32) {
-    tmp_identifier_len = mbstowcs(NULL, identifier, 0);
-    tmp_identifier = calloc(tmp_identifier_len + 1, sizeof(wchar_t));
-    mbstowcs(tmp_identifier, identifier, tmp_identifier_len + 1);
-    swprintf(hsm_identifier, 128, L"YubiHSM-Session: %s", tmp_identifier);
+    swprintf(hsm_identifier, 128, L"YubiHSM-Session: %ls", identifier);
     headers = hsm_identifier;
   }
 
