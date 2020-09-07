@@ -20,7 +20,7 @@
 #include "pkcs11y.h"
 #include "list.h"
 #include <openssl/evp.h>
-#include "../lib/platform-config.h"
+#include "../common/platform-config.h"
 
 #ifndef _MSVC
 #include <sys/time.h>

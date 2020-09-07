@@ -23,7 +23,7 @@
 #define _AESCMAC_AES_H_
 
 #include <stdint.h>
-#include "../lib/platform-config.h"
+#include "../common/platform-config.h"
 
 #ifdef _WIN32_BCRYPT
 #include <windows.h>

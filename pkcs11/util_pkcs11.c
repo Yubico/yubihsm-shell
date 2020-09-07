@@ -20,7 +20,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "../lib/platform-config.h"
+#include "../common/platform-config.h"
 #include "../common/time_win.h"
 
 #ifdef __WIN32

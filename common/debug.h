@@ -17,7 +17,7 @@
 #ifndef DEBUG_H
 #define DEBUG_H
 
-#include "../lib/platform-config.h"
+#include "../common/platform-config.h"
 #include "time_win.h"
 
 #ifdef _MSVC
