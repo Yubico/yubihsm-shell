@@ -17,6 +17,7 @@
 #ifndef YUBIHSM_INTERNAL_H
 #define YUBIHSM_INTERNAL_H
 
+#include "../common/platform-config.h"
 #include "scp.h"
 
 #include <stdlib.h>

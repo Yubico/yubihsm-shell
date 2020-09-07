@@ -26,6 +26,7 @@
 #include "debug_lib.h"
 
 #define MAX_STR_LEN 128
+#define UNUSED(x) (void) (x)
 
 struct urlComponents {
   bool https;
@@ -102,9 +103,10 @@ static bool parseUrl(char *url, struct urlComponents *components) {
   return true;
 }
 
-static void CALLBACK http_callback(HINTERNET internet __attribute__((unused)),
-                                   DWORD_PTR context, DWORD status,
-                                   LPVOID statusInfo, DWORD statusInfoLen) {
+static void CALLBACK http_callback(HINTERNET internet, DWORD_PTR context,
+                                   DWORD status, LPVOID statusInfo,
+                                   DWORD statusInfoLen) {
+  UNUSED(internet);
   struct context *c = (struct context *) context;
   enum stage new_stage = NO_INIT;
   EnterCriticalSection(&c->mtx);
@@ -309,7 +311,7 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
   }
 
   if (identifier != NULL && strlen(identifier) > 0 && strlen(identifier) < 32) {
-    swprintf(hsm_identifier, 128, L"YubiHSM-Session: %s", identifier);
+    swprintf(hsm_identifier, 128, L"YubiHSM-Session: %ls", identifier);
     headers = hsm_identifier;
   }
 

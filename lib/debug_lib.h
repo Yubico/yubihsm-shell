@@ -17,10 +17,15 @@
 #ifndef DEBUG_LIB_H
 #define DEBUG_LIB_H
 
+#ifdef _MSVC
+#include <winsock.h>
+#include <time.h>
+#else
+#include <sys/time.h>
+#endif
+
 #include <stdint.h>
 #include <stdio.h>
-#include <sys/time.h>
-#include <time.h>
 
 #include "yubihsm.h"
 

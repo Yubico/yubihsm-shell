@@ -23,6 +23,7 @@
 #include "yubihsm-shell.h"
 #include "../common/insecure_memzero.h"
 #include "../common/parsing.h"
+#include "time_win.h"
 
 #include "hash.h"
 #include "util.h"
@@ -34,13 +35,18 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <sys/time.h>
 #endif
 
 #include <openssl/rand.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
 #include <openssl/bio.h>
-#include <sys/time.h>
+#include <time.h>
+
+#ifdef _MSVC
+#define gettimeofday(a, b) gettimeofday_win(a)
+#endif
 
 static format_t fmt_to_fmt(cmd_format fmt) {
   switch (fmt) {

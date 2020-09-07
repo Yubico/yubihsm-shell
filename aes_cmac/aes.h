@@ -23,10 +23,12 @@
 #define _AESCMAC_AES_H_
 
 #include <stdint.h>
+#include "../common/platform-config.h"
 
 #ifdef _WIN32_BCRYPT
 #include <windows.h>
 #include <bcrypt.h>
+#include <ntstatus.h>
 #else
 #include <openssl/aes.h>
 #endif
