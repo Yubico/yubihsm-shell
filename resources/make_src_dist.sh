@@ -20,7 +20,6 @@ tar --exclude README                  \
     --exclude .clang-format           \
     --exclude .pre-commit-config.yaml \
     --exclude .travis.yml             \
-    --exclude resources               \
     --transform="s/^\./yubihsm-shell-$VERSION/" -czf yubihsm-shell-$VERSION.tar.gz .
 exitcode=$?
 if [ "$exitcode" != "1" ] && [ "$exitcode" != "0" ]; then
