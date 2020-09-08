@@ -58,7 +58,7 @@ jobs:
           ./make_installer_binaries.ps1 $env:RELEASE_VERSION Win32 C:/vcpkg
 
           ls $YHSHELL_SRC_DIR
-          cd $YHSHELL_SRC_DIR/yubhsm-shell-$env:RELEASE_VERSION-x86/bin
+          cd $YHSHELL_SRC_DIR/yubihsm-shell-$env:RELEASE_VERSION-x86/bin
           ./yubihsm-shell.exe --version
           ./yubihsm-shell.exe --help
 
