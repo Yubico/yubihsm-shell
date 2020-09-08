@@ -53,6 +53,7 @@ jobs:
         run: |
           Set-PSDebug -Trace 1
           $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:RELEASE_VERSION"
+          ls $YHSHELL_SRC_DIR
 
           cd $YHSHELL_SRC_DIR/resources/win
           ./make_release_binaries.ps1 $env:RELEASE_VERSION Win32 C:/vcpkg
