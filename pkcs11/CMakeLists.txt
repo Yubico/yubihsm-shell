@@ -29,9 +29,8 @@ set(
 
 if(WIN32)
   set(SOURCE ${SOURCE} cmdline.c ../common/time_win.c)
-  find_library(GETOPT getopt PATHS ${GETOPT_LIB_DIR})
-  set(GETOPT_LIBS ${GETOPT})
-  include_directories(${GETOPT_INCLUDE_DIR})
+  include(${CMAKE_SOURCE_DIR}/cmake/getopt.cmake)
+  find_getopt()
 else(WIN32)
   include(gengetopt)
   add_gengetopt_files(cmdline "--conf-parser" "--no-handle-error" "--string-parser")
