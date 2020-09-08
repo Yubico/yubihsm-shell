@@ -53,10 +53,9 @@ jobs:
         run: |
           Set-PSDebug -Trace 1
           $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:RELEASE_VERSION"
-          ls $YHSHELL_SRC_DIR
 
           cd $YHSHELL_SRC_DIR/resources/win
-          ./make_release_binaries.ps1 $env:RELEASE_VERSION Win32 C:/vcpkg
+          ./make_installer_binaries.ps1 $env:RELEASE_VERSION Win32 C:/vcpkg
 
           cd $YHSHELL_SRC_DIR/yubhsm-shell-$env:RELEASE_VERSION-x86/bin
           ./yubihsm-shell.exe --version
@@ -116,7 +115,7 @@ jobs:
           $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:RELEASE_VERSION"
 
           cd $YHSHELL_SRC_DIR/resources/win
-          ./make_release_binaries.ps1 $env:RELEASE_VERSION x64 C:/vcpkg
+          ./make_installer_binaries.ps1 $env:RELEASE_VERSION x64 C:/vcpkg
 
           cd $YHSHELL_SRC_DIR/yubihsm-shell-$env:RELEASE_VERSION-x64/bin
           ./yubihsm-shell.exe --version
