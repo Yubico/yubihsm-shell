@@ -49,37 +49,27 @@ jobs:
           Set-PSDebug -Trace 1
           choco install visualstudio2019community --package-parameters "--add Microsoft.VisualStudio.Component.VC.Redist.MSM"
 
-      - name: Make release binaries
+      - name: Build and make MSI installer
         run: |
           Set-PSDebug -Trace 1
-          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:RELEASE_VERSION"
+          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-"
+          $MERGEDPATH = Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC142_CRT_x86.msm"
 
           cd $YHSHELL_SRC_DIR/resources/win
-          ./make_installer_binaries.ps1 $env:RELEASE_VERSION Win32 C:/vcpkg
+          ./make_installer.ps1 Win32 C:/vcpkg $env:WIX\bin "$MERGEDPATH"
 
-          ls $YHSHELL_SRC_DIR
-          cd $YHSHELL_SRC_DIR/yubihsm-shell-$env:RELEASE_VERSION-x86/bin
+          cd yubihsm-shell-x86/bin
           ./yubihsm-shell.exe --version
           ./yubihsm-shell.exe --help
 
           mkdir $env:GITHUB_WORKSPACE/artifact
-          cp -r $YHSHELL_SRC_DIR/yubihsm-shell-$env:RELEASE_VERSION-x86 $env:GITHUB_WORKSPACE/artifact/
-
-      - name: Create Windows Installer
-        run: |
-          Set-PSDebug -Trace 1
-          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:RELEASE_VERSION"
-          $MERGEDPATH = Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC142_CRT_x86.msm"
-
-          cd $YHSHELL_SRC_DIR/resources/win
-          ./make_installer.ps1 $YHSHELL_SRC_DIR/yubihsm-shell-$env:RELEASE_VERSION-x86 $env:RELEASE_VERSION x86 $env:WIX\bin "$MERGEDPATH"
-          cp $YHSHELL_SRC_DIR/resources/win/yubihsm-shell-$env:RELEASE_VERSION-x86.msi $env:GITHUB_WORKSPACE/artifact/
+          cp -r $YHSHELL_SRC_DIR/resources/win/yubihsm-shell-x86.msi $env:GITHUB_WORKSPACE/artifact/
 
       - name: Install yubihsm-shell
         run: |
           Set-PSDebug -Trace 1
-          cd "$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:RELEASE_VERSION\resources\win"
-          msiexec /i yubihsm-shell-$env:RELEASE_VERSION-x86.msi /quiet /log $env:GITHUB_WORKSPACE/artifact/log_x86.txt
+          cd "$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-\resources\win"
+          msiexec /i yubihsm-shell-x86.msi /quiet /log $env:GITHUB_WORKSPACE/artifact/log_x86.txt
 
       - name: Upload artifact
         uses: actions/upload-artifact@v1
@@ -110,35 +100,27 @@ jobs:
           Set-PSDebug -Trace 1
           choco install visualstudio2019community --package-parameters "--add Microsoft.VisualStudio.Component.VC.Redist.MSM"
 
-      - name: Make release binaries
+      - name: Build and make MSI installer
         run: |
           Set-PSDebug -Trace 1
-          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:RELEASE_VERSION"
+          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-
+          $MERGEDPATH = Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC142_CRT_x64.msm"
 
           cd $YHSHELL_SRC_DIR/resources/win
-          ./make_installer_binaries.ps1 $env:RELEASE_VERSION x64 C:/vcpkg
+          ./make_installer.ps1 x64 C:/vcpkg $env:WIX\bin "$MERGEDPATH"
 
-          cd $YHSHELL_SRC_DIR/yubihsm-shell-$env:RELEASE_VERSION-x64/bin
+          cd yubihsm-shell-x64/bin
           ./yubihsm-shell.exe --version
           ./yubihsm-shell.exe --help
 
           mkdir $env:GITHUB_WORKSPACE/artifact
-          cp -r $YHSHELL_SRC_DIR/yubihsm-shell-$env:RELEASE_VERSION-x64 $env:GITHUB_WORKSPACE/artifact/
-
-      - name: Create Windows Installer for x64 architecture
-        run: |
-          Set-PSDebug -Trace 1
-          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:RELEASE_VERSION"
-          $MERGEDPATH = Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC142_CRT_x64.msm"
-
-          cd $YHSHELL_SRC_DIR/resources/win
-          ./make_installer.ps1 $YHSHELL_SRC_DIR/yubihsm-shell-$env:RELEASE_VERSION-x64 $env:RELEASE_VERSION x64 $env:WIX\bin "$MERGEDPATH"
+          cp -r $YHSHELL_SRC_DIR/resources/win/yubihsm-shell-x64.msi $env:GITHUB_WORKSPACE/artifact/
 
       - name: Install yubihsm-shell
         run: |
           Set-PSDebug -Trace 1
-          cd "$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:RELEASE_VERSION\resources\win"
-          msiexec /i yubihsm-shell-$env:RELEASE_VERSION-x64.msi /quiet
+          cd "$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-\resources\win"
+          msiexec /i yubihsm-shell-x64.msi /quiet /log $env:GITHUB_WORKSPACE/artifact/log_x64.txt
 
       - name: Upload artifact
         uses: actions/upload-artifact@v1
