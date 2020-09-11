@@ -22,9 +22,6 @@ if (CMAKE_VERSION VERSION_GREATER 3.0.0)
   cmake_policy(SET CMP0042 NEW)
   cmake_policy(SET CMP0054 NEW)
 endif ()
-if (CMAKE_VERSION VERSION_GREATER 3.15.0)
-  cmake_policy(SET CMP0091 NEW)
-endif()
 
 project (yubihsm-shell)
 
@@ -126,17 +123,6 @@ endif()
 if(MSVC)
   message("win32")
   set(_MSVC 1)
-
-  if(CMAKE_VERSION VERSION_GREATER 3.15.0)
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-  else(CMAKE_VERSION VERSION_GREATER 3.15.0)
-    foreach (config_var
-            CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO CMAKE_CXX_FLAGS
-            CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-      # Use the static CRT if asked for it (should be the default)
-      string(REPLACE "/MD" "/MT" ${config_var} "${${config_var}}")
-    endforeach()
-  endif(CMAKE_VERSION VERSION_GREATER 3.15.0)
 
   if(SUPRESS_MSVC_WARNINGS)
   set(MSVC_DISABLED_WARNINGS_LIST
