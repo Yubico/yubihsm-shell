@@ -57,7 +57,7 @@ _Static_assert(SCP_KEY_LEN == YH_KEY_LEN, "Message buffer size mismatch");
 
 #define LIST_SEPARATORS ":,;|"
 
-uint8_t _yh_verbosity YH_INTERNAL = YH_VERB_ALL;
+uint8_t _yh_verbosity YH_INTERNAL = 0;
 FILE *_yh_output YH_INTERNAL = NULL;
 
 static void compute_full_mac(uint8_t *data, uint16_t data_len, uint8_t *key,
@@ -940,7 +940,7 @@ static void x9_63_sha256_kdf(const uint8_t *shsee, size_t shsee_len,
 yh_rc yh_get_device_pubkey(yh_connector *connector, uint8_t *device_pubkey,
                            size_t *device_pubkey_len) {
 
-  if (connector == NULL || device_pubkey == NULL || device_pubkey_len == NULL) {
+  if (connector == NULL || device_pubkey_len == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
@@ -976,7 +976,7 @@ yh_rc yh_get_device_pubkey(yh_connector *connector, uint8_t *device_pubkey,
   }
 
   // Check algorithm of returned key
-  if (response_msg.st.data[0] != 0x31) {
+  if (response_msg.st.data[0] != YH_ALGO_EC_P256_YUBICO_AUTHENTICATION) {
     return YHR_INVALID_PARAMETERS;
   }
 
@@ -984,12 +984,14 @@ yh_rc yh_get_device_pubkey(yh_connector *connector, uint8_t *device_pubkey,
   response_msg.st.data[0] = 0x04;
 
   // Tell the caller the length of the key if it is shorter than the provided
-  // length
-  if (*device_pubkey_len > response_msg.st.len)
+  // length or they just wanted the length
+  if (!device_pubkey || *device_pubkey_len > response_msg.st.len)
     *device_pubkey_len = response_msg.st.len;
 
-  // We won't overflow the buffer by only copying *device_pubkey_len bytes
-  memcpy(device_pubkey, response_msg.st.data, *device_pubkey_len);
+  if (device_pubkey) {
+    // We won't overflow the buffer by only copying *device_pubkey_len bytes
+    memcpy(device_pubkey, response_msg.st.data, *device_pubkey_len);
+  }
 
   return YHR_SUCCESS;
 }
@@ -1165,8 +1167,9 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
   compute_full_mac(keys, sizeof(keys), shs, SCP_KEY_LEN, mac);
 
   if (memcmp(mac, response_msg.st.data + 1 + sizeof(epk_oce), SCP_PRF_LEN)) {
-    DBG_ERR("Verify receipt %s", yh_strerror(YHR_INVALID_PARAMETERS));
-    rc = YHR_INVALID_PARAMETERS;
+    DBG_ERR("Verify receipt %s",
+            yh_strerror(YHR_SESSION_AUTHENTICATION_FAILED));
+    rc = YHR_SESSION_AUTHENTICATION_FAILED;
     goto err;
   }
 
@@ -3290,17 +3293,31 @@ yh_rc yh_authenticate_session(yh_session *session) {
   return YHR_SUCCESS;
 }
 
+static uint8_t get_auth_key_algo(size_t key_len) {
+  switch (key_len) {
+    case 32:
+      return YH_ALGO_AES128_YUBICO_AUTHENTICATION;
+    case 64:
+      return YH_ALGO_EC_P256_YUBICO_AUTHENTICATION;
+    default:
+      return 0;
+  }
+}
+
 yh_rc yh_util_import_authentication_key(
   yh_session *session, uint16_t *key_id, const char *label, uint16_t domains,
   const yh_capabilities *capabilities,
   const yh_capabilities *delegated_capabilities, const uint8_t *key_enc,
   size_t key_enc_len, const uint8_t *key_mac, size_t key_mac_len) {
 
+  uint8_t algorithm = get_auth_key_algo(key_enc_len + key_mac_len);
+
+  DBG_INFO("Auth Key Algorithm %u", algorithm);
+
   if (session == NULL || key_id == NULL || label == NULL ||
       strlen(label) > YH_OBJ_LABEL_LEN || capabilities == NULL ||
-      delegated_capabilities == NULL || key_enc == NULL ||
-      key_enc_len != YH_KEY_LEN || key_mac == NULL ||
-      key_mac_len != YH_KEY_LEN) {
+      delegated_capabilities == NULL || (key_enc == NULL && key_enc_len > 0) ||
+      (key_mac == NULL && key_mac_len > 0) || algorithm == 0) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
@@ -3314,8 +3331,7 @@ yh_rc yh_util_import_authentication_key(
       uint8_t capabilities[YH_CAPABILITIES_LEN];
       uint8_t algorithm;
       uint8_t delegated_capabilities[YH_CAPABILITIES_LEN];
-      uint8_t key_enc[YH_KEY_LEN];
-      uint8_t key_mac[YH_KEY_LEN];
+      uint8_t key[64];
     };
     uint8_t buf[1];
   } data;
@@ -3329,8 +3345,8 @@ yh_rc yh_util_import_authentication_key(
   size_t response_len = sizeof(response);
   yh_cmd response_cmd;
 
-  memcpy(data.key_enc, key_enc, YH_KEY_LEN);
-  memcpy(data.key_mac, key_mac, YH_KEY_LEN);
+  memcpy(data.key, key_enc, key_enc_len);
+  memcpy(data.key + key_enc_len, key_mac, key_mac_len);
 
   data.key_id = htons(*key_id);
 
@@ -3341,14 +3357,15 @@ yh_rc yh_util_import_authentication_key(
 
   memcpy(data.capabilities, capabilities, YH_CAPABILITIES_LEN);
 
-  data.algorithm = YH_ALGO_AES128_YUBICO_AUTHENTICATION;
+  data.algorithm = algorithm;
 
   memcpy(data.delegated_capabilities, delegated_capabilities,
          YH_CAPABILITIES_LEN);
 
   yh_rc yrc = yh_send_secure_msg(session, YHC_PUT_AUTHENTICATION_KEY, data.buf,
-                                 sizeof(data), &response_cmd, response.buf,
-                                 &response_len);
+                                 sizeof(data) - sizeof(data.key) + key_enc_len +
+                                   key_mac_len,
+                                 &response_cmd, response.buf, &response_len);
   insecure_memzero(data.buf, sizeof(data));
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send PUT AUTHENTICATION KEY command: %s\n",
