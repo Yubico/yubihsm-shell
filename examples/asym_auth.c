@@ -40,7 +40,10 @@ int main(void) {
   yh_rc yrc = YHR_GENERIC_ERROR;
 
   EC_KEY *key = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
-  EC_KEY_generate_key(key);
+  if (!EC_KEY_generate_key(key)) {
+    fprintf(stderr, "Unable to generate random EC key\n");
+    exit(EXIT_FAILURE);
+  }
 
   uint8_t sk_oce[32];
   int sk_oce_len = BN_bn2bin(EC_KEY_get0_private_key(key), sk_oce);
