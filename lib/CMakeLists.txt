@@ -213,6 +213,11 @@ add_test(
   )
 
 add_test(
+  NAME asym_auth
+  COMMAND asym_auth
+  )
+
+add_test(
   NAME import_ec
   COMMAND import_ec
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/examples/
