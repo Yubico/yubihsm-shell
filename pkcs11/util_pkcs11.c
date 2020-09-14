@@ -3410,6 +3410,7 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
       case CKA_DECRYPT:
       case CKA_SIGN:
       case CKA_UNWRAP:
+      case CKA_VERIFY_RECOVER:
         if ((rv = check_bool_attribute(pPublicKeyTemplate[i].pValue, false)) !=
             CKR_OK) {
           DBG_ERR("Boolean false check failed for attribute 0x%lx",
@@ -3528,6 +3529,7 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
       case CKA_COPYABLE:
       case CKA_ENCRYPT:
       case CKA_VERIFY:
+      case CKA_SIGN_RECOVER:
         if ((rv = check_bool_attribute(pPrivateKeyTemplate[i].pValue, false)) !=
             CKR_OK) {
           DBG_ERR("Boolean false check failed for attribute 0x%lx",
@@ -3650,6 +3652,7 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
       case CKA_SIGN:
       case CKA_WRAP:
       case CKA_UNWRAP:
+      case CKA_VERIFY_RECOVER:
         if ((rv = check_bool_attribute(pPublicKeyTemplate[i].pValue, false)) !=
             CKR_OK) {
           DBG_ERR("Boolean false check failed for attribute 0x%lx",
@@ -3768,6 +3771,7 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
       case CKA_COPYABLE:
       case CKA_ENCRYPT:
       case CKA_VERIFY:
+      case CKA_SIGN_RECOVER:
         if ((rv = check_bool_attribute(pPrivateKeyTemplate[i].pValue, false)) !=
             CKR_OK) {
           DBG_ERR("Boolean false check failed for attribute 0x%lx",
