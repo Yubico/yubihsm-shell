@@ -119,6 +119,10 @@ int main(void) {
   assert(yrc == YHR_SUCCESS);
 
   authkey = 2;
+
+  yrc = yh_util_delete_object(session, authkey, YH_AUTHENTICATION_KEY);
+  assert(yrc == YHR_SUCCESS);
+
   yh_capabilities caps = {{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}};
   // The public key is imported without the uncompressed point marker (value
   // 0x04), so skip the first byte
@@ -171,9 +175,6 @@ int main(void) {
 
   assert(response_len == response2_len);
   assert(memcmp(response, response2, response_len) == 0);
-
-  yrc = yh_util_delete_object(session, authkey, YH_AUTHENTICATION_KEY);
-  assert(yrc == YHR_SUCCESS);
 
   yrc = yh_util_close_session(session);
   assert(yrc == YHR_SUCCESS);
