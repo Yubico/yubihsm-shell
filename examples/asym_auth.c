@@ -140,7 +140,7 @@ int main(void) {
     exit(EXIT_FAILURE);
   }
 
-  if (response_cmd == YHC_ERROR) {
+  if (response2_cmd == YHC_ERROR) {
     fprintf(stderr, "Unable to get echo data: %s (%x)\n",
             yh_strerror(response[0]), response[0]);
     exit(EXIT_FAILURE);
