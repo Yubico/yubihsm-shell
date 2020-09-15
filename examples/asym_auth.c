@@ -22,10 +22,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <openssl/ec.h>
-#include <openssl/rand.h>
-#include <openssl/evp.h>
-
 #include <yubihsm.h>
 
 #ifndef DEFAULT_CONNECTOR_URL
@@ -38,30 +34,6 @@ const uint8_t data[] = "sudo make me a sandwich";
 int main(void) {
   yh_connector *connector = NULL;
   yh_rc yrc = YHR_GENERIC_ERROR;
-
-  EC_KEY *key = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
-  if (!EC_KEY_generate_key(key)) {
-    fprintf(stderr, "Unable to generate random EC key\n");
-    exit(EXIT_FAILURE);
-  }
-
-  uint8_t sk_oce[32];
-  int sk_oce_len = BN_bn2bin(EC_KEY_get0_private_key(key), sk_oce);
-  if (sk_oce_len < 0) {
-    fprintf(stderr, "Unable to get random private key\n");
-    exit(EXIT_FAILURE);
-  }
-
-  uint8_t pk_oce[65];
-  if (EC_POINT_point2oct(EC_KEY_get0_group(key), EC_KEY_get0_public_key(key),
-                         POINT_CONVERSION_UNCOMPRESSED, pk_oce, sizeof(pk_oce),
-                         NULL) != sizeof(pk_oce)) {
-    fprintf(stderr, "Unable to get random public key\n");
-    exit(EXIT_FAILURE);
-  }
-
-  EC_KEY_free(key);
-  key = NULL;
 
   const char *connector_url = getenv("DEFAULT_CONNECTOR_URL");
   if (connector_url == NULL) {
@@ -85,6 +57,10 @@ int main(void) {
   assert(yrc == YHR_SUCCESS);
 
   yh_set_verbosity(connector, YH_VERB_ALL);
+
+  uint8_t sk_oce[32], pk_oce[65];
+  yrc = yh_util_derive_ec_p256_key(password, sizeof(password), sk_oce, pk_oce);
+  assert(yrc == YHR_SUCCESS);
 
   printf("Send a plain (unencrypted, unauthenticated) echo command\n");
 
@@ -115,13 +91,12 @@ int main(void) {
   assert(yrc == YHR_SUCCESS);
 
   yrc = yh_authenticate_session(session);
-
   assert(yrc == YHR_SUCCESS);
 
   authkey = 2;
 
-  yrc = yh_util_delete_object(session, authkey, YH_AUTHENTICATION_KEY);
-  assert(yrc == YHR_SUCCESS);
+  yh_util_delete_object(session, authkey, YH_AUTHENTICATION_KEY);
+  // Ignore result here
 
   yh_capabilities caps = {{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}};
   // The public key is imported without the uncompressed point marker (value
@@ -129,6 +104,7 @@ int main(void) {
   yrc = yh_util_import_authentication_key(session, &authkey, "EC Auth Key",
                                           0xffff, &caps, &caps, pk_oce + 1,
                                           sizeof(pk_oce) - 1, 0, 0);
+  assert(yrc == YHR_SUCCESS);
 
   yrc = yh_util_close_session(session);
   assert(yrc == YHR_SUCCESS);
@@ -140,11 +116,10 @@ int main(void) {
   size_t pk_sd_len = sizeof(pk_sd);
 
   yrc = yh_get_device_pubkey(connector, pk_sd, &pk_sd_len);
-
   assert(yrc == YHR_SUCCESS);
 
-  yrc = yh_create_session_asym(connector, authkey, sk_oce, sk_oce_len, pk_sd,
-                               pk_sd_len, false, &session);
+  yrc = yh_create_session_asym(connector, authkey, sk_oce, sizeof(sk_oce),
+                               pk_sd, pk_sd_len, false, &session);
   assert(yrc == YHR_SUCCESS);
 
   uint8_t session_id;
@@ -182,7 +157,7 @@ int main(void) {
   yrc = yh_destroy_session(&session);
   assert(yrc == YHR_SUCCESS);
 
-  yh_disconnect(connector);
+  yrc = yh_disconnect(connector);
   assert(yrc == YHR_SUCCESS);
 
   yrc = yh_exit();

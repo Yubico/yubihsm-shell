@@ -576,21 +576,15 @@ static yh_rc compute_host_cryptogram(yh_session *session,
                             host_cryptogram);
 }
 
-static yh_rc derive_keys(const uint8_t *password, size_t password_len,
-                         uint8_t *key_enc, uint8_t *key_mac) {
-
-  uint8_t key[SCP_KEY_LEN * 2];
+static yh_rc derive_key(const uint8_t *password, size_t password_len,
+                        uint8_t *key, size_t key_len) {
 
   if (!pkcs5_pbkdf2_hmac(password, password_len,
                          (const uint8_t *) YH_DEFAULT_SALT,
                          strlen(YH_DEFAULT_SALT), YH_DEFAULT_ITERS, _SHA256,
-                         key, sizeof(key))) {
+                         key, key_len)) {
     return YHR_GENERIC_ERROR;
   }
-
-  memcpy(key_enc, key, SCP_KEY_LEN);
-  memcpy(key_mac, key + SCP_KEY_LEN, SCP_KEY_LEN);
-  insecure_memzero(&key, sizeof(key));
 
   return YHR_SUCCESS;
 }
@@ -604,16 +598,13 @@ yh_rc yh_create_session_derived(yh_connector *connector, uint16_t authkey_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  uint8_t key_enc[SCP_KEY_LEN];
-  uint8_t key_mac[SCP_KEY_LEN];
-
-  yh_rc yrc = derive_keys(password, password_len, key_enc, key_mac);
+  uint8_t key[2 * SCP_KEY_LEN];
+  yh_rc yrc = derive_key(password, password_len, key, sizeof(key));
 
   if (yrc == YHR_SUCCESS) {
-    yrc = yh_create_session(connector, authkey_id, key_enc, SCP_KEY_LEN,
-                            key_mac, SCP_KEY_LEN, recreate, session);
-    insecure_memzero(key_enc, sizeof(key_enc));
-    insecure_memzero(key_mac, sizeof(key_mac));
+    yrc = yh_create_session(connector, authkey_id, key, SCP_KEY_LEN,
+                            key + SCP_KEY_LEN, SCP_KEY_LEN, recreate, session);
+    insecure_memzero(key, sizeof(key));
   }
   return yrc;
 }
@@ -994,6 +985,50 @@ yh_rc yh_get_device_pubkey(yh_connector *connector, uint8_t *device_pubkey,
   }
 
   return YHR_SUCCESS;
+}
+
+yh_rc yh_util_derive_ec_p256_key(const uint8_t *password, size_t password_len,
+                                 uint8_t *priv_key, uint8_t *pub_key) {
+
+  yh_rc yrc = derive_key(password, password_len, priv_key, 32);
+
+  if (yrc == YHR_SUCCESS) {
+    EC_KEY *key = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+    if (!key) {
+      DBG_ERR("Couldn't create new key %s",
+              yh_strerror(YHR_INVALID_PARAMETERS));
+      return YHR_INVALID_PARAMETERS;
+    }
+
+    BN_CTX *ctx = BN_CTX_new();
+    const EC_GROUP *group = EC_KEY_get0_group(key);
+
+    BIGNUM *pvt = BN_bin2bn(priv_key, 32, NULL);
+    EC_POINT *pub = EC_POINT_new(group);
+
+    if (!EC_POINT_mul(group, pub, pvt, NULL, NULL, ctx)) {
+      DBG_ERR("Couldn't caclulate pubkey %s",
+              yh_strerror(YHR_INVALID_PARAMETERS));
+      return YHR_INVALID_PARAMETERS;
+    }
+
+    if (!EC_KEY_set_private_key(key, pvt) || !EC_KEY_set_public_key(key, pub) ||
+        !EC_KEY_check_key(key)) {
+      DBG_ERR("Key is invalid %s", yh_strerror(YHR_INVALID_PARAMETERS));
+      return YHR_INVALID_PARAMETERS;
+    }
+
+    if (EC_POINT_point2oct(group, pub, POINT_CONVERSION_UNCOMPRESSED, pub_key,
+                           65, ctx) != 65) {
+      DBG_ERR("Couldn't encode pubkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
+      return YHR_INVALID_PARAMETERS;
+    }
+
+    DBG_INT(pub_key, 65, "Derived PubKey: ");
+
+    EC_KEY_free(key);
+  }
+  return yrc;
 }
 
 yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
@@ -3399,19 +3434,17 @@ yh_rc yh_util_import_authentication_key_derived(
     return YHR_INVALID_PARAMETERS;
   }
 
-  uint8_t key_enc[SCP_KEY_LEN];
-  uint8_t key_mac[SCP_KEY_LEN];
+  uint8_t key[2 * SCP_KEY_LEN];
 
-  yh_rc yrc = derive_keys(password, password_len, key_enc, key_mac);
+  yh_rc yrc = derive_key(password, password_len, key, sizeof(key));
 
   if (yrc == YHR_SUCCESS) {
     yrc =
       yh_util_import_authentication_key(session, key_id, label, domains,
                                         capabilities, delegated_capabilities,
-                                        key_enc, sizeof(key_enc), key_mac,
-                                        sizeof(key_mac));
-    insecure_memzero(key_enc, sizeof(key_enc));
-    insecure_memzero(key_mac, sizeof(key_mac));
+                                        key, SCP_KEY_LEN, key + SCP_KEY_LEN,
+                                        SCP_KEY_LEN);
+    insecure_memzero(key, sizeof(key));
   }
   return yrc;
 }
@@ -3486,17 +3519,14 @@ yh_rc yh_util_change_authentication_key_derived(yh_session *session,
     return YHR_INVALID_PARAMETERS;
   }
 
-  uint8_t key_enc[SCP_KEY_LEN];
-  uint8_t key_mac[SCP_KEY_LEN];
+  uint8_t key[2 * SCP_KEY_LEN];
 
-  yh_rc yrc = derive_keys(password, password_len, key_enc, key_mac);
+  yh_rc yrc = derive_key(password, password_len, key, sizeof(key));
 
   if (yrc == YHR_SUCCESS) {
-    yrc = yh_util_change_authentication_key(session, key_id, key_enc,
-                                            sizeof(key_enc), key_mac,
-                                            sizeof(key_mac));
-    insecure_memzero(key_enc, sizeof(key_enc));
-    insecure_memzero(key_mac, sizeof(key_mac));
+    yrc = yh_util_change_authentication_key(session, key_id, key, SCP_KEY_LEN,
+                                            key + SCP_KEY_LEN, SCP_KEY_LEN);
+    insecure_memzero(key, sizeof(key));
   }
   return yrc;
 }

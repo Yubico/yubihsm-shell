@@ -92,10 +92,6 @@ set (
   SOURCE_ASYM_AUTH
   asym_auth.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_ASYM_AUTH ${SOURCE_ASYM_AUTH}
-    ../common/openssl-compat.c)
-endif()
 
 set (
   SOURCE_IMPORT_EC
@@ -299,7 +295,6 @@ add_executable (asym_auth ${SOURCE_ASYM_AUTH})
 
 target_link_libraries (
   asym_auth
-  ${LIBCRYPTO_LDFLAGS}
   yubihsm
   )
 
