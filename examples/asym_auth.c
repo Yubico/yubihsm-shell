@@ -128,6 +128,13 @@ int main(void) {
 
   printf("Successfully established session %02d\n", session_id);
 
+  yrc = yh_util_derive_ec_p256_key((uint8_t *) "Gorgon", 6, sk_oce, pk_oce);
+  assert(yrc == YHR_SUCCESS);
+
+  yrc = yh_util_change_authentication_key(session, &authkey, pk_oce + 1,
+                                          sizeof(pk_oce) - 1, NULL, 0);
+  assert(yrc == YHR_SUCCESS);
+
   printf("Send a secure echo command\n");
 
   uint8_t response2[sizeof(data)] = {0};
@@ -150,6 +157,16 @@ int main(void) {
 
   assert(response_len == response2_len);
   assert(memcmp(response, response2, response_len) == 0);
+
+  yrc = yh_util_close_session(session);
+  assert(yrc == YHR_SUCCESS);
+
+  yrc = yh_destroy_session(&session);
+  assert(yrc == YHR_SUCCESS);
+
+  yrc = yh_create_session_asym(connector, authkey, sk_oce, sizeof(sk_oce),
+                               pk_sd, pk_sd_len, false, &session);
+  assert(yrc == YHR_SUCCESS);
 
   yrc = yh_util_close_session(session);
   assert(yrc == YHR_SUCCESS);
