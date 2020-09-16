@@ -3455,9 +3455,13 @@ yh_rc yh_util_change_authentication_key(yh_session *session, uint16_t *key_id,
                                         const uint8_t *key_mac,
                                         size_t key_mac_len) {
 
-  if (session == NULL || key_id == NULL || key_enc == NULL ||
-      key_enc_len != YH_KEY_LEN || key_mac == NULL ||
-      key_mac_len != YH_KEY_LEN) {
+  uint8_t algorithm = get_auth_key_algo(key_enc_len + key_mac_len);
+
+  DBG_INFO("Auth Key Algorithm %u", algorithm);
+
+  if (session == NULL || key_id == NULL || algorithm == 0 ||
+      (key_enc == NULL && key_enc_len > 0) ||
+      (key_mac == NULL && key_mac_len > 0)) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
@@ -3467,8 +3471,7 @@ yh_rc yh_util_change_authentication_key(yh_session *session, uint16_t *key_id,
     struct {
       uint16_t key_id;
       uint8_t algorithm;
-      uint8_t key_enc[YH_KEY_LEN];
-      uint8_t key_mac[YH_KEY_LEN];
+      uint8_t key[64];
     };
     uint8_t buf[1];
   } data;
@@ -3483,13 +3486,15 @@ yh_rc yh_util_change_authentication_key(yh_session *session, uint16_t *key_id,
   yh_cmd response_cmd;
 
   data.key_id = htons(*key_id);
-  data.algorithm = YH_ALGO_AES128_YUBICO_AUTHENTICATION;
-  memcpy(data.key_enc, key_enc, key_enc_len);
-  memcpy(data.key_mac, key_mac, key_mac_len);
+  data.algorithm = algorithm;
+  memcpy(data.key, key_enc, key_enc_len);
+  memcpy(data.key + key_enc_len, key_mac, key_mac_len);
 
-  yh_rc yrc = yh_send_secure_msg(session, YHC_CHANGE_AUTHENTICATION_KEY,
-                                 data.buf, sizeof(data), &response_cmd,
-                                 response.buf, &response_len);
+  yh_rc yrc =
+    yh_send_secure_msg(session, YHC_CHANGE_AUTHENTICATION_KEY, data.buf,
+                       sizeof(data) - sizeof(data.key) + key_enc_len +
+                         key_mac_len,
+                       &response_cmd, response.buf, &response_len);
   insecure_memzero(data.buf, sizeof(data));
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send CHANGE AUTHENTICATION KEY command: %s\n",
