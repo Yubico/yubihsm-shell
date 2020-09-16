@@ -31,6 +31,7 @@
 #include <limits.h>
 
 #include <openssl/ec.h>
+#include <openssl/ecdh.h>
 #include <openssl/rand.h>
 
 #include "../common/rand.h"
