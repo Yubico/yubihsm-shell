@@ -996,14 +996,6 @@ yh_rc yh_util_derive_ec_p256_key(const uint8_t *password, size_t password_len,
     return YHR_INVALID_PARAMETERS;
   }
 
-  uint8_t *pwd = calloc(1, password_len + 1);
-  if (pwd == NULL) {
-    DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
-    return YHR_MEMORY_ERROR;
-  }
-
-  memcpy(pwd, password, password_len);
-
   BN_CTX *ctx = BN_CTX_new();
   BIGNUM *pvt = NULL, *order = BN_new();
   EC_GROUP *group = EC_GROUP_new_by_curve_name(NID_X9_62_prime256v1);
@@ -1017,21 +1009,36 @@ yh_rc yh_util_derive_ec_p256_key(const uint8_t *password, size_t password_len,
     return YHR_GENERIC_ERROR;
   }
 
+  uint8_t *pwd = calloc(1, password_len + 1);
+  if (pwd == NULL) {
+    DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
+    return YHR_MEMORY_ERROR;
+  }
+
+  memcpy(pwd, password, password_len);
+
   do {
     DBG_INFO("Deriving key with perturbation %u", pwd[password_len]);
     // We rely on the fact that a trailing zero doesn't change the derived key
     yh_rc yrc = derive_key(pwd, password_len + 1, priv_key, 32);
-    if (yrc) {
+    if (yrc != YHR_SUCCESS) {
+      insecure_memzero(pwd, password_len + 1);
+      free(pwd);
       DBG_ERR("%s", yh_strerror(yrc));
       return yrc;
     }
     pwd[password_len]++;
     pvt = BN_bin2bn(priv_key, 32, pvt);
     if (pvt == NULL) {
+      insecure_memzero(pwd, password_len + 1);
+      free(pwd);
       DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
       return YHR_MEMORY_ERROR;
     }
   } while (BN_is_zero(pvt) || BN_cmp(pvt, order) >= 0);
+
+  insecure_memzero(pwd, password_len + 1);
+  free(pwd);
 
   EC_POINT *pub = EC_POINT_new(group);
   if (pub == NULL) {
@@ -1050,7 +1057,6 @@ yh_rc yh_util_derive_ec_p256_key(const uint8_t *password, size_t password_len,
 
   DBG_INT(pub_key, 65, "Derived PubKey: ");
 
-  insecure_memzero(pwd, password_len + 1);
   EC_POINT_free(pub);
   EC_GROUP_free(group);
   BN_free(order);
