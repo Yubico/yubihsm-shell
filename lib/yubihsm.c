@@ -991,45 +991,73 @@ yh_rc yh_get_device_pubkey(yh_connector *connector, uint8_t *device_pubkey,
 yh_rc yh_util_derive_ec_p256_key(const uint8_t *password, size_t password_len,
                                  uint8_t *priv_key, uint8_t *pub_key) {
 
-  yh_rc yrc = derive_key(password, password_len, priv_key, 32);
-
-  if (yrc == YHR_SUCCESS) {
-    EC_KEY *key = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
-    if (!key) {
-      DBG_ERR("Couldn't create new key %s",
-              yh_strerror(YHR_INVALID_PARAMETERS));
-      return YHR_INVALID_PARAMETERS;
-    }
-
-    BN_CTX *ctx = BN_CTX_new();
-    const EC_GROUP *group = EC_KEY_get0_group(key);
-
-    BIGNUM *pvt = BN_bin2bn(priv_key, 32, NULL);
-    EC_POINT *pub = EC_POINT_new(group);
-
-    if (!EC_POINT_mul(group, pub, pvt, NULL, NULL, ctx)) {
-      DBG_ERR("Couldn't caclulate pubkey %s",
-              yh_strerror(YHR_INVALID_PARAMETERS));
-      return YHR_INVALID_PARAMETERS;
-    }
-
-    if (!EC_KEY_set_private_key(key, pvt) || !EC_KEY_set_public_key(key, pub) ||
-        !EC_KEY_check_key(key)) {
-      DBG_ERR("Key is invalid %s", yh_strerror(YHR_INVALID_PARAMETERS));
-      return YHR_INVALID_PARAMETERS;
-    }
-
-    if (EC_POINT_point2oct(group, pub, POINT_CONVERSION_UNCOMPRESSED, pub_key,
-                           65, ctx) != 65) {
-      DBG_ERR("Couldn't encode pubkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
-      return YHR_INVALID_PARAMETERS;
-    }
-
-    DBG_INT(pub_key, 65, "Derived PubKey: ");
-
-    EC_KEY_free(key);
+  if (password == NULL || priv_key == NULL || pub_key == NULL) {
+    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
   }
-  return yrc;
+
+  uint8_t *pwd = calloc(1, password_len + 1);
+  if (pwd == NULL) {
+    DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
+    return YHR_MEMORY_ERROR;
+  }
+
+  memcpy(pwd, password, password_len);
+
+  BN_CTX *ctx = BN_CTX_new();
+  BIGNUM *pvt = NULL, *order = BN_new();
+  EC_GROUP *group = EC_GROUP_new_by_curve_name(NID_X9_62_prime256v1);
+  if (ctx == NULL || order == NULL || group == NULL) {
+    DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
+    return YHR_MEMORY_ERROR;
+  }
+
+  if (!EC_GROUP_get_order(group, order, ctx)) {
+    DBG_ERR("%s", yh_strerror(YHR_GENERIC_ERROR));
+    return YHR_GENERIC_ERROR;
+  }
+
+  do {
+    DBG_INFO("Deriving key with perturbation %u", pwd[password_len]);
+    // We rely on the fact that a trailing zero doesn't change the derived key
+    yh_rc yrc = derive_key(pwd, password_len + 1, priv_key, 32);
+    if (yrc) {
+      DBG_ERR("%s", yh_strerror(yrc));
+      return yrc;
+    }
+    pwd[password_len]++;
+    pvt = BN_bin2bn(priv_key, 32, pvt);
+    if (pvt == NULL) {
+      DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
+      return YHR_MEMORY_ERROR;
+    }
+  } while (BN_is_zero(pvt) || BN_cmp(pvt, order) >= 0);
+
+  EC_POINT *pub = EC_POINT_new(group);
+  if (pub == NULL) {
+    DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
+    return YHR_MEMORY_ERROR;
+  }
+  if (!EC_POINT_mul(group, pub, pvt, NULL, NULL, ctx)) {
+    DBG_ERR("%s", yh_strerror(YHR_GENERIC_ERROR));
+    return YHR_GENERIC_ERROR;
+  }
+  if (!EC_POINT_point2oct(group, pub, POINT_CONVERSION_UNCOMPRESSED, pub_key,
+                          65, ctx)) {
+    DBG_ERR("%s", yh_strerror(YHR_GENERIC_ERROR));
+    return YHR_GENERIC_ERROR;
+  }
+
+  DBG_INT(pub_key, 65, "Derived PubKey: ");
+
+  insecure_memzero(pwd, password_len + 1);
+  EC_POINT_free(pub);
+  EC_GROUP_free(group);
+  BN_free(order);
+  BN_free(pvt);
+  BN_CTX_free(ctx);
+
+  return YHR_SUCCESS;
 }
 
 yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
@@ -1133,7 +1161,7 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
   if (EC_POINT_point2oct(group, EC_KEY_get0_public_key(esk_oce),
                          POINT_CONVERSION_UNCOMPRESSED, epk_oce,
                          sizeof(epk_oce), ctx) != sizeof(epk_oce)) {
-    DBG_ERR("ESK CE pubkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
+    DBG_ERR("ESK OCE pubkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
     rc = YHR_INVALID_PARAMETERS;
     goto err;
   }
