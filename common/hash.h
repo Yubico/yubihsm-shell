@@ -25,6 +25,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
+#include "../common/platform-config.h"
 
 #ifdef __cplusplus
 extern "C" {

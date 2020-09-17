@@ -1,0 +1,129 @@
+name: Windows Build
+# This machine tests building the software on a both 32 and 64 Windows architecture.
+
+on: [push]
+
+jobs:
+
+  job_1:
+    name: Build dist with Linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: Install prerequisites
+        run: |
+          set -x
+          sudo apt install libpcsclite-dev gengetopt help2man libedit-dev libcurl4-openssl-dev libssl-dev libusb-1.0-0-dev
+      - name: Create tar.gz
+        run: |
+          set -x
+          ./resources/make_src_dist.sh
+          cd ..
+          mkdir artifact
+          mv $GITHUB_WORKSPACE/yubihsm-shell-.tar.gz artifact/
+      - name: Upload artifact
+        uses: actions/upload-artifact@v1
+        with:
+          name: yubihsm-shell-src
+          path: ../artifact
+
+  job_2:
+    name: Build Windows x86
+    needs: job_1
+    runs-on: windows-latest
+    steps:
+      - name: Download source from job_1
+        uses: actions/download-artifact@v1
+        with:
+          name: yubihsm-shell-src
+
+      - name: Extract source
+        run: |
+          Set-PSDebug -Trace 1
+          cd yubihsm-shell-src
+          tar xf yubihsm-shell-.tar.gz
+
+      - name: install prerequisites for x86 architecture
+        run: |
+          Set-PSDebug -Trace 1
+          choco install visualstudio2019community --package-parameters "--add Microsoft.VisualStudio.Component.VC.Redist.MSM"
+
+      - name: Build and make MSI installer
+        run: |
+          Set-PSDebug -Trace 1
+          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-"
+          $MERGEDPATH = Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC142_CRT_x86.msm"
+
+          cd $YHSHELL_SRC_DIR/resources/win
+          ./make_installer.ps1 Win32 C:/vcpkg $env:WIX\bin "$MERGEDPATH"
+
+          cd yubihsm-shell-x86/bin
+          ./yubihsm-shell.exe --version
+          ./yubihsm-shell.exe --help
+
+          mkdir $env:GITHUB_WORKSPACE/artifact
+          cp -r $YHSHELL_SRC_DIR/resources/win/yubihsm-shell-x86.msi $env:GITHUB_WORKSPACE/artifact/
+
+      - name: Install yubihsm-shell
+        run: |
+          Set-PSDebug -Trace 1
+          cd "$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-\resources\win"
+          msiexec /i yubihsm-shell-x86.msi /quiet /log $env:GITHUB_WORKSPACE/artifact/log_x86.txt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v1
+        with:
+          name: yubihsm-shell-win32
+          path: artifact
+
+
+  job_3:
+    name: Build Windows x64
+    needs: job_1
+    runs-on: windows-latest
+
+    steps:
+      - name: Download source from job_1
+        uses: actions/download-artifact@v1
+        with:
+          name: yubihsm-shell-src
+
+      - name: Extract source
+        run: |
+          Set-PSDebug -Trace 1
+          cd yubihsm-shell-src
+          tar xf yubihsm-shell-.tar.gz
+
+      - name: install prerequisites for x64 architecture
+        run: |
+          Set-PSDebug -Trace 1
+          choco install visualstudio2019community --package-parameters "--add Microsoft.VisualStudio.Component.VC.Redist.MSM"
+
+      - name: Build and make MSI installer
+        run: |
+          Set-PSDebug -Trace 1
+          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-"
+          $MERGEDPATH = Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC142_CRT_x64.msm"
+
+          cd $YHSHELL_SRC_DIR/resources/win
+          ./make_installer.ps1 x64 C:/vcpkg $env:WIX\bin "$MERGEDPATH"
+
+          cd yubihsm-shell-x64/bin
+          ./yubihsm-shell.exe --version
+          ./yubihsm-shell.exe --help
+
+          mkdir $env:GITHUB_WORKSPACE/artifact
+          cp -r $YHSHELL_SRC_DIR/resources/win/yubihsm-shell-x64.msi $env:GITHUB_WORKSPACE/artifact/
+
+      - name: Install yubihsm-shell
+        run: |
+          Set-PSDebug -Trace 1
+          cd "$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-\resources\win"
+          msiexec /i yubihsm-shell-x64.msi /quiet /log $env:GITHUB_WORKSPACE/artifact/log_x64.txt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v1
+        with:
+          name: yubihsm-shell-win64
+          path: artifact

@@ -21,6 +21,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include "../common/platform-config.h"
 
 #ifdef __WIN32
 #include <winsock.h>

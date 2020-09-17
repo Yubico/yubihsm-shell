@@ -19,6 +19,7 @@
 
 #include <stdbool.h>
 #include <stdlib.h>
+#include "../common/platform-config.h"
 
 // NOTE(adma): those utility functions do not link against libyubihsm
 

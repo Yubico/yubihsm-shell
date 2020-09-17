@@ -23,11 +23,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <unistd.h>
-#include <sys/time.h>
 
 #include "util.h"
 #include "commands.h"
@@ -56,11 +53,22 @@
 // TODO: cheat on windows, cheat better?
 #define S_ISLNK S_ISREG
 #else
+#include <strings.h>
+#include <unistd.h>
+#include <sys/time.h>
 #include <editline/readline.h>
 #include <histedit.h>
 
 History *g_hist;
 #endif
+
+#ifdef _MSVC
+#define S_ISREG(m) (((m) &S_IFMT) == S_IFREG)
+#define strcasecmp _stricmp
+#define strncasecmp _strnicmp
+#endif
+
+#define UNUSED(x) (void) (x)
 
 #define LIB_SUCCEED_OR_DIE(x, s)                                               \
   if ((x) != YHR_SUCCESS) {                                                    \
@@ -709,9 +717,9 @@ static bool probe_session(yubihsm_context *ctx, int index) {
 }
 
 #ifdef __WIN32
-static void WINAPI timer_handler(void *lpParam __attribute__((unused)),
-                                 unsigned char TimerOrWaitFired
-                                 __attribute__((unused))) {
+static void WINAPI timer_handler(void *lpParam,
+                                 unsigned char TimerOrWaitFired) {
+  UNUSED(TimerOrWaitFired);
 #else
 static void timer_handler(int signo __attribute__((unused))) {
 #endif
@@ -1710,7 +1718,7 @@ static int parse_configured_connectors(yubihsm_context *ctx, char **connectors,
 pcc_failure:
   for (int i = 0; i < ctx->n_connectors; i++) {
     free(ctx->connector_list[i]);
-    ctx->connector_list = NULL;
+    ctx->connector_list[i] = NULL;
   }
 
   free(ctx->connector_list);
@@ -2652,7 +2660,7 @@ int main(int argc, char *argv[]) {
     }
 
   } else {
-    int num;
+    int num = 0;
 #ifndef __WIN32
     EditLine *el;
 
@@ -2736,6 +2744,16 @@ main_exit:
   ykyh_done(ctx.state); // TODO(adma): more consistent naming
   ctx.state = NULL;
 #endif
+
+  if (ctx.connector_list != NULL) {
+    for (int i = 0; i < ctx.n_connectors; i++) {
+      free(ctx.connector_list[i]);
+      ctx.connector_list[i] = NULL;
+    }
+    free(ctx.connector_list);
+    ctx.connector_list = NULL;
+    ctx.n_connectors = 0;
+  }
 
   return rc;
 }

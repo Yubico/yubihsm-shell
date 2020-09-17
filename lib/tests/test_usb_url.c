@@ -37,6 +37,11 @@ static void test_urls(void) {
     {"", 0, false},
     {"yhusb://", 0, true},
     {"yhusb://foo=bar&serial=1000000", 1000000, true},
+    {"yhusb://serial=0001234", 1234, true},
+    {"yhusb://serial=0x1234", 0, false},
+    {"yhusb://serial=FF", 0, false},
+    {"yhusb://serial=1234foo", 0, false},
+    {"yhusb://serial=", 0, false},
   };
 
   for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {

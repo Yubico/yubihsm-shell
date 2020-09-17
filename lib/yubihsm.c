@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <yubihsm.h>
+#include "yubihsm.h"
 #include "internal.h"
 
 #ifdef __WIN32
@@ -22,11 +22,11 @@
 #else
 #include <arpa/inet.h>
 #include <dlfcn.h>
+#include <strings.h>
 #endif
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 #include <stdio.h>
 #include <limits.h>
 
@@ -45,12 +45,21 @@
 
 // If any of the values in scp.h are changed
 // they should be mirrored in yubihsm.h
+#ifdef _MSVC
+_STATIC_ASSERT(SCP_HOST_CHAL_LEN == YH_HOST_CHAL_LEN);
+_STATIC_ASSERT(SCP_CONTEXT_LEN == YH_CONTEXT_LEN);
+_STATIC_ASSERT(SCP_MSG_BUF_SIZE == YH_MSG_BUF_SIZE);
+_STATIC_ASSERT(SCP_KEY_LEN == YH_KEY_LEN);
+#define strtok_r strtok_s
+#define strcasecmp _stricmp
+#else
 _Static_assert(SCP_HOST_CHAL_LEN == YH_HOST_CHAL_LEN,
                "Host challenge length mismatch");
 _Static_assert(SCP_CONTEXT_LEN == YH_CONTEXT_LEN, "Context length mismatch");
 _Static_assert(SCP_MSG_BUF_SIZE == YH_MSG_BUF_SIZE,
                "Message buffer size mismatch");
 _Static_assert(SCP_KEY_LEN == YH_KEY_LEN, "Message buffer size mismatch");
+#endif
 
 #define LIST_SEPARATORS ":,;|"
 

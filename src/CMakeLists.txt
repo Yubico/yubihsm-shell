@@ -14,14 +14,11 @@
 # limitations under the License.
 #
 
-include(gengetopt)
-
-find_gengetopt ()
-add_gengetopt_files (cmdline "--conf-parser")
+include(${CMAKE_SOURCE_DIR}/cmake/openssl.cmake)
+find_libcrypto()
 
 set (
   SOURCE
-  ${GGO_C}
   commands.c
   main.c
   ../common/util.c
@@ -34,6 +31,17 @@ if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
     ../common/openssl-compat.c)
 endif()
 
+if(WIN32)
+  set(SOURCE ${SOURCE} cmdline.c)
+  include(${CMAKE_SOURCE_DIR}/cmake/getopt.cmake)
+  find_getopt()
+else(WIN32)
+  include(gengetopt)
+  find_gengetopt ()
+  add_gengetopt_files (cmdline "--conf-parser")
+  set(SOURCE ${SOURCE} ${GGO_C})
+endif(WIN32)
+
 include_directories (
   ${LIBCRYPTO_INCLUDEDIR}
   ${LIBEDIT_INCLUDEDIR}
@@ -43,14 +51,14 @@ include_directories (
   ${CMAKE_CURRENT_SOURCE_DIR}/../ykyh
   )
 
-if(${WIN32})
+if(WIN32)
   list(APPEND SOURCE ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc @ONLY)
-endif(${WIN32})
+endif(WIN32)
 
 if (CMAKE_C_COMPILER_ID MATCHES Clang)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE")
-else ()
+elseif (NOT MSVC)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE -pie")
 endif ()
 
@@ -67,6 +75,7 @@ if (ENABLE_STATIC)
   target_link_libraries(yubihsm-shell_static
     ${LIBCRYPTO_LDFLAGS}
     ${LIBEDIT_LDFLAGS}
+    ${GETOPT_LIBS}
     yubihsm_static)
   add_coverage (yubihsm-shell_static)
 endif ()
@@ -75,6 +84,7 @@ target_link_libraries (
   yubihsm-shell
   ${LIBCRYPTO_LDFLAGS}
   ${LIBEDIT_LDFLAGS}
+  ${GETOPT_LIBS}
   yubihsm
   )
 
