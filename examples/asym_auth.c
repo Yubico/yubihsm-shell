@@ -31,6 +31,10 @@
 const uint8_t password[] = "password";
 const uint8_t data[] = "sudo make me a sandwich";
 
+static int compare_algorithm(const void *a, const void *b) {
+  return (*(const yh_algorithm *) a - *(const yh_algorithm *) b);
+}
+
 int main(void) {
   yh_connector *connector = NULL;
   yh_rc yrc = YHR_GENERIC_ERROR;
@@ -57,6 +61,24 @@ int main(void) {
   assert(yrc == YHR_SUCCESS);
 
   yh_set_verbosity(connector, YH_VERB_ALL);
+
+  uint8_t d_major, d_minor, d_patch;
+  uint32_t serial;
+  uint8_t log_total, log_used;
+  yh_algorithm algorithms[YH_MAX_ALGORITHM_COUNT];
+  size_t n_algorithms = sizeof(algorithms);
+  yrc =
+    yh_util_get_device_info(connector, &d_major, &d_minor, &d_patch, &serial,
+                            &log_total, &log_used, algorithms, &n_algorithms);
+  assert(yrc == YHR_SUCCESS);
+
+  yh_algorithm key = YH_ALGO_EC_P256_YUBICO_AUTHENTICATION;
+  if (!bsearch(&key, algorithms, n_algorithms, sizeof(key),
+               compare_algorithm)) {
+    fprintf(stderr, "Skipping this test because the device does not support "
+                    "aymmetric authentication\n");
+    exit(EXIT_SUCCESS);
+  }
 
   uint8_t sk_oce[32], pk_oce[65];
   yrc = yh_util_derive_ec_p256_key(password, sizeof(password), sk_oce, pk_oce);
