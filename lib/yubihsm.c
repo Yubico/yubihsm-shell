@@ -30,13 +30,10 @@
 #include <stdio.h>
 #include <limits.h>
 
-#include <openssl/ec.h>
-#include <openssl/ecdh.h>
-#include <openssl/rand.h>
-
 #include "../common/rand.h"
 #include "../common/pkcs5.h"
 #include "../common/hash.h"
+#include "../common/ecdh.h"
 
 #include "../aes_cmac/aes_cmac.h"
 
@@ -995,26 +992,11 @@ yh_rc yh_util_derive_ec_p256_key(const uint8_t *password, size_t password_len,
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
-
-  BN_CTX *ctx = BN_CTX_new();
-  BIGNUM *pvt = NULL, *order = BN_new();
-  EC_GROUP *group = EC_GROUP_new_by_curve_name(NID_X9_62_prime256v1);
-  if (ctx == NULL || order == NULL || group == NULL) {
-    DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
-    return YHR_MEMORY_ERROR;
-  }
-
-  if (!EC_GROUP_get_order(group, order, ctx)) {
-    DBG_ERR("%s", yh_strerror(YHR_GENERIC_ERROR));
-    return YHR_GENERIC_ERROR;
-  }
-
   uint8_t *pwd = calloc(1, password_len + 1);
   if (pwd == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
     return YHR_MEMORY_ERROR;
   }
-
   memcpy(pwd, password, password_len);
 
   do {
@@ -1028,40 +1010,13 @@ yh_rc yh_util_derive_ec_p256_key(const uint8_t *password, size_t password_len,
       return yrc;
     }
     pwd[password_len]++;
-    pvt = BN_bin2bn(priv_key, 32, pvt);
-    if (pvt == NULL) {
-      insecure_memzero(pwd, password_len + 1);
-      free(pwd);
-      DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
-      return YHR_MEMORY_ERROR;
-    }
-  } while (BN_is_zero(pvt) || BN_cmp(pvt, order) >= 0);
+  } while (
+    !ecdh_calculate_public_key(ecdh_curve_p256(), priv_key, 32, pub_key, 65));
 
   insecure_memzero(pwd, password_len + 1);
   free(pwd);
 
-  EC_POINT *pub = EC_POINT_new(group);
-  if (pub == NULL) {
-    DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
-    return YHR_MEMORY_ERROR;
-  }
-  if (!EC_POINT_mul(group, pub, pvt, NULL, NULL, ctx)) {
-    DBG_ERR("%s", yh_strerror(YHR_GENERIC_ERROR));
-    return YHR_GENERIC_ERROR;
-  }
-  if (!EC_POINT_point2oct(group, pub, POINT_CONVERSION_UNCOMPRESSED, pub_key,
-                          65, ctx)) {
-    DBG_ERR("%s", yh_strerror(YHR_GENERIC_ERROR));
-    return YHR_GENERIC_ERROR;
-  }
-
   DBG_INT(pub_key, 65, "Derived PubKey: ");
-
-  EC_POINT_free(pub);
-  EC_GROUP_free(group);
-  BN_free(order);
-  BN_free(pvt);
-  BN_CTX_free(ctx);
 
   return YHR_SUCCESS;
 }
@@ -1077,21 +1032,33 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  BN_CTX *ctx = BN_CTX_new();
-  EC_KEY *sk_oce = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
-  EC_KEY *pk_sd = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
-  EC_KEY *esk_oce = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
-  EC_KEY *epk_sd = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
-  yh_session *new_session = NULL;
-  yh_rc rc = YHR_SUCCESS;
+  int curve = ecdh_curve_p256();
 
-  if (ctx == NULL || sk_oce == NULL || pk_sd == NULL || esk_oce == NULL ||
-      epk_sd == NULL) {
-    DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
-    rc = YHR_MEMORY_ERROR;
-    goto err;
+  if (!ecdh_validate_private_key(curve, privkey, privkey_len)) {
+    DBG_ERR("ecdh_validate_private_key(privkey) %s",
+            yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
   }
 
+  if (!ecdh_validate_public_key(curve, device_pubkey, device_pubkey_len)) {
+    DBG_ERR("ecdh_validate_public_key(device_pubkey) %s",
+            yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  uint8_t esk_oce[32];
+  uint8_t epk_oce[65];
+
+  if (!ecdh_generate_keypair(curve, esk_oce, sizeof(esk_oce), epk_oce,
+                             sizeof(epk_oce))) {
+    DBG_ERR("ecdh_generate_keypair %s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  DBG_INT(epk_oce, sizeof(epk_oce), "EPK-OCE: ");
+
+  yh_session *new_session = NULL;
+  yh_rc rc = YHR_SUCCESS;
   if (!*session) {
     new_session = calloc(1, sizeof(yh_session));
     if (new_session == NULL) {
@@ -1112,67 +1079,6 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
   snprintf(new_session->s.identifier, 17, "%02x%02x%02x%02x%02x%02x%02x%02x",
            identifier[0], identifier[1], identifier[2], identifier[3],
            identifier[4], identifier[5], identifier[6], identifier[7]);
-
-  if (!EC_KEY_set_private_key(sk_oce, BN_bin2bn(privkey, privkey_len, NULL))) {
-    DBG_ERR("privkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
-    rc = YHR_INVALID_PARAMETERS;
-    goto err;
-  }
-
-  const EC_GROUP *group = EC_KEY_get0_group(sk_oce);
-  EC_POINT *point = EC_POINT_new(group);
-  if (!EC_POINT_mul(group, point, EC_KEY_get0_private_key(sk_oce), NULL, NULL,
-                    ctx)) {
-    DBG_ERR("Privkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
-    rc = YHR_INVALID_PARAMETERS;
-    goto err;
-  }
-
-  if (!EC_KEY_set_public_key(sk_oce, point) || !EC_KEY_check_key(sk_oce)) {
-    DBG_ERR("Privkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
-    rc = YHR_INVALID_PARAMETERS;
-    goto err;
-  }
-
-  point = EC_POINT_new(group);
-  if (!EC_POINT_oct2point(group, point, device_pubkey, device_pubkey_len,
-                          ctx)) {
-    DBG_ERR("Device pubkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
-    rc = YHR_INVALID_PARAMETERS;
-    goto err;
-  }
-
-  if (!EC_KEY_set_public_key(pk_sd, point) || !EC_KEY_check_key(pk_sd)) {
-    DBG_ERR("Device pubkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
-    rc = YHR_INVALID_PARAMETERS;
-    goto err;
-  }
-
-  uint8_t shsss[32];
-  int len = ECDH_compute_key(shsss, sizeof(shsss),
-                             EC_KEY_get0_public_key(pk_sd), sk_oce, NULL);
-  if (len != sizeof(shsss)) {
-    DBG_ERR("ECDH_compute_key shsss %s", yh_strerror(YHR_INVALID_PARAMETERS));
-    rc = YHR_INVALID_PARAMETERS;
-    goto err;
-  }
-
-  if (!EC_KEY_generate_key(esk_oce)) {
-    DBG_ERR("ESK OCE generate privkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
-    rc = YHR_INVALID_PARAMETERS;
-    goto err;
-  }
-
-  uint8_t epk_oce[65];
-  if (EC_POINT_point2oct(group, EC_KEY_get0_public_key(esk_oce),
-                         POINT_CONVERSION_UNCOMPRESSED, epk_oce,
-                         sizeof(epk_oce), ctx) != sizeof(epk_oce)) {
-    DBG_ERR("ESK OCE pubkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
-    rc = YHR_INVALID_PARAMETERS;
-    goto err;
-  }
-
-  DBG_INT(epk_oce, sizeof(epk_oce), "EPK-OCE: ");
 
   Msg msg;
   Msg response_msg;
@@ -1201,28 +1107,28 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
   DBG_INT(response_msg.st.data + 1, sizeof(epk_oce), "EPK-SD: ");
   DBG_INT(response_msg.st.data + 1 + sizeof(epk_oce), SCP_PRF_LEN, "Receipt: ");
 
-  point = EC_POINT_new(group);
-  if (!EC_POINT_oct2point(group, point, response_msg.st.data + 1,
-                          sizeof(epk_oce), ctx)) {
-    DBG_ERR("Device ephemeral pubkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
-    rc = YHR_INVALID_PARAMETERS;
-    goto err;
-  }
-
-  if (!EC_KEY_set_public_key(epk_sd, point) || !EC_KEY_check_key(epk_sd)) {
-    DBG_ERR("Device ephemeral pubkey %s", yh_strerror(YHR_INVALID_PARAMETERS));
-    rc = YHR_INVALID_PARAMETERS;
-    goto err;
+  if (!ecdh_validate_public_key(curve, response_msg.st.data + 1,
+                                sizeof(epk_oce))) {
+    DBG_ERR("ecdh_validate_public_key(epk_sd) %s",
+            yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
   }
 
   uint8_t shsee[32];
-  len = ECDH_compute_key(shsee, sizeof(shsee), EC_KEY_get0_public_key(epk_sd),
-                         esk_oce, NULL);
-  if (len != sizeof(shsee)) {
-    DBG_ERR("ECDH_compute_key ephemeral %s",
+  if (!ecdh_calculate_secret(curve, esk_oce, sizeof(esk_oce),
+                             response_msg.st.data + 1, sizeof(epk_oce), shsee,
+                             sizeof(shsee))) {
+    DBG_ERR("ecdh_calculate_secret(shsee) %s",
             yh_strerror(YHR_INVALID_PARAMETERS));
-    rc = YHR_INVALID_PARAMETERS;
-    goto err;
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  uint8_t shsss[32];
+  if (!ecdh_calculate_secret(curve, privkey, privkey_len, device_pubkey,
+                             device_pubkey_len, shsss, sizeof(shsss))) {
+    DBG_ERR("ecdh_calculate_secret(shsss) %s",
+            yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
   }
 
   uint8_t shs[4 * SCP_KEY_LEN];
@@ -1260,11 +1166,6 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
 err:
   if (new_session != *session)
     free(new_session);
-  EC_KEY_free(epk_sd);
-  EC_KEY_free(esk_oce);
-  EC_KEY_free(pk_sd);
-  EC_KEY_free(sk_oce);
-  BN_CTX_free(ctx);
   return rc;
 }
 
