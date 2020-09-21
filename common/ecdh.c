@@ -36,6 +36,32 @@
 
 // TODO
 
+int YH_INTERNAL ecdh_curve_p256(void) { return 0; }
+int YH_INTERNAL ecdh_validate_public_key(int curve, uint8_t *pubkey,
+                                         size_t cb_pubkey) {
+  return 0;
+}
+int YH_INTERNAL ecdh_validate_private_key(int curve, uint8_t *privkey,
+                                          size_t cb_privkey) {
+  return 0;
+}
+int YH_INTERNAL ecdh_calculate_public_key(int curve, uint8_t *privkey,
+                                          size_t cb_privkey, uint8_t *pubkey,
+                                          size_t cb_pubkey) {
+  return 0;
+}
+int YH_INTERNAL ecdh_generate_keypair(int curve, uint8_t *privkey,
+                                      size_t cb_privkey, uint8_t *pubkey,
+                                      size_t cb_pubkey) {
+  return 0;
+}
+int YH_INTERNAL ecdh_calculate_secret(int curve, uint8_t *privkey,
+                                      size_t cb_privkey, uint8_t *pubkey,
+                                      size_t cb_pubkey, uint8_t *secret,
+                                      size_t cb_secret) {
+  return 0;
+}
+
 #else
 
 int YH_INTERNAL ecdh_curve_p256(void) { return NID_X9_62_prime256v1; }
