@@ -37,10 +37,6 @@
 // TODO
 
 int YH_INTERNAL ecdh_curve_p256(void) { return 0; }
-int YH_INTERNAL ecdh_validate_private_key(int curve, uint8_t *privkey,
-                                          size_t cb_privkey) {
-  return 0;
-}
 int YH_INTERNAL ecdh_calculate_public_key(int curve, uint8_t *privkey,
                                           size_t cb_privkey, uint8_t *pubkey,
                                           size_t cb_pubkey) {
@@ -62,34 +58,6 @@ int YH_INTERNAL ecdh_calculate_secret(int curve, uint8_t *privkey,
 
 int YH_INTERNAL ecdh_curve_p256(void) { return NID_X9_62_prime256v1; }
 
-int YH_INTERNAL ecdh_validate_private_key(int curve, uint8_t *privkey,
-                                          size_t cb_privkey) {
-  BN_CTX *ctx = BN_CTX_new();
-  BIGNUM *order = BN_new();
-  BIGNUM *pvt = BN_bin2bn(privkey, cb_privkey, NULL);
-  EC_GROUP *group = EC_GROUP_new_by_curve_name(curve);
-  if (ctx == NULL || order == NULL || pvt == NULL || group == NULL) {
-    EC_GROUP_free(group);
-    BN_free(pvt);
-    BN_free(order);
-    BN_CTX_free(ctx);
-    return 0;
-  }
-  if (BN_is_zero(pvt) || !EC_GROUP_get_order(group, order, ctx) ||
-      BN_cmp(pvt, order) >= 0) {
-    EC_GROUP_free(group);
-    BN_free(pvt);
-    BN_free(order);
-    BN_CTX_free(ctx);
-    return 0;
-  }
-  EC_GROUP_free(group);
-  BN_free(pvt);
-  BN_free(order);
-  BN_CTX_free(ctx);
-  return 1;
-}
-
 int YH_INTERNAL ecdh_calculate_public_key(int curve, uint8_t *privkey,
                                           size_t cb_privkey, uint8_t *pubkey,
                                           size_t cb_pubkey) {
@@ -112,20 +80,24 @@ int YH_INTERNAL ecdh_calculate_public_key(int curve, uint8_t *privkey,
     BN_CTX_free(ctx);
     return 0;
   }
-  EC_POINT *pub = EC_POINT_new(group);
-  if (pub == NULL || !EC_POINT_mul(group, pub, pvt, NULL, NULL, ctx)) {
+  size_t cb = 1;
+  if (pubkey && cb_pubkey) {
+    EC_POINT *pub = EC_POINT_new(group);
+    if (pub == NULL || !EC_POINT_mul(group, pub, pvt, NULL, NULL, ctx)) {
+      EC_POINT_free(pub);
+      EC_GROUP_free(group);
+      BN_free(pvt);
+      BN_free(order);
+      BN_CTX_free(ctx);
+      return 0;
+    }
+    cb = EC_POINT_point2oct(group, pub, POINT_CONVERSION_UNCOMPRESSED, pubkey,
+                            cb_pubkey, ctx);
     EC_POINT_free(pub);
-    EC_GROUP_free(group);
-    BN_free(pvt);
-    BN_free(order);
-    BN_CTX_free(ctx);
-    return 0;
   }
-  size_t cb = EC_POINT_point2oct(group, pub, POINT_CONVERSION_UNCOMPRESSED,
-                                 pubkey, cb_pubkey, ctx);
-  EC_POINT_free(pub);
   EC_GROUP_free(group);
   BN_free(pvt);
+  BN_free(order);
   BN_CTX_free(ctx);
   return (int) cb;
 }

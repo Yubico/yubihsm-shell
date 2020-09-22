@@ -1035,8 +1035,8 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
 
   int curve = ecdh_curve_p256();
 
-  if (!ecdh_validate_private_key(curve, privkey, privkey_len)) {
-    DBG_ERR("ecdh_validate_private_key(privkey) %s",
+  if (!ecdh_calculate_public_key(curve, privkey, privkey_len, NULL, 0)) {
+    DBG_ERR("ecdh_calculate_public_key(privkey) %s",
             yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
