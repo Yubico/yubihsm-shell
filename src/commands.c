@@ -2402,10 +2402,10 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
     } else if (benchmarks[i].algo == YH_ALGO_AES128_YUBICO_AUTHENTICATION) {
       type = YH_AUTHENTICATION_KEY;
       yh_string_to_capabilities("", &capabilities);
-      yrc =
-        yh_util_import_authentication_key_derived(argv[0].e, &id, label, 0xffff,
-                                                  &capabilities, &capabilities,
-                                                  password, sizeof(password));
+      yrc = yh_util_import_authentication_key_derived(argv[0].e, &id, label,
+                                                      0xffff, &capabilities,
+                                                      &capabilities, password,
+                                                      sizeof(password) - 1);
     } else {
       fprintf(stderr, "Unknown benchmark algorithms\n");
       return -1;
@@ -2477,7 +2477,7 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
       } else if (benchmarks[i].algo == YH_ALGO_AES128_YUBICO_AUTHENTICATION) {
         yh_session *ses = NULL;
         yrc = yh_create_session_derived(ctx->connector, id, password,
-                                        sizeof(password), false, &ses);
+                                        sizeof(password) - 1, false, &ses);
         if (yrc == YHR_SUCCESS) {
           yrc = yh_authenticate_session(ses);
         }
