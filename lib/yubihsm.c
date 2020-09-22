@@ -999,6 +999,8 @@ yh_rc yh_util_derive_ec_p256_key(const uint8_t *password, size_t password_len,
   }
   memcpy(pwd, password, password_len);
 
+  int curve = ecdh_curve_p256();
+
   do {
     DBG_INFO("Deriving key with perturbation %u", pwd[password_len]);
     // We rely on the fact that a trailing zero doesn't change the derived key
@@ -1010,8 +1012,7 @@ yh_rc yh_util_derive_ec_p256_key(const uint8_t *password, size_t password_len,
       return yrc;
     }
     pwd[password_len]++;
-  } while (
-    !ecdh_calculate_public_key(ecdh_curve_p256(), priv_key, 32, pub_key, 65));
+  } while (!ecdh_calculate_public_key(curve, priv_key, 32, pub_key, 65));
 
   insecure_memzero(pwd, password_len + 1);
   free(pwd);
@@ -1036,12 +1037,6 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
 
   if (!ecdh_validate_private_key(curve, privkey, privkey_len)) {
     DBG_ERR("ecdh_validate_private_key(privkey) %s",
-            yh_strerror(YHR_INVALID_PARAMETERS));
-    return YHR_INVALID_PARAMETERS;
-  }
-
-  if (!ecdh_validate_public_key(curve, device_pubkey, device_pubkey_len)) {
-    DBG_ERR("ecdh_validate_public_key(device_pubkey) %s",
             yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
@@ -1106,13 +1101,6 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
   DBG_INT(response_msg.st.data, 1, "SessionId: ");
   DBG_INT(response_msg.st.data + 1, sizeof(epk_oce), "EPK-SD: ");
   DBG_INT(response_msg.st.data + 1 + sizeof(epk_oce), SCP_PRF_LEN, "Receipt: ");
-
-  if (!ecdh_validate_public_key(curve, response_msg.st.data + 1,
-                                sizeof(epk_oce))) {
-    DBG_ERR("ecdh_validate_public_key(epk_sd) %s",
-            yh_strerror(YHR_INVALID_PARAMETERS));
-    return YHR_INVALID_PARAMETERS;
-  }
 
   uint8_t shsee[32];
   if (!ecdh_calculate_secret(curve, esk_oce, sizeof(esk_oce),

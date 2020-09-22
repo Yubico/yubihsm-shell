@@ -37,8 +37,6 @@ extern "C" {
 #endif
 
 int YH_INTERNAL ecdh_curve_p256(void);
-int YH_INTERNAL ecdh_validate_public_key(int curve, uint8_t *pubkey,
-                                         size_t cb_pubkey);
 int YH_INTERNAL ecdh_validate_private_key(int curve, uint8_t *privkey,
                                           size_t cb_privkey);
 int YH_INTERNAL ecdh_calculate_public_key(int curve, uint8_t *privkey,
