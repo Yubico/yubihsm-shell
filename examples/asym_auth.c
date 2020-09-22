@@ -81,7 +81,8 @@ int main(void) {
   }
 
   uint8_t sk_oce[32], pk_oce[65];
-  yrc = yh_util_derive_ec_p256_key(password, sizeof(password), sk_oce, pk_oce);
+  yrc =
+    yh_util_derive_ec_p256_key(password, sizeof(password) - 1, sk_oce, pk_oce);
   assert(yrc == YHR_SUCCESS);
 
   printf("Send a plain (unencrypted, unauthenticated) echo command\n");

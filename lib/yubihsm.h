@@ -643,6 +643,7 @@ static const struct {
   {"eck256", YH_ALGO_EC_K256},
   {"ecp224", YH_ALGO_EC_P224},
   {"ecp256", YH_ALGO_EC_P256},
+  {"ecp256-yubico-authentication", YH_ALGO_EC_P256_YUBICO_AUTHENTICATION},
   {"ecp384", YH_ALGO_EC_P384},
   {"ecp521", YH_ALGO_EC_P521},
   {"ed25519", YH_ALGO_EC_ED25519},

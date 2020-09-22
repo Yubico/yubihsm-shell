@@ -2252,6 +2252,7 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
     {0, 0, 512, "Random 512 bytes"},
     {0, 0, 1024, "Random 1024 bytes"},
     {YH_ALGO_AES128_YUBICO_AUTHENTICATION, 0, 0, ""},
+    {YH_ALGO_EC_P256_YUBICO_AUTHENTICATION, 0, 0, ""},
   };
 
   // this is some data for the OTP benchmark
@@ -2279,6 +2280,7 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
     const char *str1 = NULL, *str2 = "", *str3 = "";
     uint16_t id = argv[2].w;
     char label[YH_OBJ_LABEL_LEN + 1] = {0};
+    uint8_t sk_oce[32], pk_oce[65], pk_sd[65];
     yh_object_type type = 0;
 #ifndef _WIN32
     size_t chars = 0;
@@ -2406,6 +2408,21 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
                                                       0xffff, &capabilities,
                                                       &capabilities, password,
                                                       sizeof(password) - 1);
+    } else if (benchmarks[i].algo == YH_ALGO_EC_P256_YUBICO_AUTHENTICATION) {
+      type = YH_AUTHENTICATION_KEY;
+      yh_string_to_capabilities("", &capabilities);
+      yrc = yh_util_derive_ec_p256_key(password, sizeof(password) - 1, sk_oce,
+                                       pk_oce);
+      if (yrc == YHR_SUCCESS) {
+        size_t pk_sd_len = sizeof(pk_sd);
+        yrc = yh_get_device_pubkey(ctx->connector, pk_sd, &pk_sd_len);
+        if (yrc == YHR_SUCCESS) {
+          yrc = yh_util_import_authentication_key(argv[0].e, &id, label, 0xffff,
+                                                  &capabilities, &capabilities,
+                                                  pk_oce + 1,
+                                                  sizeof(pk_oce) - 1, NULL, 0);
+        }
+      }
     } else {
       fprintf(stderr, "Unknown benchmark algorithms\n");
       return -1;
@@ -2481,6 +2498,13 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
         if (yrc == YHR_SUCCESS) {
           yrc = yh_authenticate_session(ses);
         }
+        if (yrc == YHR_SUCCESS) {
+          yrc = yh_util_close_session(ses);
+        }
+      } else if (benchmarks[i].algo == YH_ALGO_EC_P256_YUBICO_AUTHENTICATION) {
+        yh_session *ses = NULL;
+        yrc = yh_create_session_asym(ctx->connector, id, sk_oce, sizeof(sk_oce),
+                                     pk_sd, sizeof(pk_sd), false, &ses);
         if (yrc == YHR_SUCCESS) {
           yrc = yh_util_close_session(ses);
         }
