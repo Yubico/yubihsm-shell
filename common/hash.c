@@ -89,8 +89,8 @@ LPCWSTR YH_INTERNAL get_hash(hash_t hash) {
 
 #endif
 
-bool hash_bytes(const uint8_t *in, size_t len, hash_t hash, uint8_t *out,
-                size_t *out_len) {
+bool YH_INTERNAL hash_bytes(const uint8_t *in, size_t len, hash_t hash,
+                            uint8_t *out, size_t *out_len) {
 #ifndef _WIN32_BCRYPT
 
   const EVP_MD *md;
@@ -102,14 +102,14 @@ bool hash_bytes(const uint8_t *in, size_t len, hash_t hash, uint8_t *out,
     return false;
   }
 
-  EVP_MD_CTX *mdctx = EVP_MD_CTX_create();
+  EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
   EVP_DigestInit_ex(mdctx, md, NULL);
   EVP_DigestUpdate(mdctx, in, len);
   EVP_DigestFinal_ex(mdctx, out, &d_len);
 
   *out_len = (uint16_t) d_len;
 
-  EVP_MD_CTX_destroy(mdctx);
+  EVP_MD_CTX_free(mdctx);
 
   return true;
 
@@ -188,7 +188,7 @@ cleanup:
 #endif
 }
 
-bool hash_create(_hash_ctx **ctx, hash_t hash) {
+bool YH_INTERNAL hash_create(_hash_ctx **ctx, hash_t hash) {
   bool res = false;
   _hash_ctx *ctx_temp = NULL;
 
@@ -260,7 +260,7 @@ bool hash_create(_hash_ctx **ctx, hash_t hash) {
     goto cleanup;
   }
 
-  if (!(ctx_temp->mdctx = EVP_MD_CTX_create())) {
+  if (!(ctx_temp->mdctx = EVP_MD_CTX_new())) {
     goto cleanup;
   }
 
@@ -293,7 +293,7 @@ cleanup:
   return res;
 }
 
-bool hash_init(_hash_ctx *ctx) {
+bool YH_INTERNAL hash_init(_hash_ctx *ctx) {
   if (!ctx) {
     return false;
   }
@@ -318,7 +318,7 @@ bool hash_init(_hash_ctx *ctx) {
   return true;
 }
 
-bool hash_update(_hash_ctx *ctx, const uint8_t *in, size_t cb_in) {
+bool YH_INTERNAL hash_update(_hash_ctx *ctx, const uint8_t *in, size_t cb_in) {
 #ifdef _WIN32_BCRYPT
   NTSTATUS status = 0;
 #endif
@@ -350,7 +350,7 @@ bool hash_update(_hash_ctx *ctx, const uint8_t *in, size_t cb_in) {
   return true;
 }
 
-bool hash_final(_hash_ctx *ctx, uint8_t *out, size_t *pcb_out) {
+bool YH_INTERNAL hash_final(_hash_ctx *ctx, uint8_t *out, size_t *pcb_out) {
 #ifdef _WIN32_BCRYPT
   NTSTATUS status = 0;
 #else
@@ -386,7 +386,7 @@ bool hash_final(_hash_ctx *ctx, uint8_t *out, size_t *pcb_out) {
   return true;
 }
 
-bool hash_destroy(_hash_ctx *ctx) {
+bool YH_INTERNAL hash_destroy(_hash_ctx *ctx) {
   if (!ctx) {
     return false;
   }
@@ -403,7 +403,7 @@ bool hash_destroy(_hash_ctx *ctx) {
   }
 #else
   if (ctx->mdctx) {
-    EVP_MD_CTX_destroy(ctx->mdctx);
+    EVP_MD_CTX_free(ctx->mdctx);
   }
 #endif
 

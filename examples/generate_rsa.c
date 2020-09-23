@@ -96,12 +96,12 @@ int main(void) {
   uint8_t hashed_data[32];
   unsigned int hashed_data_len;
 
-  mdctx = EVP_MD_CTX_create();
+  mdctx = EVP_MD_CTX_new();
   assert(mdctx != NULL);
   EVP_DigestInit_ex(mdctx, EVP_sha256(), NULL);
   EVP_DigestUpdate(mdctx, data, sizeof(data) - 1);
   EVP_DigestFinal_ex(mdctx, hashed_data, &hashed_data_len);
-  EVP_MD_CTX_destroy(mdctx);
+  EVP_MD_CTX_free(mdctx);
 
   printf("Hash of data (%d bytes) is:", EVP_MD_size(EVP_sha256()));
   for (unsigned int i = 0; i < hashed_data_len; i++) {

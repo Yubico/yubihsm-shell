@@ -2749,7 +2749,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
           rv = CKR_MECHANISM_PARAM_INVALID;
           goto c_di_out;
       }
-      mdctx = EVP_MD_CTX_create();
+      mdctx = EVP_MD_CTX_new();
 
       if (EVP_DigestInit_ex(mdctx, md, NULL) == 0) {
         rv = CKR_MECHANISM_PARAM_INVALID;
@@ -2799,7 +2799,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
 c_di_out:
 
   if (mdctx != NULL) {
-    EVP_MD_CTX_destroy(mdctx);
+    EVP_MD_CTX_free(mdctx);
   }
 
   release_session(&g_ctx, session);

@@ -126,7 +126,7 @@ int main(void) {
   // 0x04), so skip the first byte
   yrc = yh_util_import_authentication_key(session, &authkey, "EC Auth Key",
                                           0xffff, &caps, &caps, pk_oce + 1,
-                                          sizeof(pk_oce) - 1, 0, 0);
+                                          sizeof(pk_oce) - 1, NULL, 0);
   assert(yrc == YHR_SUCCESS);
 
   yrc = yh_util_close_session(session);
