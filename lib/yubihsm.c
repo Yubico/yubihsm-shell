@@ -986,9 +986,10 @@ yh_rc yh_get_device_pubkey(yh_connector *connector, uint8_t *device_pubkey,
 }
 
 yh_rc yh_util_derive_ec_p256_key(const uint8_t *password, size_t password_len,
-                                 uint8_t *priv_key, uint8_t *pub_key) {
+                                 uint8_t *privkey, size_t privkey_len,
+                                 uint8_t *pubkey, size_t pubkey_len) {
 
-  if (password == NULL || priv_key == NULL || pub_key == NULL) {
+  if (password == NULL || privkey == NULL || pubkey == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
@@ -1004,7 +1005,7 @@ yh_rc yh_util_derive_ec_p256_key(const uint8_t *password, size_t password_len,
   do {
     DBG_INFO("Deriving key with perturbation %u", pwd[password_len]);
     // We rely on the fact that a trailing zero doesn't change the derived key
-    yh_rc yrc = derive_key(pwd, password_len + 1, priv_key, 32);
+    yh_rc yrc = derive_key(pwd, password_len + 1, privkey, privkey_len);
     if (yrc != YHR_SUCCESS) {
       insecure_memzero(pwd, password_len + 1);
       free(pwd);
@@ -1012,12 +1013,13 @@ yh_rc yh_util_derive_ec_p256_key(const uint8_t *password, size_t password_len,
       return yrc;
     }
     pwd[password_len]++;
-  } while (!ecdh_calculate_public_key(curve, priv_key, 32, pub_key, 65));
+  } while (!ecdh_calculate_public_key(curve, privkey, privkey_len, pubkey,
+                                      pubkey_len));
 
   insecure_memzero(pwd, password_len + 1);
   free(pwd);
 
-  DBG_INT(pub_key, 65, "Derived PubKey: ");
+  DBG_INT(pubkey, 65, "Derived PubKey: ");
 
   return YHR_SUCCESS;
 }

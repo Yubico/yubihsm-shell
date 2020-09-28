@@ -2412,7 +2412,7 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
       type = YH_AUTHENTICATION_KEY;
       yh_string_to_capabilities("", &capabilities);
       yrc = yh_util_derive_ec_p256_key(password, sizeof(password) - 1, sk_oce,
-                                       pk_oce);
+                                       sizeof(sk_oce), pk_oce, sizeof(pk_oce));
       if (yrc == YHR_SUCCESS) {
         size_t pk_sd_len = sizeof(pk_sd);
         yrc = yh_get_device_pubkey(ctx->connector, pk_sd, &pk_sd_len);

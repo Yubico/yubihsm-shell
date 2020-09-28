@@ -80,21 +80,18 @@ int YH_INTERNAL ecdh_calculate_public_key(int curve, uint8_t *privkey,
     BN_CTX_free(ctx);
     return 0;
   }
-  size_t cb = 1;
-  if (pubkey && cb_pubkey) {
-    EC_POINT *pub = EC_POINT_new(group);
-    if (pub == NULL || !EC_POINT_mul(group, pub, pvt, NULL, NULL, ctx)) {
-      EC_POINT_free(pub);
-      EC_GROUP_free(group);
-      BN_free(pvt);
-      BN_free(order);
-      BN_CTX_free(ctx);
-      return 0;
-    }
-    cb = EC_POINT_point2oct(group, pub, POINT_CONVERSION_UNCOMPRESSED, pubkey,
-                            cb_pubkey, ctx);
+  EC_POINT *pub = EC_POINT_new(group);
+  if (pub == NULL || !EC_POINT_mul(group, pub, pvt, NULL, NULL, ctx)) {
     EC_POINT_free(pub);
+    EC_GROUP_free(group);
+    BN_free(pvt);
+    BN_free(order);
+    BN_CTX_free(ctx);
+    return 0;
   }
+  size_t cb = EC_POINT_point2oct(group, pub, POINT_CONVERSION_UNCOMPRESSED,
+                                 pubkey, cb_pubkey, ctx);
+  EC_POINT_free(pub);
   EC_GROUP_free(group);
   BN_free(pvt);
   BN_free(order);

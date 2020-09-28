@@ -470,6 +470,7 @@ bool algo2type(yh_algorithm algorithm, yh_object_type *type) {
       break;
 
     case YH_ALGO_AES128_YUBICO_AUTHENTICATION:
+    case YH_ALGO_EC_P256_YUBICO_AUTHENTICATION:
       *type = YH_AUTHENTICATION_KEY;
       break;
 
