@@ -102,14 +102,14 @@ bool YH_INTERNAL hash_bytes(const uint8_t *in, size_t len, hash_t hash,
     return false;
   }
 
-  EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
+  EVP_MD_CTX *mdctx = EVP_MD_CTX_create();
   EVP_DigestInit_ex(mdctx, md, NULL);
   EVP_DigestUpdate(mdctx, in, len);
   EVP_DigestFinal_ex(mdctx, out, &d_len);
 
   *out_len = (uint16_t) d_len;
 
-  EVP_MD_CTX_free(mdctx);
+  EVP_MD_CTX_destroy(mdctx);
 
   return true;
 
@@ -260,7 +260,7 @@ bool YH_INTERNAL hash_create(_hash_ctx **ctx, hash_t hash) {
     goto cleanup;
   }
 
-  if (!(ctx_temp->mdctx = EVP_MD_CTX_new())) {
+  if (!(ctx_temp->mdctx = EVP_MD_CTX_create())) {
     goto cleanup;
   }
 
@@ -403,7 +403,7 @@ bool YH_INTERNAL hash_destroy(_hash_ctx *ctx) {
   }
 #else
   if (ctx->mdctx) {
-    EVP_MD_CTX_free(ctx->mdctx);
+    EVP_MD_CTX_destroy(ctx->mdctx);
   }
 #endif
 

@@ -1807,10 +1807,10 @@ CK_RV apply_sign_mechanism_init(yubihsm_pkcs11_op_info *op_info) {
       return CKR_MECHANISM_INVALID;
   }
 
-  op_info->op.sign.md_ctx = EVP_MD_CTX_new();
+  op_info->op.sign.md_ctx = EVP_MD_CTX_create();
 
   if (EVP_DigestInit_ex(op_info->op.sign.md_ctx, md, NULL) == 0) {
-    EVP_MD_CTX_free(op_info->op.sign.md_ctx);
+    EVP_MD_CTX_destroy(op_info->op.sign.md_ctx);
     op_info->op.sign.md_ctx = NULL;
     return CKR_FUNCTION_FAILED;
   }
@@ -1870,7 +1870,7 @@ CK_RV apply_verify_mechanism_init(yubihsm_pkcs11_op_info *op_info) {
   }
 
   op_info->op.verify.md = md;
-  op_info->op.verify.md_ctx = EVP_MD_CTX_new();
+  op_info->op.verify.md_ctx = EVP_MD_CTX_create();
   if (op_info->op.verify.md_ctx == NULL) {
     return CKR_FUNCTION_FAILED;
   }
@@ -1927,12 +1927,12 @@ CK_RV apply_digest_mechanism_init(yubihsm_pkcs11_op_info *op_info) {
       return CKR_MECHANISM_INVALID;
   }
 
-  op_info->op.digest.md_ctx = EVP_MD_CTX_new();
+  op_info->op.digest.md_ctx = EVP_MD_CTX_create();
 
   op_info->op.digest.is_multipart = false;
 
   if (EVP_DigestInit_ex(op_info->op.digest.md_ctx, md, NULL) == 0) {
-    EVP_MD_CTX_free(op_info->op.digest.md_ctx);
+    EVP_MD_CTX_destroy(op_info->op.digest.md_ctx);
     op_info->op.digest.md_ctx = NULL;
     return CKR_FUNCTION_FAILED;
   }
@@ -1991,7 +1991,7 @@ CK_RV apply_sign_mechanism_update(yubihsm_pkcs11_op_info *op_info,
     case CKM_ECDSA_SHA384:
     case CKM_ECDSA_SHA512:
       if (EVP_DigestUpdate(op_info->op.sign.md_ctx, in, in_len) != 1) {
-        EVP_MD_CTX_free(op_info->op.sign.md_ctx);
+        EVP_MD_CTX_destroy(op_info->op.sign.md_ctx);
         op_info->op.sign.md_ctx = NULL;
         return CKR_FUNCTION_FAILED;
       }
@@ -2037,7 +2037,7 @@ CK_RV apply_verify_mechanism_update(yubihsm_pkcs11_op_info *op_info,
     case CKM_SHA512_RSA_PKCS_PSS:
     case CKM_ECDSA_SHA512:
       if (EVP_DigestUpdate(op_info->op.verify.md_ctx, in, in_len) != 1) {
-        EVP_MD_CTX_free(op_info->op.verify.md_ctx);
+        EVP_MD_CTX_destroy(op_info->op.verify.md_ctx);
         op_info->op.sign.md_ctx = NULL;
         return CKR_FUNCTION_FAILED;
       }
@@ -2101,7 +2101,7 @@ CK_RV apply_digest_mechanism_update(yubihsm_pkcs11_op_info *op_info,
     case CKM_SHA384:
     case CKM_SHA512:
       if (EVP_DigestUpdate(op_info->op.digest.md_ctx, in, in_len) != 1) {
-        EVP_MD_CTX_free(op_info->op.digest.md_ctx);
+        EVP_MD_CTX_destroy(op_info->op.digest.md_ctx);
         op_info->op.digest.md_ctx = NULL;
         return CKR_FUNCTION_FAILED;
       }
@@ -2121,7 +2121,7 @@ CK_RV apply_sign_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
     ret = EVP_DigestFinal_ex(op_info->op.sign.md_ctx, op_info->buffer,
                              &op_info->buffer_length);
 
-    EVP_MD_CTX_free(op_info->op.sign.md_ctx);
+    EVP_MD_CTX_destroy(op_info->op.sign.md_ctx);
     op_info->op.sign.md_ctx = NULL;
 
     if (ret != 1) {
@@ -2166,7 +2166,7 @@ CK_RV apply_digest_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
   ret = EVP_DigestFinal_ex(op_info->op.digest.md_ctx, op_info->buffer,
                            &op_info->buffer_length);
 
-  EVP_MD_CTX_free(op_info->op.digest.md_ctx);
+  EVP_MD_CTX_destroy(op_info->op.digest.md_ctx);
   op_info->op.digest.md_ctx = NULL;
 
   if (ret != 1) {
@@ -2546,7 +2546,7 @@ CK_RV perform_digest(yubihsm_pkcs11_op_info *op_info, uint8_t *digest,
 bool sign_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info) {
 
   if (op_info->op.sign.md_ctx != NULL) {
-    EVP_MD_CTX_free(op_info->op.sign.md_ctx);
+    EVP_MD_CTX_destroy(op_info->op.sign.md_ctx);
     op_info->op.sign.md_ctx = NULL;
   }
 
@@ -2556,7 +2556,7 @@ bool sign_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info) {
 bool verify_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info) {
 
   if (op_info->op.verify.md_ctx != NULL) {
-    EVP_MD_CTX_free(op_info->op.verify.md_ctx);
+    EVP_MD_CTX_destroy(op_info->op.verify.md_ctx);
     op_info->op.verify.md_ctx = NULL;
   }
 
@@ -2573,7 +2573,7 @@ bool decrypt_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info) {
 bool digest_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info) {
 
   if (op_info->op.digest.md_ctx != NULL) {
-    EVP_MD_CTX_free(op_info->op.digest.md_ctx);
+    EVP_MD_CTX_destroy(op_info->op.digest.md_ctx);
     op_info->op.digest.md_ctx = NULL;
   }
 
