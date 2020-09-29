@@ -142,7 +142,7 @@ int main(void) {
   assert(yrc == YHR_SUCCESS);
 
   yrc = yh_create_session_asym(connector, authkey, sk_oce, sizeof(sk_oce),
-                               pk_sd, pk_sd_len, false, &session);
+                               pk_sd, pk_sd_len, &session);
   assert(yrc == YHR_SUCCESS);
 
   uint8_t session_id;
@@ -189,7 +189,7 @@ int main(void) {
   assert(yrc == YHR_SUCCESS);
 
   yrc = yh_create_session_asym(connector, authkey, sk_oce, sizeof(sk_oce),
-                               pk_sd, pk_sd_len, false, &session);
+                               pk_sd, pk_sd_len, &session);
   assert(yrc == YHR_SUCCESS);
 
   yrc = yh_util_close_session(session);

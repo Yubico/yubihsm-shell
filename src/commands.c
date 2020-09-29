@@ -2504,7 +2504,7 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
       } else if (benchmarks[i].algo == YH_ALGO_EC_P256_YUBICO_AUTHENTICATION) {
         yh_session *ses = NULL;
         yrc = yh_create_session_asym(ctx->connector, id, sk_oce, sizeof(sk_oce),
-                                     pk_sd, sizeof(pk_sd), false, &ses);
+                                     pk_sd, sizeof(pk_sd), &ses);
         if (yrc == YHR_SUCCESS) {
           yrc = yh_util_close_session(ses);
         }
