@@ -2668,7 +2668,7 @@ int main(int argc, char *argv[]) {
 
     g_hist = history_init();
 
-    history(g_hist, &ev, H_SETSIZE, 100); // NOTE(adma): 100 history items
+    history(g_hist, &ev, H_SETSIZE, 1000); // NOTE(adma): 1000 history items
 
     el = el_init(*argv, stdin, stdout, stderr);
 
@@ -2681,6 +2681,9 @@ int main(int argc, char *argv[]) {
 #endif /* EL_PROMPT_ESC */
 
     el_set(el, EL_HIST, history, g_hist);
+
+    /* enable ctrl-R for reverse history search */
+    el_set(el, EL_BIND, "^R", "em-inc-search-prev", NULL);
 
     /* Add a user-defined function    */
     el_set(el, EL_ADDFN, "yh_complete", "Complete argument", yubihsm_complete);
