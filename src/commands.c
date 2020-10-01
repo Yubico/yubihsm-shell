@@ -2354,6 +2354,7 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
     uint16_t id = argv[2].w;
     char label[YH_OBJ_LABEL_LEN + 1] = {0};
     uint8_t sk_oce[32], pk_oce[65], pk_sd[65];
+    size_t pk_sd_len;
     yh_object_type type = 0;
 #ifndef _WIN32
     size_t chars = 0;
@@ -2487,13 +2488,13 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
       yrc = yh_util_generate_ec_p256_key(sk_oce, sizeof(sk_oce), pk_oce,
                                          sizeof(pk_oce));
       if (yrc == YHR_SUCCESS) {
-        size_t pk_sd_len = sizeof(pk_sd);
-        yrc = yh_get_device_pubkey(ctx->connector, pk_sd, &pk_sd_len);
+        yrc = yh_util_import_authentication_key(argv[0].e, &id, label, 0xffff,
+                                                &capabilities, &capabilities,
+                                                pk_oce + 1, sizeof(pk_oce) - 1,
+                                                NULL, 0);
         if (yrc == YHR_SUCCESS) {
-          yrc = yh_util_import_authentication_key(argv[0].e, &id, label, 0xffff,
-                                                  &capabilities, &capabilities,
-                                                  pk_oce + 1,
-                                                  sizeof(pk_oce) - 1, NULL, 0);
+          pk_sd_len = sizeof(pk_sd);
+          yrc = yh_get_device_pubkey(ctx->connector, pk_sd, &pk_sd_len);
         }
       }
     } else {
@@ -2577,7 +2578,7 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
       } else if (benchmarks[i].algo == YH_ALGO_EC_P256_YUBICO_AUTHENTICATION) {
         yh_session *ses = NULL;
         yrc = yh_create_session_asym(ctx->connector, id, sk_oce, sizeof(sk_oce),
-                                     pk_sd, sizeof(pk_sd), &ses);
+                                     pk_sd, pk_sd_len, &ses);
         if (yrc == YHR_SUCCESS) {
           yrc = yh_util_close_session(ses);
         }
