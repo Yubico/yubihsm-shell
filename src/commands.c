@@ -1434,6 +1434,11 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
+  fprintf(stderr, "Derived public key (PK.OCE)\n");
+  for (size_t i = 0; i < sizeof(pubkey); i++)
+    fprintf(stderr, "%02x", pubkey[i]);
+  fprintf(stderr, "\n");
+
   uint8_t device_pubkey[65];
   size_t device_pubkey_len = sizeof(device_pubkey);
   yrc = yh_get_device_pubkey(ctx->connector, device_pubkey, &device_pubkey_len);
@@ -1443,7 +1448,7 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
-  fprintf(stderr, "Device public key\n");
+  fprintf(stderr, "Device public key (PK.SD)\n");
   for (size_t i = 0; i < device_pubkey_len; i++)
     fprintf(stderr, "%02x", device_pubkey[i]);
   fprintf(stderr, "\n");
@@ -1635,6 +1640,55 @@ int yh_com_put_authentication(yubihsm_context *ctx, Argument *argv,
   }
 
   fprintf(stderr, "Stored Authentication key 0x%04x\n", argv[1].w);
+
+  return 0;
+}
+
+// NOTE(adma): Store an asymmetric authentication key
+// argc = 7
+// arg 0: e:session
+// arg 1: w:key_id
+// arg 2: s:label
+// arg 3: w:domains
+// arg 4: c:capabilities
+// arg 5: c:delegated_capabilities
+// arg 6: x:password
+int yh_com_put_authentication_asym(yubihsm_context *ctx, Argument *argv,
+                                   cmd_format fmt) {
+
+  UNUSED(ctx);
+  UNUSED(fmt);
+
+  yh_rc yrc;
+
+  uint8_t privkey[32], pubkey[65];
+
+  yrc = yh_util_derive_ec_p256_key(argv[6].x, argv[6].len, privkey,
+                                   sizeof(privkey), pubkey, sizeof(pubkey));
+
+  insecure_memzero(argv[6].x, argv[6].len);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to derive asymmetric authkey: %s\n",
+            yh_strerror(yrc));
+    return -1;
+  }
+
+  fprintf(stderr, "Derived public key (PK.OCE)s\n");
+  for (size_t i = 0; i < sizeof(pubkey); i++)
+    fprintf(stderr, "%02x", pubkey[i]);
+  fprintf(stderr, "\n");
+
+  yrc =
+    yh_util_import_authentication_key(argv[0].e, &argv[1].w, argv[2].s,
+                                      argv[3].w, &argv[4].c, &argv[5].c,
+                                      pubkey + 1, sizeof(pubkey) - 1, NULL, 0);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to store asymmetric authkey: %s\n",
+            yh_strerror(yrc));
+    return -1;
+  }
+
+  fprintf(stderr, "Stored Asymmetric Authentication key 0x%04x\n", argv[1].w);
 
   return 0;
 }

@@ -94,6 +94,8 @@ int yh_com_pecho(yubihsm_context *ctx, Argument *argv, cmd_format fmt);
 int yh_com_put_asymmetric(yubihsm_context *ctx, Argument *argv, cmd_format fmt);
 int yh_com_put_authentication(yubihsm_context *ctx, Argument *argv,
                               cmd_format fmt);
+int yh_com_put_authentication_asym(yubihsm_context *ctx, Argument *argv,
+                                   cmd_format fmt);
 int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format fmt);
 int yh_com_put_option(yubihsm_context *ctx, Argument *argv, cmd_format fmt);
 int yh_com_put_hmac(yubihsm_context *ctx, Argument *argv, cmd_format fmt);

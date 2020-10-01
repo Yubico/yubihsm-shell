@@ -419,6 +419,14 @@ void create_command_list(CommandList *c) {
                                     "password=-",
                                     fmt_password, fmt_nofmt,
                                     "Store an authentication key", NULL, NULL});
+  register_subcommand(*c,
+                      (Command){"authkey_asym", yh_com_put_authentication_asym,
+                                "e:session,w:key_id,s:label,d:domains,c:"
+                                "capabilities,c:delegated_capabilities,i:"
+                                "password=-",
+                                fmt_password, fmt_nofmt,
+                                "Store an asymmetric authentication key", NULL,
+                                NULL});
   register_subcommand(*c, (Command){"opaque", yh_com_put_opaque,
                                     "e:session,w:object_id,s:label,d:domains,c:"
                                     "capabilities,a:algorithm,i:data=-",
