@@ -18,6 +18,7 @@
 
 #include <errno.h>
 #include <limits.h>
+#include <locale.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -1739,6 +1740,10 @@ int main(int argc, char *argv[]) {
 
   struct stat sb;
   struct cmdline_parser_params params;
+
+  if (setlocale(LC_ALL, "") == NULL) {
+    fprintf(stderr, "Warning, unable to reset locale\n");
+  }
 
   ctx.out = stdout;
 
