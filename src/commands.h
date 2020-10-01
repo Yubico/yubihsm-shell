@@ -131,5 +131,7 @@ int yh_com_set_proxy(yubihsm_context *ctx, Argument *argv, cmd_format fmt);
 
 int yh_com_change_authentication_key(yubihsm_context *ctx, Argument *argv,
                                      cmd_format fmt);
+int yh_com_change_authentication_key_asym(yubihsm_context *ctx, Argument *argv,
+                                          cmd_format fmt);
 
 #endif

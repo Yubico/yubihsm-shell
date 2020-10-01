@@ -3032,3 +3032,45 @@ int yh_com_change_authentication_key(yubihsm_context *ctx, Argument *argv,
 
   return 0;
 }
+
+// NOTE: Change asymmetric authentication key
+// argc = 3
+// arg 0: e:session
+// arg 1: w:key_id
+// arg 2: i:password
+int yh_com_change_authentication_key_asym(yubihsm_context *ctx, Argument *argv,
+                                          cmd_format fmt) {
+
+  UNUSED(fmt);
+  UNUSED(ctx);
+
+  uint8_t privkey[32], pubkey[65];
+  yh_rc yrc =
+    yh_util_derive_ec_p256_key(argv[2].x, argv[2].len, privkey, sizeof(privkey),
+                               pubkey, sizeof(pubkey));
+
+  insecure_memzero(argv[2].x, argv[2].len);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to derive asymmetric authentication key: %s\n",
+            yh_strerror(yrc));
+    return -1;
+  }
+
+  fprintf(stderr, "Derived public key (PK.OCE)\n");
+  for (size_t i = 0; i < sizeof(pubkey); i++)
+    fprintf(stderr, "%02x", pubkey[i]);
+  fprintf(stderr, "\n");
+
+  yrc = yh_util_change_authentication_key(argv[0].e, &argv[1].w, pubkey + 1,
+                                          sizeof(pubkey) - 1, NULL, 0);
+
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to change asymmetric authentication key: %s\n",
+            yh_strerror(yrc));
+    return -1;
+  }
+
+  fprintf(stderr, "Changed Asymmetric Authentication key 0x%04x\n", argv[1].w);
+
+  return 0;
+}

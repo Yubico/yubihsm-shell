@@ -593,6 +593,13 @@ void create_command_list(CommandList *c) {
                                 fmt_nofmt, "Change an authentication key", NULL,
                                 NULL});
 
+  register_subcommand(*c, (Command){"authkey_asym",
+                                    yh_com_change_authentication_key_asym,
+                                    "e:session,w:key_id,i:password=-",
+                                    fmt_password, fmt_nofmt,
+                                    "Change an asymmetric authentication key",
+                                    NULL, NULL});
+
   *c = msort_list(*c);
 
   for (Command *t = *c; t != NULL; t = t->next) {
