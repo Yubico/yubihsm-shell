@@ -81,8 +81,8 @@ int main(void) {
   }
 
   uint8_t sk_oce[32], pk_oce[65];
-  yrc = yh_util_derive_ec_p256_key(password, sizeof(password) - 1, sk_oce,
-                                   sizeof(sk_oce), pk_oce, sizeof(pk_oce));
+  yrc = yh_util_generate_ec_p256_key(sk_oce, sizeof(sk_oce), pk_oce,
+                                     sizeof(pk_oce));
   assert(yrc == YHR_SUCCESS);
 
   printf("Send a plain (unencrypted, unauthenticated) echo command\n");
@@ -151,8 +151,8 @@ int main(void) {
 
   printf("Successfully established session %02d\n", session_id);
 
-  yrc = yh_util_derive_ec_p256_key((uint8_t *) "Gorgon", 6, sk_oce,
-                                   sizeof(sk_oce), pk_oce, sizeof(pk_oce));
+  yrc = yh_util_generate_ec_p256_key(sk_oce, sizeof(sk_oce), pk_oce,
+                                     sizeof(pk_oce));
   assert(yrc == YHR_SUCCESS);
 
   yrc = yh_util_change_authentication_key(session, &authkey, pk_oce + 1,
