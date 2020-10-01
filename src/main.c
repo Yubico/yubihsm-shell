@@ -472,6 +472,12 @@ void create_command_list(CommandList *c) {
                                     "Open a session with a device using a "
                                     "specific Authentication Key",
                                     NULL, NULL});
+  register_subcommand(*c, (Command){"open_asym", yh_com_open_session_asym,
+                                    "w:authkey,i:password=-", fmt_password,
+                                    fmt_nofmt,
+                                    "Open a session with a device using a "
+                                    "specific Authentication Key",
+                                    NULL, NULL});
   *c = register_command(*c, (Command){"sign", yh_com_noop, NULL, fmt_nofmt,
                                       fmt_nofmt, "Sign data", NULL, NULL});
   register_subcommand(

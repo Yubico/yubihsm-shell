@@ -1406,6 +1406,79 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
   return 0;
 }
 
+// NOTE(adma): Open a session with a connector using an Asymmetric
+// Authentication Key argc = 2 arg 0: w:authkey arg 1: i:password
+int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
+                             cmd_format fmt) {
+
+  UNUSED(fmt);
+
+  yh_session *ses = NULL;
+  uint8_t session_id = 0;
+
+  if (ctx->connector == NULL) {
+    fprintf(stderr, "Not connected\n");
+    return -1;
+  }
+
+  uint16_t authkey = argv[0].w;
+  uint8_t privkey[32], pubkey[65];
+
+  yh_rc yrc =
+    yh_util_derive_ec_p256_key(argv[1].x, argv[1].len, privkey, sizeof(privkey),
+                               pubkey, sizeof(pubkey));
+
+  insecure_memzero(argv[1].x, argv[1].len);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to derive asymmetric key: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  uint8_t device_pubkey[65];
+  size_t device_pubkey_len = sizeof(device_pubkey);
+  yrc = yh_get_device_pubkey(ctx->connector, device_pubkey, &device_pubkey_len);
+
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to retrieve device pubkey: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  fprintf(stderr, "Device public key\n");
+  for (size_t i = 0; i < device_pubkey_len; i++)
+    fprintf(stderr, "%02x", device_pubkey[i]);
+  fprintf(stderr, "\n");
+
+  yrc =
+    yh_create_session_asym(ctx->connector, authkey, privkey, sizeof(privkey),
+                           device_pubkey, sizeof(device_pubkey), &ses);
+
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to create asymmetric session: %s\n",
+            yh_strerror(yrc));
+    return -1;
+  }
+
+  yrc = yh_get_session_id(ses, &session_id);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  if (ctx->sessions[session_id] != NULL) {
+    yrc = yh_destroy_session(&ctx->sessions[session_id]);
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr, "Failed to destroy old session with same id (%d): %s\n",
+              session_id, yh_strerror(yrc));
+      return -1;
+    }
+  }
+  ctx->sessions[session_id] = ses;
+
+  fprintf(stderr, "Created asymmetric session %d\n", session_id);
+
+  return 0;
+}
+
 // NOTE(adma): Send unauthenticated echo
 // argc = 2
 // arg 0: b:byte

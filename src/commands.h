@@ -88,6 +88,8 @@ int yh_com_list_connectors(yubihsm_context *ctx, Argument *argv,
 int yh_com_list_sessions(yubihsm_context *ctx, Argument *argv, cmd_format fmt);
 int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format fmt);
 int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format fmt);
+int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
+                             cmd_format fmt);
 int yh_com_pecho(yubihsm_context *ctx, Argument *argv, cmd_format fmt);
 int yh_com_put_asymmetric(yubihsm_context *ctx, Argument *argv, cmd_format fmt);
 int yh_com_put_authentication(yubihsm_context *ctx, Argument *argv,
