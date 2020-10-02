@@ -1455,7 +1455,7 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
 
   yrc =
     yh_create_session_asym(ctx->connector, authkey, privkey, sizeof(privkey),
-                           device_pubkey, sizeof(device_pubkey), &ses);
+                           device_pubkey, device_pubkey_len, &ses);
 
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to create asymmetric session: %s\n",
