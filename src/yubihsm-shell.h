@@ -50,8 +50,6 @@ typedef struct {
   yh_session *sessions[YH_MAX_SESSIONS];
   ykyh_state *state;
   FILE *out;
-  cmd_format in_fmt;
-  cmd_format out_fmt;
   char *cacert;
   char *proxy;
 } yubihsm_context;
