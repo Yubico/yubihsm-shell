@@ -2773,8 +2773,8 @@ int yh_com_generate_otp_aead_key(yubihsm_context *ctx, Argument *argv,
 // arg 0: e:session
 // arg 1: w:key_id
 // arg 2: a:algorithm
-// arg 3: s:label
-// arg 4: f:datafile
+// arg 3: f:datafile
+// arg 4: s:label
 int yh_com_decrypt_oaep(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 
   yh_rc yrc;
@@ -2814,7 +2814,8 @@ int yh_com_decrypt_oaep(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
       return -1;
   }
 
-  if (hash_bytes(argv[4].x, argv[4].len, hash, label, &label_len) == false) {
+  if (hash_bytes((const uint8_t *) argv[4].s, argv[4].len, hash, label,
+                 &label_len) == false) {
     fprintf(stderr, "Unable to hash data\n");
     return -1;
   }
