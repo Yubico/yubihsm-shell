@@ -1143,7 +1143,7 @@ yh_rc yh_util_list_objects(yh_session *session, uint16_t id,
   }
 
   *n_objects = response_len / 4;
-  for (uint16_t i = 0; i < response_len; i += 4) {
+  for (size_t i = 0; i < response_len; i += 4) {
     // NOTE: clear the fields that we didn't set
     memset(&objects[i / 4], 0, sizeof(yh_object_descriptor));
     objects[i / 4].id = ntohs(*((uint16_t *) (response + i)));
@@ -2619,7 +2619,7 @@ yh_rc yh_util_get_log_entries(yh_session *session, uint16_t *unlogged_boot,
   *n_items = response.items;
 
   yh_log_entry *ptr = (yh_log_entry *) response.data;
-  for (uint16_t i = 0; i < *n_items; i++) {
+  for (size_t i = 0; i < *n_items; i++) {
     out[i].number = ntohs(ptr[i].number);
     out[i].command = ptr[i].command;
     out[i].length = ntohs(ptr[i].length);
@@ -4531,7 +4531,7 @@ bool yh_verify_logs(yh_log_entry *logs, size_t n_items,
     start = 1;
   }
 
-  for (uint16_t i = start; i < n_items; i++) {
+  for (size_t i = start; i < n_items; i++) {
     yh_log_entry inverted;
     inverted.number = htons(logs[i].number);
     inverted.command = logs[i].command;

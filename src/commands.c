@@ -104,7 +104,7 @@ int yh_com_audit(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
   switch (ctx->out_fmt) {
     case fmt_hex:
       fprintf(ctx->out, "%04x%04x", unlogged_boot, unlogged_auth);
-      for (uint16_t i = 0; i < n_items; i++) {
+      for (size_t i = 0; i < n_items; i++) {
         format_digest(logs[i].digest, digest_buf, YH_LOG_DIGEST_SIZE);
         fprintf(ctx->out, "%04x%02x%04x%04x%04x%04x%02x%08lx%s", logs[i].number,
                 logs[i].command, logs[i].length, logs[i].session_key,
@@ -128,7 +128,7 @@ int yh_com_audit(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
         fprintf(ctx->out, "Found %zu items\n", n_items);
       }
 
-      for (uint16_t i = 0; i < n_items; i++) {
+      for (size_t i = 0; i < n_items; i++) {
         format_digest(logs[i].digest, digest_buf, YH_LOG_DIGEST_SIZE);
         fprintf(ctx->out,
                 "item: %5u -- cmd: 0x%02x -- length: %4u -- session key: "
@@ -630,7 +630,7 @@ int yh_com_echo(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
   }
 
   fprintf(ctx->out, "Response (%zu bytes):\n", response_len);
-  for (uint32_t i = 0; i < response_len; i++) {
+  for (size_t i = 0; i < response_len; i++) {
     if (i && !(i % 64))
       fprintf(ctx->out, "\n");
     else if (i && !(i % 8))
@@ -809,7 +809,7 @@ int yh_com_get_option(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
   }
 
   fprintf(ctx->out, "Option value is: ");
-  for (uint16_t i = 0; i < response_len; i++) {
+  for (size_t i = 0; i < response_len; i++) {
     fprintf(ctx->out, "%02x", response[i]);
   }
   fprintf(ctx->out, "\n");
@@ -1123,7 +1123,7 @@ int yh_com_list_capabilities(yubihsm_context *ctx, Argument *argv,
   UNUSED(argv);
   UNUSED(fmt);
 
-  for (uint16_t i = 0; i < sizeof(yh_capability) / sizeof(yh_capability[0]);
+  for (size_t i = 0; i < sizeof(yh_capability) / sizeof(yh_capability[0]);
        i++) {
     fprintf(ctx->out, "%-30s (%016llx)\n", yh_capability[i].name,
             1ULL << yh_capability[i].bit);
@@ -1141,7 +1141,7 @@ int yh_com_list_algorithms(yubihsm_context *ctx, Argument *argv,
   UNUSED(argv);
   UNUSED(fmt);
 
-  for (uint16_t i = 0; i < sizeof(yh_algorithms) / sizeof(yh_algorithms[0]);
+  for (size_t i = 0; i < sizeof(yh_algorithms) / sizeof(yh_algorithms[0]);
        i++) {
     fprintf(ctx->out, "%s\n", yh_algorithms[i].name);
   }
@@ -1176,7 +1176,7 @@ int yh_com_list_sessions(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
     return -1;
   }
 
-  for (uint16_t i = 0; i < YH_MAX_SESSIONS; i++) {
+  for (int i = 0; i < YH_MAX_SESSIONS; i++) {
     if (ctx->sessions[i] != NULL) {
       fprintf(stderr, "Session %d\n", i);
     }
@@ -1461,7 +1461,7 @@ int yh_com_pecho(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
   }
 
   fprintf(ctx->out, "Response (%zu bytes):\n", response_len);
-  for (uint32_t i = 0; i < response_len; i++) {
+  for (size_t i = 0; i < response_len; i++) {
     if (i && !(i % 64))
       fprintf(ctx->out, "\n");
     else if (i && !(i % 8))

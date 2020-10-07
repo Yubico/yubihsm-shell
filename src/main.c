@@ -849,8 +849,7 @@ void find_lcp(const char *items[], int n_items, const char **lcp,
   }
 
   *lcp = items[min];
-  for (unsigned int i = 0; i < strlen(items[min]) && i < strlen(items[max]);
-       i++) {
+  for (size_t i = 0; i < strlen(items[min]) && i < strlen(items[max]); i++) {
     if (items[min][i] != items[max][i]) {
       *lcp_len = i;
 
@@ -1009,7 +1008,7 @@ unsigned char complete_arg(EditLine *el, const char *arg, char *line,
     } break;
 
     case 'a':
-      for (uint16_t i = 0; i < sizeof(yh_algorithms) / sizeof(yh_algorithms[0]);
+      for (size_t i = 0; i < sizeof(yh_algorithms) / sizeof(yh_algorithms[0]);
            i++) {
         if (strncasecmp(line, yh_algorithms[i].name, strlen(line)) == 0) {
           candidates[n_candidates++] = yh_algorithms[i].name;
@@ -1020,7 +1019,7 @@ unsigned char complete_arg(EditLine *el, const char *arg, char *line,
       break;
 
     case 't':
-      for (uint16_t i = 0; i < sizeof(yh_types) / sizeof(yh_types[0]); i++) {
+      for (size_t i = 0; i < sizeof(yh_types) / sizeof(yh_types[0]); i++) {
         if (strncasecmp(line, yh_types[i].name, strlen(line)) == 0) {
           candidates[n_candidates++] = yh_types[i].name;
           assert(n_candidates < COMPLETION_CANDIDATES);
@@ -1030,8 +1029,7 @@ unsigned char complete_arg(EditLine *el, const char *arg, char *line,
       break;
 
     case 'o':
-      for (uint16_t i = 0; i < sizeof(yh_options) / sizeof(yh_options[0]);
-           i++) {
+      for (size_t i = 0; i < sizeof(yh_options) / sizeof(yh_options[0]); i++) {
         if (strncasecmp(line, yh_options[i].name, strlen(line)) == 0) {
           candidates[n_candidates++] = yh_options[i].name;
           assert(n_candidates < COMPLETION_CANDIDATES);
@@ -1041,7 +1039,7 @@ unsigned char complete_arg(EditLine *el, const char *arg, char *line,
       break;
 
     case 'I':
-      for (uint16_t i = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
+      for (size_t i = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
         if (strncasecmp(line, formats[i].name, strlen(line)) == 0) {
           candidates[n_candidates++] = formats[i].name;
           assert(n_candidates < COMPLETION_CANDIDATES);
