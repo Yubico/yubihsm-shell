@@ -1448,10 +1448,6 @@ static bool get_input_data(const char *name, uint8_t *out, size_t *len,
 int validate_arg(yubihsm_context *ctx, char type, const char *value,
                  Argument *parsed, cmd_format fmt) {
 
-  char buffer[ARGS_BUFFER_SIZE + 1];
-
-  memset(buffer, 0x0, sizeof(buffer));
-
   switch (type) {
     case 'b':   // byte
     case 'w':   // word
@@ -1524,14 +1520,6 @@ int validate_arg(yubihsm_context *ctx, char type, const char *value,
 
       break;
 
-    case 'k':
-      if (strcmp(value, "stdin:") == 0) {
-        if (EVP_read_pw_string(buffer, ARGS_BUFFER_SIZE,
-                               "Enter hex key: ", 0) != 0) {
-          return -1;
-        }
-        value = buffer;
-      }
     case 'd':
       if (yh_string_to_domains(value, &parsed->w) != YHR_SUCCESS) {
         return -1;
