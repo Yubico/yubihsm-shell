@@ -1489,8 +1489,9 @@ yh_rc yh_util_decrypt_pkcs1v1_5(yh_session *session, uint16_t key_id,
  * @param in_len Length of encrypted data. Must be 256, 384 or 512
  * @param out Decrypted data
  * @param out_len Length of decrypted data
- * @param label OAEP label
- * @param label_len Length of OAEP label. Must be 20, 32, 48 or 64
+ * @param label Hash of OAEP label. Hash function must be SHA-1, SHA-256,
+ *SHA-384 or SHA-512
+ * @param label_len Length of hash of OAEP label. Must be 20, 32, 48 or 64
  * @param mgf1Algo MGF1 algorithm
  *
  * @return #YHR_SUCCESS if successful.
