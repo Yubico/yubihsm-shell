@@ -1479,7 +1479,6 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
                              cmd_format in_fmt, cmd_format fmt) {
 
-  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yh_session *ses = NULL;
@@ -1491,22 +1490,33 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
   }
 
   uint16_t authkey = argv[0].w;
-  uint8_t privkey[32], pubkey[65];
+  uint8_t privkey[32];
+  yh_rc yrc;
 
-  yh_rc yrc =
-    yh_util_derive_ec_p256_key(argv[1].x, argv[1].len, privkey, sizeof(privkey),
-                               pubkey, sizeof(pubkey));
-
-  insecure_memzero(argv[1].x, argv[1].len);
-  if (yrc != YHR_SUCCESS) {
-    fprintf(stderr, "Failed to derive asymmetric key: %s\n", yh_strerror(yrc));
+  if (in_fmt == fmt_password) {
+    uint8_t pubkey[65];
+    yrc = yh_util_derive_ec_p256_key(argv[1].x, argv[1].len, privkey,
+                                     sizeof(privkey), pubkey, sizeof(pubkey));
+    insecure_memzero(argv[1].x, argv[1].len);
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr, "Failed to derive asymmetric authentication key: %s\n",
+              yh_strerror(yrc));
+      return -1;
+    }
+    fprintf(stderr, "Derived public key (PK.OCE)\n");
+    for (size_t i = 0; i < sizeof(pubkey); i++)
+      fprintf(stderr, "%02x", pubkey[i]);
+    fprintf(stderr, "\n");
+  } else if (argv[1].len <= sizeof(privkey)) {
+    memset(privkey, 0, sizeof(privkey) - argv[1].len);
+    memcpy(privkey + sizeof(privkey) - argv[1].len, argv[1].x, argv[1].len);
+    insecure_memzero(argv[1].x, argv[1].len);
+  } else {
+    insecure_memzero(argv[1].x, argv[1].len);
+    fprintf(stderr, "Invalid asymmetric authkey: %s\n",
+            yh_strerror(YHR_INVALID_PARAMETERS));
     return -1;
   }
-
-  fprintf(stderr, "Derived public key (PK.OCE)\n");
-  for (size_t i = 0; i < sizeof(pubkey); i++)
-    fprintf(stderr, "%02x", pubkey[i]);
-  fprintf(stderr, "\n");
 
   uint8_t device_pubkey[65];
   size_t device_pubkey_len = sizeof(device_pubkey);
@@ -1730,27 +1740,35 @@ int yh_com_put_authentication_asym(yubihsm_context *ctx, Argument *argv,
                                    cmd_format in_fmt, cmd_format fmt) {
 
   UNUSED(ctx);
-  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yh_rc yrc;
 
-  uint8_t privkey[32], pubkey[65];
+  uint8_t pubkey[65];
 
-  yrc = yh_util_derive_ec_p256_key(argv[6].x, argv[6].len, privkey,
-                                   sizeof(privkey), pubkey, sizeof(pubkey));
-
-  insecure_memzero(argv[6].x, argv[6].len);
-  if (yrc != YHR_SUCCESS) {
-    fprintf(stderr, "Failed to derive asymmetric authkey: %s\n",
-            yh_strerror(yrc));
+  if (in_fmt == fmt_password) {
+    uint8_t privkey[32];
+    yrc = yh_util_derive_ec_p256_key(argv[6].x, argv[6].len, privkey,
+                                     sizeof(privkey), pubkey, sizeof(pubkey));
+    insecure_memzero(argv[6].x, argv[6].len);
+    insecure_memzero(privkey, sizeof(privkey));
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr, "Failed to derive asymmetric authentication key: %s\n",
+              yh_strerror(yrc));
+      return -1;
+    }
+    fprintf(stderr, "Derived public key (PK.OCE)\n");
+    for (size_t i = 0; i < sizeof(pubkey); i++)
+      fprintf(stderr, "%02x", pubkey[i]);
+    fprintf(stderr, "\n");
+  } else if (argv[6].len <= sizeof(pubkey)) {
+    memset(pubkey, 0, sizeof(pubkey) - argv[6].len);
+    memcpy(pubkey + sizeof(pubkey) - argv[6].len, argv[6].x, argv[6].len);
+  } else {
+    fprintf(stderr, "Invalid asymmetric authkey: %s\n",
+            yh_strerror(YHR_INVALID_PARAMETERS));
     return -1;
   }
-
-  fprintf(stderr, "Derived public key (PK.OCE)s\n");
-  for (size_t i = 0; i < sizeof(pubkey); i++)
-    fprintf(stderr, "%02x", pubkey[i]);
-  fprintf(stderr, "\n");
 
   yrc =
     yh_util_import_authentication_key(argv[0].e, &argv[1].w, argv[2].s,
@@ -3166,26 +3184,35 @@ int yh_com_change_authentication_key(yubihsm_context *ctx, Argument *argv,
 int yh_com_change_authentication_key_asym(yubihsm_context *ctx, Argument *argv,
                                           cmd_format in_fmt, cmd_format fmt) {
 
-  UNUSED(in_fmt);
   UNUSED(fmt);
   UNUSED(ctx);
 
-  uint8_t privkey[32], pubkey[65];
-  yh_rc yrc =
-    yh_util_derive_ec_p256_key(argv[2].x, argv[2].len, privkey, sizeof(privkey),
-                               pubkey, sizeof(pubkey));
+  uint8_t pubkey[65];
+  yh_rc yrc;
 
-  insecure_memzero(argv[2].x, argv[2].len);
-  if (yrc != YHR_SUCCESS) {
-    fprintf(stderr, "Failed to derive asymmetric authentication key: %s\n",
-            yh_strerror(yrc));
+  if (in_fmt == fmt_password) {
+    uint8_t privkey[32];
+    yrc = yh_util_derive_ec_p256_key(argv[2].x, argv[2].len, privkey,
+                                     sizeof(privkey), pubkey, sizeof(pubkey));
+    insecure_memzero(argv[2].x, argv[2].len);
+    insecure_memzero(privkey, sizeof(privkey));
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr, "Failed to derive asymmetric authentication key: %s\n",
+              yh_strerror(yrc));
+      return -1;
+    }
+    fprintf(stderr, "Derived public key (PK.OCE)\n");
+    for (size_t i = 0; i < sizeof(pubkey); i++)
+      fprintf(stderr, "%02x", pubkey[i]);
+    fprintf(stderr, "\n");
+  } else if (argv[2].len <= sizeof(pubkey)) {
+    memset(pubkey, 0, sizeof(pubkey) - argv[2].len);
+    memcpy(pubkey + sizeof(pubkey) - argv[2].len, argv[2].x, argv[2].len);
+  } else {
+    fprintf(stderr, "Invalid asymmetric authkey: %s\n",
+            yh_strerror(YHR_INVALID_PARAMETERS));
     return -1;
   }
-
-  fprintf(stderr, "Derived public key (PK.OCE)\n");
-  for (size_t i = 0; i < sizeof(pubkey); i++)
-    fprintf(stderr, "%02x", pubkey[i]);
-  fprintf(stderr, "\n");
 
   yrc = yh_util_change_authentication_key(argv[0].e, &argv[1].w, pubkey + 1,
                                           sizeof(pubkey) - 1, NULL, 0);
