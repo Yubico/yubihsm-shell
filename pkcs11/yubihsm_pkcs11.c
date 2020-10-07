@@ -2115,7 +2115,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
         goto c_foi_out;
       }
 
-      for (uint16_t i = 0; i < tmp_n_objects; i++) {
+      for (size_t i = 0; i < tmp_n_objects; i++) {
         if (tmp_objects[i].type == YH_WRAP_KEY ||
             tmp_objects[i].type == YH_HMAC_KEY) {
           memcpy(session->operation.op.find.objects + found_objects,
@@ -2138,7 +2138,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
       found_objects = session->operation.op.find.n_objects;
 
       if (pub) {
-        for (uint16_t i = 0; i < session->operation.op.find.n_objects; i++) {
+        for (size_t i = 0; i < session->operation.op.find.n_objects; i++) {
           if (session->operation.op.find.objects[i].type == YH_ASYMMETRIC_KEY) {
             session->operation.op.find.objects[i].type |= 0x80;
           }
@@ -2227,7 +2227,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjects)
   DBG_INFO("Can return %lu object(s)", ulMaxObjectCount);
 
   *pulObjectCount = 0;
-  for (uint16_t i = 0;
+  for (CK_ULONG i = 0;
        i < ulMaxObjectCount && session->operation.op.find.current_object <
                                  session->operation.op.find.n_objects;
        session->operation.op.find.current_object++) {
