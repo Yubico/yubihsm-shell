@@ -36,31 +36,27 @@
 
 // TODO
 
-int YH_INTERNAL ecdh_curve_p256(void) { return 0; }
-int YH_INTERNAL ecdh_calculate_public_key(int curve, uint8_t *privkey,
-                                          size_t cb_privkey, uint8_t *pubkey,
-                                          size_t cb_pubkey) {
+int ecdh_curve_p256(void) { return 0; }
+int ecdh_calculate_public_key(int curve, uint8_t *privkey, size_t cb_privkey,
+                              uint8_t *pubkey, size_t cb_pubkey) {
   return 0;
 }
-int YH_INTERNAL ecdh_generate_keypair(int curve, uint8_t *privkey,
-                                      size_t cb_privkey, uint8_t *pubkey,
-                                      size_t cb_pubkey) {
+int ecdh_generate_keypair(int curve, uint8_t *privkey, size_t cb_privkey,
+                          uint8_t *pubkey, size_t cb_pubkey) {
   return 0;
 }
-int YH_INTERNAL ecdh_calculate_secret(int curve, uint8_t *privkey,
-                                      size_t cb_privkey, uint8_t *pubkey,
-                                      size_t cb_pubkey, uint8_t *secret,
-                                      size_t cb_secret) {
+int ecdh_calculate_secret(int curve, uint8_t *privkey, size_t cb_privkey,
+                          uint8_t *pubkey, size_t cb_pubkey, uint8_t *secret,
+                          size_t cb_secret) {
   return 0;
 }
 
 #else
 
-int YH_INTERNAL ecdh_curve_p256(void) { return NID_X9_62_prime256v1; }
+int ecdh_curve_p256(void) { return NID_X9_62_prime256v1; }
 
-int YH_INTERNAL ecdh_calculate_public_key(int curve, uint8_t *privkey,
-                                          size_t cb_privkey, uint8_t *pubkey,
-                                          size_t cb_pubkey) {
+int ecdh_calculate_public_key(int curve, uint8_t *privkey, size_t cb_privkey,
+                              uint8_t *pubkey, size_t cb_pubkey) {
   BN_CTX *ctx = BN_CTX_new();
   BIGNUM *order = BN_new();
   BIGNUM *pvt = BN_bin2bn(privkey, cb_privkey, NULL);
@@ -99,9 +95,8 @@ int YH_INTERNAL ecdh_calculate_public_key(int curve, uint8_t *privkey,
   return (int) cb;
 }
 
-int YH_INTERNAL ecdh_generate_keypair(int curve, uint8_t *privkey,
-                                      size_t cb_privkey, uint8_t *pubkey,
-                                      size_t cb_pubkey) {
+int ecdh_generate_keypair(int curve, uint8_t *privkey, size_t cb_privkey,
+                          uint8_t *pubkey, size_t cb_pubkey) {
   EC_KEY *key = EC_KEY_new_by_curve_name(curve);
   if (key == NULL || !EC_KEY_generate_key(key)) {
     EC_KEY_free(key);
@@ -124,10 +119,9 @@ int YH_INTERNAL ecdh_generate_keypair(int curve, uint8_t *privkey,
   return len;
 }
 
-int YH_INTERNAL ecdh_calculate_secret(int curve, uint8_t *privkey,
-                                      size_t cb_privkey, uint8_t *pubkey,
-                                      size_t cb_pubkey, uint8_t *secret,
-                                      size_t cb_secret) {
+int ecdh_calculate_secret(int curve, uint8_t *privkey, size_t cb_privkey,
+                          uint8_t *pubkey, size_t cb_pubkey, uint8_t *secret,
+                          size_t cb_secret) {
   EC_KEY *priv = EC_KEY_new_by_curve_name(curve);
   EC_KEY *pub = EC_KEY_new_by_curve_name(curve);
   if (priv == NULL || pub == NULL ||

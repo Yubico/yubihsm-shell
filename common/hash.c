@@ -41,7 +41,7 @@ typedef struct _hash_ctx {
 
 #ifndef _WIN32_BCRYPT
 
-const YH_INTERNAL EVP_MD *get_hash(hash_t hash) {
+const EVP_MD *get_hash(hash_t hash) {
   switch (hash) {
     case _NONE:
       return NULL;
@@ -65,7 +65,7 @@ const YH_INTERNAL EVP_MD *get_hash(hash_t hash) {
 
 #else
 
-LPCWSTR YH_INTERNAL get_hash(hash_t hash) {
+LPCWSTR get_hash(hash_t hash) {
   switch (hash) {
     case _NONE:
       return NULL;
@@ -89,8 +89,8 @@ LPCWSTR YH_INTERNAL get_hash(hash_t hash) {
 
 #endif
 
-bool YH_INTERNAL hash_bytes(const uint8_t *in, size_t len, hash_t hash,
-                            uint8_t *out, size_t *out_len) {
+bool hash_bytes(const uint8_t *in, size_t len, hash_t hash, uint8_t *out,
+                size_t *out_len) {
 #ifndef _WIN32_BCRYPT
 
   const EVP_MD *md;
@@ -188,7 +188,7 @@ cleanup:
 #endif
 }
 
-bool YH_INTERNAL hash_create(_hash_ctx **ctx, hash_t hash) {
+bool hash_create(_hash_ctx **ctx, hash_t hash) {
   bool res = false;
   _hash_ctx *ctx_temp = NULL;
 
@@ -293,7 +293,7 @@ cleanup:
   return res;
 }
 
-bool YH_INTERNAL hash_init(_hash_ctx *ctx) {
+bool hash_init(_hash_ctx *ctx) {
   if (!ctx) {
     return false;
   }
@@ -318,7 +318,7 @@ bool YH_INTERNAL hash_init(_hash_ctx *ctx) {
   return true;
 }
 
-bool YH_INTERNAL hash_update(_hash_ctx *ctx, const uint8_t *in, size_t cb_in) {
+bool hash_update(_hash_ctx *ctx, const uint8_t *in, size_t cb_in) {
 #ifdef _WIN32_BCRYPT
   NTSTATUS status = 0;
 #endif
@@ -350,7 +350,7 @@ bool YH_INTERNAL hash_update(_hash_ctx *ctx, const uint8_t *in, size_t cb_in) {
   return true;
 }
 
-bool YH_INTERNAL hash_final(_hash_ctx *ctx, uint8_t *out, size_t *pcb_out) {
+bool hash_final(_hash_ctx *ctx, uint8_t *out, size_t *pcb_out) {
 #ifdef _WIN32_BCRYPT
   NTSTATUS status = 0;
 #else
@@ -386,7 +386,7 @@ bool YH_INTERNAL hash_final(_hash_ctx *ctx, uint8_t *out, size_t *pcb_out) {
   return true;
 }
 
-bool YH_INTERNAL hash_destroy(_hash_ctx *ctx) {
+bool hash_destroy(_hash_ctx *ctx) {
   if (!ctx) {
     return false;
   }
