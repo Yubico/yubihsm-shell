@@ -99,7 +99,8 @@ static bool compare_ecdh_keys(void *data, void *item) {
 
 static void *dup_pubkey(void *item) {
   void *new_item = malloc(65);
-  memcpy(new_item, item, 65);
+  if (new_item)
+    memcpy(new_item, item, 65);
   return new_item;
 }
 
@@ -185,7 +186,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
   params.override = 1;
 
   char *args = NULL;
-  char *args_parsed = NULL;
+  char *args_parsed = strdup("");
 
   yh_connector **connector_list = NULL;
 
@@ -201,9 +202,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     char *part;
     while ((part = strtok_r(str, " \r\n\t", &save))) {
       str = NULL;
-      args_parsed =
+      char *new_args =
         realloc(args_parsed, strlen(args_parsed) + strlen(part) + 4);
-      if (args_parsed) {
+      if (new_args) {
+        args_parsed = new_args;
         sprintf(args_parsed + strlen(args_parsed), "--%s ", part);
       } else {
         DBG_ERR("Failed allocating memory for args");

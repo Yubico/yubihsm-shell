@@ -489,7 +489,8 @@ size_t parse_hex(CK_UTF8CHAR_PTR hex, CK_ULONG hex_len, uint8_t *parsed) {
 
 static void *dup_ecdh_session_key(void *item) {
   void *new_item = malloc(sizeof(ecdh_session_key));
-  memcpy(new_item, item, sizeof(ecdh_session_key));
+  if (new_item)
+    memcpy(new_item, item, sizeof(ecdh_session_key));
   return new_item;
 }
 
@@ -2744,7 +2745,8 @@ bool is_HMAC_sign_mechanism(CK_MECHANISM_TYPE m) {
 
 static void *dup_pkcs11_slot(void *item) {
   void *new_item = malloc(sizeof(yubihsm_pkcs11_slot));
-  memcpy(new_item, item, sizeof(yubihsm_pkcs11_slot));
+  if (new_item)
+    memcpy(new_item, item, sizeof(yubihsm_pkcs11_slot));
   return new_item;
 }
 
@@ -2935,7 +2937,8 @@ void set_native_locking(yubihsm_pkcs11_context *ctx) {
 
 static void *dup_pkcs11_session(void *item) {
   void *new_item = malloc(sizeof(yubihsm_pkcs11_session));
-  memcpy(new_item, item, sizeof(yubihsm_pkcs11_session));
+  if (new_item)
+    memcpy(new_item, item, sizeof(yubihsm_pkcs11_session));
   return new_item;
 }
 
