@@ -10,6 +10,8 @@ lib: Add a session identifier for the backend
 lib: Make the backend more thread-safe on Windows
 shell: Honor the base64 format when returning a public key
 shell: Honor the PEM format when returning a certificate
+shell: Improve parsing of command line arguments when using OAEP decryption
+shell: Add support for special (national) characters
 test: Improve testing
 
 === Version 2.0.2

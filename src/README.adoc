@@ -6,7 +6,13 @@ For the most part it is a thin wrapper around `libyubihsm` exposing
 most of its functions directly to the user.
 
 YubiHSM Shell can be invoked in interactive mode and from the command
-line.
+line. Special (national) characters are supported on MacOS and Linux
+platforms. On Windows, they are supported in interactive mode and the
+same support can be activated through the OpenSSL environment variable
+`OPENSSL_WIN32_UTF8` for interactive password entry in non-interactive
+mode (i.e if password is not given on the command line). Such characters
+will be encoded according to current locale settings on MacOS/Linux
+(typically utf-8), and always as utf-8 on Windows.
 
 === Interactive Mode
 
