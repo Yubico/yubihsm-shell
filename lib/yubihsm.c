@@ -1045,13 +1045,20 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
     return YHR_INVALID_PARAMETERS;
   }
 
+  DBG_INT(device_pubkey, device_pubkey_len, "PK-SD: ");
+
   int curve = ecdh_curve_p256();
 
-  if (!ecdh_calculate_public_key(curve, privkey, privkey_len, NULL, 0)) {
+  uint8_t pk_oce[65];
+
+  if (!ecdh_calculate_public_key(curve, privkey, privkey_len, pk_oce,
+                                 sizeof(pk_oce))) {
     DBG_ERR("ecdh_calculate_public_key(privkey) %s",
             yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
+
+  DBG_INT(pk_oce, sizeof(pk_oce), "PK-OCE: ");
 
   uint8_t esk_oce[32];
   uint8_t epk_oce[65];
