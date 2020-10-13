@@ -1182,7 +1182,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
 
     struct iterate_ctx ctx = {pk_sd, 0, 0};
     list_iterate(&g_ctx.device_pubkeys, &ctx, iterate_pubkeys);
-    if (ctx.hits != ctx.items) {
+    if (ctx.items > 0 && ctx.hits == 0) {
       DBG_ERR("Failed to validate device public key");
       rv = CKR_FUNCTION_FAILED;
       goto c_l_out;
