@@ -186,7 +186,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
   params.override = 1;
 
   char *args = NULL;
-  char *args_parsed = strdup("");
+  char *args_parsed = NULL;
 
   yh_connector **connector_list = NULL;
 
@@ -203,7 +203,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     while ((part = strtok_r(str, " \r\n\t", &save))) {
       str = NULL;
       char *new_args =
-        realloc(args_parsed, strlen(args_parsed) + strlen(part) + 4);
+        realloc(args_parsed,
+                strlen(args_parsed ? args_parsed : "") + strlen(part) + 4);
       if (new_args) {
         args_parsed = new_args;
         sprintf(args_parsed + strlen(args_parsed), "--%s ", part);
