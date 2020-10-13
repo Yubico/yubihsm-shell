@@ -19,11 +19,13 @@
 
 #include <stdbool.h>
 
+typedef void *(*DuplicateItemFn)(void *);
+
 typedef void (*FreeItemFn)(void *);
 
 typedef bool (*CompareItemFn)(void *, void *);
 
-typedef void (*IteratorFn)(void *);
+typedef void (*IteratorFn)(void *, void *);
 
 typedef struct ListItem ListItem;
 
@@ -34,13 +36,14 @@ struct ListItem {
 
 typedef struct {
   int length;
-  int item_size;
   ListItem *head;
   ListItem *tail;
+  DuplicateItemFn dup_item_fn;
   FreeItemFn free_item_fn;
 } List;
 
-void list_create(List *list, int item_size, FreeItemFn free_item_fn);
+void list_create(List *list, DuplicateItemFn dup_item_fn,
+                 FreeItemFn free_item_fn);
 void list_destroy(List *list);
 
 bool list_prepend(List *list, void *item);
@@ -49,6 +52,6 @@ bool list_append(List *list, void *item);
 ListItem *list_get(List *list, void *data, CompareItemFn compare_item_fn);
 void list_delete(List *list, ListItem *item);
 
-void list_iterate(List *list, IteratorFn iterator_fn);
+void list_iterate(List *list, void *ctx, IteratorFn iterator_fn);
 
 #endif

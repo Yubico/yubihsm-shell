@@ -140,6 +140,7 @@ typedef struct {
 
 typedef struct {
   List slots;
+  List device_pubkeys;
   CK_CREATEMUTEX create_mutex;
   CK_DESTROYMUTEX destroy_mutex;
   CK_LOCKMUTEX lock_mutex;

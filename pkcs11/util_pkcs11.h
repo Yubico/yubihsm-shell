@@ -29,7 +29,7 @@ CK_RV get_mechanism_list(yubihsm_pkcs11_slot *slot,
 bool get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
                         CK_MECHANISM_INFO_PTR pInfo);
 
-bool parse_hex(CK_UTF8CHAR_PTR hex, CK_ULONG hex_len, uint8_t *parsed);
+size_t parse_hex(CK_UTF8CHAR_PTR hex, CK_ULONG hex_len, uint8_t *parsed);
 
 void destroy_session(yubihsm_pkcs11_context *ctx, CK_SESSION_HANDLE hSession);
 
