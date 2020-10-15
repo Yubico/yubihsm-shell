@@ -253,20 +253,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     return CKR_FUNCTION_FAILED;
   }
 
-  DBG_INFO("Found %u configured device public key(s)",
-           args_info.device_pubkey_given);
-
-  list_create(&g_ctx.device_pubkeys, dup_pubkey, free);
-  for (unsigned int i = 0; i < args_info.device_pubkey_given; i++) {
-    uint8_t pk[65];
-    if (parse_hex((CK_UTF8CHAR_PTR) args_info.device_pubkey_arg[i],
-                  2 * sizeof(pk), pk) != sizeof(pk)) {
-      DBG_ERR("Invalid device public key configured");
-      return CKR_FUNCTION_FAILED;
-    }
-    list_append(&g_ctx.device_pubkeys, pk);
-  }
-
   if (yh_init() != YHR_SUCCESS) {
     DBG_ERR("Unable to initialize libyubihsm");
     return CKR_FUNCTION_FAILED;
@@ -315,6 +301,20 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     goto c_i_failure;
   }
 
+  DBG_INFO("Found %u configured device public key(s)",
+           args_info.device_pubkey_given);
+
+  list_create(&g_ctx.device_pubkeys, dup_pubkey, free);
+  for (unsigned int i = 0; i < args_info.device_pubkey_given; i++) {
+    uint8_t pk[80];
+    if (parse_hex((CK_UTF8CHAR_PTR) args_info.device_pubkey_arg[i],
+                  2 * sizeof(pk), pk) != 65) {
+      DBG_ERR("Invalid device public key configured");
+      return CKR_FUNCTION_FAILED;
+    }
+    list_append(&g_ctx.device_pubkeys, pk);
+  }
+
   cmdline_parser_free(&args_info);
   free(connector_list);
 
@@ -332,6 +332,7 @@ c_i_failure:
 
   list_iterate(&g_ctx.slots, NULL, destroy_slot_mutex);
   list_destroy(&g_ctx.slots);
+  list_destroy(&g_ctx.device_pubkeys);
 
   if (connector_list) {
     for (unsigned int i = 0; i < args_info.connector_given; i++) {
@@ -366,6 +367,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pReserved) {
 
   list_iterate(&g_ctx.slots, NULL, destroy_slot_mutex);
   list_destroy(&g_ctx.slots);
+  list_destroy(&g_ctx.device_pubkeys);
 
   if (g_ctx.mutex != NULL) {
     g_ctx.destroy_mutex(g_ctx.mutex);
