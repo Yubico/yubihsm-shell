@@ -57,7 +57,7 @@ typedef enum {
 
 typedef struct {
   yh_object_descriptor objects[YH_MAX_ITEMS_COUNT];
-  uint16_t current_object;
+  size_t current_object;
   size_t n_objects;
   bool only_private;
 } find_info;
