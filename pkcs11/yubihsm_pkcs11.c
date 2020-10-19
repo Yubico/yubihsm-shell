@@ -301,9 +301,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     goto c_i_failure;
   }
 
-  DBG_INFO("Found %u configured device public key(s)",
-           args_info.device_pubkey_given);
-
   list_create(&g_ctx.device_pubkeys, dup_pubkey, free);
   for (unsigned int i = 0; i < args_info.device_pubkey_given; i++) {
     uint8_t pk[80];
@@ -319,6 +316,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
   free(connector_list);
 
   DBG_INFO("Found %zu usable connector(s)", n_connectors);
+
+  DBG_INFO("Found %d configured device public key(s)",
+           g_ctx.device_pubkeys.length);
 
   g_yh_initialized = true;
 

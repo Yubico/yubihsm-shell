@@ -2944,7 +2944,7 @@ static void *dup_pkcs11_session(void *item) {
 
 bool add_connectors(yubihsm_pkcs11_context *ctx, int n_connectors,
                     char **connector_names, yh_connector **connectors) {
-  if (ctx->slots.head == NULL) {
+  if (ctx->slots.dup_item_fn == NULL) {
     list_create(&ctx->slots, dup_pkcs11_slot, free_pkcs11_slot);
   }
 
