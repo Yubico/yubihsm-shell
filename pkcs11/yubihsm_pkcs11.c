@@ -2345,7 +2345,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjects)
       DBG_INFO("stepping back");
     }
 
-    DBG_INFO("Returning object %lu as %08x",
+    DBG_INFO("Returning object %zu as %08x",
              session->operation.op.find.current_object, id);
   }
 
