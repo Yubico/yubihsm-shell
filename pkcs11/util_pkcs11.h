@@ -33,12 +33,6 @@ bool parse_hex(CK_UTF8CHAR_PTR hex, CK_ULONG hex_len, uint8_t *parsed);
 
 void destroy_session(yubihsm_pkcs11_context *ctx, CK_SESSION_HANDLE hSession);
 
-CK_RV get_attribute(CK_ATTRIBUTE_TYPE type, yh_object_descriptor *object,
-                    CK_VOID_PTR value, CK_ULONG_PTR length,
-                    yh_session *session);
-CK_RV get_attribute_ecsession_key(CK_ATTRIBUTE_TYPE type, ecdh_session_key *key,
-                                  CK_VOID_PTR value, CK_ULONG_PTR length);
-
 yubihsm_pkcs11_object_desc *get_object_desc(yh_session *session,
                                             yubihsm_pkcs11_object_desc *objects,
                                             CK_OBJECT_HANDLE objectHandle);

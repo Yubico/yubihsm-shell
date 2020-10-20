@@ -18,6 +18,7 @@
 
 #include <errno.h>
 #include <limits.h>
+#include <locale.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -49,6 +50,8 @@
 
 #ifdef __WIN32
 #include <windows.h>
+#include <fcntl.h>
+#include <io.h>
 
 // TODO: cheat on windows, cheat better?
 #define S_ISLNK S_ISREG
@@ -1294,6 +1297,33 @@ static char *prompt(EditLine *el) {
 
   return PROMPT;
 }
+#else
+char *converting_fgets(char *s, int size, FILE *stream) {
+  int translation = _setmode(_fileno(stream), _O_U16TEXT);
+  if (translation == -1) {
+    return NULL;
+  }
+
+  wchar_t *wide_str = calloc(size, sizeof(wchar_t));
+  if (wide_str == NULL) {
+    _setmode(_fileno(stream), translation);
+    return NULL;
+  }
+
+  fgetws(wide_str, sizeof(wchar_t) * size, stream);
+
+  int len = WideCharToMultiByte(CP_UTF8, 0, wide_str, -1, s, size, NULL, NULL);
+  free(wide_str);
+  wide_str = NULL;
+
+  _setmode(_fileno(stream), translation);
+
+  if (len == 0) {
+    return NULL;
+  }
+
+  return s;
+}
 #endif
 
 static FILE *open_file(const char *name, bool input) {
@@ -1737,6 +1767,10 @@ int main(int argc, char *argv[]) {
 
   struct stat sb;
   struct cmdline_parser_params params;
+
+  if (setlocale(LC_ALL, "") == NULL) {
+    fprintf(stderr, "Warning, unable to reset locale\n");
+  }
 
   ctx.out = stdout;
 
@@ -2698,7 +2732,7 @@ int main(int argc, char *argv[]) {
 #ifdef __WIN32
       fprintf(stdout, PROMPT);
       char data[1025];
-      char *buf = fgets(data, sizeof(data), stdin);
+      char *buf = converting_fgets(data, sizeof(data), stdin);
       if (buf) {
         num = strlen(buf);
       }

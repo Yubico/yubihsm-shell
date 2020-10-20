@@ -39,6 +39,7 @@
 #include "debug_p11.h"
 #include "../common/util.h"
 #include "../common/openssl-compat.h"
+#include "../common/insecure_memzero.h"
 
 #ifdef _MSVC
 #define gettimeofday(a, b) gettimeofday_win(a)
@@ -1459,33 +1460,22 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
   return CKR_OK;
 }
 
-CK_RV get_attribute(CK_ATTRIBUTE_TYPE type, yh_object_descriptor *object,
-                    CK_VOID_PTR value, CK_ULONG_PTR length,
-                    yh_session *session) {
-
-  CK_BYTE tmp[2048];
-  CK_VOID_PTR ptr;
-  if (value == NULL) {
-    // NOTE(adma): we just need the length, use a scratchpad for the data
-    ptr = tmp;
-    *length = sizeof(tmp);
-  } else {
-    // NOTE(adma): otherwise actually save the data
-    ptr = value;
-  }
+static CK_RV get_attribute(CK_ATTRIBUTE_TYPE type, yh_object_descriptor *object,
+                           CK_BYTE_PTR value, CK_ULONG_PTR length,
+                           yh_session *session) {
 
   switch (object->type) {
     case YH_OPAQUE:
-      return get_attribute_opaque(type, object, ptr, length, session);
+      return get_attribute_opaque(type, object, value, length, session);
 
     case YH_WRAP_KEY:
     case YH_HMAC_KEY:
-      return get_attribute_secret_key(type, object, ptr, length);
+      return get_attribute_secret_key(type, object, value, length);
 
     case YH_ASYMMETRIC_KEY:
-      return get_attribute_private_key(type, object, ptr, length, session);
+      return get_attribute_private_key(type, object, value, length, session);
     case 0x80 | YH_ASYMMETRIC_KEY:
-      return get_attribute_public_key(type, object, ptr, length, session);
+      return get_attribute_public_key(type, object, value, length, session);
 
     case YH_TEMPLATE:
     case YH_AUTHENTICATION_KEY:
@@ -1497,31 +1487,24 @@ CK_RV get_attribute(CK_ATTRIBUTE_TYPE type, yh_object_descriptor *object,
   return CKR_OK;
 }
 
-CK_RV get_attribute_ecsession_key(CK_ATTRIBUTE_TYPE type, ecdh_session_key *key,
-                                  CK_VOID_PTR value, CK_ULONG_PTR length) {
-
-  CK_BYTE tmp[2048];
-  CK_VOID_PTR ptr;
-  if (value == NULL) {
-    ptr = tmp;
-    *length = sizeof(tmp);
-  } else {
-    ptr = value;
-  }
+static CK_RV get_attribute_ecsession_key(CK_ATTRIBUTE_TYPE type,
+                                         ecdh_session_key *key,
+                                         CK_BYTE_PTR value,
+                                         CK_ULONG_PTR length) {
 
   switch (type) {
     case CKA_CLASS:
-      *((CK_OBJECT_CLASS *) ptr) = CKO_SECRET_KEY;
+      *((CK_OBJECT_CLASS *) value) = CKO_SECRET_KEY;
       *length = sizeof(CK_OBJECT_CLASS);
       break;
 
     case CKA_KEY_TYPE:
-      *((CK_KEY_TYPE *) ptr) = CKK_GENERIC_SECRET;
+      *((CK_KEY_TYPE *) value) = CKK_GENERIC_SECRET;
       *length = sizeof(CK_KEY_TYPE);
       break;
 
     case CKA_ID: {
-      CK_OBJECT_HANDLE *id = ptr;
+      CK_OBJECT_HANDLE *id = (CK_OBJECT_HANDLE *) value;
       *id = key->id;
       *length = sizeof(CK_OBJECT_HANDLE);
       break;
@@ -1529,18 +1512,18 @@ CK_RV get_attribute_ecsession_key(CK_ATTRIBUTE_TYPE type, ecdh_session_key *key,
 
     case CKA_LABEL:
       *length = strlen(key->label);
-      memcpy(ptr, key->label, *length);
+      memcpy(value, key->label, *length);
       break;
 
     case CKA_LOCAL:
     case CKA_TOKEN:
-      *((CK_BBOOL *) ptr) = CK_FALSE;
+      *((CK_BBOOL *) value) = CK_FALSE;
       *length = sizeof(CK_BBOOL);
       break;
 
     case CKA_DESTROYABLE:
     case CKA_EXTRACTABLE:
-      *((CK_BBOOL *) ptr) = CK_TRUE;
+      *((CK_BBOOL *) value) = CK_TRUE;
       *length = sizeof(CK_BBOOL);
       break;
 
@@ -1558,12 +1541,12 @@ CK_RV get_attribute_ecsession_key(CK_ATTRIBUTE_TYPE type, ecdh_session_key *key,
     case CKA_WRAP_WITH_TRUSTED:
     case CKA_VERIFY:
     case CKA_ENCRYPT:
-      *((CK_BBOOL *) ptr) = CK_FALSE;
+      *((CK_BBOOL *) value) = CK_FALSE;
       *length = sizeof(CK_BBOOL);
       break;
 
     case CKA_VALUE:
-      memcpy(ptr, key->ecdh_key, key->len);
+      memcpy(value, key->ecdh_key, key->len);
       *length = key->len;
       break;
 
@@ -3879,31 +3862,37 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
                         CK_ULONG ulCount, yh_session *session) {
 
   CK_RV rv = CKR_OK;
+  CK_BYTE tmp[8192];
 
   for (CK_ULONG i = 0; i < ulCount; i++) {
     DBG_INFO("Getting attribute 0x%lx", pTemplate[i].type);
-
-    CK_VOID_PTR object_ptr;
-    if (pTemplate[i].pValue == NULL) {
-      // NOTE(adma): just asking for the length
-      object_ptr = NULL;
-      DBG_INFO("Retrieving length");
-    } else {
-      // NOTE(adma): actually get the attribute
-      object_ptr = pTemplate[i].pValue;
-      DBG_INFO("Retrieving attribute");
-    }
-
+    CK_ULONG len = sizeof(tmp);
     CK_RV attribute_rc;
+
     if (type == ECDH_KEY_TYPE) {
       ecdh_session_key *key = object;
       attribute_rc =
-        get_attribute_ecsession_key(pTemplate[i].type, key, object_ptr,
-                                    &pTemplate[i].ulValueLen);
+        get_attribute_ecsession_key(pTemplate[i].type, key, tmp, &len);
     } else {
       yubihsm_pkcs11_object_desc *desc = object;
-      attribute_rc = get_attribute(pTemplate[i].type, &desc->object, object_ptr,
-                                   &pTemplate[i].ulValueLen, session);
+      attribute_rc =
+        get_attribute(pTemplate[i].type, &desc->object, tmp, &len, session);
+    }
+
+    if (attribute_rc == CKR_OK) {
+      if (pTemplate[i].pValue == NULL) {
+        DBG_INFO("Retrieving only length which is %lu", len);
+        pTemplate[i].ulValueLen = len;
+      } else if (len > pTemplate[i].ulValueLen) {
+        DBG_WARN("Skipping attribute, buffer to small %lu > %lu", len,
+                 pTemplate[i].ulValueLen);
+        attribute_rc = CKR_BUFFER_TOO_SMALL;
+        pTemplate[i].ulValueLen = CK_UNAVAILABLE_INFORMATION;
+      } else {
+        DBG_INFO("Retrieving attribute value, length is %lu", len);
+        memcpy(pTemplate[i].pValue, tmp, len);
+        pTemplate[i].ulValueLen = len;
+      }
     }
 
     if (attribute_rc != CKR_OK) {
@@ -3913,7 +3902,7 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
       } else if (attribute_rc == CKR_BUFFER_TOO_SMALL) {
         DBG_ERR("Skipping attribute because buffer is too small");
       } else {
-        DBG_ERR("Get attribute failed. %s", yh_strerror(attribute_rc));
+        DBG_ERR("Get attribute failed.");
       }
     } else {
       DBG_INFO("Attribute/length successfully returned with length %lu",
@@ -3939,6 +3928,8 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
      * is an array of attributes is identifiable by virtue of the attribute
      * type having the CKF_ARRAY_ATTRIBUTE bit set.*/
   }
+
+  insecure_memzero(tmp, sizeof(tmp));
 
   return rv;
 }

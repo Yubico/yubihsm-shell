@@ -557,10 +557,10 @@ bool base64_decode(const char *in, uint8_t *out, size_t *len) {
 bool hex_decode(const char *in, uint8_t *out, size_t *len) {
   int pos = 0;
   size_t in_len = strlen(in);
-  if (in[in_len - 1] == '\n') {
+  if (in_len > 0 && in[in_len - 1] == '\n') {
     in_len--;
   }
-  if (in[in_len - 1] == '\r') {
+  if (in_len > 0 && in[in_len - 1] == '\r') {
     in_len--;
   }
   if (in_len % 2 != 0) {

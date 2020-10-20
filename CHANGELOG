@@ -1,3 +1,19 @@
+=== Version 2.0.3
+
+all: Move away from archaic offensive terms
+all: Update build scripts to account for changes in newer MACOS
+all: Build on Windows with Visual Studio 2019
+pkcs11: Enable .Net to load yubihsm-pkcs11.dylib
+lib: Fix memory leaks
+lib: Security fixes
+lib: Add a session identifier for the backend
+lib: Make the backend more thread-safe on Windows
+shell: Honor the base64 format when returning a public key
+shell: Honor the PEM format when returning a certificate
+shell: Improve parsing of command line arguments when using OAEP decryption
+shell: Add support for special (national) characters
+test: Improve testing
+
 === Version 2.0.2
 
 yhauth: Report touch policy as part of the "list" command
