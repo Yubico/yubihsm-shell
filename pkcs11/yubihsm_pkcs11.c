@@ -153,6 +153,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
       g_ctx.lock_mutex = init_args->LockMutex;
       g_ctx.unlock_mutex = init_args->UnlockMutex;
     } else {
+      DBG_ERR("Invalid locking specified");
       return CKR_ARGUMENTS_BAD;
     }
   }
@@ -202,12 +203,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     char *part;
     while ((part = strtok_r(str, " \r\n\t", &save))) {
       str = NULL;
-      char *new_args =
-        realloc(args_parsed,
-                strlen(args_parsed ? args_parsed : "") + strlen(part) + 4);
+      size_t len = args_parsed ? strlen(args_parsed) : 0;
+      char *new_args = realloc(args_parsed, len + strlen(part) + 4);
       if (new_args) {
         args_parsed = new_args;
-        sprintf(args_parsed + strlen(args_parsed), "--%s ", part);
+        sprintf(args_parsed + len, "--%s ", part);
       } else {
         DBG_ERR("Failed allocating memory for args");
         goto c_i_failure;
