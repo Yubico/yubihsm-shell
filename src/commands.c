@@ -100,7 +100,7 @@ int yh_com_audit(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   switch (fmt) {
     case fmt_hex:
       fprintf(ctx->out, "%04x%04x", unlogged_boot, unlogged_auth);
-      for (uint16_t i = 0; i < n_items; i++) {
+      for (size_t i = 0; i < n_items; i++) {
         format_digest(logs[i].digest, digest_buf, YH_LOG_DIGEST_SIZE);
         fprintf(ctx->out, "%04x%02x%04x%04x%04x%04x%02x%08lx%s", logs[i].number,
                 logs[i].command, logs[i].length, logs[i].session_key,
@@ -124,7 +124,7 @@ int yh_com_audit(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
         fprintf(ctx->out, "Found %zu items\n", n_items);
       }
 
-      for (uint16_t i = 0; i < n_items; i++) {
+      for (size_t i = 0; i < n_items; i++) {
         format_digest(logs[i].digest, digest_buf, YH_LOG_DIGEST_SIZE);
         fprintf(ctx->out,
                 "item: %5u -- cmd: 0x%02x -- length: %4u -- session key: "
@@ -844,7 +844,7 @@ int yh_com_get_option(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   }
 
   fprintf(ctx->out, "Option value is: ");
-  for (uint16_t i = 0; i < response_len; i++) {
+  for (size_t i = 0; i < response_len; i++) {
     fprintf(ctx->out, "%02x", response[i]);
   }
   fprintf(ctx->out, "\n");
