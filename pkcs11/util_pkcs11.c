@@ -615,7 +615,6 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
     case CKA_VALUE:
       if (yh_util_get_opaque(session, object->id, value, (size_t *) length) !=
           YHR_SUCCESS) {
-        *length = CK_UNAVAILABLE_INFORMATION;
         return CKR_ATTRIBUTE_TYPE_INVALID;
       }
       break;
@@ -625,13 +624,11 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
         *((CK_CERTIFICATE_TYPE *) value) = CKC_X_509;
         *length = sizeof(CK_CERTIFICATE_TYPE);
       } else {
-        *length = CK_UNAVAILABLE_INFORMATION;
         return CKR_ATTRIBUTE_TYPE_INVALID;
       }
       break;
 
     default:
-      *length = CK_UNAVAILABLE_INFORMATION;
       return CKR_ATTRIBUTE_TYPE_INVALID;
   }
 
@@ -805,7 +802,6 @@ static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     default:
-      *length = CK_UNAVAILABLE_INFORMATION;
       return CKR_ATTRIBUTE_TYPE_INVALID;
   }
 
@@ -1001,7 +997,6 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
 
           if (yh_util_get_public_key(session, object->id, resp, &resp_len,
                                      NULL) != YHR_SUCCESS) {
-            *length = CK_UNAVAILABLE_INFORMATION;
             return CKR_ATTRIBUTE_TYPE_INVALID;
           }
 
@@ -1011,7 +1006,6 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
         } break;
 
         default:
-          *length = CK_UNAVAILABLE_INFORMATION;
           return CKR_ATTRIBUTE_TYPE_INVALID;
       }
       break;
@@ -1030,7 +1024,6 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
           break;
         }
         default:
-          *length = CK_UNAVAILABLE_INFORMATION;
           return CKR_ATTRIBUTE_TYPE_INVALID;
       }
       break;
@@ -1038,11 +1031,9 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
     case CKA_VALUE:            // CKK_EC has the private values in CKA_VALUE
     case CKA_PRIVATE_EXPONENT: // CKK_RSA has the private exponent in
       // CKA_PRIVATE_EXPONENT
-      *length = CK_UNAVAILABLE_INFORMATION;
       return CKR_ATTRIBUTE_SENSITIVE;
 
     default:
-      *length = CK_UNAVAILABLE_INFORMATION;
       return CKR_ATTRIBUTE_TYPE_INVALID;
   }
 
@@ -1385,7 +1376,6 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
         p += resplen;
         *length = p - (uint8_t *) value;
       } else {
-        *length = CK_UNAVAILABLE_INFORMATION;
         return CKR_ATTRIBUTE_TYPE_INVALID;
       }
       break;
@@ -1401,7 +1391,6 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
 
           if (yh_util_get_public_key(session, object->id, resp, &resp_len,
                                      NULL) != YHR_SUCCESS) {
-            *length = CK_UNAVAILABLE_INFORMATION;
             return CKR_ATTRIBUTE_TYPE_INVALID;
           }
 
@@ -1411,7 +1400,6 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
         } break;
 
         default:
-          *length = CK_UNAVAILABLE_INFORMATION;
           return CKR_ATTRIBUTE_TYPE_INVALID;
       }
       break;
@@ -1430,7 +1418,6 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
           break;
         }
         default:
-          *length = CK_UNAVAILABLE_INFORMATION;
           return CKR_ATTRIBUTE_TYPE_INVALID;
       }
       break;
@@ -1438,13 +1425,11 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
     case CKA_VALUE: {
       EVP_PKEY *pkey = EVP_PKEY_new();
       if (pkey == NULL) {
-        *length = CK_UNAVAILABLE_INFORMATION;
         return CKR_FUNCTION_FAILED;
       }
 
       if (load_public_key(session, object->id, pkey) == false) {
         EVP_PKEY_free(pkey);
-        *length = CK_UNAVAILABLE_INFORMATION;
         return CKR_ATTRIBUTE_TYPE_INVALID;
       }
 
@@ -1453,7 +1438,6 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
     } break;
 
     default:
-      *length = CK_UNAVAILABLE_INFORMATION;
       return CKR_ATTRIBUTE_TYPE_INVALID;
   }
 
@@ -1551,7 +1535,6 @@ static CK_RV get_attribute_ecsession_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     default:
-      *length = CK_UNAVAILABLE_INFORMATION;
       return CKR_ATTRIBUTE_TYPE_INVALID;
   }
 
@@ -3887,7 +3870,6 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
         DBG_WARN("Skipping attribute, buffer to small %lu > %lu", len,
                  pTemplate[i].ulValueLen);
         attribute_rc = CKR_BUFFER_TOO_SMALL;
-        pTemplate[i].ulValueLen = CK_UNAVAILABLE_INFORMATION;
       } else {
         DBG_INFO("Retrieving attribute value, length is %lu", len);
         memcpy(pTemplate[i].pValue, tmp, len);
@@ -3895,7 +3877,11 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
       }
     }
 
+    // NOTE: this needs to be a separate if since attribute_rc might be changed
+    // inside of the above if statement
     if (attribute_rc != CKR_OK) {
+      pTemplate[i].ulValueLen = CK_UNAVAILABLE_INFORMATION;
+
       rv = attribute_rc;
       if (attribute_rc == CKR_ATTRIBUTE_TYPE_INVALID) {
         DBG_ERR("Unable to get attribute");
