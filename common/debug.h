@@ -17,8 +17,12 @@
 #ifndef DEBUG_H
 #define DEBUG_H
 
-#include <sys/time.h>
-#include <time.h>
+#include "../common/platform-config.h"
+#include "time_win.h"
+
+#ifdef _MSVC
+#include <winsock.h>
+#endif
 
 #ifdef __linux__
 #define ANSI_RED "\x1b[31m"
@@ -40,6 +44,11 @@
 
 #define __FILENAME__                                                           \
   (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+
+#ifdef _MSVC
+#define localtime_r(a, b) localtime_s(b, a)
+#define gettimeofday(a, b) gettimeofday_win(a)
+#endif
 
 #define D(var, file, col, who, lev, ...)                                       \
   if (var) {                                                                   \

@@ -14,18 +14,22 @@
 # limitations under the License.
 #
 
-include(gengetopt)
-
-add_gengetopt_files (cmdline)
-
 set (
   SOURCE
-  ${GGO_C}
   main.c
   ../common/parsing.c
   )
 
-message("${GGO_C}")
+if(WIN32)
+  set(SOURCE ${SOURCE} cmdline.c)
+  include(${CMAKE_SOURCE_DIR}/cmake/getopt.cmake)
+  find_getopt()
+else(WIN32)
+  include(gengetopt)
+  add_gengetopt_files (cmdline)
+  set(SOURCE ${SOURCE} ${GGO_C})
+  message("${GGO_C}")
+endif(WIN32)
 
 include_directories (
   ${LIBCRYPTO_INCLUDEDIR}
@@ -54,6 +58,7 @@ add_executable (yhauth ${SOURCE})
 target_link_libraries (
   yhauth
   ${LIBCRYPTO_LDFLAGS}
+  ${GETOPT_LIBS}
   ykyh
   )
 

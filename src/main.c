@@ -18,16 +18,14 @@
 
 #include <errno.h>
 #include <limits.h>
+#include <locale.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <unistd.h>
-#include <sys/time.h>
 
 #include "util.h"
 #include "commands.h"
@@ -52,15 +50,28 @@
 
 #ifdef __WIN32
 #include <windows.h>
+#include <fcntl.h>
+#include <io.h>
 
 // TODO: cheat on windows, cheat better?
 #define S_ISLNK S_ISREG
 #else
+#include <strings.h>
+#include <unistd.h>
+#include <sys/time.h>
 #include <editline/readline.h>
 #include <histedit.h>
 
 History *g_hist;
 #endif
+
+#ifdef _MSVC
+#define S_ISREG(m) (((m) &S_IFMT) == S_IFREG)
+#define strcasecmp _stricmp
+#define strncasecmp _strnicmp
+#endif
+
+#define UNUSED(x) (void) (x)
 
 #define LIB_SUCCEED_OR_DIE(x, s)                                               \
   if ((x) != YHR_SUCCESS) {                                                    \
@@ -742,9 +753,9 @@ static bool probe_session(yubihsm_context *ctx, int index) {
 }
 
 #ifdef __WIN32
-static void WINAPI timer_handler(void *lpParam __attribute__((unused)),
-                                 unsigned char TimerOrWaitFired
-                                 __attribute__((unused))) {
+static void WINAPI timer_handler(void *lpParam,
+                                 unsigned char TimerOrWaitFired) {
+  UNUSED(TimerOrWaitFired);
 #else
 static void timer_handler(int signo __attribute__((unused))) {
 #endif
@@ -884,8 +895,7 @@ void find_lcp(const char *items[], int n_items, const char **lcp,
   }
 
   *lcp = items[min];
-  for (unsigned int i = 0; i < strlen(items[min]) && i < strlen(items[max]);
-       i++) {
+  for (size_t i = 0; i < strlen(items[min]) && i < strlen(items[max]); i++) {
     if (items[min][i] != items[max][i]) {
       *lcp_len = i;
 
@@ -1044,7 +1054,7 @@ unsigned char complete_arg(EditLine *el, const char *arg, char *line,
     } break;
 
     case 'a':
-      for (uint16_t i = 0; i < sizeof(yh_algorithms) / sizeof(yh_algorithms[0]);
+      for (size_t i = 0; i < sizeof(yh_algorithms) / sizeof(yh_algorithms[0]);
            i++) {
         if (strncasecmp(line, yh_algorithms[i].name, strlen(line)) == 0) {
           candidates[n_candidates++] = yh_algorithms[i].name;
@@ -1055,7 +1065,7 @@ unsigned char complete_arg(EditLine *el, const char *arg, char *line,
       break;
 
     case 't':
-      for (uint16_t i = 0; i < sizeof(yh_types) / sizeof(yh_types[0]); i++) {
+      for (size_t i = 0; i < sizeof(yh_types) / sizeof(yh_types[0]); i++) {
         if (strncasecmp(line, yh_types[i].name, strlen(line)) == 0) {
           candidates[n_candidates++] = yh_types[i].name;
           assert(n_candidates < COMPLETION_CANDIDATES);
@@ -1065,8 +1075,7 @@ unsigned char complete_arg(EditLine *el, const char *arg, char *line,
       break;
 
     case 'o':
-      for (uint16_t i = 0; i < sizeof(yh_options) / sizeof(yh_options[0]);
-           i++) {
+      for (size_t i = 0; i < sizeof(yh_options) / sizeof(yh_options[0]); i++) {
         if (strncasecmp(line, yh_options[i].name, strlen(line)) == 0) {
           candidates[n_candidates++] = yh_options[i].name;
           assert(n_candidates < COMPLETION_CANDIDATES);
@@ -1076,7 +1085,7 @@ unsigned char complete_arg(EditLine *el, const char *arg, char *line,
       break;
 
     case 'I':
-      for (uint16_t i = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
+      for (size_t i = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
         if (strncasecmp(line, formats[i].name, strlen(line)) == 0) {
           candidates[n_candidates++] = formats[i].name;
           assert(n_candidates < COMPLETION_CANDIDATES);
@@ -1330,6 +1339,33 @@ static char *prompt(EditLine *el) {
   UNUSED(el);
 
   return PROMPT;
+}
+#else
+char *converting_fgets(char *s, int size, FILE *stream) {
+  int translation = _setmode(_fileno(stream), _O_U16TEXT);
+  if (translation == -1) {
+    return NULL;
+  }
+
+  wchar_t *wide_str = calloc(size, sizeof(wchar_t));
+  if (wide_str == NULL) {
+    _setmode(_fileno(stream), translation);
+    return NULL;
+  }
+
+  fgetws(wide_str, sizeof(wchar_t) * size, stream);
+
+  int len = WideCharToMultiByte(CP_UTF8, 0, wide_str, -1, s, size, NULL, NULL);
+  free(wide_str);
+  wide_str = NULL;
+
+  _setmode(_fileno(stream), translation);
+
+  if (len == 0) {
+    return NULL;
+  }
+
+  return s;
 }
 #endif
 
@@ -1762,6 +1798,10 @@ int main(int argc, char *argv[]) {
 
   struct stat sb;
   struct cmdline_parser_params params;
+
+  if (setlocale(LC_ALL, "") == NULL) {
+    fprintf(stderr, "Warning, unable to reset locale\n");
+  }
 
   ctx.out = stdout;
 
@@ -2679,7 +2719,7 @@ int main(int argc, char *argv[]) {
     }
 
   } else {
-    int num;
+    int num = 0;
 #ifndef __WIN32
     EditLine *el;
 
@@ -2687,7 +2727,7 @@ int main(int argc, char *argv[]) {
 
     g_hist = history_init();
 
-    history(g_hist, &ev, H_SETSIZE, 100); // NOTE(adma): 100 history items
+    history(g_hist, &ev, H_SETSIZE, 1000); // NOTE(adma): 1000 history items
 
     el = el_init(*argv, stdin, stdout, stderr);
 
@@ -2700,6 +2740,9 @@ int main(int argc, char *argv[]) {
 #endif /* EL_PROMPT_ESC */
 
     el_set(el, EL_HIST, history, g_hist);
+
+    /* enable ctrl-R for reverse history search */
+    el_set(el, EL_BIND, "^R", "em-inc-search-prev", NULL);
 
     /* Add a user-defined function    */
     el_set(el, EL_ADDFN, "yh_complete", "Complete argument", yubihsm_complete);
@@ -2716,7 +2759,7 @@ int main(int argc, char *argv[]) {
 #ifdef __WIN32
       fprintf(stdout, PROMPT);
       char data[1025];
-      char *buf = fgets(data, sizeof(data), stdin);
+      char *buf = converting_fgets(data, sizeof(data), stdin);
       if (buf) {
         num = strlen(buf);
       }

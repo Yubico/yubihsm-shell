@@ -23,6 +23,7 @@
 #include "yubihsm-shell.h"
 #include "../common/insecure_memzero.h"
 #include "../common/parsing.h"
+#include "time_win.h"
 
 #include "hash.h"
 #include "util.h"
@@ -34,13 +35,18 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <sys/time.h>
 #endif
 
 #include <openssl/rand.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
 #include <openssl/bio.h>
-#include <sys/time.h>
+#include <time.h>
+
+#ifdef _MSVC
+#define gettimeofday(a, b) gettimeofday_win(a)
+#endif
 
 static format_t fmt_to_fmt(cmd_format fmt) {
   switch (fmt) {
@@ -72,7 +78,7 @@ int yh_com_audit(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   uint16_t unlogged_boot = 0;
   uint16_t unlogged_auth = 0;
   yh_log_entry logs[YH_MAX_LOG_ENTRIES];
-  size_t n_items = sizeof(logs);
+  size_t n_items = sizeof(logs) / sizeof(logs[0]);
 
   switch (fmt) {
     case fmt_binary:
@@ -656,7 +662,7 @@ int yh_com_echo(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   }
 
   fprintf(ctx->out, "Response (%zu bytes):\n", response_len);
-  for (uint32_t i = 0; i < response_len; i++) {
+  for (size_t i = 0; i < response_len; i++) {
     if (i && !(i % 64))
       fprintf(ctx->out, "\n");
     else if (i && !(i % 8))
@@ -1176,7 +1182,7 @@ int yh_com_list_capabilities(yubihsm_context *ctx, Argument *argv,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  for (uint16_t i = 0; i < sizeof(yh_capability) / sizeof(yh_capability[0]);
+  for (size_t i = 0; i < sizeof(yh_capability) / sizeof(yh_capability[0]);
        i++) {
     fprintf(ctx->out, "%-30s (%016llx)\n", yh_capability[i].name,
             1ULL << yh_capability[i].bit);
@@ -1195,7 +1201,7 @@ int yh_com_list_algorithms(yubihsm_context *ctx, Argument *argv,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  for (uint16_t i = 0; i < sizeof(yh_algorithms) / sizeof(yh_algorithms[0]);
+  for (size_t i = 0; i < sizeof(yh_algorithms) / sizeof(yh_algorithms[0]);
        i++) {
     fprintf(ctx->out, "%s\n", yh_algorithms[i].name);
   }
@@ -1234,7 +1240,7 @@ int yh_com_list_sessions(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
-  for (uint16_t i = 0; i < YH_MAX_SESSIONS; i++) {
+  for (int i = 0; i < YH_MAX_SESSIONS; i++) {
     if (ctx->sessions[i] != NULL) {
       fprintf(stderr, "Session %d\n", i);
     }
@@ -1614,7 +1620,7 @@ int yh_com_pecho(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   }
 
   fprintf(ctx->out, "Response (%zu bytes):\n", response_len);
-  for (uint32_t i = 0; i < response_len; i++) {
+  for (size_t i = 0; i < response_len; i++) {
     if (i && !(i % 64))
       fprintf(ctx->out, "\n");
     else if (i && !(i % 8))
@@ -3054,13 +3060,12 @@ int yh_com_generate_otp_aead_key(yubihsm_context *ctx, Argument *argv,
 // arg 0: e:session
 // arg 1: w:key_id
 // arg 2: a:algorithm
-// arg 3: s:label
-// arg 4: f:datafile
+// arg 3: f:datafile
+// arg 4: s:label
 int yh_com_decrypt_oaep(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                         cmd_format fmt) {
 
   UNUSED(in_fmt);
-
   yh_rc yrc;
 
   uint8_t response[YH_MSG_BUF_SIZE];
@@ -3098,7 +3103,8 @@ int yh_com_decrypt_oaep(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
       return -1;
   }
 
-  if (hash_bytes(argv[4].x, argv[4].len, hash, label, &label_len) == false) {
+  if (hash_bytes((const uint8_t *) argv[4].s, argv[4].len, hash, label,
+                 &label_len) == false) {
     fprintf(stderr, "Unable to hash data\n");
     return -1;
   }

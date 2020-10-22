@@ -1,4 +1,4 @@
-﻿
+
 #include <winresrc.h>
 
 #define VER_FILEVERSION     @yubihsm_shell_VERSION_MAJOR@,@yubihsm_shell_VERSION_MINOR@,@yubihsm_shell_VERSION_PATCH@,0
@@ -36,4 +36,3 @@ BEGIN
         VALUE "Translation", 0x409, 1200
     END
 END
-

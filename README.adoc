@@ -53,6 +53,9 @@ Note that `ninja` builds are available as well:
  $ cmake -GNinja ..
  $ ninja
 
+IMPORTANT: Building from source on Windows should be made with the source from the source release package and not
+directly from the cloned repository. This is due to the `gengetopt` library not being available for Windows.
+
 Manpages are built by default using `help2man`. It is possible to skip this step with:
 
  $ mkdir build && cd build

@@ -20,12 +20,14 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
+#include "../common/platform-config.h"
+#include "../common/time_win.h"
 
 #ifdef __WIN32
 #include <winsock.h>
 #else
 #include <arpa/inet.h>
+#include <pthread.h>
 #endif
 
 #include <openssl/ec.h>
@@ -37,7 +39,13 @@
 #include "debug_p11.h"
 #include "../common/util.h"
 #include "../common/openssl-compat.h"
+#include "../common/insecure_memzero.h"
 
+#ifdef _MSVC
+#define gettimeofday(a, b) gettimeofday_win(a)
+#endif
+
+#define UNUSED(x) (void) (x)
 #define ASN1_OID 0x06
 static const uint8_t oid_secp224r1[] = {ASN1_OID, 0x05, 0x2b, 0x81,
                                         0x04,     0x00, 0x21};
@@ -613,7 +621,6 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
     case CKA_VALUE:
       if (yh_util_get_opaque(session, object->id, value, (size_t *) length) !=
           YHR_SUCCESS) {
-        *length = CK_UNAVAILABLE_INFORMATION;
         return CKR_ATTRIBUTE_TYPE_INVALID;
       }
       break;
@@ -623,13 +630,11 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
         *((CK_CERTIFICATE_TYPE *) value) = CKC_X_509;
         *length = sizeof(CK_CERTIFICATE_TYPE);
       } else {
-        *length = CK_UNAVAILABLE_INFORMATION;
         return CKR_ATTRIBUTE_TYPE_INVALID;
       }
       break;
 
     default:
-      *length = CK_UNAVAILABLE_INFORMATION;
       return CKR_ATTRIBUTE_TYPE_INVALID;
   }
 
@@ -803,7 +808,6 @@ static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     default:
-      *length = CK_UNAVAILABLE_INFORMATION;
       return CKR_ATTRIBUTE_TYPE_INVALID;
   }
 
@@ -999,7 +1003,6 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
 
           if (yh_util_get_public_key(session, object->id, resp, &resp_len,
                                      NULL) != YHR_SUCCESS) {
-            *length = CK_UNAVAILABLE_INFORMATION;
             return CKR_ATTRIBUTE_TYPE_INVALID;
           }
 
@@ -1009,7 +1012,6 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
         } break;
 
         default:
-          *length = CK_UNAVAILABLE_INFORMATION;
           return CKR_ATTRIBUTE_TYPE_INVALID;
       }
       break;
@@ -1028,7 +1030,6 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
           break;
         }
         default:
-          *length = CK_UNAVAILABLE_INFORMATION;
           return CKR_ATTRIBUTE_TYPE_INVALID;
       }
       break;
@@ -1036,11 +1037,9 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
     case CKA_VALUE:            // CKK_EC has the private values in CKA_VALUE
     case CKA_PRIVATE_EXPONENT: // CKK_RSA has the private exponent in
       // CKA_PRIVATE_EXPONENT
-      *length = CK_UNAVAILABLE_INFORMATION;
       return CKR_ATTRIBUTE_SENSITIVE;
 
     default:
-      *length = CK_UNAVAILABLE_INFORMATION;
       return CKR_ATTRIBUTE_TYPE_INVALID;
   }
 
@@ -1383,7 +1382,6 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
         p += resplen;
         *length = p - (uint8_t *) value;
       } else {
-        *length = CK_UNAVAILABLE_INFORMATION;
         return CKR_ATTRIBUTE_TYPE_INVALID;
       }
       break;
@@ -1399,7 +1397,6 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
 
           if (yh_util_get_public_key(session, object->id, resp, &resp_len,
                                      NULL) != YHR_SUCCESS) {
-            *length = CK_UNAVAILABLE_INFORMATION;
             return CKR_ATTRIBUTE_TYPE_INVALID;
           }
 
@@ -1409,7 +1406,6 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
         } break;
 
         default:
-          *length = CK_UNAVAILABLE_INFORMATION;
           return CKR_ATTRIBUTE_TYPE_INVALID;
       }
       break;
@@ -1428,7 +1424,6 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
           break;
         }
         default:
-          *length = CK_UNAVAILABLE_INFORMATION;
           return CKR_ATTRIBUTE_TYPE_INVALID;
       }
       break;
@@ -1436,13 +1431,11 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
     case CKA_VALUE: {
       EVP_PKEY *pkey = EVP_PKEY_new();
       if (pkey == NULL) {
-        *length = CK_UNAVAILABLE_INFORMATION;
         return CKR_FUNCTION_FAILED;
       }
 
       if (load_public_key(session, object->id, pkey) == false) {
         EVP_PKEY_free(pkey);
-        *length = CK_UNAVAILABLE_INFORMATION;
         return CKR_ATTRIBUTE_TYPE_INVALID;
       }
 
@@ -1451,40 +1444,28 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
     } break;
 
     default:
-      *length = CK_UNAVAILABLE_INFORMATION;
       return CKR_ATTRIBUTE_TYPE_INVALID;
   }
 
   return CKR_OK;
 }
 
-CK_RV get_attribute(CK_ATTRIBUTE_TYPE type, yh_object_descriptor *object,
-                    CK_VOID_PTR value, CK_ULONG_PTR length,
-                    yh_session *session) {
-
-  CK_BYTE tmp[2048];
-  CK_VOID_PTR ptr;
-  if (value == NULL) {
-    // NOTE(adma): we just need the length, use a scratchpad for the data
-    ptr = tmp;
-    *length = sizeof(tmp);
-  } else {
-    // NOTE(adma): otherwise actually save the data
-    ptr = value;
-  }
+static CK_RV get_attribute(CK_ATTRIBUTE_TYPE type, yh_object_descriptor *object,
+                           CK_BYTE_PTR value, CK_ULONG_PTR length,
+                           yh_session *session) {
 
   switch (object->type) {
     case YH_OPAQUE:
-      return get_attribute_opaque(type, object, ptr, length, session);
+      return get_attribute_opaque(type, object, value, length, session);
 
     case YH_WRAP_KEY:
     case YH_HMAC_KEY:
-      return get_attribute_secret_key(type, object, ptr, length);
+      return get_attribute_secret_key(type, object, value, length);
 
     case YH_ASYMMETRIC_KEY:
-      return get_attribute_private_key(type, object, ptr, length, session);
+      return get_attribute_private_key(type, object, value, length, session);
     case 0x80 | YH_ASYMMETRIC_KEY:
-      return get_attribute_public_key(type, object, ptr, length, session);
+      return get_attribute_public_key(type, object, value, length, session);
 
     case YH_TEMPLATE:
     case YH_AUTHENTICATION_KEY:
@@ -1496,31 +1477,24 @@ CK_RV get_attribute(CK_ATTRIBUTE_TYPE type, yh_object_descriptor *object,
   return CKR_OK;
 }
 
-CK_RV get_attribute_ecsession_key(CK_ATTRIBUTE_TYPE type, ecdh_session_key *key,
-                                  CK_VOID_PTR value, CK_ULONG_PTR length) {
-
-  CK_BYTE tmp[2048];
-  CK_VOID_PTR ptr;
-  if (value == NULL) {
-    ptr = tmp;
-    *length = sizeof(tmp);
-  } else {
-    ptr = value;
-  }
+static CK_RV get_attribute_ecsession_key(CK_ATTRIBUTE_TYPE type,
+                                         ecdh_session_key *key,
+                                         CK_BYTE_PTR value,
+                                         CK_ULONG_PTR length) {
 
   switch (type) {
     case CKA_CLASS:
-      *((CK_OBJECT_CLASS *) ptr) = CKO_SECRET_KEY;
+      *((CK_OBJECT_CLASS *) value) = CKO_SECRET_KEY;
       *length = sizeof(CK_OBJECT_CLASS);
       break;
 
     case CKA_KEY_TYPE:
-      *((CK_KEY_TYPE *) ptr) = CKK_GENERIC_SECRET;
+      *((CK_KEY_TYPE *) value) = CKK_GENERIC_SECRET;
       *length = sizeof(CK_KEY_TYPE);
       break;
 
     case CKA_ID: {
-      CK_OBJECT_HANDLE *id = ptr;
+      CK_OBJECT_HANDLE *id = (CK_OBJECT_HANDLE *) value;
       *id = key->id;
       *length = sizeof(CK_OBJECT_HANDLE);
       break;
@@ -1528,18 +1502,18 @@ CK_RV get_attribute_ecsession_key(CK_ATTRIBUTE_TYPE type, ecdh_session_key *key,
 
     case CKA_LABEL:
       *length = strlen(key->label);
-      memcpy(ptr, key->label, *length);
+      memcpy(value, key->label, *length);
       break;
 
     case CKA_LOCAL:
     case CKA_TOKEN:
-      *((CK_BBOOL *) ptr) = CK_FALSE;
+      *((CK_BBOOL *) value) = CK_FALSE;
       *length = sizeof(CK_BBOOL);
       break;
 
     case CKA_DESTROYABLE:
     case CKA_EXTRACTABLE:
-      *((CK_BBOOL *) ptr) = CK_TRUE;
+      *((CK_BBOOL *) value) = CK_TRUE;
       *length = sizeof(CK_BBOOL);
       break;
 
@@ -1557,17 +1531,16 @@ CK_RV get_attribute_ecsession_key(CK_ATTRIBUTE_TYPE type, ecdh_session_key *key,
     case CKA_WRAP_WITH_TRUSTED:
     case CKA_VERIFY:
     case CKA_ENCRYPT:
-      *((CK_BBOOL *) ptr) = CK_FALSE;
+      *((CK_BBOOL *) value) = CK_FALSE;
       *length = sizeof(CK_BBOOL);
       break;
 
     case CKA_VALUE:
-      memcpy(ptr, key->ecdh_key, key->len);
+      memcpy(value, key->ecdh_key, key->len);
       *length = key->len;
       break;
 
     default:
-      *length = CK_UNAVAILABLE_INFORMATION;
       return CKR_ATTRIBUTE_TYPE_INVALID;
   }
 
@@ -1643,7 +1616,6 @@ yubihsm_pkcs11_object_desc *get_object_desc(yh_session *session,
   }
 
   object->object.type = type;
-
   gettimeofday(&object->tv, NULL);
 
   return object;
@@ -1901,8 +1873,6 @@ CK_RV apply_decrypt_mechanism_init(yubihsm_pkcs11_op_info *op_info) {
       DBG_ERR("Mechanism %lu not supported", op_info->mechanism.mechanism);
       return CKR_MECHANISM_INVALID;
   }
-
-  return CKR_OK;
 }
 
 CK_RV apply_digest_mechanism_init(yubihsm_pkcs11_op_info *op_info) {
@@ -2153,14 +2123,12 @@ CK_RV apply_sign_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
   return CKR_OK;
 }
 
-CK_RV apply_verify_mechanism_finalize(yubihsm_pkcs11_op_info *op_info
-                                      __attribute((unused))) {
-
+CK_RV apply_verify_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
+  UNUSED(op_info);
   return CKR_OK;
 }
 
-CK_RV apply_decrypt_mechanism_finalize(yubihsm_pkcs11_op_info *op_info
-                                       __attribute((unused))) {
+CK_RV apply_decrypt_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
 
   op_info->op.decrypt.finalized = true;
   return CKR_OK;
@@ -3172,7 +3140,7 @@ CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
                         yubihsm_pkcs11_object_template *template) {
 
   uint8_t *ecparams = NULL;
-  uint16_t ecparams_len;
+  uint16_t ecparams_len = 0;
   CK_RV rv;
 
   for (CK_ULONG i = 0; i < ulCount; i++) {
@@ -3429,6 +3397,7 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
       case CKA_DECRYPT:
       case CKA_SIGN:
       case CKA_UNWRAP:
+      case CKA_VERIFY_RECOVER:
         if ((rv = check_bool_attribute(pPublicKeyTemplate[i].pValue, false)) !=
             CKR_OK) {
           DBG_ERR("Boolean false check failed for attribute 0x%lx",
@@ -3547,6 +3516,7 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
       case CKA_COPYABLE:
       case CKA_ENCRYPT:
       case CKA_VERIFY:
+      case CKA_SIGN_RECOVER:
         if ((rv = check_bool_attribute(pPrivateKeyTemplate[i].pValue, false)) !=
             CKR_OK) {
           DBG_ERR("Boolean false check failed for attribute 0x%lx",
@@ -3669,6 +3639,7 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
       case CKA_SIGN:
       case CKA_WRAP:
       case CKA_UNWRAP:
+      case CKA_VERIFY_RECOVER:
         if ((rv = check_bool_attribute(pPublicKeyTemplate[i].pValue, false)) !=
             CKR_OK) {
           DBG_ERR("Boolean false check failed for attribute 0x%lx",
@@ -3787,6 +3758,7 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
       case CKA_COPYABLE:
       case CKA_ENCRYPT:
       case CKA_VERIFY:
+      case CKA_SIGN_RECOVER:
         if ((rv = check_bool_attribute(pPrivateKeyTemplate[i].pValue, false)) !=
             CKR_OK) {
           DBG_ERR("Boolean false check failed for attribute 0x%lx",
@@ -3894,41 +3866,50 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
                         CK_ULONG ulCount, yh_session *session) {
 
   CK_RV rv = CKR_OK;
+  CK_BYTE tmp[8192];
 
   for (CK_ULONG i = 0; i < ulCount; i++) {
     DBG_INFO("Getting attribute 0x%lx", pTemplate[i].type);
-
-    CK_VOID_PTR object_ptr;
-    if (pTemplate[i].pValue == NULL) {
-      // NOTE(adma): just asking for the length
-      object_ptr = NULL;
-      DBG_INFO("Retrieving length");
-    } else {
-      // NOTE(adma): actually get the attribute
-      object_ptr = pTemplate[i].pValue;
-      DBG_INFO("Retrieving attribute");
-    }
-
+    CK_ULONG len = sizeof(tmp);
     CK_RV attribute_rc;
+
     if (type == ECDH_KEY_TYPE) {
       ecdh_session_key *key = object;
       attribute_rc =
-        get_attribute_ecsession_key(pTemplate[i].type, key, object_ptr,
-                                    &pTemplate[i].ulValueLen);
+        get_attribute_ecsession_key(pTemplate[i].type, key, tmp, &len);
     } else {
       yubihsm_pkcs11_object_desc *desc = object;
-      attribute_rc = get_attribute(pTemplate[i].type, &desc->object, object_ptr,
-                                   &pTemplate[i].ulValueLen, session);
+      attribute_rc =
+        get_attribute(pTemplate[i].type, &desc->object, tmp, &len, session);
     }
 
+    if (attribute_rc == CKR_OK) {
+      if (pTemplate[i].pValue == NULL) {
+        DBG_INFO("Retrieving only length which is %lu", len);
+        pTemplate[i].ulValueLen = len;
+      } else if (len > pTemplate[i].ulValueLen) {
+        DBG_WARN("Skipping attribute, buffer to small %lu > %lu", len,
+                 pTemplate[i].ulValueLen);
+        attribute_rc = CKR_BUFFER_TOO_SMALL;
+      } else {
+        DBG_INFO("Retrieving attribute value, length is %lu", len);
+        memcpy(pTemplate[i].pValue, tmp, len);
+        pTemplate[i].ulValueLen = len;
+      }
+    }
+
+    // NOTE: this needs to be a separate if since attribute_rc might be changed
+    // inside of the above if statement
     if (attribute_rc != CKR_OK) {
+      pTemplate[i].ulValueLen = CK_UNAVAILABLE_INFORMATION;
+
       rv = attribute_rc;
       if (attribute_rc == CKR_ATTRIBUTE_TYPE_INVALID) {
         DBG_ERR("Unable to get attribute");
       } else if (attribute_rc == CKR_BUFFER_TOO_SMALL) {
         DBG_ERR("Skipping attribute because buffer is too small");
       } else {
-        DBG_ERR("Get attribute failed. %s", yh_strerror(attribute_rc));
+        DBG_ERR("Get attribute failed.");
       }
     } else {
       DBG_INFO("Attribute/length successfully returned with length %lu",
@@ -3954,6 +3935,8 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
      * is an array of attributes is identifiable by virtue of the attribute
      * type having the CKF_ARRAY_ATTRIBUTE bit set.*/
   }
+
+  insecure_memzero(tmp, sizeof(tmp));
 
   return rv;
 }

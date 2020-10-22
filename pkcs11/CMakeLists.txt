@@ -14,13 +14,11 @@
 # limitations under the License.
 #
 
-include(gengetopt)
-
-add_gengetopt_files(cmdline "--conf-parser" "--no-handle-error" "--string-parser")
+include(${CMAKE_SOURCE_DIR}/cmake/openssl.cmake)
+find_libcrypto()
 
 set(
   SOURCE
-  ${GGO_C}
   ../common/hash.c
   ../common/util.c
   util_pkcs11.c
@@ -28,6 +26,16 @@ set(
   list.c
   debug_p11.c
   )
+
+if(WIN32)
+  set(SOURCE ${SOURCE} cmdline.c ../common/time_win.c)
+  include(${CMAKE_SOURCE_DIR}/cmake/getopt.cmake)
+  find_getopt()
+else(WIN32)
+  include(gengetopt)
+  add_gengetopt_files(cmdline "--conf-parser" "--no-handle-error" "--string-parser")
+  set(SOURCE ${SOURCE} ${GGO_C})
+endif(WIN32)
 
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/../lib
@@ -62,7 +70,9 @@ set_target_properties(yubihsm_pkcs11 PROPERTIES PREFIX "")
 # Set install RPATH
 set_target_properties(yubihsm_pkcs11 PROPERTIES INSTALL_RPATH "${YUBIHSM_INSTALL_LIB_DIR}")
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden")
+if(NOT MSVC)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden")
+endif()
 add_definitions(-DCRYPTOKI_EXPORTS)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
@@ -75,6 +85,7 @@ target_link_libraries(
   yubihsm_pkcs11
   yubihsm
   ${LIBCRYPTO_LDFLAGS}
+  ${GETOPT_LIBS}
   )
 
 install(

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2018 Yubico AB
+ * Copyright 2020 Yubico AB
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,33 +14,11 @@
  * limitations under the License.
  */
 
-/* rand.h
-**
-** Implements platform specific random generation operations
-*/
+#ifndef YUBIHSM_SHELL_TIME_WIN_H
+#define YUBIHSM_SHELL_TIME_WIN_H
 
-#ifndef _YUBICOM_RAND_H_
-#define _YUBICOM_RAND_H_
+#include <time.h>
 
-#include <stdbool.h>
-#include <stdint.h>
-#include <stddef.h>
-#include "../common/platform-config.h"
+int gettimeofday_win(struct timeval *tv);
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#ifndef __WIN32
-#define YH_INTERNAL __attribute__((visibility("hidden")))
-#else
-#define YH_INTERNAL
-#endif
-
-bool YH_INTERNAL rand_generate(uint8_t *buf, size_t cb_buf);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif /* _YUBICOM_RAND_H_ */
+#endif // YUBIHSM_SHELL_TIME_WIN_H
