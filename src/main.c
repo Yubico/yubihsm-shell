@@ -1781,11 +1781,12 @@ static int parse_configured_pubkeys(yubihsm_context *ctx, char **pubkeys,
 
   for (int i = 0; i < n_pubkeys; i++) {
     uint8_t pk[80];
-    if (parse_hex(pubkeys[i], 2 * sizeof(pk), pk) == 65) {
-      ctx->device_pubkey_list[i] = malloc(65);
+    size_t pk_len = parse_hex(pubkeys[i], 2 * sizeof(pk), pk);
+    if (pk_len == 65) {
+      ctx->device_pubkey_list[i] = malloc(pk_len);
     }
     if (ctx->device_pubkey_list[i]) {
-      memcpy(ctx->device_pubkey_list[i], pk, 65);
+      memcpy(ctx->device_pubkey_list[i], pk, pk_len);
     } else {
       while (--i >= 0) {
         free(ctx->device_pubkey_list[i]);
