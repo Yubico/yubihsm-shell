@@ -925,7 +925,7 @@ yh_rc yh_finish_create_session_ext(
   return YHR_SUCCESS;
 }
 
-static const uint8_t shared[] =
+static const uint8_t sharedInfo[] =
   {0x3c, 0x88, 0x10}; // sharedInfo as per SCP11 spec, Section 6.5.2.3
 
 static void x9_63_sha256_kdf(const uint8_t *shsee, size_t shsee_len,
@@ -1163,8 +1163,8 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
   }
 
   uint8_t shs[4 * SCP_KEY_LEN];
-  x9_63_sha256_kdf(shsee, sizeof(shsee), shsss, sizeof(shsss), shared,
-                   sizeof(shared), shs, sizeof(shs));
+  x9_63_sha256_kdf(shsee, sizeof(shsee), shsss, sizeof(shsss), sharedInfo,
+                   sizeof(sharedInfo), shs, sizeof(shs));
 
   DBG_INT(shs, sizeof(shs), "SHS: ");
 
