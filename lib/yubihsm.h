@@ -484,8 +484,6 @@ typedef enum {
   YH_ALGO_EC_ED25519 = 46,
   /// ecp224
   YH_ALGO_EC_P224 = 47,
-  /// rsa-pkcs1-decrypt
-  YH_ALGO_RSA_PKCS1_DECRYPT = 48,
   /// ec-p256-yubico-authentication
   YH_ALGO_EC_P256_YUBICO_AUTHENTICATION = 49,
 } yh_algorithm;
