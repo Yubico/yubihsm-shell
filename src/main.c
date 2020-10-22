@@ -1842,14 +1842,14 @@ int main(int argc, char *argv[]) {
 
   if (parse_configured_connectors(&ctx, args_info.connector_arg,
                                   args_info.connector_given) == -1) {
-    fprintf(stderr, "Unable to parse connector list");
+    fprintf(stderr, "Unable to parse connector list\n");
     rc = EXIT_FAILURE;
     goto main_exit;
   }
 
   if (parse_configured_pubkeys(&ctx, args_info.device_pubkey_arg,
                                args_info.device_pubkey_given) == -1) {
-    fprintf(stderr, "Unable to parse device pubkey list");
+    fprintf(stderr, "Unable to parse device pubkey list\n");
     rc = EXIT_FAILURE;
     goto main_exit;
   }
