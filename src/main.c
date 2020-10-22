@@ -1752,14 +1752,7 @@ int validate_and_call(yubihsm_context *ctx, CommandList l, const char *line) {
 static int parse_configured_connectors(yubihsm_context *ctx, char **connectors,
                                        int n_connectors) {
 
-  ctx->n_connectors = 0;
-  ctx->connector_list = NULL;
-
-  if (n_connectors == 0) {
-    return 0;
-  }
-
-  ctx->connector_list = calloc(n_connectors, sizeof(char *));
+  ctx->connector_list = calloc(n_connectors + 1, sizeof(char *));
   if (ctx->connector_list == NULL) {
     return -1;
   }
@@ -1767,24 +1760,43 @@ static int parse_configured_connectors(yubihsm_context *ctx, char **connectors,
   for (int i = 0; i < n_connectors; i++) {
     ctx->connector_list[i] = strdup(connectors[i]);
     if (ctx->connector_list[i] == NULL) {
-      goto pcc_failure;
+      while (--i >= 0) {
+        free(ctx->connector_list[i]);
+      }
+      free(ctx->connector_list);
+      ctx->connector_list = NULL;
+      return -1;
     }
-    ctx->n_connectors++;
   }
 
   return 0;
+}
 
-pcc_failure:
-  for (int i = 0; i < ctx->n_connectors; i++) {
-    free(ctx->connector_list[i]);
-    ctx->connector_list[i] = NULL;
+static int parse_configured_pubkeys(yubihsm_context *ctx, char **pubkeys,
+                                    int n_pubkeys) {
+
+  ctx->device_pubkey_list = calloc(n_pubkeys + 1, sizeof(uint8_t *));
+  if (ctx->device_pubkey_list == NULL)
+    return -1;
+
+  for (int i = 0; i < n_pubkeys; i++) {
+    uint8_t pk[80];
+    if (parse_hex(pubkeys[i], 2 * sizeof(pk), pk) == 65) {
+      ctx->device_pubkey_list[i] = malloc(65);
+    }
+    if (ctx->device_pubkey_list[i]) {
+      memcpy(ctx->device_pubkey_list[i], pk, 65);
+    } else {
+      while (--i >= 0) {
+        free(ctx->device_pubkey_list[i]);
+      }
+      free(ctx->device_pubkey_list);
+      ctx->device_pubkey_list = NULL;
+      return -1;
+    }
   }
 
-  free(ctx->connector_list);
-  ctx->connector_list = NULL;
-  ctx->n_connectors = 0;
-
-  return -1;
+  return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -1834,6 +1846,13 @@ int main(int argc, char *argv[]) {
     goto main_exit;
   }
 
+  if (parse_configured_pubkeys(&ctx, args_info.device_pubkey_arg,
+                               args_info.device_pubkey_given) == -1) {
+    fprintf(stderr, "Unable to parse device pubkey list");
+    rc = EXIT_FAILURE;
+    goto main_exit;
+  }
+
   if (getenv("DEBUG") != NULL) {
     args_info.verbose_arg = YH_VERB_ALL;
   }
@@ -1856,10 +1875,10 @@ int main(int argc, char *argv[]) {
   }
 #endif
 
-  if (ctx.n_connectors == 0) {
+  if (ctx.connector_list[0] == NULL) {
     fprintf(stderr, "Using default connector URL: %s\n", LOCAL_CONNECTOR_URL);
 
-    ctx.connector_list = calloc(1, sizeof(char *));
+    ctx.connector_list = calloc(2, sizeof(char *));
     if (ctx.connector_list == NULL) {
       fprintf(stderr, "Failed to allocate memory\n");
       rc = EXIT_FAILURE;
@@ -1872,8 +1891,6 @@ int main(int argc, char *argv[]) {
       rc = EXIT_FAILURE;
       goto main_exit;
     }
-
-    ctx.n_connectors = 1;
   }
 
   if (args_info.cacert_given) {
@@ -2808,13 +2825,11 @@ main_exit:
 #endif
 
   if (ctx.connector_list != NULL) {
-    for (int i = 0; i < ctx.n_connectors; i++) {
+    for (int i = 0; ctx.connector_list[i]; i++) {
       free(ctx.connector_list[i]);
-      ctx.connector_list[i] = NULL;
     }
     free(ctx.connector_list);
     ctx.connector_list = NULL;
-    ctx.n_connectors = 0;
   }
 
   return rc;

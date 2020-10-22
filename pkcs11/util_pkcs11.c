@@ -469,32 +469,6 @@ bool get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
   return true;
 }
 
-size_t parse_hex(CK_UTF8CHAR_PTR hex, CK_ULONG hex_len, uint8_t *parsed) {
-
-  size_t j = 0;
-
-  for (CK_ULONG i = 0; i < hex_len; i += 2) {
-    if (isxdigit(hex[i]) == 0 || isxdigit(hex[i + 1]) == 0) {
-      break;
-    }
-
-    if (isdigit(hex[i])) {
-      parsed[j] = (hex[i] - '0') << 4;
-    } else {
-      parsed[j] = (tolower(hex[i]) - 'a' + 10) << 4;
-    }
-
-    if (isdigit(hex[i + 1])) {
-      parsed[j] |= (hex[i + 1] - '0');
-    } else {
-      parsed[j] |= (tolower(hex[i + 1]) - 'a' + 10);
-    }
-
-    j++;
-  }
-  return j;
-}
-
 static void *dup_ecdh_session_key(void *item) {
   void *new_item = malloc(sizeof(ecdh_session_key));
   if (new_item)

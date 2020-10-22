@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <ctype.h>
 #include <errno.h>
 #include <string.h>
 #include <limits.h>
@@ -743,4 +744,30 @@ bool split_hmac_key(yh_algorithm algorithm, uint8_t *in, size_t in_len,
   *out_len = 2 * block_size;
 
   return true;
+}
+
+size_t parse_hex(const char *hex, size_t hex_len, uint8_t *parsed) {
+
+  size_t j = 0;
+
+  for (size_t i = 0; i < hex_len; i += 2) {
+    if (isxdigit(hex[i]) == 0 || isxdigit(hex[i + 1]) == 0) {
+      break;
+    }
+
+    if (isdigit(hex[i])) {
+      parsed[j] = (hex[i] - '0') << 4;
+    } else {
+      parsed[j] = (tolower(hex[i]) - 'a' + 10) << 4;
+    }
+
+    if (isdigit(hex[i + 1])) {
+      parsed[j] |= (hex[i + 1] - '0');
+    } else {
+      parsed[j] |= (tolower(hex[i + 1]) - 'a' + 10);
+    }
+
+    j++;
+  }
+  return j;
 }

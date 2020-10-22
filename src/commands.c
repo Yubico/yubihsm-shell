@@ -227,62 +227,48 @@ int yh_com_connect(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(argv);
   UNUSED(in_fmt);
   UNUSED(fmt);
-  int ret = -1;
 
-  yh_rc yrc;
-  yh_connector **connectors = calloc(ctx->n_connectors, sizeof(yh_connector *));
-  if (connectors == NULL) {
-    fprintf(stderr, "Failed allocating memory\n");
-    return -1;
-  }
+  ctx->connector = NULL;
 
-  int idx = -1;
-  for (int i = 0; i < ctx->n_connectors; i++) {
-    yrc = yh_init_connector(ctx->connector_list[i], &connectors[i]);
+  for (int i = 0; ctx->connector_list[i]; i++) {
+    if (ctx->connector) {
+      yh_disconnect(ctx->connector);
+      ctx->connector = NULL;
+    }
+    yh_rc yrc = yh_init_connector(ctx->connector_list[i], &ctx->connector);
     if (yrc != YHR_SUCCESS) {
-      fprintf(stderr, "Failed initializing connector\n");
-      goto cleanup;
+      fprintf(stderr, "Failed initializing connector %s: %s\n",
+              ctx->connector_list[i], yh_strerror(yrc));
+      break;
     }
     if (ctx->cacert) {
-      if (yh_set_connector_option(connectors[i], YH_CONNECTOR_HTTPS_CA,
+      if (yh_set_connector_option(ctx->connector, YH_CONNECTOR_HTTPS_CA,
                                   ctx->cacert) != YHR_SUCCESS) {
         fprintf(stderr, "Failed setting HTTPS CA\n");
-        goto cleanup;
+        break;
       }
     }
     if (ctx->proxy) {
-      if (yh_set_connector_option(connectors[i], YH_CONNECTOR_PROXY_SERVER,
+      if (yh_set_connector_option(ctx->connector, YH_CONNECTOR_PROXY_SERVER,
                                   ctx->proxy) != YHR_SUCCESS) {
         fprintf(stderr, "Failed setting proxy server\n");
-        goto cleanup;
+        break;
       }
     }
-    if (yh_connect(connectors[i], 0) != YHR_SUCCESS) {
-      fprintf(stderr, "Failed connecting '%s'\n", ctx->connector_list[i]);
-      continue;
+    yrc = yh_connect(ctx->connector, 0);
+    if (yrc == YHR_SUCCESS) {
+      (void) yh_com_keepalive_on(NULL, NULL, fmt_nofmt, fmt_nofmt);
+      return 0;
     }
-    idx = i;
-    break;
+    fprintf(stderr, "Failed connecting '%s': %s\n", ctx->connector_list[i],
+            yh_strerror(yrc));
   }
 
-  for (int i = 0; i < ctx->n_connectors; i++) {
-    if (i == idx) {
-      ctx->connector = connectors[i];
-    } else {
-      yh_disconnect(connectors[i]);
-    }
+  if (ctx->connector) {
+    yh_disconnect(ctx->connector);
+    ctx->connector = NULL;
   }
-
-  if (idx >= 0) {
-    ret = 0;
-
-    (void) yh_com_keepalive_on(NULL, NULL, fmt_nofmt, fmt_nofmt);
-  }
-
-cleanup:
-  free(connectors);
-
-  return ret;
+  return -1;
 }
 
 // NOTE(adma): Enable all debug messages
@@ -1509,10 +1495,6 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
               yh_strerror(yrc));
       return -1;
     }
-    fprintf(stderr, "Derived public key (PK.OCE)\n");
-    for (size_t i = 0; i < sizeof(pubkey); i++)
-      fprintf(stderr, "%02x", pubkey[i]);
-    fprintf(stderr, "\n");
   } else if (argv[1].len <= sizeof(privkey)) {
     memset(privkey, 0, sizeof(privkey) - argv[1].len);
     memcpy(privkey + sizeof(privkey) - argv[1].len, argv[1].x, argv[1].len);
@@ -1533,18 +1515,34 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
-  fprintf(stderr, "Device public key (PK.SD)\n");
-  for (size_t i = 0; i < device_pubkey_len; i++)
-    fprintf(stderr, "%02x", device_pubkey[i]);
-  fprintf(stderr, "\n");
+  if (device_pubkey_len != 65) {
+    fprintf(stderr, "Invalid device pubkey\n");
+    return -1;
+  }
+
+  int matched = 0;
+  for (uint8_t **pubkey = ctx->device_pubkey_list; *pubkey; pubkey++) {
+    if (!memcmp(*pubkey, device_pubkey, device_pubkey_len)) {
+      matched++;
+    }
+  }
+
+  if (ctx->device_pubkey_list[0] == NULL) {
+    fprintf(stderr, "CAUTION: Device public key (PK.SD) not validated\n");
+    for (size_t i = 0; i < device_pubkey_len; i++)
+      fprintf(stderr, "%02x", device_pubkey[i]);
+    fprintf(stderr, "\n");
+  } else if (matched == 0) {
+    fprintf(stderr, "Failed to validate device pubkey\n");
+    return -1;
+  }
 
   yrc =
     yh_create_session_asym(ctx->connector, authkey, privkey, sizeof(privkey),
                            device_pubkey, device_pubkey_len, &ses);
 
   if (yrc != YHR_SUCCESS) {
-    fprintf(stderr, "Failed to create asymmetric session: %s\n",
-            yh_strerror(yrc));
+    fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
     return -1;
   }
 
@@ -1564,7 +1562,7 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
   }
   ctx->sessions[session_id] = ses;
 
-  fprintf(stderr, "Created asymmetric session %d\n", session_id);
+  fprintf(stderr, "Created session %d\n", session_id);
 
   return 0;
 }
