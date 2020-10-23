@@ -153,7 +153,7 @@ else()
   message("not win32")
 
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic")
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-format-zero-length -Wno-implicit-fallthrough")
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wformat -Wformat-security")
 
@@ -161,6 +161,9 @@ else()
   if (NOT CMAKE_C_COMPILER_ID MATCHES Clang)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-z,relro,-z,now")
   endif ()
+  if(NOT CMAKE_C_COMPILER_ID MATCHES AppleClang)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror")
+  endif()
 
   include(CheckFunctionExists)
 

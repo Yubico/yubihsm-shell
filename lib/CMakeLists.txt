@@ -18,10 +18,6 @@ if(MSVC)
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
 endif()
 
-if (CMAKE_C_COMPILER_ID STREQUAL AppleClang)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-nullability-completeness -Wno-expansion-to-defined")
-endif()
-
 set (
   SOURCE
   ${CMAKE_CURRENT_SOURCE_DIR}/../aes_cmac/aes.c
