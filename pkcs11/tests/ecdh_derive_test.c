@@ -506,7 +506,7 @@ static bool test_faulty_ecdh(const char *curve1, const char *curve2,
  * makes sure the input buffer are too small for all of them and then
  * checks that we return the correct values in this case.
  */
-static bool check_attributes_buffer_to_small(CK_OBJECT_HANDLE key_id) {
+static bool check_attributes_buffer_too_small(CK_OBJECT_HANDLE key_id) {
   CK_OBJECT_CLASS key_class;
   CK_KEY_TYPE key_type;
   CK_BBOOL is_local;
@@ -566,7 +566,7 @@ static bool check_attributes_buffer_to_small(CK_OBJECT_HANDLE key_id) {
   CK_RV rv =
     p11->C_GetAttributeValue(session, key_id, template, attribute_count);
   if (rv != CKR_BUFFER_TOO_SMALL) {
-    fail("Should have returned buffer to small!");
+    fail("Should have returned buffer too small!");
     return false;
   }
 
@@ -979,7 +979,7 @@ int main(int argc, char **argv) {
     }
 
     printf("Validating ECDH attributes... but with too small buffers...");
-    if (check_attributes_buffer_to_small(ecdh1)) {
+    if (check_attributes_buffer_too_small(ecdh1)) {
       printf("OK!\n");
     } else {
       printf("FAIL!\n");

@@ -4783,7 +4783,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_WrapKey)
   }
 
   if (len > *pulWrappedKeyLen) {
-    DBG_ERR("buffer to small, needed %lu, got %lu", (unsigned long) len,
+    DBG_ERR("buffer too small, needed %lu, got %lu", (unsigned long) len,
             *pulWrappedKeyLen);
     rv = CKR_BUFFER_TOO_SMALL;
     goto c_wk_out;
