@@ -1001,6 +1001,88 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   return 0;
 }
 
+int yh_com_get_device_pubkey(yubihsm_context *ctx, Argument *argv,
+                             cmd_format in_fmt, cmd_format fmt) {
+  UNUSED(argv);
+  UNUSED(in_fmt);
+
+  if (ctx->connector == NULL) {
+    fprintf(stderr, "Not connected\n");
+    return -1;
+  }
+
+  uint8_t response[YH_MSG_BUF_SIZE];
+  size_t response_len = sizeof(response);
+
+  yh_algorithm algo = 0;
+  yh_rc yrc =
+    yh_get_device_pubkey(ctx->connector, response, &response_len, &algo);
+
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to get device pubkey: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  if (fmt == fmt_hex) {
+    for (size_t i = 0; i < response_len; i++) {
+      fprintf(ctx->out, "%02x", response[i]);
+    }
+    fprintf(ctx->out, "\n");
+    return 0;
+  }
+
+  int nid = algo2nid(algo);
+  EC_GROUP *group = EC_GROUP_new_by_curve_name(nid);
+  if (group == NULL) {
+    fprintf(stderr, "Invalid device public key algorithm\n");
+    return -1;
+  }
+  EC_GROUP_set_asn1_flag(group, nid);
+
+  EC_KEY *eckey = EC_KEY_new();
+  EC_KEY_set_group(eckey, group);
+
+  EC_POINT *point = EC_POINT_new(group);
+  EC_POINT_oct2point(group, point, response, response_len, NULL);
+  EC_KEY_set_public_key(eckey, point);
+
+  EVP_PKEY *public_key = EVP_PKEY_new();
+  EVP_PKEY_set1_EC_KEY(public_key, eckey);
+
+  EC_POINT_free(point);
+  EC_KEY_free(eckey);
+  EC_GROUP_free(group);
+
+  if (fmt == fmt_PEM) {
+    PEM_write_PUBKEY(ctx->out, public_key);
+  } else if (fmt == fmt_binary) {
+    i2d_PUBKEY_fp(ctx->out, public_key);
+  } else if (fmt == fmt_base64) {
+    BIO *bio;
+    BIO *b64;
+
+    b64 = BIO_new(BIO_f_base64());
+    bio = BIO_new_fp(ctx->out, BIO_NOCLOSE);
+
+    if (b64 == NULL || bio == NULL) {
+      fprintf(stderr, "Unable to allocate BIO\n");
+      EVP_PKEY_free(public_key);
+
+      return -1;
+    }
+
+    bio = BIO_push(b64, bio);
+
+    (void) i2d_PUBKEY_bio(bio, public_key);
+
+    (void) BIO_flush(bio);
+    (void) BIO_free_all(bio);
+  } // FIXME: other formats or error.
+  EVP_PKEY_free(public_key);
+
+  return 0;
+}
+
 // NOTE: Get object information
 // argc = 3
 // arg 0: e:session
@@ -1508,7 +1590,9 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
 
   uint8_t device_pubkey[65];
   size_t device_pubkey_len = sizeof(device_pubkey);
-  yrc = yh_get_device_pubkey(ctx->connector, device_pubkey, &device_pubkey_len);
+  yh_algorithm algo = YH_ALGO_EC_P256_YUBICO_AUTHENTICATION;
+  yrc = yh_get_device_pubkey(ctx->connector, device_pubkey, &device_pubkey_len,
+                             &algo);
 
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to retrieve device pubkey: %s\n", yh_strerror(yrc));
@@ -2677,7 +2761,8 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                                                 NULL, 0);
         if (yrc == YHR_SUCCESS) {
           pk_sd_len = sizeof(pk_sd);
-          yrc = yh_get_device_pubkey(ctx->connector, pk_sd, &pk_sd_len);
+          yh_algorithm algo = YH_ALGO_EC_P256_YUBICO_AUTHENTICATION;
+          yrc = yh_get_device_pubkey(ctx->connector, pk_sd, &pk_sd_len, &algo);
         }
       }
     } else {

@@ -138,7 +138,8 @@ int main(void) {
   uint8_t pk_sd[128];
   size_t pk_sd_len = sizeof(pk_sd);
 
-  yrc = yh_get_device_pubkey(connector, pk_sd, &pk_sd_len);
+  yh_algorithm algo = YH_ALGO_EC_P256_YUBICO_AUTHENTICATION;
+  yrc = yh_get_device_pubkey(connector, pk_sd, &pk_sd_len, &algo);
   assert(yrc == YHR_SUCCESS);
 
   yrc = yh_create_session_asym(connector, authkey, sk_oce, sizeof(sk_oce),

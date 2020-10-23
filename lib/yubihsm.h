@@ -982,7 +982,7 @@ yh_rc yh_finish_create_session_ext(yh_connector *connector, yh_session *session,
                                    size_t card_cryptogram_len);
 
 yh_rc yh_get_device_pubkey(yh_connector *connector, uint8_t *device_pubkey,
-                           size_t *device_pubkey_len);
+                           size_t *device_pubkey_len, yh_algorithm *algo);
 
 yh_rc yh_util_derive_ec_p256_key(const uint8_t *password, size_t password_len,
                                  uint8_t *privkey, size_t privkey_len,

@@ -951,7 +951,7 @@ static void x9_63_sha256_kdf(const uint8_t *shsee, size_t shsee_len,
 }
 
 yh_rc yh_get_device_pubkey(yh_connector *connector, uint8_t *device_pubkey,
-                           size_t *device_pubkey_len) {
+                           size_t *device_pubkey_len, yh_algorithm *algo) {
 
   if (connector == NULL || device_pubkey_len == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
@@ -988,12 +988,15 @@ yh_rc yh_get_device_pubkey(yh_connector *connector, uint8_t *device_pubkey,
     return rc;
   }
 
-  // Check algorithm of returned key
-  if (response_msg.st.data[0] != YH_ALGO_EC_P256_YUBICO_AUTHENTICATION) {
+  // Check algorithm if specified
+  if (*algo && *algo != response_msg.st.data[0]) {
+    DBG_ERR("Invalid device public key algorithm: %d (required: %d)",
+            response_msg.st.data[0], *algo);
     return YHR_INVALID_PARAMETERS;
   }
 
   // Replace algorithm with uncompressed EC point marker
+  *algo = response_msg.st.data[0];
   response_msg.st.data[0] = 0x04;
 
   // Tell the caller the length of the key if it is shorter than the provided

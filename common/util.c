@@ -372,6 +372,7 @@ void format_digest(uint8_t *digest, char *str, uint16_t len) {
 int algo2nid(yh_algorithm algo) {
   switch (algo) {
     case YH_ALGO_EC_P256:
+    case YH_ALGO_EC_P256_YUBICO_AUTHENTICATION:
       return NID_X9_62_prime256v1;
 
     case YH_ALGO_EC_P384:

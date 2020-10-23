@@ -382,7 +382,11 @@ void create_command_list(CommandList *c) {
                                     "e:session,w:object_id,F:out=-", fmt_nofmt,
                                     fmt_base64, "Get a template object", NULL,
                                     NULL});
-
+  register_subcommand(*c, (Command){"devicepubkey", yh_com_get_device_pubkey,
+                                    NULL, fmt_nofmt, fmt_PEM,
+                                    "Get the device public key for asymmetric "
+                                    "authentication",
+                                    NULL, NULL});
   *c =
     register_command(*c, (Command){"help", yh_com_help, "s:command=", fmt_nofmt,
                                    fmt_nofmt, "Display help text", NULL, NULL});
@@ -1840,6 +1844,49 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
+  switch (args_info.informat_arg) {
+    case informat_arg_base64:
+      g_in_fmt = fmt_base64;
+      break;
+    case informat_arg_binary:
+      g_in_fmt = fmt_binary;
+      break;
+    case informat_arg_PEM:
+      g_in_fmt = fmt_PEM;
+      break;
+    case informat_arg_password:
+      g_in_fmt = fmt_password;
+      break;
+    case informat_arg_hex:
+      g_in_fmt = fmt_hex;
+      break;
+    case informat__NULL:
+    case informat_arg_default:
+    default:
+      g_in_fmt = fmt_nofmt;
+      break;
+  }
+
+  switch (args_info.outformat_arg) {
+    case outformat_arg_base64:
+      g_out_fmt = fmt_base64;
+      break;
+    case outformat_arg_binary:
+      g_out_fmt = fmt_binary;
+      break;
+    case outformat_arg_PEM:
+      g_out_fmt = fmt_PEM;
+      break;
+    case outformat_arg_hex:
+      g_out_fmt = fmt_hex;
+      break;
+    case outformat__NULL:
+    case outformat_arg_default:
+    default:
+      g_out_fmt = fmt_nofmt;
+      break;
+  }
+
   if (parse_configured_connectors(&ctx, args_info.connector_arg,
                                   args_info.connector_given) == -1) {
     fprintf(stderr, "Unable to parse connector list\n");
@@ -1930,6 +1977,7 @@ int main(int argc, char *argv[]) {
     for (unsigned i = 0; i < args_info.action_given; i++) {
       switch (args_info.action_arg[i]) {
         case action_arg_getMINUS_deviceMINUS_info:
+        case action_arg_getMINUS_deviceMINUS_pubkey:
           requires_session = false;
           break;
 
@@ -1968,49 +2016,6 @@ int main(int argc, char *argv[]) {
       if (ctx.sessions[i] != NULL) {
         arg[0].e = ctx.sessions[i];
       }
-    }
-
-    switch (args_info.informat_arg) {
-      case informat_arg_base64:
-        g_in_fmt = fmt_base64;
-        break;
-      case informat_arg_binary:
-        g_in_fmt = fmt_binary;
-        break;
-      case informat_arg_PEM:
-        g_in_fmt = fmt_PEM;
-        break;
-      case informat_arg_password:
-        g_in_fmt = fmt_password;
-        break;
-      case informat_arg_hex:
-        g_in_fmt = fmt_hex;
-        break;
-      case informat__NULL:
-      case informat_arg_default:
-      default:
-        g_in_fmt = fmt_nofmt;
-        break;
-    }
-
-    switch (args_info.outformat_arg) {
-      case outformat_arg_base64:
-        g_out_fmt = fmt_base64;
-        break;
-      case outformat_arg_binary:
-        g_out_fmt = fmt_binary;
-        break;
-      case outformat_arg_PEM:
-        g_out_fmt = fmt_PEM;
-        break;
-      case outformat_arg_hex:
-        g_out_fmt = fmt_hex;
-        break;
-      case outformat__NULL:
-      case outformat_arg_default:
-      default:
-        g_out_fmt = fmt_nofmt;
-        break;
     }
 
     calling_device = true;
@@ -2207,6 +2212,13 @@ int main(int argc, char *argv[]) {
                               g_out_fmt == fmt_nofmt ? fmt_PEM : g_out_fmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to get public key");
         } break;
+
+        case action_arg_getMINUS_deviceMINUS_pubkey:
+          comrc = yh_com_get_device_pubkey(&ctx, arg, fmt_nofmt,
+                                           g_out_fmt == fmt_nofmt ? fmt_PEM
+                                                                  : g_out_fmt);
+          COM_SUCCEED_OR_DIE(comrc, "Unable to get device public key");
+          break;
 
         case action_arg_getMINUS_objectMINUS_info: {
           if (args_info.object_type_given == 0) {
