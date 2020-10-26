@@ -1179,11 +1179,16 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
       goto c_l_out;
     }
 
-    yh_algorithm algo = YH_ALGO_EC_P256_YUBICO_AUTHENTICATION;
-    yrc =
-      yh_get_device_pubkey(session->slot->connector, pk_sd, &pk_sd_len, &algo);
+    yrc = yh_util_get_device_pubkey(session->slot->connector, pk_sd, &pk_sd_len,
+                                    NULL);
     if (yrc != YHR_SUCCESS) {
       DBG_ERR("Failed to get device public key: %s", yh_strerror(yrc));
+      rv = CKR_FUNCTION_FAILED;
+      goto c_l_out;
+    }
+
+    if (pk_sd_len != 65) {
+      DBG_ERR("Invalid device public key");
       rv = CKR_FUNCTION_FAILED;
       goto c_l_out;
     }

@@ -950,8 +950,9 @@ static void x9_63_sha256_kdf(const uint8_t *shsee, size_t shsee_len,
   hash_destroy(hashctx);
 }
 
-yh_rc yh_get_device_pubkey(yh_connector *connector, uint8_t *device_pubkey,
-                           size_t *device_pubkey_len, yh_algorithm *algo) {
+yh_rc yh_util_get_device_pubkey(yh_connector *connector, uint8_t *device_pubkey,
+                                size_t *device_pubkey_len,
+                                yh_algorithm *algorithm) {
 
   if (connector == NULL || device_pubkey_len == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
@@ -988,24 +989,21 @@ yh_rc yh_get_device_pubkey(yh_connector *connector, uint8_t *device_pubkey,
     return rc;
   }
 
-  // Check algorithm if specified
-  if (*algo && *algo != response_msg.st.data[0]) {
-    DBG_ERR("Invalid device public key algorithm: %d (required: %d)",
-            response_msg.st.data[0], *algo);
-    return YHR_INVALID_PARAMETERS;
+  // Return the algorithm of the key if requested
+  if (algorithm)
+    *algorithm = response_msg.st.data[0];
+
+  // Check buffer size, if specified
+  if (device_pubkey && *device_pubkey_len < response_msg.st.len) {
+    DBG_ERR("%s", yh_strerror(YHR_BUFFER_TOO_SMALL));
+    return YHR_BUFFER_TOO_SMALL;
   }
 
-  // Replace algorithm with uncompressed EC point marker
-  *algo = response_msg.st.data[0];
-  response_msg.st.data[0] = 0x04;
-
-  // Tell the caller the length of the key if it is shorter than the provided
-  // length or they just wanted the length
-  if (!device_pubkey || *device_pubkey_len > response_msg.st.len)
-    *device_pubkey_len = response_msg.st.len;
+  *device_pubkey_len = response_msg.st.len;
 
   if (device_pubkey) {
-    // We won't overflow the buffer by only copying *device_pubkey_len bytes
+    // Replace algorithm with uncompressed EC point marker
+    response_msg.st.data[0] = 0x04;
     memcpy(device_pubkey, response_msg.st.data, *device_pubkey_len);
   }
 

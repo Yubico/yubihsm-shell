@@ -1014,9 +1014,9 @@ int yh_com_get_device_pubkey(yubihsm_context *ctx, Argument *argv,
   uint8_t response[YH_MSG_BUF_SIZE];
   size_t response_len = sizeof(response);
 
-  yh_algorithm algo = 0;
+  yh_algorithm algo;
   yh_rc yrc =
-    yh_get_device_pubkey(ctx->connector, response, &response_len, &algo);
+    yh_util_get_device_pubkey(ctx->connector, response, &response_len, &algo);
 
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to get device pubkey: %s\n", yh_strerror(yrc));
@@ -1590,9 +1590,8 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
 
   uint8_t device_pubkey[65];
   size_t device_pubkey_len = sizeof(device_pubkey);
-  yh_algorithm algo = YH_ALGO_EC_P256_YUBICO_AUTHENTICATION;
-  yrc = yh_get_device_pubkey(ctx->connector, device_pubkey, &device_pubkey_len,
-                             &algo);
+  yrc = yh_util_get_device_pubkey(ctx->connector, device_pubkey,
+                                  &device_pubkey_len, NULL);
 
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to retrieve device pubkey: %s\n", yh_strerror(yrc));
@@ -2761,8 +2760,8 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                                                 NULL, 0);
         if (yrc == YHR_SUCCESS) {
           pk_sd_len = sizeof(pk_sd);
-          yh_algorithm algo = YH_ALGO_EC_P256_YUBICO_AUTHENTICATION;
-          yrc = yh_get_device_pubkey(ctx->connector, pk_sd, &pk_sd_len, &algo);
+          yrc =
+            yh_util_get_device_pubkey(ctx->connector, pk_sd, &pk_sd_len, NULL);
         }
       }
     } else {
