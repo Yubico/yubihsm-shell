@@ -70,6 +70,16 @@ matrix:
       compiler: clang
       env:
         - LIBEXT="so"
+    - os: linux
+      dist: focal
+      compiler: gcc
+      env:
+        - LIBEXT="so"
+    - os: linux
+      dist: focal
+      compiler: clang
+      env:
+        - LIBEXT="so"
     - os: osx
       compiler: clang
       env:
