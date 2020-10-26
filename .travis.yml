@@ -49,7 +49,7 @@ matrix:
       env:
         - CMAKE_EXTRA="-DENABLE_COVERAGE=1"
         - LIBEXT="so"
-        - CRYPTOGRAPHY_ALLOW_OPENSSL_102
+        - CRYPTOGRAPHY_ALLOW_OPENSSL_102="1"
       after_success:
         - gem install coveralls-lcov
         - cmake --build build --target lcov
@@ -59,7 +59,7 @@ matrix:
       compiler: clang
       env:
         - LIBEXT="so"
-        - CRYPTOGRAPHY_ALLOW_OPENSSL_102
+        - CRYPTOGRAPHY_ALLOW_OPENSSL_102="1"
     - os: linux
       dist: bionic
       compiler: gcc
