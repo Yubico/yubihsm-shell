@@ -982,7 +982,7 @@ yh_rc yh_finish_create_session_ext(yh_connector *connector, yh_session *session,
                                    size_t card_cryptogram_len);
 
 /**
- * Get the value of the device public key
+ * Utility function that gets the value and algorithm of the device public key
  *
  * @param connector Connector to the device
  * @param device_pubkey Value of the public key
