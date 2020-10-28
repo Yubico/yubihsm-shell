@@ -16,7 +16,7 @@ jobs:
       - name: Install prerequisites
         run: |
           set -x
-          brew install cmake gengetopt help2man libedit libusb openssl@1.1 pcsc-lite pkg-config swig truncate curl
+          brew install cmake gengetopt help2man libedit libusb openssl@1.1 pcsc-lite pkg-config swig truncate
 
       - name: Build and install
         run: |
@@ -24,6 +24,6 @@ jobs:
 
           mkdir build
           pushd "build" &>/dev/null
-            cmake .. -DRELEASE_BUILD=1 -DWITHOUT_YKYH=1 -DWITHOUT_MANPAGES=1
-            make
+            cmake .. -DRELEASE_BUILD=1 -DWITHOUT_MANPAGES=1
+            make VERBOSE=1
           popd &>/dev/null
