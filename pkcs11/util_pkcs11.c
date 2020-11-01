@@ -469,13 +469,6 @@ bool get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
   return true;
 }
 
-static void *dup_ecdh_session_key(void *item) {
-  void *new_item = malloc(sizeof(ecdh_session_key));
-  if (new_item)
-    memcpy(new_item, item, sizeof(ecdh_session_key));
-  return new_item;
-}
-
 bool create_session(yubihsm_pkcs11_slot *slot, CK_FLAGS flags,
                     CK_SESSION_HANDLE_PTR phSession) {
 
@@ -498,7 +491,7 @@ bool create_session(yubihsm_pkcs11_slot *slot, CK_FLAGS flags,
   }
   session.id = slot->max_session_id++;
   session.slot = slot;
-  list_create(&session.ecdh_session_keys, dup_ecdh_session_key, free);
+  list_create(&session.ecdh_session_keys, sizeof(ecdh_session_key), NULL);
   *phSession = (slot->id << 16) + session.id;
   return list_append(&slot->pkcs11_sessions, &session);
 }
@@ -2685,13 +2678,6 @@ bool is_HMAC_sign_mechanism(CK_MECHANISM_TYPE m) {
   return false;
 }
 
-static void *dup_pkcs11_slot(void *item) {
-  void *new_item = malloc(sizeof(yubihsm_pkcs11_slot));
-  if (new_item)
-    memcpy(new_item, item, sizeof(yubihsm_pkcs11_slot));
-  return new_item;
-}
-
 static void free_pkcs11_slot(void *data) {
   yubihsm_pkcs11_slot *slot = (yubihsm_pkcs11_slot *) data;
   free(slot->connector_name);
@@ -2704,7 +2690,6 @@ static void free_pkcs11_slot(void *data) {
     yh_disconnect(slot->connector);
   }
   list_destroy(&slot->pkcs11_sessions);
-  free(slot);
 }
 
 static bool compare_slot(void *data, void *item) {
@@ -2877,17 +2862,10 @@ void set_native_locking(yubihsm_pkcs11_context *ctx) {
   ctx->unlock_mutex = native_unlock_mutex;
 }
 
-static void *dup_pkcs11_session(void *item) {
-  void *new_item = malloc(sizeof(yubihsm_pkcs11_session));
-  if (new_item)
-    memcpy(new_item, item, sizeof(yubihsm_pkcs11_session));
-  return new_item;
-}
-
 bool add_connectors(yubihsm_pkcs11_context *ctx, int n_connectors,
                     char **connector_names, yh_connector **connectors) {
-  if (ctx->slots.dup_item_fn == NULL) {
-    list_create(&ctx->slots, dup_pkcs11_slot, free_pkcs11_slot);
+  if (ctx->slots.head == NULL) {
+    list_create(&ctx->slots, sizeof(yubihsm_pkcs11_slot), free_pkcs11_slot);
   }
 
   for (int i = 0; i < n_connectors; i++) {
@@ -2905,7 +2883,7 @@ bool add_connectors(yubihsm_pkcs11_context *ctx, int n_connectors,
         return false;
       }
     }
-    list_create(&slot.pkcs11_sessions, dup_pkcs11_session, free);
+    list_create(&slot.pkcs11_sessions, sizeof(yubihsm_pkcs11_session), NULL);
     if (list_append(&ctx->slots, &slot) != true) {
       return false;
     }

@@ -41,7 +41,7 @@ typedef struct _hash_ctx {
 
 #ifndef _WIN32_BCRYPT
 
-const EVP_MD *get_hash(hash_t hash) {
+const YH_INTERNAL EVP_MD *get_hash(hash_t hash) {
   switch (hash) {
     case _NONE:
       return NULL;
@@ -65,7 +65,7 @@ const EVP_MD *get_hash(hash_t hash) {
 
 #else
 
-LPCWSTR get_hash(hash_t hash) {
+LPCWSTR YH_INTERNAL get_hash(hash_t hash) {
   switch (hash) {
     case _NONE:
       return NULL;

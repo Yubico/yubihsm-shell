@@ -21,28 +21,31 @@
 
 #include "../common/insecure_memzero.h"
 
-void list_create(List *list, DuplicateItemFn dup_item_fn,
-                 FreeItemFn free_item_fn) {
+void list_create(List *list, int item_size, FreeItemFn free_item_fn) {
 
   list->length = 0;
+  list->item_size = item_size;
   list->head = NULL;
   list->tail = NULL;
-  list->dup_item_fn = dup_item_fn;
   list->free_item_fn = free_item_fn;
 }
 
 void list_destroy(List *list) {
 
+  ListItem *current;
+
   while (list->head != NULL) {
-    ListItem *current = list->head;
+    current = list->head;
     list->head = current->next;
 
-    list->free_item_fn(current->data);
+    if (list->free_item_fn) {
+      list->free_item_fn(current->data);
+    }
+
+    insecure_memzero(current->data, list->item_size);
+    free(current->data);
     free(current);
   }
-
-  list->length = 0;
-  list->tail = NULL;
 }
 
 bool list_prepend(List *list, void *item) {
@@ -52,11 +55,14 @@ bool list_prepend(List *list, void *item) {
     return false;
   }
 
-  node->data = list->dup_item_fn(item);
+  node->data = calloc(1, list->item_size);
+
   if (node->data == NULL) {
     free(node);
     return false;
   }
+
+  memcpy(node->data, item, list->item_size);
 
   node->next = list->head;
   list->head = node;
@@ -76,11 +82,13 @@ bool list_append(List *list, void *item) {
     return false;
   }
 
-  node->data = list->dup_item_fn(item);
+  node->data = calloc(1, list->item_size);
   if (node->data == NULL) {
     free(node);
     return false;
   }
+
+  memcpy(node->data, item, list->item_size);
 
   if (list->length == 0) {
     list->head = node;
@@ -121,7 +129,11 @@ void list_delete(List *list, ListItem *item) {
       list->head = list->head->next;
     }
 
-    list->free_item_fn(item->data);
+    if (list->free_item_fn) {
+      list->free_item_fn(item->data);
+    }
+    insecure_memzero(item->data, list->item_size);
+    free(item->data);
     free(item);
   } else if (item == list->tail) {
     for (ListItem *i = list->head; i != NULL; i = i->next) {
@@ -129,14 +141,23 @@ void list_delete(List *list, ListItem *item) {
         list->tail = i;
         i->next = NULL;
 
-        list->free_item_fn(item->data);
+        if (list->free_item_fn) {
+          list->free_item_fn(item->data);
+        }
+        insecure_memzero(item->data, list->item_size);
+        free(item->data);
         free(item);
       }
     }
   } else {
-    list->free_item_fn(item->data);
+    if (list->free_item_fn) {
+      list->free_item_fn(item->data);
+    }
 
     ListItem *tmp = item->next;
+
+    insecure_memzero(item->data, list->item_size);
+    free(item->data);
 
     item->data = item->next->data;
     item->next = item->next->next;
@@ -151,9 +172,9 @@ void list_delete(List *list, ListItem *item) {
   list->length--;
 }
 
-void list_iterate(List *list, void *ctx, IteratorFn iterator_fn) {
+void list_iterate(List *list, IteratorFn iterator_fn) {
 
   for (ListItem *item = list->head; item != NULL; item = item->next) {
-    iterator_fn(ctx, item->data);
+    iterator_fn(item->data);
   }
 }

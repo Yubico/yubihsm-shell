@@ -77,8 +77,7 @@ static bool g_yh_initialized = false;
 
 static yubihsm_pkcs11_context g_ctx;
 
-static void destroy_slot_mutex(void *ctx, void *data) {
-  UNUSED(ctx);
+static void destroy_slot_mutex(void *data) {
   yubihsm_pkcs11_slot *slot = (yubihsm_pkcs11_slot *) data;
   if (slot->mutex != NULL) {
     g_ctx.destroy_mutex(slot->mutex);
@@ -99,13 +98,6 @@ static bool compare_ecdh_keys(void *data, void *item) {
   CK_OBJECT_HANDLE b = key->id;
 
   return *a == b;
-}
-
-static void *dup_pubkey(void *item) {
-  void *new_item = malloc(65);
-  if (new_item)
-    memcpy(new_item, item, 65);
-  return new_item;
 }
 
 /* General Purpose */
@@ -305,7 +297,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     goto c_i_failure;
   }
 
-  list_create(&g_ctx.device_pubkeys, dup_pubkey, free);
+  list_create(&g_ctx.device_pubkeys, 65, NULL);
   for (unsigned int i = 0; i < args_info.device_pubkey_given; i++) {
     uint8_t pk[80];
     if (parse_hex(args_info.device_pubkey_arg[i], 2 * sizeof(pk), pk) != 65) {
@@ -333,7 +325,7 @@ c_i_failure:
   free(args_parsed);
   free(args);
 
-  list_iterate(&g_ctx.slots, NULL, destroy_slot_mutex);
+  list_iterate(&g_ctx.slots, destroy_slot_mutex);
   list_destroy(&g_ctx.slots);
   list_destroy(&g_ctx.device_pubkeys);
 
@@ -368,7 +360,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pReserved) {
     return CKR_CRYPTOKI_NOT_INITIALIZED;
   }
 
-  list_iterate(&g_ctx.slots, NULL, destroy_slot_mutex);
+  list_iterate(&g_ctx.slots, destroy_slot_mutex);
   list_destroy(&g_ctx.slots);
   list_destroy(&g_ctx.device_pubkeys);
 
@@ -968,6 +960,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CloseAllSessions)(CK_SLOT_ID slotID) {
   }
 
   list_destroy(&slot->pkcs11_sessions);
+  list_create(&slot->pkcs11_sessions, sizeof(yubihsm_pkcs11_session), NULL);
 
   release_slot(&g_ctx, slot);
 
@@ -1069,8 +1062,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetOperationState)
   return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
-static void login_sessions(void *ctx, void *data) {
-  UNUSED(ctx);
+static void login_sessions(void *data) {
   yubihsm_pkcs11_session *session = (yubihsm_pkcs11_session *) data;
   switch (session->session_state) {
     case SESSION_RESERVED_RO:
@@ -1085,8 +1077,7 @@ static void login_sessions(void *ctx, void *data) {
   }
 }
 
-static void logout_sessions(void *ctx, void *data) {
-  UNUSED(ctx);
+static void logout_sessions(void *data) {
   yubihsm_pkcs11_session *session = (yubihsm_pkcs11_session *) data;
   switch (session->session_state) {
     case SESSION_AUTHENTICATED_RO:
@@ -1099,18 +1090,6 @@ static void logout_sessions(void *ctx, void *data) {
     case SESSION_RESERVED_RW:
       break;
   }
-}
-
-struct iterate_ctx {
-  const uint8_t *pk_sd;
-  int items, hits;
-};
-
-static void iterate_pubkeys(void *ctx, void *data) {
-  struct iterate_ctx *ic = ctx;
-  ic->items++;
-  if (!memcmp(ic->pk_sd, data, 65))
-    ic->hits++;
 }
 
 CK_DEFINE_FUNCTION(CK_RV, C_Login)
@@ -1193,9 +1172,16 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
       goto c_l_out;
     }
 
-    struct iterate_ctx ctx = {pk_sd, 0, 0};
-    list_iterate(&g_ctx.device_pubkeys, &ctx, iterate_pubkeys);
-    if (ctx.items > 0 && ctx.hits == 0) {
+    int hits = 0;
+
+    for (ListItem *item = g_ctx.device_pubkeys.head; item != NULL;
+         item = item->next) {
+      if (!memcmp(item->data, pk_sd, 65)) {
+        hits++;
+      }
+    }
+
+    if (g_ctx.device_pubkeys.length > 0 && hits == 0) {
       DBG_ERR("Failed to validate device public key");
       rv = CKR_FUNCTION_FAILED;
       goto c_l_out;
@@ -1239,7 +1225,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
     }
   }
 
-  list_iterate(&session->slot->pkcs11_sessions, NULL, login_sessions);
+  list_iterate(&session->slot->pkcs11_sessions, login_sessions);
 
   DOUT;
 
@@ -1282,7 +1268,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Logout)(CK_SESSION_HANDLE hSession) {
 
   session->slot->device_session = NULL;
 
-  list_iterate(&session->slot->pkcs11_sessions, NULL, logout_sessions);
+  list_iterate(&session->slot->pkcs11_sessions, logout_sessions);
 
   DOUT;
 
