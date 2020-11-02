@@ -928,85 +928,71 @@ yh_rc yh_finish_create_session_ext(
 static const uint8_t sharedInfo[] =
   {0x3c, 0x88, 0x10}; // sharedInfo as per SCP11 spec, Section 6.5.2.3
 
-static void x9_63_sha256_kdf(const uint8_t *shsee, size_t shsee_len,
+static bool x9_63_sha256_kdf(const uint8_t *shsee, size_t shsee_len,
                              const uint8_t *shsss, size_t shsss_len,
                              const uint8_t *shared, size_t shared_len,
                              uint8_t *dst, size_t dst_len) {
   uint8_t *end, cnt[4] = {0};
   size_t hash_len;
   hash_ctx hashctx = NULL;
-  hash_create(&hashctx, _SHA256);
+  bool ok = false;
+  if (!hash_create(&hashctx, _SHA256)) {
+    return false;
+  }
   for (end = dst + dst_len; dst < end; dst += hash_len) {
     increment_ctr(cnt, sizeof(cnt));
-    hash_init(hashctx);
-    hash_update(hashctx, shsee, shsee_len);
-    hash_update(hashctx, shsss, shsss_len);
-    hash_update(hashctx, cnt, sizeof(cnt));
-    if (shared) {
-      hash_update(hashctx, shared, shared_len);
+    if (!hash_init(hashctx)) {
+      goto err_out;
     }
-    hash_final(hashctx, dst, &hash_len);
+    if (!hash_update(hashctx, shsee, shsee_len)) {
+      goto err_out;
+    }
+    if (!hash_update(hashctx, shsss, shsss_len)) {
+      goto err_out;
+    }
+    if (!hash_update(hashctx, cnt, sizeof(cnt))) {
+      goto err_out;
+    }
+    if (shared) {
+      if (!hash_update(hashctx, shared, shared_len)) {
+        goto err_out;
+      }
+    }
+    if (!hash_final(hashctx, dst, &hash_len)) {
+      goto err_out;
+    }
   }
+  ok = true;
+err_out:
   hash_destroy(hashctx);
+  return ok;
 }
 
 yh_rc yh_util_get_device_pubkey(yh_connector *connector, uint8_t *device_pubkey,
                                 size_t *device_pubkey_len,
                                 yh_algorithm *algorithm) {
-
-  if (connector == NULL || device_pubkey_len == NULL) {
-    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
-    return YHR_INVALID_PARAMETERS;
-  }
-
-  uint8_t identifier[8];
-  if (!rand_generate(identifier, sizeof(identifier))) {
-    DBG_ERR("Failed getting randomness");
-    return YHR_GENERIC_ERROR;
-  }
-
-  char s_identifier[17];
-  snprintf(s_identifier, 17, "%02x%02x%02x%02x%02x%02x%02x%02x", identifier[0],
-           identifier[1], identifier[2], identifier[3], identifier[4],
-           identifier[5], identifier[6], identifier[7]);
-
-  Msg msg;
-  Msg response_msg;
-
-  // Send GET DEVICE PUBKEY command
-  msg.st.cmd = YHC_GET_DEVICE_PUBKEY;
-  msg.st.len = 0;
-
-  yh_rc rc = send_msg(connector, &msg, &response_msg, s_identifier);
-  if (rc != YHR_SUCCESS) {
-    return rc;
+  yh_cmd response_cmd;
+  yh_rc yrc =
+    yh_send_plain_msg(connector, YHC_GET_DEVICE_PUBKEY, NULL, 0, &response_cmd,
+                      device_pubkey, device_pubkey_len);
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("Failed to send GET DEVICE PUBKEY command: %s", yh_strerror(yrc));
+    return yrc;
   }
 
   // Parse response
-  if (response_msg.st.cmd != YHC_GET_DEVICE_PUBKEY_R) {
-    rc = translate_device_error(response_msg.st.data[0]);
-    DBG_ERR("Device error %s (%d)", yh_strerror(rc), response_msg.st.data[0]);
-    return rc;
+  if (response_cmd == YHC_ERROR) {
+    yrc = translate_device_error(device_pubkey[0]);
+    DBG_ERR("Device error %s (%d)", yh_strerror(yrc), device_pubkey[0]);
+    return yrc;
   }
 
   // Return the algorithm of the key if requested
-  if (algorithm)
-    *algorithm = response_msg.st.data[0];
-
-  // Check buffer size, if specified
-  if (device_pubkey && *device_pubkey_len < response_msg.st.len) {
-    DBG_ERR("%s", yh_strerror(YHR_BUFFER_TOO_SMALL));
-    return YHR_BUFFER_TOO_SMALL;
+  if (algorithm) {
+    *algorithm = device_pubkey[0];
   }
 
-  *device_pubkey_len = response_msg.st.len;
-
-  if (device_pubkey) {
-    // Replace algorithm with uncompressed EC point marker
-    response_msg.st.data[0] = 0x04;
-    memcpy(device_pubkey, response_msg.st.data, *device_pubkey_len);
-  }
-
+  device_pubkey[0] = 0x04;
   return YHR_SUCCESS;
 }
 
@@ -1060,9 +1046,9 @@ yh_rc yh_util_generate_ec_p256_key(uint8_t *privkey, size_t privkey_len,
 }
 
 yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
-                             uint8_t *privkey, size_t privkey_len,
-                             uint8_t *device_pubkey, size_t device_pubkey_len,
-                             yh_session **session) {
+                             const uint8_t *privkey, size_t privkey_len,
+                             const uint8_t *device_pubkey,
+                             size_t device_pubkey_len, yh_session **session) {
 
   if (connector == NULL || privkey == NULL || device_pubkey == NULL ||
       session == NULL) {
@@ -1164,8 +1150,11 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
   }
 
   uint8_t shs[4 * SCP_KEY_LEN];
-  x9_63_sha256_kdf(shsee, sizeof(shsee), shsss, sizeof(shsss), sharedInfo,
-                   sizeof(sharedInfo), shs, sizeof(shs));
+  if (!x9_63_sha256_kdf(shsee, sizeof(shsee), shsss, sizeof(shsss), sharedInfo,
+                        sizeof(sharedInfo), shs, sizeof(shs))) {
+    DBG_ERR("x9_63_sha256_kdf %s", yh_strerror(YHR_GENERIC_ERROR));
+    return YHR_GENERIC_ERROR;
+  }
 
   DBG_INT(shs, sizeof(shs), "SHS: ");
 

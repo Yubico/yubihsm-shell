@@ -1067,9 +1067,9 @@ yh_rc yh_util_generate_ec_p256_key(uint8_t *privkey, size_t privkey_len,
  *Key</a>
  **/
 yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
-                             uint8_t *privkey, size_t privkey_len,
-                             uint8_t *device_pubkey, size_t device_pubkey_len,
-                             yh_session **session);
+                             const uint8_t *privkey, size_t privkey_len,
+                             const uint8_t *device_pubkey,
+                             size_t device_pubkey_len, yh_session **session);
 
 /**
  * Free data associated with the session
