@@ -1111,7 +1111,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
   }
 
   CK_UTF8CHAR prefix = *pPin;
-  if (prefix == '!') {
+  if (prefix == '@') {
     pPin++;
     ulPinLen--;
   }
@@ -1146,7 +1146,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
 
   yh_rc yrc;
 
-  if (prefix == '!') { // Asymmetric authentication
+  if (prefix == '@') { // Asymmetric authentication
 
     uint8_t sk_oce[32], pk_oce[65], pk_sd[65];
     size_t pk_sd_len = sizeof(pk_sd);
