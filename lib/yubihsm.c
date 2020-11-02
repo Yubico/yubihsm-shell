@@ -1138,7 +1138,8 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
                              sizeof(shsee))) {
     DBG_ERR("ecdh_calculate_secret(shsee) %s",
             yh_strerror(YHR_INVALID_PARAMETERS));
-    return YHR_INVALID_PARAMETERS;
+    rc = YHR_INVALID_PARAMETERS;
+    goto err;
   }
 
   uint8_t shsss[32];
@@ -1146,17 +1147,17 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
                              device_pubkey_len, shsss, sizeof(shsss))) {
     DBG_ERR("ecdh_calculate_secret(shsss) %s",
             yh_strerror(YHR_INVALID_PARAMETERS));
-    return YHR_INVALID_PARAMETERS;
+    rc = YHR_INVALID_PARAMETERS;
+    goto err;
   }
 
   uint8_t shs[4 * SCP_KEY_LEN];
   if (!x9_63_sha256_kdf(shsee, sizeof(shsee), shsss, sizeof(shsss), sharedInfo,
                         sizeof(sharedInfo), shs, sizeof(shs))) {
     DBG_ERR("x9_63_sha256_kdf %s", yh_strerror(YHR_GENERIC_ERROR));
-    return YHR_GENERIC_ERROR;
+    rc = YHR_GENERIC_ERROR;
+    goto err;
   }
-
-  DBG_INT(shs, sizeof(shs), "SHS: ");
 
   uint8_t keys[2 * sizeof(epk_oce)], mac[SCP_PRF_LEN];
   memcpy(keys, response_msg.st.data + 1, sizeof(epk_oce));
@@ -1185,6 +1186,11 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
   *session = new_session;
 
 err:
+  insecure_memzero(esk_oce, sizeof(esk_oce));
+  insecure_memzero(shsss, sizeof(shsss));
+  insecure_memzero(shsee, sizeof(shsee));
+  insecure_memzero(shs, sizeof(shs));
+
   if (new_session != *session) {
     free(new_session);
   }
