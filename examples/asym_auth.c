@@ -80,11 +80,6 @@ int main(void) {
     exit(EXIT_SUCCESS);
   }
 
-  uint8_t sk_oce[32], pk_oce[65];
-  yrc = yh_util_generate_ec_p256_key(sk_oce, sizeof(sk_oce), pk_oce,
-                                     sizeof(pk_oce));
-  assert(yrc == YHR_SUCCESS);
-
   printf("Send a plain (unencrypted, unauthenticated) echo command\n");
 
   uint16_t data_len = sizeof(data) - 1;
@@ -121,6 +116,11 @@ int main(void) {
   yh_util_delete_object(session, authkey, YH_AUTHENTICATION_KEY);
   // Ignore result here
 
+  uint8_t sk_oce[32], pk_oce[65];
+  yrc = yh_util_generate_ec_p256_key(sk_oce, sizeof(sk_oce), pk_oce,
+                                     sizeof(pk_oce));
+  assert(yrc == YHR_SUCCESS);
+
   yh_capabilities caps = {{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}};
   // The public key is imported without the uncompressed point marker (value
   // 0x04), so skip the first byte
@@ -151,14 +151,6 @@ int main(void) {
 
   printf("Successfully established session %02d\n", session_id);
 
-  yrc = yh_util_generate_ec_p256_key(sk_oce, sizeof(sk_oce), pk_oce,
-                                     sizeof(pk_oce));
-  assert(yrc == YHR_SUCCESS);
-
-  yrc = yh_util_change_authentication_key(session, &authkey, pk_oce + 1,
-                                          sizeof(pk_oce) - 1, NULL, 0);
-  assert(yrc == YHR_SUCCESS);
-
   printf("Send a secure echo command\n");
 
   uint8_t response2[sizeof(data)] = {0};
@@ -181,6 +173,14 @@ int main(void) {
 
   assert(response_len == response2_len);
   assert(memcmp(response, response2, response_len) == 0);
+
+  yrc = yh_util_generate_ec_p256_key(sk_oce, sizeof(sk_oce), pk_oce,
+                                     sizeof(pk_oce));
+  assert(yrc == YHR_SUCCESS);
+
+  yrc = yh_util_change_authentication_key(session, &authkey, pk_oce + 1,
+                                          sizeof(pk_oce) - 1, NULL, 0);
+  assert(yrc == YHR_SUCCESS);
 
   yrc = yh_util_close_session(session);
   assert(yrc == YHR_SUCCESS);

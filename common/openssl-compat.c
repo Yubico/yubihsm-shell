@@ -87,6 +87,16 @@ void ECDSA_SIG_get0(const ECDSA_SIG *sig, const BIGNUM **pr,
   }
 }
 
+int BN_bn2binpad(const BIGNUM *a, unsigned char *to, int tolen) {
+  int n = BN_num_bytes(a);
+  if (n < 0 || n > tolen)
+    return -1;
+  memset(to, 0, tolen - n);
+  if (BN_bn2bin(a, to + tolen - n) < 0)
+    return -1;
+  return tolen;
+}
+
 const STACK_OF(X509_EXTENSION) * X509_get0_extensions(const X509 *x) {
   return x->cert_info->extensions;
 }

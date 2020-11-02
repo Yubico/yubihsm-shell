@@ -104,12 +104,11 @@ int ecdh_generate_keypair(int curve, uint8_t *privkey, size_t cb_privkey,
     EC_KEY_free(key);
     return 0;
   }
-  int len = BN_num_bytes(EC_KEY_get0_private_key(key));
-  if (len <= 0 || (size_t) len > cb_privkey) {
+  int len = BN_bn2binpad(EC_KEY_get0_private_key(key), privkey, cb_privkey);
+  if (len <= 0) {
     EC_KEY_free(key);
     return 0;
   }
-  len = BN_bn2bin(EC_KEY_get0_private_key(key), privkey);
   size_t cb =
     EC_POINT_point2oct(EC_KEY_get0_group(key), EC_KEY_get0_public_key(key),
                        POINT_CONVERSION_UNCOMPRESSED, pubkey, cb_pubkey, NULL);

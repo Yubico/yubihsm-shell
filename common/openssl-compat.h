@@ -35,6 +35,8 @@ void YH_INTERNAL ECDSA_SIG_get0(const ECDSA_SIG *sig, const BIGNUM **pr,
                                 const BIGNUM **ps);
 int YH_INTERNAL ECDSA_SIG_set0(ECDSA_SIG *sig, BIGNUM *r, BIGNUM *s);
 
+int YH_INTERNAL BN_bn2binpad(const BIGNUM *a, unsigned char *to, int tolen);
+
 const YH_INTERNAL STACK_OF(X509_EXTENSION) *
   X509_get0_extensions(const X509 *x);
 
