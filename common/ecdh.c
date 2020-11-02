@@ -149,7 +149,7 @@ int ecdh_calculate_secret(int curve, uint8_t *privkey, size_t cb_privkey,
   EC_POINT_free(point);
   EC_KEY_free(pub);
   EC_KEY_free(priv);
-  return len;
+  return len > 0 ? len : 0;
 }
 
 #endif

@@ -22,7 +22,6 @@
 #ifndef _YUBICOM_ECDH_H_
 #define _YUBICOM_ECDH_H_
 
-#include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
 
