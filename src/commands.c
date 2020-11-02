@@ -1001,6 +1001,8 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   return 0;
 }
 
+// NOTE: Get device public key
+// argc = 0
 int yh_com_get_device_pubkey(yubihsm_context *ctx, Argument *argv,
                              cmd_format in_fmt, cmd_format fmt) {
   UNUSED(argv);
@@ -1548,7 +1550,7 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   return 0;
 }
 
-// NOTE(adma): Open a session with a connector using an Asymmetric
+// NOTE: Open a session with a connector using an Asymmetric
 // Authentication Key argc = 2 arg 0: w:authkey arg 1: i:password
 int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
                              cmd_format in_fmt, cmd_format fmt) {
@@ -1814,7 +1816,7 @@ int yh_com_put_authentication(yubihsm_context *ctx, Argument *argv,
   return 0;
 }
 
-// NOTE(adma): Store an asymmetric authentication key
+// NOTE: Store an asymmetric authentication key
 // argc = 7
 // arg 0: e:session
 // arg 1: w:key_id

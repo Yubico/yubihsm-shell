@@ -1185,8 +1185,9 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
   *session = new_session;
 
 err:
-  if (new_session != *session)
+  if (new_session != *session) {
     free(new_session);
+  }
   return rc;
 }
 
