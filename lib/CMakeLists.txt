@@ -30,6 +30,11 @@ set (
   lib_util.c
   yubihsm.c
 )
+if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
+  set(SOURCE ${SOURCE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/../common/openssl-compat.c)
+endif()
+
 if(MSVC)
   set(SOURCE ${SOURCE} ${CMAKE_CURRENT_SOURCE_DIR}/../common/time_win.c)
 endif(MSVC)

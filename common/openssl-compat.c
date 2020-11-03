@@ -9,6 +9,7 @@
 
 #include "openssl-compat.h"
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
+#include <string.h>
 
 int RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d) {
   /* If the fields n and e in r are NULL, the corresponding input
