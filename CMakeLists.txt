@@ -80,7 +80,7 @@ endif ()
 
 if (CMAKE_C_COMPILER_ID STREQUAL AppleClang)
   set (CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -fPIE")
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -isystem /usr/include -Wno-nullability-completeness -Wno-expansion-to-defined")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-nullability-completeness -Wno-nullability-extension -Wno-expansion-to-defined")
 else()
   # -Wl,--strip-all is dependent on linker not compiler...
   set (CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -Wl,--strip-all -fPIE -pie")
@@ -193,8 +193,7 @@ else()
       pkg_search_module (LIBEDIT REQUIRED libedit)
     endif()
   endif()
-  #pkg_search_module (LIBCURL REQUIRED libcurl)
-  set (LIBCURL_LDFLAGS "-lcurl")
+  pkg_search_module (LIBCURL REQUIRED libcurl)
   pkg_search_module (LIBUSB REQUIRED libusb-1.0)
 endif()
 
