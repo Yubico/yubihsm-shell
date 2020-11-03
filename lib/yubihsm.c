@@ -1037,6 +1037,10 @@ yh_rc yh_util_derive_ec_p256_key(const uint8_t *password, size_t password_len,
 
 yh_rc yh_util_generate_ec_p256_key(uint8_t *privkey, size_t privkey_len,
                                    uint8_t *pubkey, size_t pubkey_len) {
+  if (privkey == NULL || pubkey == NULL) {
+    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
   int curve = ecdh_curve_p256();
   if (!ecdh_generate_keypair(curve, privkey, privkey_len, pubkey, pubkey_len)) {
     DBG_ERR("Failed to generate ecp256 key %s", yh_strerror(YHR_GENERIC_ERROR));
