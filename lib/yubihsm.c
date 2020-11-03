@@ -1004,14 +1004,20 @@ yh_rc yh_util_derive_ec_p256_key(const uint8_t *password, size_t password_len,
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
+
+  int curve = ecdh_curve_p256();
+  if (!curve) {
+    DBG_ERR("%s: Platform support for ec-p256 is missing",
+            yh_strerror(YHR_GENERIC_ERROR));
+    return YHR_GENERIC_ERROR;
+  }
+
   uint8_t *pwd = calloc(1, password_len + 1);
   if (pwd == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
     return YHR_MEMORY_ERROR;
   }
   memcpy(pwd, password, password_len);
-
-  int curve = ecdh_curve_p256();
 
   do {
     DBG_INFO("Deriving key with perturbation %u", pwd[password_len]);
@@ -1042,6 +1048,11 @@ yh_rc yh_util_generate_ec_p256_key(uint8_t *privkey, size_t privkey_len,
     return YHR_INVALID_PARAMETERS;
   }
   int curve = ecdh_curve_p256();
+  if (!curve) {
+    DBG_ERR("%s: Platform support for ec-p256 is missing",
+            yh_strerror(YHR_GENERIC_ERROR));
+    return YHR_GENERIC_ERROR;
+  }
   if (!ecdh_generate_keypair(curve, privkey, privkey_len, pubkey, pubkey_len)) {
     DBG_ERR("Failed to generate ecp256 key %s", yh_strerror(YHR_GENERIC_ERROR));
     return YHR_GENERIC_ERROR;
@@ -1063,6 +1074,11 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
   DBG_INT(device_pubkey, device_pubkey_len, "PK-SD: ");
 
   int curve = ecdh_curve_p256();
+  if (!curve) {
+    DBG_ERR("%s: Platform support for ec-p256 is missing",
+            yh_strerror(YHR_GENERIC_ERROR));
+    return YHR_GENERIC_ERROR;
+  }
 
   uint8_t pk_oce[65];
 
