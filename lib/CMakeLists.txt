@@ -14,6 +14,9 @@
 # limitations under the License.
 #
 
+include(${CMAKE_SOURCE_DIR}/cmake/openssl.cmake)
+find_libcrypto()
+
 if(MSVC)
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
 endif()
