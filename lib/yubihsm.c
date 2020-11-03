@@ -3323,6 +3323,16 @@ static uint8_t get_auth_key_algo(size_t key_len) {
   }
 }
 
+yh_rc yh_util_import_authentication_key_ext(
+  yh_session *session, uint16_t *key_id, const char *label, uint16_t domains,
+  const yh_capabilities *capabilities,
+  const yh_capabilities *delegated_capabilities, const uint8_t *key,
+  size_t key_len) {
+  return yh_util_import_authentication_key(session, key_id, label, domains,
+                                           capabilities, delegated_capabilities,
+                                           key, key_len, NULL, 0);
+}
+
 yh_rc yh_util_import_authentication_key(
   yh_session *session, uint16_t *key_id, const char *label, uint16_t domains,
   const yh_capabilities *capabilities,
@@ -3431,6 +3441,14 @@ yh_rc yh_util_import_authentication_key_derived(
     insecure_memzero(key, sizeof(key));
   }
   return yrc;
+}
+
+yh_rc yh_util_change_authentication_key_ext(yh_session *session,
+                                            uint16_t *key_id,
+                                            const uint8_t *key,
+                                            size_t key_len) {
+  return yh_util_change_authentication_key(session, key_id, key, key_len, NULL,
+                                           0);
 }
 
 yh_rc yh_util_change_authentication_key(yh_session *session, uint16_t *key_id,
