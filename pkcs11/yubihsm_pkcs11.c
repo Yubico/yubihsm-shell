@@ -1153,7 +1153,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
     yrc = yh_util_derive_ec_p256_key(pPin, ulPinLen, sk_oce, sizeof(sk_oce),
                                      pk_oce, sizeof(pk_oce));
     if (yrc != YHR_SUCCESS) {
-      DBG_ERR("Failed to derive asymmetrix key: %s", yh_strerror(yrc));
+      DBG_ERR("Failed to derive asymmetric key: %s", yh_strerror(yrc));
       rv = CKR_FUNCTION_FAILED;
       goto c_l_out;
     }

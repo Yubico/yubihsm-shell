@@ -63,32 +63,22 @@ int ecdh_calculate_public_key(int curve, const uint8_t *privkey,
   BIGNUM *order = BN_new();
   BIGNUM *pvt = BN_bin2bn(privkey, cb_privkey, NULL);
   EC_GROUP *group = EC_GROUP_new_by_curve_name(curve);
+  EC_POINT *pub = NULL;
+  size_t cb = 0;
   if (ctx == NULL || order == NULL || pvt == NULL || group == NULL) {
-    EC_GROUP_free(group);
-    BN_free(pvt);
-    BN_free(order);
-    BN_CTX_free(ctx);
-    return 0;
+    goto err;
   }
   if (BN_is_zero(pvt) || !EC_GROUP_get_order(group, order, ctx) ||
       BN_cmp(pvt, order) >= 0) {
-    EC_GROUP_free(group);
-    BN_free(pvt);
-    BN_free(order);
-    BN_CTX_free(ctx);
-    return 0;
+    goto err;
   }
-  EC_POINT *pub = EC_POINT_new(group);
+  pub = EC_POINT_new(group);
   if (pub == NULL || !EC_POINT_mul(group, pub, pvt, NULL, NULL, ctx)) {
-    EC_POINT_free(pub);
-    EC_GROUP_free(group);
-    BN_free(pvt);
-    BN_free(order);
-    BN_CTX_free(ctx);
-    return 0;
+    goto err;
   }
-  size_t cb = EC_POINT_point2oct(group, pub, POINT_CONVERSION_UNCOMPRESSED,
-                                 pubkey, cb_pubkey, ctx);
+  cb = EC_POINT_point2oct(group, pub, POINT_CONVERSION_UNCOMPRESSED, pubkey,
+                          cb_pubkey, ctx);
+err:
   EC_POINT_free(pub);
   EC_GROUP_free(group);
   BN_free(pvt);
@@ -125,28 +115,23 @@ int ecdh_calculate_secret(int curve, const uint8_t *privkey, size_t cb_privkey,
                           uint8_t *secret, size_t cb_secret) {
   EC_KEY *priv = EC_KEY_new_by_curve_name(curve);
   EC_KEY *pub = EC_KEY_new_by_curve_name(curve);
+  EC_POINT *point = NULL;
+  int len = 0;
   if (priv == NULL || pub == NULL ||
       !EC_KEY_set_private_key(priv, BN_bin2bn(privkey, cb_privkey, NULL))) {
-    EC_KEY_free(pub);
-    EC_KEY_free(priv);
-    return 0;
+    goto err;
   }
-  EC_POINT *point = EC_POINT_new(EC_KEY_get0_group(pub));
+  point = EC_POINT_new(EC_KEY_get0_group(pub));
   if (point == NULL || !EC_POINT_oct2point(EC_KEY_get0_group(pub), point,
                                            pubkey, cb_pubkey, NULL)) {
-    EC_POINT_free(point);
-    EC_KEY_free(pub);
-    EC_KEY_free(priv);
-    return 0;
+    goto err;
   }
   if (!EC_KEY_set_public_key(pub, point) || !EC_KEY_check_key(pub)) {
-    EC_POINT_free(point);
-    EC_KEY_free(pub);
-    EC_KEY_free(priv);
-    return 0;
+    goto err;
   }
-  int len = ECDH_compute_key(secret, cb_secret, EC_KEY_get0_public_key(pub),
-                             priv, NULL);
+  len = ECDH_compute_key(secret, cb_secret, EC_KEY_get0_public_key(pub), priv,
+                         NULL);
+err:
   EC_POINT_free(point);
   EC_KEY_free(pub);
   EC_KEY_free(priv);

@@ -90,11 +90,13 @@ void ECDSA_SIG_get0(const ECDSA_SIG *sig, const BIGNUM **pr,
 
 int BN_bn2binpad(const BIGNUM *a, unsigned char *to, int tolen) {
   int n = BN_num_bytes(a);
-  if (n < 0 || n > tolen)
+  if (n < 0 || n > tolen) {
     return -1;
+  }
   memset(to, 0, tolen - n);
-  if (BN_bn2bin(a, to + tolen - n) < 0)
+  if (BN_bn2bin(a, to + tolen - n) < 0) {
     return -1;
+  }
   return tolen;
 }
 
