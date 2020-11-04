@@ -14,6 +14,8 @@
 
 char openssl_compat_used = 1;
 
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L)
+
 int RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d) {
   /* If the fields n and e in r are NULL, the corresponding input
    * parameters MUST be non-NULL for n and e.  d may be
@@ -91,6 +93,19 @@ void ECDSA_SIG_get0(const ECDSA_SIG *sig, const BIGNUM **pr,
   }
 }
 
+const STACK_OF(X509_EXTENSION) * X509_get0_extensions(const X509 *x) {
+  return x->cert_info->extensions;
+}
+
+ASN1_OBJECT *X509_EXTENSION_get_object(X509_EXTENSION *ex) {
+  return ex->object;
+}
+ASN1_OCTET_STRING *X509_EXTENSION_get_data(X509_EXTENSION *ex) {
+  return ex->value;
+}
+
+#endif /* OPENSSL_VERSION_NUMBER */
+
 int BN_bn2binpad(const BIGNUM *a, unsigned char *to, int tolen) {
   int n = BN_num_bytes(a);
   if (n < 0 || n > tolen) {
@@ -101,17 +116,6 @@ int BN_bn2binpad(const BIGNUM *a, unsigned char *to, int tolen) {
     return -1;
   }
   return tolen;
-}
-
-const STACK_OF(X509_EXTENSION) * X509_get0_extensions(const X509 *x) {
-  return x->cert_info->extensions;
-}
-
-ASN1_OBJECT *X509_EXTENSION_get_object(X509_EXTENSION *ex) {
-  return ex->object;
-}
-ASN1_OCTET_STRING *X509_EXTENSION_get_data(X509_EXTENSION *ex) {
-  return ex->value;
 }
 
 #else

@@ -26,6 +26,8 @@ extern char openssl_compat_used;
 #define YH_INTERNAL
 #endif
 
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L)
+
 int YH_INTERNAL RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d);
 void YH_INTERNAL RSA_get0_key(const RSA *r, const BIGNUM **n, const BIGNUM **e,
                               const BIGNUM **d);
@@ -38,13 +40,15 @@ void YH_INTERNAL ECDSA_SIG_get0(const ECDSA_SIG *sig, const BIGNUM **pr,
                                 const BIGNUM **ps);
 int YH_INTERNAL ECDSA_SIG_set0(ECDSA_SIG *sig, BIGNUM *r, BIGNUM *s);
 
-int YH_INTERNAL BN_bn2binpad(const BIGNUM *a, unsigned char *to, int tolen);
-
 const YH_INTERNAL STACK_OF(X509_EXTENSION) *
   X509_get0_extensions(const X509 *x);
 
 ASN1_OBJECT YH_INTERNAL *X509_EXTENSION_get_object(X509_EXTENSION *ex);
 ASN1_OCTET_STRING YH_INTERNAL *X509_EXTENSION_get_data(X509_EXTENSION *ex);
+
+#endif /* OPENSSL_VERSION_NUMBER */
+
+int YH_INTERNAL BN_bn2binpad(const BIGNUM *a, unsigned char *to, int tolen);
 
 #endif /* OPENSSL_VERSION_NUMBER */
 #endif /* LIBCRYPTO_COMPAT_H */
