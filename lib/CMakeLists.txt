@@ -29,14 +29,11 @@ set (
   ${CMAKE_CURRENT_SOURCE_DIR}/../common/pkcs5.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../common/rand.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../common/ecdh.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../common/openssl-compat.c
   error.c
   lib_util.c
   yubihsm.c
 )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE ${SOURCE}
-    ${CMAKE_CURRENT_SOURCE_DIR}/../common/openssl-compat.c)
-endif()
 
 if(MSVC)
   set(SOURCE ${SOURCE} ${CMAKE_CURRENT_SOURCE_DIR}/../common/time_win.c)

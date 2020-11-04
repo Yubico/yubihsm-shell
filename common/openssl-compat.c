@@ -8,8 +8,11 @@
  */
 
 #include "openssl-compat.h"
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L) ||                                  \
+  (OPENSSL_VERSION_NUMBER == 0x20000000L)
 #include <string.h>
+
+char openssl_compat_used = 1;
 
 int RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d) {
   /* If the fields n and e in r are NULL, the corresponding input
@@ -110,5 +113,9 @@ ASN1_OBJECT *X509_EXTENSION_get_object(X509_EXTENSION *ex) {
 ASN1_OCTET_STRING *X509_EXTENSION_get_data(X509_EXTENSION *ex) {
   return ex->value;
 }
+
+#else
+
+char openssl_compat_used = 0;
 
 #endif /* OPENSSL_VERSION_NUMBER */

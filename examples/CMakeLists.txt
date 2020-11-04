@@ -30,22 +30,16 @@ set (
   import_rsa.c
   ../common/hash.c
   ../common/util.c
+  ../common/openssl-compat.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_IMPORT_RSA ${SOURCE_IMPORT_RSA}
-    ../common/openssl-compat.c)
-endif()
 
 set (
   SOURCE_GENERATE_EC
   generate_ec.c
   ../common/hash.c
   ../common/util.c
+  ../common/openssl-compat.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_GENERATE_EC ${SOURCE_GENERATE_EC}
-    ../common/openssl-compat.c)
-endif()
 
 set (
   SOURCEINFO
@@ -75,11 +69,8 @@ set (
 set (
   SOURCE_ATTEST
   attest.c
+  ../common/openssl-compat.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_ATTEST ${SOURCE_ATTEST}
-    ../common/openssl-compat.c)
-endif()
 
 set (
   SOURCE_YUBICO_OTP
@@ -94,95 +85,68 @@ set (
 set (
   SOURCE_ASYM_AUTH
   asym_auth.c
+  ../common/openssl-compat.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_ASYM_AUTH ${SOURCE_ASYM_AUTH}
-    ../common/openssl-compat.c)
-endif()
 
 set (
   SOURCE_IMPORT_EC
   import_ec.c
   ../common/hash.c
   ../common/util.c
+  ../common/openssl-compat.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_IMPORT_EC ${SOURCE_IMPORT_EC}
-    ../common/openssl-compat.c)
-endif()
 
 set (
   SOURCE_GENERATE_RSA
   generate_rsa.c
+  ../common/openssl-compat.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_GENERATE_RSA ${SOURCE_GENERATE_RSA}
-    ../common/openssl-compat.c)
-endif()
 
 set (
   SOURCE_LOGS
   logs.c
   ../common/hash.c
   ../common/util.c
+  ../common/openssl-compat.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_LOGS ${SOURCE_LOGS}
-    ../common/openssl-compat.c)
-endif()
 
 set (
   SOURCE_SSH
   ssh.c
   ../common/hash.c
   ../common/util.c
+  ../common/openssl-compat.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_SSH ${SOURCE_SSH}
-    ../common/openssl-compat.c)
-endif()
 
 set (
   SOURCE_DECRYPT_RSA
   decrypt_rsa.c
   ../common/hash.c
   ../common/util.c
+  ../common/openssl-compat.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_DECRYPT_RSA ${SOURCE_DECRYPT_RSA}
-    ../common/openssl-compat.c)
-endif()
 
 set (
   SOURCE_P11_GENERATE_RSA
   p11_generate_rsa.c
+  ../common/openssl-compat.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_P11_GENERATE_RSA ${SOURCE_P11_GENERATE_RSA}
-    ../common/openssl-compat.c)
-endif()
 
 set (
   SOURCE_DECRYPT_EC
   decrypt_ec.c
   ../common/hash.c
   ../common/util.c
+  ../common/openssl-compat.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_DECRYPT_EC ${SOURCE_DECRYPT_EC}
-    ../common/openssl-compat.c)
-endif()
 
 set (
   SOURCE_IMPORT_ED
   import_ed.c
   ../common/hash.c
   ../common/util.c
+  ../common/openssl-compat.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_IMPORT_ED ${SOURCE_IMPORT_ED}
-    ../common/openssl-compat.c)
-endif()
 
 set (
   SOURCE_CHANGE_AUTHKEY

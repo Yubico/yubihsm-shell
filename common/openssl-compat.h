@@ -10,8 +10,11 @@
 #ifndef LIBCRYPTO_COMPAT_H
 #define LIBCRYPTO_COMPAT_H
 
+extern char openssl_compat_used;
+
 #include <openssl/opensslv.h>
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L) ||                                  \
+  (OPENSSL_VERSION_NUMBER == 0x20000000L)
 
 #include <openssl/rsa.h>
 #include <openssl/ecdsa.h>
