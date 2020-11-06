@@ -47,7 +47,7 @@ typedef struct {
   char **connector_list;
   yh_connector *connector;
   int n_connectors;
-  yh_session *sessions[YH_MAX_SESSIONS];
+  yh_session *sessions[256];
   ykyh_state *state;
   FILE *out;
   cmd_format in_fmt;

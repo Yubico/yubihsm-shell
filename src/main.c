@@ -696,7 +696,7 @@ int yh_com_quit(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
   return 0;
 }
 
-static bool probe_session(yubihsm_context *ctx, int index) {
+static bool probe_session(yubihsm_context *ctx, size_t index) {
   if (ctx->sessions[index]) {
     uint8_t data = 0xff;
     uint8_t response[YH_MSG_BUF_SIZE];
@@ -730,7 +730,7 @@ static void timer_handler(int signo __attribute__((unused))) {
   if (calling_device == true || ctx.connector == NULL) {
     return;
   }
-  for (int i = 0; i < YH_MAX_SESSIONS; i++) {
+  for (size_t i = 0; i < sizeof(ctx.sessions) / sizeof(ctx.sessions[0]); i++) {
     probe_session(&ctx, i);
   }
 }
@@ -1474,7 +1474,8 @@ int validate_arg(yubihsm_context *ctx, char type, const char *value,
       if (type == 'b') {
         parsed->b = (uint8_t) num;
       } else if (type == 'e') {
-        if (num >= YH_MAX_SESSIONS || !probe_session(ctx, num)) {
+        if (num >= sizeof(ctx->sessions) / sizeof(ctx->sessions[0]) ||
+            !probe_session(ctx, num)) {
           return -1;
         }
         parsed->e = ctx->sessions[num];
@@ -1915,7 +1916,8 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    for (unsigned i = 0; i < YH_MAX_SESSIONS; i++) {
+    for (size_t i = 0; i < sizeof(ctx.sessions) / sizeof(ctx.sessions[0]);
+         i++) {
       if (ctx.sessions[i] != NULL) {
         arg[0].e = ctx.sessions[i];
       }

@@ -564,7 +564,8 @@ int yh_com_disconnect(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 
   yh_rc yrc;
 
-  for (int i = 0; i < YH_MAX_SESSIONS; i++) {
+  for (size_t i = 0; i < sizeof(ctx->sessions) / sizeof(ctx->sessions[0]);
+       i++) {
     if (ctx->sessions[i]) {
       yrc = yh_destroy_session(&ctx->sessions[i]);
       if (yrc != YHR_SUCCESS) {
@@ -1176,9 +1177,10 @@ int yh_com_list_sessions(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
     return -1;
   }
 
-  for (int i = 0; i < YH_MAX_SESSIONS; i++) {
+  for (size_t i = 0; i < sizeof(ctx->sessions) / sizeof(ctx->sessions[0]);
+       i++) {
     if (ctx->sessions[i] != NULL) {
-      fprintf(stderr, "Session %d\n", i);
+      fprintf(stderr, "Session %zu\n", i);
     }
   }
 
