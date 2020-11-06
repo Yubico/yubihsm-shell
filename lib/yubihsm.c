@@ -711,11 +711,6 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
 
   // Save sid
   new_session->s.sid = (*ptr++);
-  if (new_session->s.sid > YH_MAX_SESSIONS - 1) {
-    DBG_ERR("Received invalid session ID %d", new_session->s.sid);
-    yrc = YHR_GENERIC_ERROR;
-    goto cs_failure;
-  }
 
   // Save card challenge
   memcpy(new_session->context + SCP_HOST_CHAL_LEN, ptr, SCP_CARD_CHAL_LEN);
@@ -767,9 +762,12 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
   return YHR_SUCCESS;
 
 cs_failure:
-  insecure_memzero(new_session, sizeof(yh_session));
-  free(new_session);
-  (new_session) = NULL;
+  // Only clear and free if we didn't reuse the session
+  if (new_session != *session) {
+    insecure_memzero(new_session, sizeof(yh_session));
+    free(new_session);
+    new_session = NULL;
+  }
 
   DBG_ERR("%s", yh_strerror(yrc));
 
@@ -802,10 +800,14 @@ yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
 
   /**********/
   // TODO(adma): replace with func
-  new_session = calloc(1, sizeof(yh_session));
-  if (new_session == NULL) {
-    DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
-    return YHR_MEMORY_ERROR;
+  if (!*session) {
+    new_session = calloc(1, sizeof(yh_session));
+    if (new_session == NULL) {
+      DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
+      return YHR_MEMORY_ERROR;
+    }
+  } else {
+    new_session = *session;
   }
 
   // Send CREATE SESSION command
@@ -874,8 +876,12 @@ yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
   return YHR_SUCCESS;
 
 bcse_failure:
-  free(new_session);
-  (new_session) = NULL;
+  // Only clear and free if we didn't reuse the session
+  if (new_session != *session) {
+    insecure_memzero(new_session, sizeof(yh_session));
+    free(new_session);
+    new_session = NULL;
+  }
 
   DBG_ERR("%s", yh_strerror(yrc));
 
@@ -1080,6 +1086,18 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
     return YHR_GENERIC_ERROR;
   }
 
+  yh_session *new_session;
+  yh_rc rc = YHR_SUCCESS;
+  if (!*session) {
+    new_session = calloc(1, sizeof(yh_session));
+    if (new_session == NULL) {
+      DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
+      return YHR_MEMORY_ERROR;
+    }
+  } else {
+    new_session = *session;
+  }
+
   uint8_t pk_oce[65];
 
   if (!ecdh_calculate_public_key(curve, privkey, privkey_len, pk_oce,
@@ -1101,19 +1119,6 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
   }
 
   DBG_INT(epk_oce, sizeof(epk_oce), "EPK-OCE: ");
-
-  yh_session *new_session = NULL;
-  yh_rc rc = YHR_SUCCESS;
-  if (!*session) {
-    new_session = calloc(1, sizeof(yh_session));
-    if (new_session == NULL) {
-      DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
-      rc = YHR_MEMORY_ERROR;
-      goto err;
-    }
-  } else {
-    new_session = *session;
-  }
 
   uint8_t identifier[8];
   if (!rand_generate(identifier, sizeof(identifier))) {
@@ -1212,8 +1217,11 @@ err:
   insecure_memzero(shs, sizeof(shs));
 
   if (new_session != *session) {
+    insecure_memzero(new_session, sizeof(yh_session));
     free(new_session);
+    new_session = NULL;
   }
+
   return rc;
 }
 
