@@ -1104,7 +1104,8 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
                                  sizeof(pk_oce))) {
     DBG_ERR("ecdh_calculate_public_key(privkey) %s",
             yh_strerror(YHR_INVALID_PARAMETERS));
-    return YHR_INVALID_PARAMETERS;
+    rc = YHR_INVALID_PARAMETERS;
+    goto err;
   }
 
   DBG_INT(pk_oce, sizeof(pk_oce), "PK-OCE: ");
@@ -1115,7 +1116,8 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
   if (!ecdh_generate_keypair(curve, esk_oce, sizeof(esk_oce), epk_oce,
                              sizeof(epk_oce))) {
     DBG_ERR("ecdh_generate_keypair %s", yh_strerror(YHR_INVALID_PARAMETERS));
-    return YHR_INVALID_PARAMETERS;
+    rc = YHR_INVALID_PARAMETERS;
+    goto err;
   }
 
   DBG_INT(epk_oce, sizeof(epk_oce), "EPK-OCE: ");
