@@ -2864,9 +2864,7 @@ void set_native_locking(yubihsm_pkcs11_context *ctx) {
 
 bool add_connectors(yubihsm_pkcs11_context *ctx, int n_connectors,
                     char **connector_names, yh_connector **connectors) {
-  if (ctx->slots.head == NULL) {
-    list_create(&ctx->slots, sizeof(yubihsm_pkcs11_slot), free_pkcs11_slot);
-  }
+  list_create(&ctx->slots, sizeof(yubihsm_pkcs11_slot), free_pkcs11_slot);
 
   for (int i = 0; i < n_connectors; i++) {
     yubihsm_pkcs11_slot slot;
