@@ -16,7 +16,7 @@ addons:
     - gengetopt
     - help2man
     - lcov
-    - libcurl4-openssl-dev
+    - libcurl4-gnutls-dev
     - libedit-dev
       libengine-pkcs11-openssl
     - libpcsclite-dev
