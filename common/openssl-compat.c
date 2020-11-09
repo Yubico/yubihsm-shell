@@ -8,10 +8,11 @@
  */
 
 #include "openssl-compat.h"
+
+extern int make_iso_compilers_happy;
+
 #if (OPENSSL_VERSION_NUMBER < 0x10100000L) || defined(LIBRESSL_VERSION_NUMBER)
 #include <string.h>
-
-char openssl_compat_used = 1;
 
 #if (OPENSSL_VERSION_NUMBER < 0x10100000L)
 
@@ -116,9 +117,5 @@ int BN_bn2binpad(const BIGNUM *a, unsigned char *to, int tolen) {
   }
   return tolen;
 }
-
-#else
-
-char openssl_compat_used = 0;
 
 #endif /* OPENSSL_VERSION_NUMBER */

@@ -10,8 +10,6 @@
 #ifndef LIBCRYPTO_COMPAT_H
 #define LIBCRYPTO_COMPAT_H
 
-extern char openssl_compat_used;
-
 #include <openssl/opensslv.h>
 #if (OPENSSL_VERSION_NUMBER < 0x10100000L) || defined(LIBRESSL_VERSION_NUMBER)
 
