@@ -3060,11 +3060,18 @@ int yh_com_sign_attestation_certificate(yubihsm_context *ctx, Argument *argv,
     fprintf(stderr, "Failed parsing x509 information\n");
   } else {
     if (fmt == fmt_base64 || fmt == fmt_PEM) {
-      PEM_write_X509(ctx->out, x509);
+      if (PEM_write_X509(ctx->out, x509) == 1) {
+        ret = 0;
+      } else {
+        fprintf(stderr, "Failed writing x509 information\n");
+      }
     } else if (fmt == fmt_binary) {
-      i2d_X509_fp(ctx->out, x509);
+      if (i2d_X509_fp(ctx->out, x509) == 1) {
+        ret = 0;
+      } else {
+        fprintf(stderr, "Failed writing x509 information\n");
+      }
     }
-    ret = 0;
   }
 
   X509_free(x509);

@@ -502,6 +502,83 @@ static bool test_faulty_ecdh(const char *curve1, const char *curve2,
   return true;
 }
 
+/* This checks the same attributes that validate_ecdh_attributes() does but
+ * makes sure the input buffer are too small for all of them and then
+ * checks that we return the correct values in this case.
+ */
+static bool check_attributes_buffer_too_small(CK_OBJECT_HANDLE key_id) {
+  CK_OBJECT_CLASS key_class;
+  CK_KEY_TYPE key_type;
+  CK_BBOOL is_local;
+  CK_BBOOL is_token;
+  CK_BBOOL is_destroyable;
+  CK_BBOOL is_extractable;
+  CK_BBOOL is_never_extractable;
+  CK_BBOOL is_sensitive;
+  CK_BBOOL is_always_sensitive;
+  CK_BBOOL is_modifiable;
+  CK_BBOOL is_copyable;
+  CK_BBOOL is_sign;
+  CK_BBOOL is_sign_recover;
+  CK_BBOOL is_always_authenticated;
+  CK_BBOOL is_unwrap;
+  CK_BBOOL is_wrap;
+  CK_BBOOL is_wrap_with_trusted;
+  CK_BBOOL is_verify;
+  CK_BBOOL is_encrypt;
+  CK_BBOOL is_derive;
+
+  CK_BYTE publicValue[1];
+  char label[1] = {0};
+  size_t label_len = sizeof(label) - 1;
+  CK_BYTE id[1];
+
+  CK_ATTRIBUTE template[] =
+    {{CKA_CLASS, &key_class, sizeof(key_class) - 1},
+     {CKA_ID, &id, sizeof(id) - 1},
+     {CKA_KEY_TYPE, &key_type, sizeof(key_type) - 1},
+     {CKA_LOCAL, &is_local, sizeof(is_local) - 1},
+     {CKA_TOKEN, &is_token, sizeof(is_token) - 1},
+     {CKA_DESTROYABLE, &is_destroyable, sizeof(is_destroyable) - 1},
+     {CKA_EXTRACTABLE, &is_extractable, sizeof(is_extractable) - 1},
+     {CKA_NEVER_EXTRACTABLE, &is_never_extractable,
+      sizeof(is_never_extractable) - 1},
+     {CKA_SENSITIVE, &is_sensitive, sizeof(is_sensitive) - 1},
+     {CKA_ALWAYS_SENSITIVE, &is_always_sensitive, sizeof(is_always_sensitive) - 1},
+     {CKA_MODIFIABLE, &is_modifiable, sizeof(is_modifiable) - 1},
+     {CKA_COPYABLE, &is_copyable, sizeof(is_copyable) - 1},
+     {CKA_SIGN, &is_sign, sizeof(is_sign) - 1},
+     {CKA_SIGN_RECOVER, &is_sign_recover, sizeof(is_sign_recover) - 1},
+     {CKA_ALWAYS_AUTHENTICATE, &is_always_authenticated,
+      sizeof(is_always_authenticated) - 1},
+     {CKA_UNWRAP, &is_unwrap, sizeof(is_unwrap) - 1},
+     {CKA_WRAP, &is_wrap, sizeof(is_wrap) - 1},
+     {CKA_WRAP_WITH_TRUSTED, &is_wrap_with_trusted,
+      sizeof(is_wrap_with_trusted) - 1},
+     {CKA_VERIFY, &is_verify, sizeof(is_verify) - 1},
+     {CKA_ENCRYPT, &is_encrypt, sizeof(is_encrypt) - 1},
+     {CKA_DERIVE, &is_derive, sizeof(is_derive) - 1},
+     {CKA_VALUE, &publicValue, sizeof(publicValue) - 1},
+     {CKA_LABEL, label, label_len}};
+
+  CK_ULONG attribute_count = 23;
+
+  CK_RV rv =
+    p11->C_GetAttributeValue(session, key_id, template, attribute_count);
+  if (rv != CKR_BUFFER_TOO_SMALL) {
+    fail("Should have returned buffer too small!");
+    return false;
+  }
+
+  for(CK_ULONG i = 0; i < attribute_count; ++i) {
+    if (template[i].ulValueLen != CK_UNAVAILABLE_INFORMATION) {
+      fail("ulValueLen should be CK_UNAVAILABLE_INFORMATION.");
+      return false;
+    }
+  }
+  return true;
+}
+
 static bool validate_ecdh_attributes(CK_OBJECT_HANDLE key_id,
                                      char *expected_label) {
 
@@ -894,6 +971,15 @@ int main(int argc, char **argv) {
 
     printf("Validating ECDH attributes... ");
     if (validate_ecdh_attributes(ecdh1, "ecdh1")) {
+      printf("OK!\n");
+    } else {
+      printf("FAIL!\n");
+      exit_status = EXIT_FAILURE;
+      goto c_clean;
+    }
+
+    printf("Validating ECDH attributes... but with too small buffers...");
+    if (check_attributes_buffer_too_small(ecdh1)) {
       printf("OK!\n");
     } else {
       printf("FAIL!\n");

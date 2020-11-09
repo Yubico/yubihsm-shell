@@ -568,9 +568,9 @@ void create_command_list(CommandList *c) {
   register_subcommand(*c,
                       (Command){"asymmetric",
                                 yh_com_sign_attestation_certificate,
-                                "e:session,w:key_id,w:attest_id=0", fmt_nofmt,
-                                fmt_PEM, "Sign attestation certificate", NULL,
-                                NULL});
+                                "e:session,w:key_id,w:attest_id=0,F:file=-",
+                                fmt_nofmt, fmt_PEM,
+                                "Sign attestation certificate", NULL, NULL});
   *c = register_command(*c, (Command){"keepalive", yh_com_noop, NULL, fmt_nofmt,
                                       fmt_nofmt, "Change keepalive settings",
                                       NULL, NULL});

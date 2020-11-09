@@ -3838,7 +3838,7 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
         DBG_INFO("Retrieving only length which is %lu", len);
         pTemplate[i].ulValueLen = len;
       } else if (len > pTemplate[i].ulValueLen) {
-        DBG_WARN("Skipping attribute, buffer to small %lu > %lu", len,
+        DBG_WARN("Skipping attribute, buffer too small %lu > %lu", len,
                  pTemplate[i].ulValueLen);
         attribute_rc = CKR_BUFFER_TOO_SMALL;
       } else {

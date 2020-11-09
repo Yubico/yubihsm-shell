@@ -80,6 +80,7 @@ endif ()
 
 if (CMAKE_C_COMPILER_ID STREQUAL AppleClang)
   set (CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -fPIE")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-nullability-completeness -Wno-nullability-extension -Wno-expansion-to-defined")
 else()
   # -Wl,--strip-all is dependent on linker not compiler...
   set (CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -Wl,--strip-all -fPIE -pie")
