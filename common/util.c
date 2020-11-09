@@ -122,8 +122,7 @@ bool read_private_key(uint8_t *buf, size_t len, yh_algorithm *algo,
     *algo = YH_ALGO_EC_ED25519;
 
     if (internal_repr == true) {
-#if (OPENSSL_VERSION_NUMBER < 0x10101000L) ||                                  \
-  (OPENSSL_VERSION_NUMBER == 0x20000000L)
+#if (OPENSSL_VERSION_NUMBER < 0x10101000L) || defined(LIBRESSL_VERSION_NUMBER)
       return false;
 #else
       EVP_PKEY *pkey =
