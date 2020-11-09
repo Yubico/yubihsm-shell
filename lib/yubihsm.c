@@ -1042,7 +1042,7 @@ yh_rc yh_util_derive_ec_p256_key(const uint8_t *password, size_t password_len,
   insecure_memzero(pwd, password_len + 1);
   free(pwd);
 
-  DBG_INT(pubkey, 65, "Derived PubKey: ");
+  DBG_INT(pubkey, YH_EC_P256_PUBKEY_LEN, "Derived PubKey: ");
 
   return YHR_SUCCESS;
 }
@@ -1098,7 +1098,7 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
     new_session = *session;
   }
 
-  uint8_t pk_oce[65];
+  uint8_t pk_oce[YH_EC_P256_PUBKEY_LEN];
 
   if (!ecdh_calculate_public_key(curve, privkey, privkey_len, pk_oce,
                                  sizeof(pk_oce))) {
@@ -1110,8 +1110,8 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
 
   DBG_INT(pk_oce, sizeof(pk_oce), "PK-OCE: ");
 
-  uint8_t esk_oce[32];
-  uint8_t epk_oce[65];
+  uint8_t esk_oce[YH_EC_P256_PRIVKEY_LEN];
+  uint8_t epk_oce[YH_EC_P256_PUBKEY_LEN];
 
   if (!ecdh_generate_keypair(curve, esk_oce, sizeof(esk_oce), epk_oce,
                              sizeof(epk_oce))) {
@@ -1159,7 +1159,7 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
   DBG_INT(response_msg.st.data + 1, sizeof(epk_oce), "EPK-SD: ");
   DBG_INT(response_msg.st.data + 1 + sizeof(epk_oce), SCP_PRF_LEN, "Receipt: ");
 
-  uint8_t shsee[32];
+  uint8_t shsee[YH_EC_P256_PRIVKEY_LEN];
   if (!ecdh_calculate_secret(curve, esk_oce, sizeof(esk_oce),
                              response_msg.st.data + 1, sizeof(epk_oce), shsee,
                              sizeof(shsee))) {
@@ -1169,7 +1169,7 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
     goto err;
   }
 
-  uint8_t shsss[32];
+  uint8_t shsss[YH_EC_P256_PRIVKEY_LEN];
   if (!ecdh_calculate_secret(curve, privkey, privkey_len, device_pubkey,
                              device_pubkey_len, shsss, sizeof(shsss))) {
     DBG_ERR("ecdh_calculate_secret(shsss) %s",

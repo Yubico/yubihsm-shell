@@ -1566,11 +1566,11 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
   }
 
   uint16_t authkey = argv[0].w;
-  uint8_t privkey[32];
+  uint8_t privkey[YH_EC_P256_PRIVKEY_LEN];
   yh_rc yrc;
 
   if (in_fmt == fmt_password) {
-    uint8_t pubkey[65];
+    uint8_t pubkey[YH_EC_P256_PUBKEY_LEN];
     yrc = yh_util_derive_ec_p256_key(argv[1].x, argv[1].len, privkey,
                                      sizeof(privkey), pubkey, sizeof(pubkey));
     insecure_memzero(argv[1].x, argv[1].len);
@@ -1590,7 +1590,7 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
-  uint8_t device_pubkey[65];
+  uint8_t device_pubkey[YH_EC_P256_PUBKEY_LEN];
   size_t device_pubkey_len = sizeof(device_pubkey);
   yrc = yh_util_get_device_pubkey(ctx->connector, device_pubkey,
                                   &device_pubkey_len, NULL);
@@ -1600,7 +1600,7 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
-  if (device_pubkey_len != 65) {
+  if (device_pubkey_len != YH_EC_P256_PUBKEY_LEN) {
     fprintf(stderr, "Invalid device pubkey\n");
     return -1;
   }
@@ -1833,10 +1833,10 @@ int yh_com_put_authentication_asym(yubihsm_context *ctx, Argument *argv,
 
   yh_rc yrc;
 
-  uint8_t pubkey[65];
+  uint8_t pubkey[YH_EC_P256_PUBKEY_LEN];
 
   if (in_fmt == fmt_password) {
-    uint8_t privkey[32];
+    uint8_t privkey[YH_EC_P256_PRIVKEY_LEN];
     yrc = yh_util_derive_ec_p256_key(argv[6].x, argv[6].len, privkey,
                                      sizeof(privkey), pubkey, sizeof(pubkey));
     insecure_memzero(argv[6].x, argv[6].len);
@@ -2620,7 +2620,8 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     const char *str1 = NULL, *str2 = "", *str3 = "";
     uint16_t id = argv[2].w;
     char label[YH_OBJ_LABEL_LEN + 1] = {0};
-    uint8_t sk_oce[32], pk_oce[65], pk_sd[65];
+    uint8_t sk_oce[YH_EC_P256_PRIVKEY_LEN], pk_oce[YH_EC_P256_PUBKEY_LEN],
+      pk_sd[YH_EC_P256_PUBKEY_LEN];
     size_t pk_sd_len;
     yh_object_type type = 0;
 #ifndef _WIN32
@@ -3276,11 +3277,11 @@ int yh_com_change_authentication_key_asym(yubihsm_context *ctx, Argument *argv,
   UNUSED(fmt);
   UNUSED(ctx);
 
-  uint8_t pubkey[65];
+  uint8_t pubkey[YH_EC_P256_PUBKEY_LEN];
   yh_rc yrc;
 
   if (in_fmt == fmt_password) {
-    uint8_t privkey[32];
+    uint8_t privkey[YH_EC_P256_PRIVKEY_LEN];
     yrc = yh_util_derive_ec_p256_key(argv[2].x, argv[2].len, privkey,
                                      sizeof(privkey), pubkey, sizeof(pubkey));
     insecure_memzero(argv[2].x, argv[2].len);

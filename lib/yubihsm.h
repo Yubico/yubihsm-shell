@@ -147,6 +147,8 @@
 /// This is the overhead when doing aes-ccm wrapping: 1 byte identifier, 13
 /// bytes nonce and 16 bytes mac
 #define YH_CCM_WRAP_OVERHEAD (1 + 13 + 16)
+#define YH_EC_P256_PRIVKEY_LEN 32
+#define YH_EC_P256_PUBKEY_LEN 65
 
 #ifdef __cplusplus
 extern "C" {

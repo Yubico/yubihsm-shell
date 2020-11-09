@@ -116,7 +116,7 @@ int main(void) {
   yh_util_delete_object(session, authkey, YH_AUTHENTICATION_KEY);
   // Ignore result here
 
-  uint8_t sk_oce[32], pk_oce[65];
+  uint8_t sk_oce[YH_EC_P256_PRIVKEY_LEN], pk_oce[YH_EC_P256_PUBKEY_LEN];
   yrc = yh_util_generate_ec_p256_key(sk_oce, sizeof(sk_oce), pk_oce,
                                      sizeof(pk_oce));
   assert(yrc == YHR_SUCCESS);
@@ -135,7 +135,7 @@ int main(void) {
   yrc = yh_destroy_session(&session);
   assert(yrc == YHR_SUCCESS);
 
-  uint8_t pk_sd[128];
+  uint8_t pk_sd[YH_EC_P256_PUBKEY_LEN];
   size_t pk_sd_len = sizeof(pk_sd);
 
   yrc = yh_util_get_device_pubkey(connector, pk_sd, &pk_sd_len, NULL);

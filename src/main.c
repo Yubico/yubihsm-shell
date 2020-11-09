@@ -1786,7 +1786,7 @@ static int parse_configured_pubkeys(yubihsm_context *ctx, char **pubkeys,
   for (int i = 0; i < n_pubkeys; i++) {
     uint8_t pk[80];
     size_t pk_len = parse_hex(pubkeys[i], 2 * sizeof(pk), pk);
-    if (pk_len == 65) {
+    if (pk_len == YH_EC_P256_PUBKEY_LEN) {
       ctx->device_pubkey_list[i] = malloc(pk_len);
     }
     if (ctx->device_pubkey_list[i]) {

@@ -297,10 +297,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     goto c_i_failure;
   }
 
-  list_create(&g_ctx.device_pubkeys, 65, NULL);
+  list_create(&g_ctx.device_pubkeys, YH_EC_P256_PUBKEY_LEN, NULL);
   for (unsigned int i = 0; i < args_info.device_pubkey_given; i++) {
     uint8_t pk[80];
-    if (parse_hex(args_info.device_pubkey_arg[i], 2 * sizeof(pk), pk) != 65) {
+    if (parse_hex(args_info.device_pubkey_arg[i], 2 * sizeof(pk), pk) !=
+        YH_EC_P256_PUBKEY_LEN) {
       DBG_ERR("Invalid device public key configured");
       return CKR_FUNCTION_FAILED;
     }
@@ -1148,7 +1149,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
 
   if (prefix == '@') { // Asymmetric authentication
 
-    uint8_t sk_oce[32], pk_oce[65], pk_sd[65];
+    uint8_t sk_oce[YH_EC_P256_PRIVKEY_LEN], pk_oce[YH_EC_P256_PUBKEY_LEN],
+      pk_sd[YH_EC_P256_PUBKEY_LEN];
     size_t pk_sd_len = sizeof(pk_sd);
     yrc = yh_util_derive_ec_p256_key(pPin, ulPinLen, sk_oce, sizeof(sk_oce),
                                      pk_oce, sizeof(pk_oce));
@@ -1166,7 +1168,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
       goto c_l_out;
     }
 
-    if (pk_sd_len != 65) {
+    if (pk_sd_len != YH_EC_P256_PUBKEY_LEN) {
       DBG_ERR("Invalid device public key");
       rv = CKR_FUNCTION_FAILED;
       goto c_l_out;
@@ -1176,7 +1178,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
 
     for (ListItem *item = g_ctx.device_pubkeys.head; item != NULL;
          item = item->next) {
-      if (!memcmp(item->data, pk_sd, 65)) {
+      if (!memcmp(item->data, pk_sd, YH_EC_P256_PUBKEY_LEN)) {
         hits++;
       }
     }
