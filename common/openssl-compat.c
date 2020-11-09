@@ -8,8 +8,7 @@
  */
 
 #include "openssl-compat.h"
-#if (OPENSSL_VERSION_NUMBER < 0x10100000L) ||                                  \
-  (OPENSSL_VERSION_NUMBER == 0x20000000L)
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L) || defined(LIBRESSL_VERSION_NUMBER)
 #include <string.h>
 
 char openssl_compat_used = 1;
