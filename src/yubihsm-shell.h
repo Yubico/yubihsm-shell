@@ -47,7 +47,7 @@ typedef struct {
   uint8_t **device_pubkey_list;
   char **connector_list;
   yh_connector *connector;
-  yh_session *sessions[YH_MAX_SESSIONS];
+  yh_session *sessions[256];
   ykyh_state *state;
   FILE *out;
   char *cacert;
