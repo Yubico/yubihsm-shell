@@ -124,9 +124,9 @@ int main(void) {
   yh_capabilities caps = {{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}};
   // The public key is imported without the uncompressed point marker (value
   // 0x04), so skip the first byte
-  yrc = yh_util_import_authentication_key_ext(session, &authkey, "EC Auth Key",
-                                              0xffff, &caps, &caps, pk_oce + 1,
-                                              sizeof(pk_oce) - 1);
+  yrc = yh_util_import_authentication_key(session, &authkey, "EC Auth Key",
+                                          0xffff, &caps, &caps, pk_oce + 1,
+                                          sizeof(pk_oce) - 1, NULL, 0);
   assert(yrc == YHR_SUCCESS);
 
   yrc = yh_util_close_session(session);
@@ -178,8 +178,8 @@ int main(void) {
                                      sizeof(pk_oce));
   assert(yrc == YHR_SUCCESS);
 
-  yrc = yh_util_change_authentication_key_ext(session, &authkey, pk_oce + 1,
-                                              sizeof(pk_oce) - 1);
+  yrc = yh_util_change_authentication_key(session, &authkey, pk_oce + 1,
+                                          sizeof(pk_oce) - 1, NULL, 0);
   assert(yrc == YHR_SUCCESS);
 
   yrc = yh_util_close_session(session);

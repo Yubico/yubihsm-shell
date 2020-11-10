@@ -1859,9 +1859,10 @@ int yh_com_put_authentication_asym(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
-  yrc = yh_util_import_authentication_key_ext(argv[0].e, &argv[1].w, argv[2].s,
-                                              argv[3].w, &argv[4].c, &argv[5].c,
-                                              pubkey + 1, sizeof(pubkey) - 1);
+  yrc =
+    yh_util_import_authentication_key(argv[0].e, &argv[1].w, argv[2].s,
+                                      argv[3].w, &argv[4].c, &argv[5].c,
+                                      pubkey + 1, sizeof(pubkey) - 1, NULL, 0);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to store asymmetric authkey: %s\n",
             yh_strerror(yrc));
@@ -2756,10 +2757,10 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
       yrc = yh_util_generate_ec_p256_key(sk_oce, sizeof(sk_oce), pk_oce,
                                          sizeof(pk_oce));
       if (yrc == YHR_SUCCESS) {
-        yrc =
-          yh_util_import_authentication_key_ext(argv[0].e, &id, label, 0xffff,
+        yrc = yh_util_import_authentication_key(argv[0].e, &id, label, 0xffff,
                                                 &capabilities, &capabilities,
-                                                pk_oce + 1, sizeof(pk_oce) - 1);
+                                                pk_oce + 1, sizeof(pk_oce) - 1,
+                                                NULL, 0);
         if (yrc == YHR_SUCCESS) {
           pk_sd_len = sizeof(pk_sd);
           yrc =
@@ -3311,8 +3312,8 @@ int yh_com_change_authentication_key_asym(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
-  yrc = yh_util_change_authentication_key_ext(argv[0].e, &argv[1].w, pubkey + 1,
-                                              sizeof(pubkey) - 1);
+  yrc = yh_util_change_authentication_key(argv[0].e, &argv[1].w, pubkey + 1,
+                                          sizeof(pubkey) - 1, NULL, 0);
 
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to change asymmetric authentication key: %s\n",
