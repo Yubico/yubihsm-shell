@@ -62,7 +62,7 @@ typedef enum {
 
 typedef struct {
   yh_object_descriptor objects[YH_MAX_ITEMS_COUNT];
-  uint16_t current_object;
+  size_t current_object;
   size_t n_objects;
   bool only_private;
 } find_info;
@@ -145,6 +145,7 @@ typedef struct {
 
 typedef struct {
   List slots;
+  List device_pubkeys;
   CK_CREATEMUTEX create_mutex;
   CK_DESTROYMUTEX destroy_mutex;
   CK_LOCKMUTEX lock_mutex;

@@ -147,6 +147,8 @@
 /// This is the overhead when doing aes-ccm wrapping: 1 byte identifier, 13
 /// bytes nonce and 16 bytes mac
 #define YH_CCM_WRAP_OVERHEAD (1 + 13 + 16)
+#define YH_EC_P256_PRIVKEY_LEN 32
+#define YH_EC_P256_PUBKEY_LEN 65
 
 #ifdef __cplusplus
 extern "C" {
@@ -253,6 +255,8 @@ typedef enum {
   ADD_COMMAND(YHC_GET_DEVICE_INFO, 0x06),
   /// Factory reset a device
   ADD_COMMAND(YHC_RESET_DEVICE, 0x08),
+  /// Get the device pubkey for asym auth
+  ADD_COMMAND(YHC_GET_DEVICE_PUBKEY, 0x0a),
   /// Close session
   ADD_COMMAND(YHC_CLOSE_SESSION, 0x40),
   /// Get storage information
@@ -482,6 +486,8 @@ typedef enum {
   YH_ALGO_EC_ED25519 = 46,
   /// ecp224
   YH_ALGO_EC_P224 = 47,
+  /// ec-p256-yubico-authentication
+  YH_ALGO_EC_P256_YUBICO_AUTHENTICATION = 49,
 } yh_algorithm;
 
 /**
@@ -637,6 +643,7 @@ static const struct {
   {"eck256", YH_ALGO_EC_K256},
   {"ecp224", YH_ALGO_EC_P224},
   {"ecp256", YH_ALGO_EC_P256},
+  {"ecp256-yubico-authentication", YH_ALGO_EC_P256_YUBICO_AUTHENTICATION},
   {"ecp384", YH_ALGO_EC_P384},
   {"ecp521", YH_ALGO_EC_P521},
   {"ed25519", YH_ALGO_EC_ED25519},
@@ -975,6 +982,96 @@ yh_rc yh_finish_create_session_ext(yh_connector *connector, yh_session *session,
                                    size_t key_srmac_len,
                                    uint8_t *card_cryptogram,
                                    size_t card_cryptogram_len);
+
+/**
+ * Utility function that gets the value and algorithm of the device public key
+ *
+ * @param connector Connector to the device
+ * @param device_pubkey Value of the public key
+ * @param device_pubkey_len Length of the public key in bytes
+ * @param algorithm Algorithm of the key.
+ *
+ * @return #YHR_SUCCESS if successful.
+ *         #YHR_INVALID_PARAMETERS if input parameters are NULL.
+ *         #YHR_BUFFER_TOO_SMALL if the actual key length was bigger than
+ *device_pubkey_len. See #yh_rc for other possible errors
+ **/
+yh_rc yh_util_get_device_pubkey(yh_connector *connector, uint8_t *device_pubkey,
+                                size_t *device_pubkey_len,
+                                yh_algorithm *algorithm);
+
+/**
+ * Utility function that derives an ec-p256 key pair from a password using the
+ *following algorithm
+ *
+ * 1. Apply pkcs5_pbkdf2_hmac-sha256 on the password to derive a pseudo-random
+ *private ec-p256 key
+ * 2. Check that the derived key is a valid ec-p256 private key
+ * 3. If not valid append a byte with the value 1 (2, 3, 4 etc for additional
+ *failures) to the password and go to step 1
+ * 4. Calculate the corresponding public key from the private key and the
+ *ec-p256 curve paramaters
+ *
+ * @param password The password bytes
+ * @param password_len The password length
+ * @param privkey Value of the private key
+ * @param privkey_len Length of the private key in bytes
+ * @param pubkey Value of the public key
+ * @param pubkey_len Length of the public key in bytes
+ *
+ * @return #YHR_SUCCESS if successful.
+ *         #YHR_INVALID_PARAMETERS if input parameters are NULL. See #yh_rc for
+ *other possible errors
+ **/
+yh_rc yh_util_derive_ec_p256_key(const uint8_t *password, size_t password_len,
+                                 uint8_t *privkey, size_t privkey_len,
+                                 uint8_t *pubkey, size_t pubkey_len);
+
+/**
+ * Utility function that generates a random ec-p256 key pair
+ *
+ * @param privkey Value of the private key
+ * @param privkey_len Length of the private key in bytes
+ * @param pubkey Value of the public key
+ * @param pubkey_len Length of the public key in bytes
+ *
+ * @return #YHR_SUCCESS if successful.
+ *         #YHR_INVALID_PARAMETERS if input parameters are NULL. See #yh_rc for
+ *other possible errors
+ **/
+yh_rc yh_util_generate_ec_p256_key(uint8_t *privkey, size_t privkey_len,
+                                   uint8_t *pubkey, size_t pubkey_len);
+
+/**
+ * Create a session that uses the specified asymmetric key to derive
+ *session-specific keys. The session is immediately usable,
+ *yh_authenticate_session should not be used.
+ *
+ * @param connector Connector to the device
+ * @param authkey_id Object ID of the Asymmetric Authentication Key used to
+ *authenticate the session
+ * @param privkey Private key of the client, used to derive the session
+ *encryption key and authenticate the client
+ * @param privkey_len Length of the private key.
+ * @param device_pubkey Public key of the device, used to derive the session
+ *encryption key and authenticate the device
+ * @param device_pubkey_len Length of the device public key.
+ * @param session created session
+ *
+ * @return #YHR_SUCCESS if successful.
+ *         #YHR_INVALID_PARAMETERS if input parameters are NULL or incorrect.
+ *         See #yh_rc for other possible errors
+ *
+ * @see <a
+ *href="https://developers.yubico.com/YubiHSM2/Concepts/Session.html">Session</a>,
+ * <a
+ *href="https://developers.yubico.com/YubiHSM2/Concepts/Object.html">Authentication
+ *Key</a>
+ **/
+yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
+                             const uint8_t *privkey, size_t privkey_len,
+                             const uint8_t *device_pubkey,
+                             size_t device_pubkey_len, yh_session **session);
 
 /**
  * Free data associated with the session

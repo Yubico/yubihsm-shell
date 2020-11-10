@@ -58,7 +58,7 @@ int main(void) {
   assert(yrc == YHR_SUCCESS);
 
   yrc = yh_create_session_derived(connector, authkey, password1,
-                                  sizeof(password1), false, &session);
+                                  sizeof(password1) - 1, false, &session);
   assert(yrc == YHR_SUCCESS);
 
   yrc = yh_authenticate_session(session);
@@ -98,7 +98,7 @@ int main(void) {
   printf("Closed session %02d\n", session_id);
 
   yrc = yh_create_session_derived(connector, key_id, password2,
-                                  sizeof(password2), false, &session);
+                                  sizeof(password2) - 1, false, &session);
   assert(yrc == YHR_SUCCESS);
 
   yrc = yh_authenticate_session(session);

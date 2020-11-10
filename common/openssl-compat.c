@@ -8,7 +8,13 @@
  */
 
 #include "openssl-compat.h"
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+
+extern int make_iso_compilers_happy;
+
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L) || defined(LIBRESSL_VERSION_NUMBER)
+#include <string.h>
+
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L)
 
 int RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d) {
   /* If the fields n and e in r are NULL, the corresponding input
@@ -96,6 +102,20 @@ ASN1_OBJECT *X509_EXTENSION_get_object(X509_EXTENSION *ex) {
 }
 ASN1_OCTET_STRING *X509_EXTENSION_get_data(X509_EXTENSION *ex) {
   return ex->value;
+}
+
+#endif /* OPENSSL_VERSION_NUMBER */
+
+int BN_bn2binpad(const BIGNUM *a, unsigned char *to, int tolen) {
+  int n = BN_num_bytes(a);
+  if (n < 0 || n > tolen) {
+    return -1;
+  }
+  memset(to, 0, tolen - n);
+  if (BN_bn2bin(a, to + tolen - n) < 0) {
+    return -1;
+  }
+  return tolen;
 }
 
 #endif /* OPENSSL_VERSION_NUMBER */

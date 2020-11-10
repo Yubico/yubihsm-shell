@@ -37,6 +37,7 @@ option "action" a "Action to perform" values="benchmark",
                                              "get-storage-info",
                                              "get-template",
                                              "get-wrapped",
+                                             "get-device-pubkey",
                                              "list-objects",
                                              "put-asymmetric-key",
                                              "put-authentication-key",
@@ -89,3 +90,5 @@ option "connector" C "List of connectors to use" string optional multiple
 option "cacert" - "HTTPS cacert for connector" string optional
 option "proxy" - "Proxy server to use for connector" string optional
 option "verbose" v "Print more information" int optional default="0"
+
+option "device-pubkey" - "List of device public keys allowed for asymmetric authentication" string optional multiple

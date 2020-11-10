@@ -30,22 +30,16 @@ set (
   import_rsa.c
   ../common/hash.c
   ../common/util.c
+  ../common/openssl-compat.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_IMPORT_RSA ${SOURCE_IMPORT_RSA}
-    ../common/openssl-compat.c)
-endif()
 
 set (
   SOURCE_GENERATE_EC
   generate_ec.c
   ../common/hash.c
   ../common/util.c
+  ../common/openssl-compat.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_GENERATE_EC ${SOURCE_GENERATE_EC}
-    ../common/openssl-compat.c)
-endif()
 
 set (
   SOURCEINFO
@@ -75,11 +69,8 @@ set (
 set (
   SOURCE_ATTEST
   attest.c
+  ../common/openssl-compat.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_ATTEST ${SOURCE_ATTEST}
-    ../common/openssl-compat.c)
-endif()
 
 set (
   SOURCE_YUBICO_OTP
@@ -92,62 +83,53 @@ set (
   )
 
 set (
+  SOURCE_ASYM_AUTH
+  asym_auth.c
+  ../common/openssl-compat.c
+  )
+
+set (
   SOURCE_IMPORT_EC
   import_ec.c
   ../common/hash.c
   ../common/util.c
+  ../common/openssl-compat.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_IMPORT_EC ${SOURCE_IMPORT_EC}
-    ../common/openssl-compat.c)
-endif()
 
 set (
   SOURCE_GENERATE_RSA
   generate_rsa.c
+  ../common/openssl-compat.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_GENERATE_RSA ${SOURCE_GENERATE_RSA}
-    ../common/openssl-compat.c)
-endif()
-
 
 set (
   SOURCE_LOGS
   logs.c
   ../common/hash.c
   ../common/util.c
+  ../common/openssl-compat.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_LOGS ${SOURCE_LOGS}
-    ../common/openssl-compat.c)
-endif()
 
 set (
   SOURCE_SSH
   ssh.c
   ../common/hash.c
   ../common/util.c
+  ../common/openssl-compat.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_SSH ${SOURCE_SSH}
-    ../common/openssl-compat.c)
-endif()
 
 set (
   SOURCE_DECRYPT_RSA
   decrypt_rsa.c
   ../common/hash.c
   ../common/util.c
+  ../common/openssl-compat.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_DECRYPT_RSA ${SOURCE_DECRYPT_RSA}
-    ../common/openssl-compat.c)
-endif()
 
 set (
   SOURCE_P11_GENERATE_RSA
   p11_generate_rsa.c
+  ../common/openssl-compat.c
   )
 
 set (
@@ -155,22 +137,16 @@ set (
   decrypt_ec.c
   ../common/hash.c
   ../common/util.c
+  ../common/openssl-compat.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_DECRYPT_EC ${SOURCE_DECRYPT_EC}
-    ../common/openssl-compat.c)
-endif()
 
 set (
   SOURCE_IMPORT_ED
   import_ed.c
   ../common/hash.c
   ../common/util.c
+  ../common/openssl-compat.c
   )
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE_IMPORT_ED ${SOURCE_IMPORT_ED}
-    ../common/openssl-compat.c)
-endif()
 
 set (
   SOURCE_CHANGE_AUTHKEY
@@ -242,6 +218,7 @@ add_executable (import_authkey ${SOURCE_IMPORT_AUTHKEY})
 
 target_link_libraries (
   import_authkey
+  ${LIBCRYPTO_LDFLAGS}
   yubihsm
   )
 
@@ -249,6 +226,7 @@ add_executable (generate_hmac ${SOURCE_GENERATE_HMAC})
 
 target_link_libraries (
   generate_hmac
+  ${LIBCRYPTO_LDFLAGS}
   yubihsm
   )
 
@@ -256,6 +234,7 @@ add_executable (wrap ${SOURCE_WRAP})
 
 target_link_libraries (
   wrap
+  ${LIBCRYPTO_LDFLAGS}
   yubihsm
   )
 
@@ -263,6 +242,7 @@ add_executable (wrap_data ${SOURCE_WRAP_DATA})
 
 target_link_libraries (
   wrap_data
+  ${LIBCRYPTO_LDFLAGS}
   yubihsm
   )
 
@@ -286,6 +266,15 @@ add_executable (echo ${SOURCE_ECHO})
 
 target_link_libraries (
   echo
+  ${LIBCRYPTO_LDFLAGS}
+  yubihsm
+  )
+
+add_executable (asym_auth ${SOURCE_ASYM_AUTH})
+
+target_link_libraries (
+  asym_auth
+  ${LIBCRYPTO_LDFLAGS}
   yubihsm
   )
 
@@ -349,6 +338,7 @@ add_executable (change_authkey ${SOURCE_CHANGE_AUTHKEY})
 
 target_link_libraries (
   change_authkey
+  ${LIBCRYPTO_LDFLAGS}
   yubihsm
   )
 
@@ -357,6 +347,7 @@ if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 
   target_link_libraries (
     p11_generate_rsa
+    ${LIBCRYPTO_LDFLAGS}
     dl
     )
 endif()

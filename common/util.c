@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <ctype.h>
 #include <errno.h>
 #include <string.h>
 #include <limits.h>
@@ -121,7 +122,7 @@ bool read_private_key(uint8_t *buf, size_t len, yh_algorithm *algo,
     *algo = YH_ALGO_EC_ED25519;
 
     if (internal_repr == true) {
-#if OPENSSL_VERSION_NUMBER < 0x10101000L
+#if (OPENSSL_VERSION_NUMBER < 0x10101000L) || defined(LIBRESSL_VERSION_NUMBER)
       return false;
 #else
       EVP_PKEY *pkey =
@@ -370,6 +371,7 @@ void format_digest(uint8_t *digest, char *str, uint16_t len) {
 int algo2nid(yh_algorithm algo) {
   switch (algo) {
     case YH_ALGO_EC_P256:
+    case YH_ALGO_EC_P256_YUBICO_AUTHENTICATION:
       return NID_X9_62_prime256v1;
 
     case YH_ALGO_EC_P384:
@@ -468,6 +470,7 @@ bool algo2type(yh_algorithm algorithm, yh_object_type *type) {
       break;
 
     case YH_ALGO_AES128_YUBICO_AUTHENTICATION:
+    case YH_ALGO_EC_P256_YUBICO_AUTHENTICATION:
       *type = YH_AUTHENTICATION_KEY;
       break;
 
@@ -741,4 +744,30 @@ bool split_hmac_key(yh_algorithm algorithm, uint8_t *in, size_t in_len,
   *out_len = 2 * block_size;
 
   return true;
+}
+
+size_t parse_hex(const char *hex, size_t hex_len, uint8_t *parsed) {
+
+  size_t j = 0;
+
+  for (size_t i = 0; i < hex_len; i += 2) {
+    if (isxdigit(hex[i]) == 0 || isxdigit(hex[i + 1]) == 0) {
+      break;
+    }
+
+    if (isdigit(hex[i])) {
+      parsed[j] = (hex[i] - '0') << 4;
+    } else {
+      parsed[j] = (tolower(hex[i]) - 'a' + 10) << 4;
+    }
+
+    if (isdigit(hex[i + 1])) {
+      parsed[j] |= (hex[i + 1] - '0');
+    } else {
+      parsed[j] |= (tolower(hex[i + 1]) - 'a' + 10);
+    }
+
+    j++;
+  }
+  return j;
 }

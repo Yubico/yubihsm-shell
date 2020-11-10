@@ -30,6 +30,7 @@
 #include "util_pkcs11.h"
 #include "yubihsm_pkcs11.h"
 #include "../common/insecure_memzero.h"
+#include "../common/util.h"
 
 #ifdef __WIN32
 #include <winsock.h>
@@ -148,6 +149,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
       g_ctx.lock_mutex = init_args->LockMutex;
       g_ctx.unlock_mutex = init_args->UnlockMutex;
     } else {
+      DBG_ERR("Invalid locking specified");
       return CKR_ARGUMENTS_BAD;
     }
   }
@@ -196,16 +198,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     char *save = NULL;
     char *part;
     while ((part = strtok_r(str, " \r\n\t", &save))) {
-      char *new_ptr;
       str = NULL;
-      if (args_parsed == NULL) {
-        new_ptr = calloc(strlen(part) + 4, sizeof(char));
-      } else {
-        new_ptr = realloc(args_parsed, strlen(args_parsed) + strlen(part) + 4);
-      }
-      if (new_ptr) {
-        args_parsed = new_ptr;
-        sprintf(args_parsed + strlen(args_parsed), "--%s ", part);
+      size_t len = args_parsed ? strlen(args_parsed) : 0;
+      char *new_args = realloc(args_parsed, len + strlen(part) + 4);
+      if (new_args) {
+        args_parsed = new_args;
+        sprintf(args_parsed + len, "--%s ", part);
       } else {
         DBG_ERR("Failed allocating memory for args");
         goto c_i_failure;
@@ -299,10 +297,24 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     goto c_i_failure;
   }
 
+  list_create(&g_ctx.device_pubkeys, YH_EC_P256_PUBKEY_LEN, NULL);
+  for (unsigned int i = 0; i < args_info.device_pubkey_given; i++) {
+    uint8_t pk[80];
+    if (parse_hex(args_info.device_pubkey_arg[i], 2 * sizeof(pk), pk) !=
+        YH_EC_P256_PUBKEY_LEN) {
+      DBG_ERR("Invalid device public key configured");
+      return CKR_FUNCTION_FAILED;
+    }
+    list_append(&g_ctx.device_pubkeys, pk);
+  }
+
   cmdline_parser_free(&args_info);
   free(connector_list);
 
   DBG_INFO("Found %zu usable connector(s)", n_connectors);
+
+  DBG_INFO("Found %d configured device public key(s)",
+           g_ctx.device_pubkeys.length);
 
   g_yh_initialized = true;
 
@@ -316,6 +328,7 @@ c_i_failure:
 
   list_iterate(&g_ctx.slots, destroy_slot_mutex);
   list_destroy(&g_ctx.slots);
+  list_destroy(&g_ctx.device_pubkeys);
 
   if (connector_list) {
     for (unsigned int i = 0; i < args_info.connector_given; i++) {
@@ -350,6 +363,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pReserved) {
 
   list_iterate(&g_ctx.slots, destroy_slot_mutex);
   list_destroy(&g_ctx.slots);
+  list_destroy(&g_ctx.device_pubkeys);
 
   if (g_ctx.mutex != NULL) {
     g_ctx.destroy_mutex(g_ctx.mutex);
@@ -1097,6 +1111,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
     return CKR_USER_TYPE_INVALID;
   }
 
+  CK_UTF8CHAR prefix = *pPin;
+  if (prefix == '@') {
+    pPin++;
+    ulPinLen--;
+  }
+
   if (ulPinLen < YUBIHSM_PKCS11_MIN_PIN_LEN ||
       ulPinLen > YUBIHSM_PKCS11_MAX_PIN_LEN) {
     DBG_ERR("Wrong PIN length, must be [%d, %d] got %lu",
@@ -1106,7 +1126,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
 
   uint16_t key_id;
 
-  if (parse_hex(pPin, 4, (uint8_t *) &key_id) == false) {
+  if (parse_hex((const char *) pPin, 4, (uint8_t *) &key_id) !=
+      sizeof(key_id)) {
     DBG_ERR(
       "PIN contains invalid characters, first four digits must be [0-9A-Fa-f]");
     return CKR_PIN_INCORRECT;
@@ -1125,28 +1146,85 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
   }
 
   yh_rc yrc;
-  yrc =
-    yh_create_session_derived(session->slot->connector, key_id, pPin, ulPinLen,
-                              true, &session->slot->device_session);
-  if (yrc != YHR_SUCCESS) {
-    DBG_ERR("Failed to create session: %s", yh_strerror(yrc));
-    if (yrc == YHR_CRYPTOGRAM_MISMATCH) {
-      rv = CKR_PIN_INCORRECT;
-    } else {
-      rv = CKR_FUNCTION_FAILED;
-    }
-    goto c_l_out;
-  }
 
-  yrc = yh_authenticate_session(session->slot->device_session);
-  if (yrc != YHR_SUCCESS) {
-    DBG_ERR("Failed to authenticate session: %s", yh_strerror(yrc));
-    if (yrc == YHR_CRYPTOGRAM_MISMATCH) {
-      rv = CKR_PIN_INCORRECT;
-    } else {
+  if (prefix == '@') { // Asymmetric authentication
+
+    uint8_t sk_oce[YH_EC_P256_PRIVKEY_LEN], pk_oce[YH_EC_P256_PUBKEY_LEN],
+      pk_sd[YH_EC_P256_PUBKEY_LEN];
+    size_t pk_sd_len = sizeof(pk_sd);
+    yrc = yh_util_derive_ec_p256_key(pPin, ulPinLen, sk_oce, sizeof(sk_oce),
+                                     pk_oce, sizeof(pk_oce));
+    if (yrc != YHR_SUCCESS) {
+      DBG_ERR("Failed to derive asymmetric key: %s", yh_strerror(yrc));
       rv = CKR_FUNCTION_FAILED;
+      goto c_l_out;
     }
-    goto c_l_out;
+
+    yrc = yh_util_get_device_pubkey(session->slot->connector, pk_sd, &pk_sd_len,
+                                    NULL);
+    if (yrc != YHR_SUCCESS) {
+      DBG_ERR("Failed to get device public key: %s", yh_strerror(yrc));
+      rv = CKR_FUNCTION_FAILED;
+      goto c_l_out;
+    }
+
+    if (pk_sd_len != YH_EC_P256_PUBKEY_LEN) {
+      DBG_ERR("Invalid device public key");
+      rv = CKR_FUNCTION_FAILED;
+      goto c_l_out;
+    }
+
+    int hits = 0;
+
+    for (ListItem *item = g_ctx.device_pubkeys.head; item != NULL;
+         item = item->next) {
+      if (!memcmp(item->data, pk_sd, YH_EC_P256_PUBKEY_LEN)) {
+        hits++;
+      }
+    }
+
+    if (g_ctx.device_pubkeys.length > 0 && hits == 0) {
+      DBG_ERR("Failed to validate device public key");
+      rv = CKR_FUNCTION_FAILED;
+      goto c_l_out;
+    }
+
+    yrc = yh_create_session_asym(session->slot->connector, key_id, sk_oce,
+                                 sizeof(sk_oce), pk_sd, pk_sd_len,
+                                 &session->slot->device_session);
+    if (yrc != YHR_SUCCESS) {
+      DBG_ERR("Failed to create asymmetric session: %s", yh_strerror(yrc));
+      if (yrc == YHR_SESSION_AUTHENTICATION_FAILED) {
+        rv = CKR_PIN_INCORRECT;
+      } else {
+        rv = CKR_FUNCTION_FAILED;
+      }
+      goto c_l_out;
+    }
+  } else { // Symmetric authentication
+    yrc =
+      yh_create_session_derived(session->slot->connector, key_id, pPin,
+                                ulPinLen, true, &session->slot->device_session);
+    if (yrc != YHR_SUCCESS) {
+      DBG_ERR("Failed to create session: %s", yh_strerror(yrc));
+      if (yrc == YHR_CRYPTOGRAM_MISMATCH) {
+        rv = CKR_PIN_INCORRECT;
+      } else {
+        rv = CKR_FUNCTION_FAILED;
+      }
+      goto c_l_out;
+    }
+
+    yrc = yh_authenticate_session(session->slot->device_session);
+    if (yrc != YHR_SUCCESS) {
+      DBG_ERR("Failed to authenticate session: %s", yh_strerror(yrc));
+      if (yrc == YHR_CRYPTOGRAM_MISMATCH) {
+        rv = CKR_PIN_INCORRECT;
+      } else {
+        rv = CKR_FUNCTION_FAILED;
+      }
+      goto c_l_out;
+    }
   }
 
   list_iterate(&session->slot->pkcs11_sessions, login_sessions);
@@ -2266,7 +2344,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjects)
       DBG_INFO("stepping back");
     }
 
-    DBG_INFO("Returning object %d as %08x",
+    DBG_INFO("Returning object %zu as %08x",
              session->operation.op.find.current_object, id);
   }
 
@@ -5018,7 +5096,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
   ecdh_key.id = ECDH_KEY_TYPE << 16 | seq;
   ecdh_key.len = out_len;
   memcpy(ecdh_key.label, label_buf, label_len);
-  list_append(&session->ecdh_session_keys, (void *) &ecdh_key);
+  list_append(&session->ecdh_session_keys, &ecdh_key);
 
   insecure_memzero(ecdh_key.ecdh_key, out_len);
 

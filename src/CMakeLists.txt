@@ -24,12 +24,8 @@ set (
   ../common/util.c
   ../common/hash.c
   ../common/parsing.c
+  ../common/openssl-compat.c
   )
-
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE ${SOURCE}
-    ../common/openssl-compat.c)
-endif()
 
 if(WIN32)
   set(SOURCE ${SOURCE} cmdline.c)

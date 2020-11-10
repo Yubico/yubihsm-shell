@@ -33,6 +33,7 @@
 #include "../common/rand.h"
 #include "../common/pkcs5.h"
 #include "../common/hash.h"
+#include "../common/ecdh.h"
 
 #include "../aes_cmac/aes_cmac.h"
 
@@ -125,12 +126,12 @@ static yh_rc send_authenticated_msg(yh_session *session, Msg *msg,
   return send_msg(session->parent, msg, response, session->s.identifier);
 }
 
-static void increment_ctr(uint8_t ctr[SCP_PRF_LEN]) {
+static void increment_ctr(uint8_t *ctr, uint16_t len) {
 
-  if (++ctr[SCP_PRF_LEN - 1] == 0) {
-    uint8_t i = SCP_PRF_LEN - 2;
-    while (!++ctr[i--] && i > 0)
-      ;
+  while (len > 0) {
+    if (++ctr[--len]) {
+      break;
+    }
   }
 }
 
@@ -413,7 +414,7 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
 
   DBG_CRYPTO(decrypted_data, out_len, "Plaintext (%3d Bytes): ", out_len);
 
-  increment_ctr(session->s.ctr);
+  increment_ctr(session->s.ctr, SCP_PRF_LEN);
 
   out_len -= 3;
   if (out_len > *response_len) {
@@ -592,21 +593,15 @@ static yh_rc compute_host_cryptogram(yh_session *session,
                             host_cryptogram);
 }
 
-static yh_rc derive_keys(const uint8_t *password, size_t password_len,
-                         uint8_t *key_enc, uint8_t *key_mac) {
-
-  uint8_t key[SCP_KEY_LEN * 2];
+static yh_rc derive_key(const uint8_t *password, size_t password_len,
+                        uint8_t *key, size_t key_len) {
 
   if (!pkcs5_pbkdf2_hmac(password, password_len,
                          (const uint8_t *) YH_DEFAULT_SALT,
                          strlen(YH_DEFAULT_SALT), YH_DEFAULT_ITERS, _SHA256,
-                         key, sizeof(key))) {
+                         key, key_len)) {
     return YHR_GENERIC_ERROR;
   }
-
-  memcpy(key_enc, key, SCP_KEY_LEN);
-  memcpy(key_mac, key + SCP_KEY_LEN, SCP_KEY_LEN);
-  insecure_memzero(&key, sizeof(key));
 
   return YHR_SUCCESS;
 }
@@ -620,16 +615,13 @@ yh_rc yh_create_session_derived(yh_connector *connector, uint16_t authkey_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  uint8_t key_enc[SCP_KEY_LEN];
-  uint8_t key_mac[SCP_KEY_LEN];
-
-  yh_rc yrc = derive_keys(password, password_len, key_enc, key_mac);
+  uint8_t key[2 * SCP_KEY_LEN];
+  yh_rc yrc = derive_key(password, password_len, key, sizeof(key));
 
   if (yrc == YHR_SUCCESS) {
-    yrc = yh_create_session(connector, authkey_id, key_enc, SCP_KEY_LEN,
-                            key_mac, SCP_KEY_LEN, recreate, session);
-    insecure_memzero(key_enc, sizeof(key_enc));
-    insecure_memzero(key_mac, sizeof(key_mac));
+    yrc = yh_create_session(connector, authkey_id, key, SCP_KEY_LEN,
+                            key + SCP_KEY_LEN, SCP_KEY_LEN, recreate, session);
+    insecure_memzero(key, sizeof(key));
   }
   return yrc;
 }
@@ -719,11 +711,6 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
 
   // Save sid
   new_session->s.sid = (*ptr++);
-  if (new_session->s.sid > YH_MAX_SESSIONS - 1) {
-    DBG_ERR("Received invalid session ID %d", new_session->s.sid);
-    yrc = YHR_GENERIC_ERROR;
-    goto cs_failure;
-  }
 
   // Save card challenge
   memcpy(new_session->context + SCP_HOST_CHAL_LEN, ptr, SCP_CARD_CHAL_LEN);
@@ -775,9 +762,12 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
   return YHR_SUCCESS;
 
 cs_failure:
-  insecure_memzero(new_session, sizeof(yh_session));
-  free(new_session);
-  (new_session) = NULL;
+  // Only clear and free if we didn't reuse the session
+  if (new_session != *session) {
+    insecure_memzero(new_session, sizeof(yh_session));
+    free(new_session);
+    new_session = NULL;
+  }
 
   DBG_ERR("%s", yh_strerror(yrc));
 
@@ -810,10 +800,14 @@ yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
 
   /**********/
   // TODO(adma): replace with func
-  new_session = calloc(1, sizeof(yh_session));
-  if (new_session == NULL) {
-    DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
-    return YHR_MEMORY_ERROR;
+  if (!*session) {
+    new_session = calloc(1, sizeof(yh_session));
+    if (new_session == NULL) {
+      DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
+      return YHR_MEMORY_ERROR;
+    }
+  } else {
+    new_session = *session;
   }
 
   // Send CREATE SESSION command
@@ -882,8 +876,12 @@ yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
   return YHR_SUCCESS;
 
 bcse_failure:
-  free(new_session);
-  (new_session) = NULL;
+  // Only clear and free if we didn't reuse the session
+  if (new_session != *session) {
+    insecure_memzero(new_session, sizeof(yh_session));
+    free(new_session);
+    new_session = NULL;
+  }
 
   DBG_ERR("%s", yh_strerror(yrc));
 
@@ -931,6 +929,302 @@ yh_rc yh_finish_create_session_ext(
   DBG_INFO("Card cryptogram successfully verified");
 
   return YHR_SUCCESS;
+}
+
+static const uint8_t sharedInfo[] =
+  {0x3c, 0x88, 0x10}; // sharedInfo as per SCP11 spec, Section 6.5.2.3
+
+static bool x9_63_sha256_kdf(const uint8_t *shsee, size_t shsee_len,
+                             const uint8_t *shsss, size_t shsss_len,
+                             const uint8_t *shared, size_t shared_len,
+                             uint8_t *dst, size_t dst_len) {
+  uint8_t *end, cnt[4] = {0};
+  size_t hash_len;
+  hash_ctx hashctx = NULL;
+  bool ok = false;
+  if (!hash_create(&hashctx, _SHA256)) {
+    return false;
+  }
+  for (end = dst + dst_len; dst < end; dst += hash_len) {
+    increment_ctr(cnt, sizeof(cnt));
+    if (!hash_init(hashctx)) {
+      goto err_out;
+    }
+    if (!hash_update(hashctx, shsee, shsee_len)) {
+      goto err_out;
+    }
+    if (!hash_update(hashctx, shsss, shsss_len)) {
+      goto err_out;
+    }
+    if (!hash_update(hashctx, cnt, sizeof(cnt))) {
+      goto err_out;
+    }
+    if (shared) {
+      if (!hash_update(hashctx, shared, shared_len)) {
+        goto err_out;
+      }
+    }
+    if (!hash_final(hashctx, dst, &hash_len)) {
+      goto err_out;
+    }
+  }
+  ok = true;
+err_out:
+  hash_destroy(hashctx);
+  return ok;
+}
+
+yh_rc yh_util_get_device_pubkey(yh_connector *connector, uint8_t *device_pubkey,
+                                size_t *device_pubkey_len,
+                                yh_algorithm *algorithm) {
+  yh_cmd response_cmd;
+  yh_rc yrc =
+    yh_send_plain_msg(connector, YHC_GET_DEVICE_PUBKEY, NULL, 0, &response_cmd,
+                      device_pubkey, device_pubkey_len);
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("Failed to send GET DEVICE PUBKEY command: %s", yh_strerror(yrc));
+    return yrc;
+  }
+
+  // Parse response
+  if (response_cmd == YHC_ERROR) {
+    yrc = translate_device_error(device_pubkey[0]);
+    DBG_ERR("Device error %s (%d)", yh_strerror(yrc), device_pubkey[0]);
+    return yrc;
+  }
+
+  // Return the algorithm of the key if requested
+  if (algorithm) {
+    *algorithm = device_pubkey[0];
+  }
+
+  device_pubkey[0] = 0x04;
+  return YHR_SUCCESS;
+}
+
+yh_rc yh_util_derive_ec_p256_key(const uint8_t *password, size_t password_len,
+                                 uint8_t *privkey, size_t privkey_len,
+                                 uint8_t *pubkey, size_t pubkey_len) {
+
+  if (password == NULL || privkey == NULL || pubkey == NULL) {
+    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  int curve = ecdh_curve_p256();
+  if (!curve) {
+    DBG_ERR("%s: Platform support for ec-p256 is missing",
+            yh_strerror(YHR_GENERIC_ERROR));
+    return YHR_GENERIC_ERROR;
+  }
+
+  uint8_t *pwd = calloc(1, password_len + 1);
+  if (pwd == NULL) {
+    DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
+    return YHR_MEMORY_ERROR;
+  }
+  memcpy(pwd, password, password_len);
+
+  do {
+    DBG_INFO("Deriving key with perturbation %u", pwd[password_len]);
+    // We rely on the fact that a trailing zero doesn't change the derived key
+    yh_rc yrc = derive_key(pwd, password_len + 1, privkey, privkey_len);
+    if (yrc != YHR_SUCCESS) {
+      insecure_memzero(pwd, password_len + 1);
+      free(pwd);
+      DBG_ERR("%s", yh_strerror(yrc));
+      return yrc;
+    }
+    pwd[password_len]++;
+  } while (!ecdh_calculate_public_key(curve, privkey, privkey_len, pubkey,
+                                      pubkey_len));
+
+  insecure_memzero(pwd, password_len + 1);
+  free(pwd);
+
+  DBG_INT(pubkey, YH_EC_P256_PUBKEY_LEN, "Derived PubKey: ");
+
+  return YHR_SUCCESS;
+}
+
+yh_rc yh_util_generate_ec_p256_key(uint8_t *privkey, size_t privkey_len,
+                                   uint8_t *pubkey, size_t pubkey_len) {
+  if (privkey == NULL || pubkey == NULL) {
+    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
+  int curve = ecdh_curve_p256();
+  if (!curve) {
+    DBG_ERR("%s: Platform support for ec-p256 is missing",
+            yh_strerror(YHR_GENERIC_ERROR));
+    return YHR_GENERIC_ERROR;
+  }
+  if (!ecdh_generate_keypair(curve, privkey, privkey_len, pubkey, pubkey_len)) {
+    DBG_ERR("Failed to generate ecp256 key %s", yh_strerror(YHR_GENERIC_ERROR));
+    return YHR_GENERIC_ERROR;
+  }
+  return YHR_SUCCESS;
+}
+
+yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
+                             const uint8_t *privkey, size_t privkey_len,
+                             const uint8_t *device_pubkey,
+                             size_t device_pubkey_len, yh_session **session) {
+
+  if (connector == NULL || privkey == NULL || device_pubkey == NULL ||
+      session == NULL) {
+    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  DBG_INT(device_pubkey, device_pubkey_len, "PK-SD: ");
+
+  int curve = ecdh_curve_p256();
+  if (!curve) {
+    DBG_ERR("%s: Platform support for ec-p256 is missing",
+            yh_strerror(YHR_GENERIC_ERROR));
+    return YHR_GENERIC_ERROR;
+  }
+
+  yh_session *new_session;
+  yh_rc rc = YHR_SUCCESS;
+  if (!*session) {
+    new_session = calloc(1, sizeof(yh_session));
+    if (new_session == NULL) {
+      DBG_ERR("%s", yh_strerror(YHR_MEMORY_ERROR));
+      return YHR_MEMORY_ERROR;
+    }
+  } else {
+    new_session = *session;
+  }
+
+  uint8_t pk_oce[YH_EC_P256_PUBKEY_LEN];
+
+  if (!ecdh_calculate_public_key(curve, privkey, privkey_len, pk_oce,
+                                 sizeof(pk_oce))) {
+    DBG_ERR("ecdh_calculate_public_key(privkey) %s",
+            yh_strerror(YHR_INVALID_PARAMETERS));
+    rc = YHR_INVALID_PARAMETERS;
+    goto err;
+  }
+
+  DBG_INT(pk_oce, sizeof(pk_oce), "PK-OCE: ");
+
+  uint8_t esk_oce[YH_EC_P256_PRIVKEY_LEN];
+  uint8_t epk_oce[YH_EC_P256_PUBKEY_LEN];
+
+  if (!ecdh_generate_keypair(curve, esk_oce, sizeof(esk_oce), epk_oce,
+                             sizeof(epk_oce))) {
+    DBG_ERR("ecdh_generate_keypair %s", yh_strerror(YHR_INVALID_PARAMETERS));
+    rc = YHR_INVALID_PARAMETERS;
+    goto err;
+  }
+
+  DBG_INT(epk_oce, sizeof(epk_oce), "EPK-OCE: ");
+
+  uint8_t identifier[8];
+  if (!rand_generate(identifier, sizeof(identifier))) {
+    DBG_ERR("Failed getting randomness");
+    rc = YHR_GENERIC_ERROR;
+    goto err;
+  }
+  snprintf(new_session->s.identifier, 17, "%02x%02x%02x%02x%02x%02x%02x%02x",
+           identifier[0], identifier[1], identifier[2], identifier[3],
+           identifier[4], identifier[5], identifier[6], identifier[7]);
+
+  Msg msg;
+  Msg response_msg;
+  uint16_t authkey_id_n = htons(authkey_id);
+
+  // Send CREATE SESSION command
+  msg.st.cmd = YHC_CREATE_SESSION;
+  msg.st.len = sizeof(authkey_id_n) + sizeof(epk_oce);
+
+  memcpy(msg.st.data, &authkey_id_n, sizeof(authkey_id_n));
+  memcpy(msg.st.data + sizeof(authkey_id_n), epk_oce, sizeof(epk_oce));
+
+  rc = send_msg(connector, &msg, &response_msg, new_session->s.identifier);
+  if (rc != YHR_SUCCESS) {
+    goto err;
+  }
+
+  // Parse response
+  if (response_msg.st.cmd != YHC_CREATE_SESSION_R) {
+    rc = translate_device_error(response_msg.st.data[0]);
+    DBG_ERR("Device error %s (%d)", yh_strerror(rc), response_msg.st.data[0]);
+    goto err;
+  }
+
+  DBG_INT(response_msg.st.data, 1, "SessionId: ");
+  DBG_INT(response_msg.st.data + 1, sizeof(epk_oce), "EPK-SD: ");
+  DBG_INT(response_msg.st.data + 1 + sizeof(epk_oce), SCP_PRF_LEN, "Receipt: ");
+
+  uint8_t shsee[YH_EC_P256_PRIVKEY_LEN];
+  if (!ecdh_calculate_secret(curve, esk_oce, sizeof(esk_oce),
+                             response_msg.st.data + 1, sizeof(epk_oce), shsee,
+                             sizeof(shsee))) {
+    DBG_ERR("ecdh_calculate_secret(shsee) %s",
+            yh_strerror(YHR_INVALID_PARAMETERS));
+    rc = YHR_INVALID_PARAMETERS;
+    goto err;
+  }
+
+  uint8_t shsss[YH_EC_P256_PRIVKEY_LEN];
+  if (!ecdh_calculate_secret(curve, privkey, privkey_len, device_pubkey,
+                             device_pubkey_len, shsss, sizeof(shsss))) {
+    DBG_ERR("ecdh_calculate_secret(shsss) %s",
+            yh_strerror(YHR_INVALID_PARAMETERS));
+    rc = YHR_INVALID_PARAMETERS;
+    goto err;
+  }
+
+  uint8_t shs[4 * SCP_KEY_LEN];
+  if (!x9_63_sha256_kdf(shsee, sizeof(shsee), shsss, sizeof(shsss), sharedInfo,
+                        sizeof(sharedInfo), shs, sizeof(shs))) {
+    DBG_ERR("x9_63_sha256_kdf %s", yh_strerror(YHR_GENERIC_ERROR));
+    rc = YHR_GENERIC_ERROR;
+    goto err;
+  }
+
+  uint8_t keys[2 * sizeof(epk_oce)], mac[SCP_PRF_LEN];
+  memcpy(keys, response_msg.st.data + 1, sizeof(epk_oce));
+  memcpy(keys + sizeof(epk_oce), epk_oce, sizeof(epk_oce));
+  compute_full_mac(keys, sizeof(keys), shs, SCP_KEY_LEN, mac);
+
+  if (memcmp(mac, response_msg.st.data + 1 + sizeof(epk_oce), SCP_PRF_LEN)) {
+    DBG_ERR("Verify receipt %s",
+            yh_strerror(YHR_SESSION_AUTHENTICATION_FAILED));
+    rc = YHR_SESSION_AUTHENTICATION_FAILED;
+    goto err;
+  }
+
+  memcpy(new_session->s.s_enc, shs + SCP_KEY_LEN, SCP_KEY_LEN);
+  memcpy(new_session->s.s_mac, shs + 2 * SCP_KEY_LEN, SCP_KEY_LEN);
+  memcpy(new_session->s.s_rmac, shs + 3 * SCP_KEY_LEN, SCP_KEY_LEN);
+  memcpy(new_session->s.mac_chaining_value, mac, SCP_PRF_LEN);
+
+  memset(new_session->s.ctr, 0, SCP_PRF_LEN);
+  increment_ctr(new_session->s.ctr, SCP_PRF_LEN);
+
+  new_session->parent = connector;
+  new_session->authkey_id = authkey_id;
+  new_session->recreate = false;
+  new_session->s.sid = response_msg.st.data[0];
+  *session = new_session;
+
+err:
+  insecure_memzero(esk_oce, sizeof(esk_oce));
+  insecure_memzero(shsss, sizeof(shsss));
+  insecure_memzero(shsee, sizeof(shsee));
+  insecure_memzero(shs, sizeof(shs));
+
+  if (new_session != *session) {
+    insecure_memzero(new_session, sizeof(yh_session));
+    free(new_session);
+    new_session = NULL;
+  }
+
+  return rc;
 }
 
 yh_rc yh_destroy_session(yh_session **session) {
@@ -3012,7 +3306,7 @@ yh_rc yh_authenticate_session(yh_session *session) {
 
   // Reset counter to 1
   memset(session->s.ctr, 0, SCP_PRF_LEN);
-  session->s.ctr[SCP_PRF_LEN - 1]++;
+  increment_ctr(session->s.ctr, SCP_PRF_LEN);
 
   yrc = send_msg(session->parent, &msg, &response_msg, session->s.identifier);
   if (yrc != YHR_SUCCESS) {
@@ -3028,17 +3322,31 @@ yh_rc yh_authenticate_session(yh_session *session) {
   return YHR_SUCCESS;
 }
 
+static uint8_t get_auth_key_algo(size_t key_len) {
+  switch (key_len) {
+    case 32:
+      return YH_ALGO_AES128_YUBICO_AUTHENTICATION;
+    case 64:
+      return YH_ALGO_EC_P256_YUBICO_AUTHENTICATION;
+    default:
+      return 0;
+  }
+}
+
 yh_rc yh_util_import_authentication_key(
   yh_session *session, uint16_t *key_id, const char *label, uint16_t domains,
   const yh_capabilities *capabilities,
   const yh_capabilities *delegated_capabilities, const uint8_t *key_enc,
   size_t key_enc_len, const uint8_t *key_mac, size_t key_mac_len) {
 
+  uint8_t algorithm = get_auth_key_algo(key_enc_len + key_mac_len);
+
+  DBG_INFO("Auth Key Algorithm %u", algorithm);
+
   if (session == NULL || key_id == NULL || label == NULL ||
       strlen(label) > YH_OBJ_LABEL_LEN || capabilities == NULL ||
-      delegated_capabilities == NULL || key_enc == NULL ||
-      key_enc_len != YH_KEY_LEN || key_mac == NULL ||
-      key_mac_len != YH_KEY_LEN) {
+      delegated_capabilities == NULL || (key_enc == NULL && key_enc_len > 0) ||
+      (key_mac == NULL && key_mac_len > 0) || algorithm == 0) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
@@ -3052,8 +3360,7 @@ yh_rc yh_util_import_authentication_key(
       uint8_t capabilities[YH_CAPABILITIES_LEN];
       uint8_t algorithm;
       uint8_t delegated_capabilities[YH_CAPABILITIES_LEN];
-      uint8_t key_enc[YH_KEY_LEN];
-      uint8_t key_mac[YH_KEY_LEN];
+      uint8_t key[64];
     };
     uint8_t buf[1];
   } data;
@@ -3067,8 +3374,8 @@ yh_rc yh_util_import_authentication_key(
   size_t response_len = sizeof(response);
   yh_cmd response_cmd;
 
-  memcpy(data.key_enc, key_enc, YH_KEY_LEN);
-  memcpy(data.key_mac, key_mac, YH_KEY_LEN);
+  memcpy(data.key, key_enc, key_enc_len);
+  memcpy(data.key + key_enc_len, key_mac, key_mac_len);
 
   data.key_id = htons(*key_id);
 
@@ -3079,14 +3386,15 @@ yh_rc yh_util_import_authentication_key(
 
   memcpy(data.capabilities, capabilities, YH_CAPABILITIES_LEN);
 
-  data.algorithm = YH_ALGO_AES128_YUBICO_AUTHENTICATION;
+  data.algorithm = algorithm;
 
   memcpy(data.delegated_capabilities, delegated_capabilities,
          YH_CAPABILITIES_LEN);
 
   yh_rc yrc = yh_send_secure_msg(session, YHC_PUT_AUTHENTICATION_KEY, data.buf,
-                                 sizeof(data), &response_cmd, response.buf,
-                                 &response_len);
+                                 sizeof(data) - sizeof(data.key) + key_enc_len +
+                                   key_mac_len,
+                                 &response_cmd, response.buf, &response_len);
   insecure_memzero(data.buf, sizeof(data));
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send PUT AUTHENTICATION KEY command: %s\n",
@@ -3120,19 +3428,17 @@ yh_rc yh_util_import_authentication_key_derived(
     return YHR_INVALID_PARAMETERS;
   }
 
-  uint8_t key_enc[SCP_KEY_LEN];
-  uint8_t key_mac[SCP_KEY_LEN];
+  uint8_t key[2 * SCP_KEY_LEN];
 
-  yh_rc yrc = derive_keys(password, password_len, key_enc, key_mac);
+  yh_rc yrc = derive_key(password, password_len, key, sizeof(key));
 
   if (yrc == YHR_SUCCESS) {
     yrc =
       yh_util_import_authentication_key(session, key_id, label, domains,
                                         capabilities, delegated_capabilities,
-                                        key_enc, sizeof(key_enc), key_mac,
-                                        sizeof(key_mac));
-    insecure_memzero(key_enc, sizeof(key_enc));
-    insecure_memzero(key_mac, sizeof(key_mac));
+                                        key, SCP_KEY_LEN, key + SCP_KEY_LEN,
+                                        SCP_KEY_LEN);
+    insecure_memzero(key, sizeof(key));
   }
   return yrc;
 }
@@ -3143,9 +3449,13 @@ yh_rc yh_util_change_authentication_key(yh_session *session, uint16_t *key_id,
                                         const uint8_t *key_mac,
                                         size_t key_mac_len) {
 
-  if (session == NULL || key_id == NULL || key_enc == NULL ||
-      key_enc_len != YH_KEY_LEN || key_mac == NULL ||
-      key_mac_len != YH_KEY_LEN) {
+  uint8_t algorithm = get_auth_key_algo(key_enc_len + key_mac_len);
+
+  DBG_INFO("Auth Key Algorithm %u", algorithm);
+
+  if (session == NULL || key_id == NULL || algorithm == 0 ||
+      (key_enc == NULL && key_enc_len > 0) ||
+      (key_mac == NULL && key_mac_len > 0)) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
@@ -3155,8 +3465,7 @@ yh_rc yh_util_change_authentication_key(yh_session *session, uint16_t *key_id,
     struct {
       uint16_t key_id;
       uint8_t algorithm;
-      uint8_t key_enc[YH_KEY_LEN];
-      uint8_t key_mac[YH_KEY_LEN];
+      uint8_t key[64];
     };
     uint8_t buf[1];
   } data;
@@ -3171,13 +3480,15 @@ yh_rc yh_util_change_authentication_key(yh_session *session, uint16_t *key_id,
   yh_cmd response_cmd;
 
   data.key_id = htons(*key_id);
-  data.algorithm = YH_ALGO_AES128_YUBICO_AUTHENTICATION;
-  memcpy(data.key_enc, key_enc, key_enc_len);
-  memcpy(data.key_mac, key_mac, key_mac_len);
+  data.algorithm = algorithm;
+  memcpy(data.key, key_enc, key_enc_len);
+  memcpy(data.key + key_enc_len, key_mac, key_mac_len);
 
-  yh_rc yrc = yh_send_secure_msg(session, YHC_CHANGE_AUTHENTICATION_KEY,
-                                 data.buf, sizeof(data), &response_cmd,
-                                 response.buf, &response_len);
+  yh_rc yrc =
+    yh_send_secure_msg(session, YHC_CHANGE_AUTHENTICATION_KEY, data.buf,
+                       sizeof(data) - sizeof(data.key) + key_enc_len +
+                         key_mac_len,
+                       &response_cmd, response.buf, &response_len);
   insecure_memzero(data.buf, sizeof(data));
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send CHANGE AUTHENTICATION KEY command: %s\n",
@@ -3207,17 +3518,14 @@ yh_rc yh_util_change_authentication_key_derived(yh_session *session,
     return YHR_INVALID_PARAMETERS;
   }
 
-  uint8_t key_enc[SCP_KEY_LEN];
-  uint8_t key_mac[SCP_KEY_LEN];
+  uint8_t key[2 * SCP_KEY_LEN];
 
-  yh_rc yrc = derive_keys(password, password_len, key_enc, key_mac);
+  yh_rc yrc = derive_key(password, password_len, key, sizeof(key));
 
   if (yrc == YHR_SUCCESS) {
-    yrc = yh_util_change_authentication_key(session, key_id, key_enc,
-                                            sizeof(key_enc), key_mac,
-                                            sizeof(key_mac));
-    insecure_memzero(key_enc, sizeof(key_enc));
-    insecure_memzero(key_mac, sizeof(key_mac));
+    yrc = yh_util_change_authentication_key(session, key_id, key, SCP_KEY_LEN,
+                                            key + SCP_KEY_LEN, SCP_KEY_LEN);
+    insecure_memzero(key, sizeof(key));
   }
   return yrc;
 }

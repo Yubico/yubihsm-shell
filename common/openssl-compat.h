@@ -11,7 +11,7 @@
 #define LIBCRYPTO_COMPAT_H
 
 #include <openssl/opensslv.h>
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L) || defined(LIBRESSL_VERSION_NUMBER)
 
 #include <openssl/rsa.h>
 #include <openssl/ecdsa.h>
@@ -22,6 +22,8 @@
 #else
 #define YH_INTERNAL
 #endif
+
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L)
 
 int YH_INTERNAL RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d);
 void YH_INTERNAL RSA_get0_key(const RSA *r, const BIGNUM **n, const BIGNUM **e,
@@ -40,6 +42,10 @@ const YH_INTERNAL STACK_OF(X509_EXTENSION) *
 
 ASN1_OBJECT YH_INTERNAL *X509_EXTENSION_get_object(X509_EXTENSION *ex);
 ASN1_OCTET_STRING YH_INTERNAL *X509_EXTENSION_get_data(X509_EXTENSION *ex);
+
+#endif /* OPENSSL_VERSION_NUMBER */
+
+int YH_INTERNAL BN_bn2binpad(const BIGNUM *a, unsigned char *to, int tolen);
 
 #endif /* OPENSSL_VERSION_NUMBER */
 #endif /* LIBCRYPTO_COMPAT_H */

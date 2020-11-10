@@ -197,6 +197,8 @@ else()
   pkg_search_module (LIBUSB REQUIRED libusb-1.0)
 endif()
 
+message("LIBCRYPTO_VERSION: ${LIBCRYPTO_VERSION}")
+
 add_subdirectory (lib)
 
 if(NOT BUILD_ONLY_LIB)

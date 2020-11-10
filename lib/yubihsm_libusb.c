@@ -60,7 +60,10 @@ void usb_destroy(yh_backend **state) {
 yh_backend *backend_create(void) {
   yh_backend *backend = calloc(1, sizeof(yh_backend));
   if (backend) {
-    libusb_init(&backend->ctx);
+    if (libusb_init(&backend->ctx) != 0) {
+      free(backend);
+      backend = NULL;
+    }
   }
   return backend;
 }

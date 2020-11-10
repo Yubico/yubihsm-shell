@@ -46,6 +46,11 @@ void list_destroy(List *list) {
     free(current->data);
     free(current);
   }
+  list->length = 0;
+  list->item_size = 0;
+  list->head = NULL;
+  list->tail = NULL;
+  list->free_item_fn = NULL;
 }
 
 bool list_prepend(List *list, void *item) {
