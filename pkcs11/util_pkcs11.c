@@ -469,33 +469,6 @@ bool get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
   return true;
 }
 
-bool parse_hex(CK_UTF8CHAR_PTR hex, CK_ULONG hex_len, uint8_t *parsed) {
-
-  int j = 0;
-
-  for (CK_ULONG i = 0; i < hex_len; i += 2) {
-    if (isxdigit(hex[i]) == 0 || isxdigit(hex[i + 1]) == 0) {
-      return false;
-    }
-
-    if (isdigit(hex[i])) {
-      parsed[j] = (hex[i] - '0') << 4;
-    } else {
-      parsed[j] = (tolower(hex[i]) - 'a' + 10) << 4;
-    }
-
-    if (isdigit(hex[i + 1])) {
-      parsed[j] |= (hex[i + 1] - '0');
-    } else {
-      parsed[j] |= (tolower(hex[i + 1]) - 'a' + 10);
-    }
-
-    j++;
-  }
-
-  return true;
-}
-
 bool create_session(yubihsm_pkcs11_slot *slot, CK_FLAGS flags,
                     CK_SESSION_HANDLE_PTR phSession) {
 
@@ -520,7 +493,7 @@ bool create_session(yubihsm_pkcs11_slot *slot, CK_FLAGS flags,
   session.slot = slot;
   list_create(&session.ecdh_session_keys, sizeof(ecdh_session_key), NULL);
   *phSession = (slot->id << 16) + session.id;
-  return list_append(&slot->pkcs11_sessions, (void *) &session);
+  return list_append(&slot->pkcs11_sessions, &session);
 }
 
 static void get_label_attribute(yh_object_descriptor *object, CK_VOID_PTR value,
@@ -2891,9 +2864,7 @@ void set_native_locking(yubihsm_pkcs11_context *ctx) {
 
 bool add_connectors(yubihsm_pkcs11_context *ctx, int n_connectors,
                     char **connector_names, yh_connector **connectors) {
-  if (ctx->slots.head == NULL) {
-    list_create(&ctx->slots, sizeof(yubihsm_pkcs11_slot), free_pkcs11_slot);
-  }
+  list_create(&ctx->slots, sizeof(yubihsm_pkcs11_slot), free_pkcs11_slot);
 
   for (int i = 0; i < n_connectors; i++) {
     yubihsm_pkcs11_slot slot;
@@ -2911,7 +2882,7 @@ bool add_connectors(yubihsm_pkcs11_context *ctx, int n_connectors,
       }
     }
     list_create(&slot.pkcs11_sessions, sizeof(yubihsm_pkcs11_session), NULL);
-    if (list_append(&ctx->slots, (void *) &slot) != true) {
+    if (list_append(&ctx->slots, &slot) != true) {
       return false;
     }
   }

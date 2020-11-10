@@ -66,9 +66,11 @@ static format_t fmt_to_fmt(cmd_format fmt) {
 // NOTE(adma): Extract log entries
 // argc = 1
 // arg 0: e:session
-int yh_com_audit(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_audit(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                 cmd_format fmt) {
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yh_rc yrc;
@@ -101,7 +103,7 @@ int yh_com_audit(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 
   char digest_buf[(2 * YH_LOG_DIGEST_SIZE) + 1];
 
-  switch (ctx->out_fmt) {
+  switch (fmt) {
     case fmt_hex:
       fprintf(ctx->out, "%04x%04x", unlogged_boot, unlogged_auth);
       for (size_t i = 0; i < n_items; i++) {
@@ -148,9 +150,11 @@ int yh_com_audit(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // argc = 2
 // arg 0: e:session
 // arg 1: w:index
-int yh_com_set_log_index(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_set_log_index(yubihsm_context *ctx, Argument *argv,
+                         cmd_format in_fmt, cmd_format fmt) {
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yh_rc yrc = yh_util_set_log_index(argv[0].e, argv[1].w);
@@ -166,8 +170,10 @@ int yh_com_set_log_index(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // argc = 2
 // arg 0: e:session
 // arg 1: b:seconds
-int yh_com_blink(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_blink(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                 cmd_format fmt) {
 
+  UNUSED(in_fmt);
   UNUSED(fmt);
   UNUSED(ctx);
 
@@ -183,8 +189,10 @@ int yh_com_blink(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // NOTE(adma): Close a session with a connector
 // argc = 1
 // arg 0: e:session
-int yh_com_close_session(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_close_session(yubihsm_context *ctx, Argument *argv,
+                         cmd_format in_fmt, cmd_format fmt) {
 
+  UNUSED(in_fmt);
   UNUSED(fmt);
   uint8_t session_id = 0;
 
@@ -213,74 +221,64 @@ int yh_com_close_session(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 
 // NOTE(adma): Connect to a connector
 // argc = 0
-int yh_com_connect(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_connect(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                   cmd_format fmt) {
 
   UNUSED(argv);
+  UNUSED(in_fmt);
   UNUSED(fmt);
-  int ret = -1;
 
-  yh_rc yrc;
-  yh_connector **connectors = calloc(ctx->n_connectors, sizeof(yh_connector *));
-  if (connectors == NULL) {
-    fprintf(stderr, "Failed allocating memory\n");
-    return -1;
-  }
+  ctx->connector = NULL;
 
-  int idx = -1;
-  for (int i = 0; i < ctx->n_connectors; i++) {
-    yrc = yh_init_connector(ctx->connector_list[i], &connectors[i]);
+  for (int i = 0; ctx->connector_list[i]; i++) {
+    if (ctx->connector) {
+      yh_disconnect(ctx->connector);
+      ctx->connector = NULL;
+    }
+    yh_rc yrc = yh_init_connector(ctx->connector_list[i], &ctx->connector);
     if (yrc != YHR_SUCCESS) {
-      fprintf(stderr, "Failed initializing connector\n");
-      goto cleanup;
+      fprintf(stderr, "Failed initializing connector %s: %s\n",
+              ctx->connector_list[i], yh_strerror(yrc));
+      break;
     }
     if (ctx->cacert) {
-      if (yh_set_connector_option(connectors[i], YH_CONNECTOR_HTTPS_CA,
+      if (yh_set_connector_option(ctx->connector, YH_CONNECTOR_HTTPS_CA,
                                   ctx->cacert) != YHR_SUCCESS) {
         fprintf(stderr, "Failed setting HTTPS CA\n");
-        goto cleanup;
+        break;
       }
     }
     if (ctx->proxy) {
-      if (yh_set_connector_option(connectors[i], YH_CONNECTOR_PROXY_SERVER,
+      if (yh_set_connector_option(ctx->connector, YH_CONNECTOR_PROXY_SERVER,
                                   ctx->proxy) != YHR_SUCCESS) {
         fprintf(stderr, "Failed setting proxy server\n");
-        goto cleanup;
+        break;
       }
     }
-    if (yh_connect(connectors[i], 0) != YHR_SUCCESS) {
-      fprintf(stderr, "Failed connecting '%s'\n", ctx->connector_list[i]);
-      continue;
+    yrc = yh_connect(ctx->connector, 0);
+    if (yrc == YHR_SUCCESS) {
+      (void) yh_com_keepalive_on(NULL, NULL, fmt_nofmt, fmt_nofmt);
+      return 0;
     }
-    idx = i;
-    break;
+    fprintf(stderr, "Failed connecting '%s': %s\n", ctx->connector_list[i],
+            yh_strerror(yrc));
   }
 
-  for (int i = 0; i < ctx->n_connectors; i++) {
-    if (i == idx) {
-      ctx->connector = connectors[i];
-    } else {
-      yh_disconnect(connectors[i]);
-    }
+  if (ctx->connector) {
+    yh_disconnect(ctx->connector);
+    ctx->connector = NULL;
   }
-
-  if (idx >= 0) {
-    ret = 0;
-
-    (void) yh_com_keepalive_on(NULL, NULL, fmt_nofmt);
-  }
-
-cleanup:
-  free(connectors);
-
-  return ret;
+  return -1;
 }
 
 // NOTE(adma): Enable all debug messages
 // argc = 0
-int yh_com_debug_all(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_debug_all(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                     cmd_format fmt) {
 
   UNUSED(ctx);
   UNUSED(argv);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yh_set_verbosity(ctx->connector, YH_VERB_ALL);
@@ -291,10 +289,12 @@ int yh_com_debug_all(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 
 // NOTE(adma): Toggle debug messages
 // argc = 0
-int yh_com_debug_error(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_debug_error(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                       cmd_format fmt) {
 
   UNUSED(ctx);
   UNUSED(argv);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   uint8_t yh_verbosity;
@@ -314,10 +314,12 @@ int yh_com_debug_error(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 
 // NOTE(adma): Toggle debug messages
 // argc = 0
-int yh_com_debug_info(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_debug_info(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                      cmd_format fmt) {
 
   UNUSED(ctx);
   UNUSED(argv);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   uint8_t yh_verbosity;
@@ -338,10 +340,11 @@ int yh_com_debug_info(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // NOTE(adma): Toggle debug messages
 // argc = 0
 int yh_com_debug_intermediate(yubihsm_context *ctx, Argument *argv,
-                              cmd_format fmt) {
+                              cmd_format in_fmt, cmd_format fmt) {
 
   UNUSED(ctx);
   UNUSED(argv);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   uint8_t yh_verbosity;
@@ -361,10 +364,12 @@ int yh_com_debug_intermediate(yubihsm_context *ctx, Argument *argv,
 
 // NOTE(adma): Toggle debug messages
 // argc = 0
-int yh_com_debug_none(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_debug_none(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                      cmd_format fmt) {
 
   UNUSED(ctx);
   UNUSED(argv);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yh_set_verbosity(ctx->connector, YH_VERB_QUIET);
@@ -375,10 +380,12 @@ int yh_com_debug_none(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 
 // NOTE(adma): Toggle debug messages
 // argc = 0
-int yh_com_debug_raw(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_debug_raw(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                     cmd_format fmt) {
 
   UNUSED(ctx);
   UNUSED(argv);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   uint8_t yh_verbosity;
@@ -398,10 +405,12 @@ int yh_com_debug_raw(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 
 // NOTE(adma): Toggle debug messages
 // argc = 0
-int yh_com_debug_crypto(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_debug_crypto(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                        cmd_format fmt) {
 
   UNUSED(ctx);
   UNUSED(argv);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   uint8_t yh_verbosity;
@@ -425,10 +434,11 @@ int yh_com_debug_crypto(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // arg 1: w:key_id
 // arg 2: i:data
 int yh_com_decrypt_pkcs1v1_5(yubihsm_context *ctx, Argument *argv,
-                             cmd_format fmt) {
+                             cmd_format in_fmt, cmd_format fmt) {
 
   yh_rc yrc;
 
+  UNUSED(in_fmt);
   UNUSED(ctx);
 
   uint8_t response[YH_MSG_BUF_SIZE];
@@ -451,8 +461,10 @@ int yh_com_decrypt_pkcs1v1_5(yubihsm_context *ctx, Argument *argv,
 // arg 0: e:session
 // arg 1: w:key_id
 // arg 2: i:pubkey
-int yh_com_derive_ecdh(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_derive_ecdh(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                       cmd_format fmt) {
 
+  UNUSED(in_fmt);
   UNUSED(ctx);
 
   BIO *bio = BIO_new(BIO_s_mem());
@@ -509,9 +521,10 @@ int yh_com_derive_ecdh(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // arg 1: w:key_id
 // arg 2: i:data
 int yh_com_decrypt_aesccm(yubihsm_context *ctx, Argument *argv,
-                          cmd_format fmt) {
+                          cmd_format in_fmt, cmd_format fmt) {
   yh_rc yrc;
 
+  UNUSED(in_fmt);
   UNUSED(ctx);
 
   uint8_t response[YH_MSG_BUF_SIZE];
@@ -535,9 +548,10 @@ int yh_com_decrypt_aesccm(yubihsm_context *ctx, Argument *argv,
 // arg 1: w:key_id
 // arg 2: i:data
 int yh_com_encrypt_aesccm(yubihsm_context *ctx, Argument *argv,
-                          cmd_format fmt) {
+                          cmd_format in_fmt, cmd_format fmt) {
   yh_rc yrc;
 
+  UNUSED(in_fmt);
   UNUSED(ctx);
 
   uint8_t response[YH_MSG_BUF_SIZE];
@@ -557,9 +571,11 @@ int yh_com_encrypt_aesccm(yubihsm_context *ctx, Argument *argv,
 
 // NOTE(adma): Disconnect from a connector
 // argc = 0
-int yh_com_disconnect(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_disconnect(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                      cmd_format fmt) {
 
   UNUSED(argv);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yh_rc yrc;
@@ -589,9 +605,11 @@ int yh_com_disconnect(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // arg 0: e:session
 // arg 1: b:byte
 // arg 2: w:count
-int yh_com_echo(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_echo(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                cmd_format fmt) {
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yh_rc yrc;
@@ -652,9 +670,10 @@ int yh_com_echo(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // arg 4: c:capabilities
 // arg 5: a:algorithm
 int yh_com_generate_asymmetric(yubihsm_context *ctx, Argument *argv,
-                               cmd_format fmt) {
+                               cmd_format in_fmt, cmd_format fmt) {
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yh_rc yrc;
@@ -692,9 +711,11 @@ int yh_com_generate_asymmetric(yubihsm_context *ctx, Argument *argv,
 // arg 3: w:domains
 // arg 4: c:capabilities
 // arg 5: a:algorithm
-int yh_com_generate_hmac(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_generate_hmac(yubihsm_context *ctx, Argument *argv,
+                         cmd_format in_fmt, cmd_format fmt) {
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yh_rc yrc;
@@ -726,9 +747,11 @@ int yh_com_generate_hmac(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // arg 4: c:capabilities
 // arg 5: c:delegated_capabilities
 // arg 6: a:algorithm
-int yh_com_generate_wrap(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_generate_wrap(yubihsm_context *ctx, Argument *argv,
+                         cmd_format in_fmt, cmd_format fmt) {
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yh_rc yrc;
@@ -750,9 +773,11 @@ int yh_com_generate_wrap(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // arg 0: e:session,
 // arg 1: w:object_id
 // arg 2: F:file
-int yh_com_get_opaque(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_get_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                      cmd_format fmt) {
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
 
   uint8_t response[YH_MSG_BUF_SIZE];
   size_t response_len = sizeof(response);
@@ -791,9 +816,11 @@ int yh_com_get_opaque(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // argc = 2
 // arg 0: o:session
 // arg 1: s:option
-int yh_com_get_option(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_get_option(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                      cmd_format fmt) {
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yh_rc yrc;
@@ -821,7 +848,10 @@ int yh_com_get_option(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // argc = 2
 // arg 0: e:session
 // arg 1: w:count
-int yh_com_get_random(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_get_random(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                      cmd_format fmt) {
+
+  UNUSED(in_fmt);
 
   uint8_t response[YH_MSG_BUF_SIZE];
   size_t response_len = sizeof(response);
@@ -847,9 +877,11 @@ int yh_com_get_random(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // NOTE(adma): Obtain storage information
 // argc = 1
 // arg 0: e:session
-int yh_com_get_storage(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_get_storage(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                       cmd_format fmt) {
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yh_rc yrc;
@@ -874,7 +906,10 @@ int yh_com_get_storage(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // arg 0: e:session
 // arg 1: w:key_id
 // arg 2: f:filename
-int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                      cmd_format fmt) {
+
+  UNUSED(in_fmt);
 
   yh_rc yrc;
 
@@ -966,17 +1001,102 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
   return 0;
 }
 
+// NOTE: Get device public key
+// argc = 0
+int yh_com_get_device_pubkey(yubihsm_context *ctx, Argument *argv,
+                             cmd_format in_fmt, cmd_format fmt) {
+  UNUSED(argv);
+  UNUSED(in_fmt);
+
+  if (ctx->connector == NULL) {
+    fprintf(stderr, "Not connected\n");
+    return -1;
+  }
+
+  uint8_t response[YH_MSG_BUF_SIZE];
+  size_t response_len = sizeof(response);
+
+  yh_algorithm algo;
+  yh_rc yrc =
+    yh_util_get_device_pubkey(ctx->connector, response, &response_len, &algo);
+
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to get device pubkey: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  if (fmt == fmt_hex) {
+    for (size_t i = 0; i < response_len; i++) {
+      fprintf(ctx->out, "%02x", response[i]);
+    }
+    fprintf(ctx->out, "\n");
+    return 0;
+  }
+
+  int nid = algo2nid(algo);
+  EC_GROUP *group = EC_GROUP_new_by_curve_name(nid);
+  if (group == NULL) {
+    fprintf(stderr, "Invalid device public key algorithm\n");
+    return -1;
+  }
+  EC_GROUP_set_asn1_flag(group, nid);
+
+  EC_KEY *eckey = EC_KEY_new();
+  EC_KEY_set_group(eckey, group);
+
+  EC_POINT *point = EC_POINT_new(group);
+  EC_POINT_oct2point(group, point, response, response_len, NULL);
+  EC_KEY_set_public_key(eckey, point);
+
+  EVP_PKEY *public_key = EVP_PKEY_new();
+  EVP_PKEY_set1_EC_KEY(public_key, eckey);
+
+  EC_POINT_free(point);
+  EC_KEY_free(eckey);
+  EC_GROUP_free(group);
+
+  if (fmt == fmt_PEM) {
+    PEM_write_PUBKEY(ctx->out, public_key);
+  } else if (fmt == fmt_binary) {
+    i2d_PUBKEY_fp(ctx->out, public_key);
+  } else if (fmt == fmt_base64) {
+    BIO *bio;
+    BIO *b64;
+
+    b64 = BIO_new(BIO_f_base64());
+    bio = BIO_new_fp(ctx->out, BIO_NOCLOSE);
+
+    if (b64 == NULL || bio == NULL) {
+      fprintf(stderr, "Unable to allocate BIO\n");
+      EVP_PKEY_free(public_key);
+
+      return -1;
+    }
+
+    bio = BIO_push(b64, bio);
+
+    (void) i2d_PUBKEY_bio(bio, public_key);
+
+    (void) BIO_flush(bio);
+    (void) BIO_free_all(bio);
+  } // FIXME: other formats or error.
+  EVP_PKEY_free(public_key);
+
+  return 0;
+}
+
 // NOTE: Get object information
 // argc = 3
 // arg 0: e:session
 // arg 1: w:id
 // arg 2: t:type
 int yh_com_get_object_info(yubihsm_context *ctx, Argument *argv,
-                           cmd_format fmt) {
+                           cmd_format in_fmt, cmd_format fmt) {
   yh_rc yrc;
   yh_object_descriptor object;
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yrc = yh_util_get_object_info(argv[0].e, argv[1].w, argv[2].b, &object);
@@ -1062,10 +1182,13 @@ int yh_com_get_object_info(yubihsm_context *ctx, Argument *argv,
 // arg 2: t:type
 // arg 3: w:id
 // arg 4: f:file
-int yh_com_get_wrapped(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_get_wrapped(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                       cmd_format fmt) {
   uint8_t response[YH_MSG_BUF_SIZE];
   size_t response_len = sizeof(response);
   yh_rc yrc;
+
+  UNUSED(in_fmt);
 
   yrc = yh_util_export_wrapped(argv[0].e, argv[1].w, argv[2].b, argv[3].w,
                                response, &response_len);
@@ -1086,10 +1209,13 @@ int yh_com_get_wrapped(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // argc = 2
 // arg 0: e:session,
 // arg 1: w:object_id
-int yh_com_get_template(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_get_template(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                        cmd_format fmt) {
 
   uint8_t response[YH_MSG_BUF_SIZE];
   size_t response_len = sizeof(response);
+
+  UNUSED(in_fmt);
 
   yh_rc yrc =
     yh_util_get_template(argv[0].e, argv[1].w, response, &response_len);
@@ -1105,10 +1231,12 @@ int yh_com_get_template(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 
 // NOTE(adma): No operation command
 // argc = 0
-int yh_com_noop(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_noop(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                cmd_format fmt) {
 
   UNUSED(ctx);
   UNUSED(argv);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   return 0;
@@ -1117,10 +1245,11 @@ int yh_com_noop(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // NOTE(adma): List capabilities
 // argc = 0
 int yh_com_list_capabilities(yubihsm_context *ctx, Argument *argv,
-                             cmd_format fmt) {
+                             cmd_format in_fmt, cmd_format fmt) {
 
   UNUSED(ctx);
   UNUSED(argv);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   for (size_t i = 0; i < sizeof(yh_capability) / sizeof(yh_capability[0]);
@@ -1135,10 +1264,11 @@ int yh_com_list_capabilities(yubihsm_context *ctx, Argument *argv,
 // NOTE: List algorithms
 // argc = 0
 int yh_com_list_algorithms(yubihsm_context *ctx, Argument *argv,
-                           cmd_format fmt) {
+                           cmd_format in_fmt, cmd_format fmt) {
 
   UNUSED(ctx);
   UNUSED(argv);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   for (size_t i = 0; i < sizeof(yh_algorithms) / sizeof(yh_algorithms[0]);
@@ -1151,10 +1281,12 @@ int yh_com_list_algorithms(yubihsm_context *ctx, Argument *argv,
 
 // NOTE: List types
 // argc = 0
-int yh_com_list_types(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_list_types(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                      cmd_format fmt) {
 
   UNUSED(ctx);
   UNUSED(argv);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   for (uint16_t i = 0; i < sizeof(yh_types) / sizeof(yh_types[0]); i++) {
@@ -1166,9 +1298,11 @@ int yh_com_list_types(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 
 // NOTE(adma): List sessions
 // argc = 0
-int yh_com_list_sessions(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_list_sessions(yubihsm_context *ctx, Argument *argv,
+                         cmd_format in_fmt, cmd_format fmt) {
 
   UNUSED(argv);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   if (ctx->connector == NULL) {
@@ -1201,13 +1335,15 @@ static int compare_objects(const void *p1, const void *p2) {
 // arg 4: u:capabilities
 // arg 5: a:algorithm
 // arg 6: s:label
-int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                        cmd_format fmt) {
   yh_rc yrc;
   yh_object_descriptor objects[YH_MAX_ITEMS_COUNT];
   size_t num_objects = YH_MAX_ITEMS_COUNT;
   const char *label_arg;
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   if (argv[6].len == 0) {
@@ -1292,8 +1428,10 @@ static int parse_yk_password(char *line, char **name, char *pw, size_t pw_len) {
 // argc = 2
 // arg 0: w:authkey
 // arg 1: i:password
-int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                        cmd_format fmt) {
 
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yh_session *ses = NULL;
@@ -1412,12 +1550,116 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
   return 0;
 }
 
+// NOTE: Open a session with a connector using an Asymmetric
+// Authentication Key argc = 2 arg 0: w:authkey arg 1: i:password
+int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
+                             cmd_format in_fmt, cmd_format fmt) {
+
+  UNUSED(fmt);
+
+  yh_session *ses = NULL;
+  uint8_t session_id = 0;
+
+  if (ctx->connector == NULL) {
+    fprintf(stderr, "Not connected\n");
+    return -1;
+  }
+
+  uint16_t authkey = argv[0].w;
+  uint8_t privkey[YH_EC_P256_PRIVKEY_LEN];
+  yh_rc yrc;
+
+  if (in_fmt == fmt_password) {
+    uint8_t pubkey[YH_EC_P256_PUBKEY_LEN];
+    yrc = yh_util_derive_ec_p256_key(argv[1].x, argv[1].len, privkey,
+                                     sizeof(privkey), pubkey, sizeof(pubkey));
+    insecure_memzero(argv[1].x, argv[1].len);
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr, "Failed to derive asymmetric authentication key: %s\n",
+              yh_strerror(yrc));
+      return -1;
+    }
+  } else if (argv[1].len <= sizeof(privkey)) {
+    memset(privkey, 0, sizeof(privkey) - argv[1].len);
+    memcpy(privkey + sizeof(privkey) - argv[1].len, argv[1].x, argv[1].len);
+    insecure_memzero(argv[1].x, argv[1].len);
+  } else {
+    insecure_memzero(argv[1].x, argv[1].len);
+    fprintf(stderr, "Invalid asymmetric authkey: %s\n",
+            yh_strerror(YHR_INVALID_PARAMETERS));
+    return -1;
+  }
+
+  uint8_t device_pubkey[YH_EC_P256_PUBKEY_LEN];
+  size_t device_pubkey_len = sizeof(device_pubkey);
+  yrc = yh_util_get_device_pubkey(ctx->connector, device_pubkey,
+                                  &device_pubkey_len, NULL);
+
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to retrieve device pubkey: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  if (device_pubkey_len != YH_EC_P256_PUBKEY_LEN) {
+    fprintf(stderr, "Invalid device pubkey\n");
+    return -1;
+  }
+
+  int matched = 0;
+  for (uint8_t **pubkey = ctx->device_pubkey_list; *pubkey; pubkey++) {
+    if (!memcmp(*pubkey, device_pubkey, device_pubkey_len)) {
+      matched++;
+    }
+  }
+
+  if (ctx->device_pubkey_list[0] == NULL) {
+    fprintf(stderr, "CAUTION: Device public key (PK.SD) not validated\n");
+    for (size_t i = 0; i < device_pubkey_len; i++)
+      fprintf(stderr, "%02x", device_pubkey[i]);
+    fprintf(stderr, "\n");
+  } else if (matched == 0) {
+    fprintf(stderr, "Failed to validate device pubkey\n");
+    return -1;
+  }
+
+  yrc =
+    yh_create_session_asym(ctx->connector, authkey, privkey, sizeof(privkey),
+                           device_pubkey, device_pubkey_len, &ses);
+
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  yrc = yh_get_session_id(ses, &session_id);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  if (ctx->sessions[session_id] != NULL) {
+    yrc = yh_destroy_session(&ctx->sessions[session_id]);
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr, "Failed to destroy old session with same id (%d): %s\n",
+              session_id, yh_strerror(yrc));
+      return -1;
+    }
+  }
+  ctx->sessions[session_id] = ses;
+
+  fprintf(stderr, "Created session %d\n", session_id);
+
+  return 0;
+}
+
 // NOTE(adma): Send unauthenticated echo
 // argc = 2
 // arg 0: b:byte
 // arg 1: w:count
-int yh_com_pecho(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_pecho(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                 cmd_format fmt) {
 
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yh_rc yrc;
@@ -1483,9 +1725,10 @@ int yh_com_pecho(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // arg 4: c:capabilities
 // arg 5: i:key
 int yh_com_put_asymmetric(yubihsm_context *ctx, Argument *argv,
-                          cmd_format fmt) {
+                          cmd_format in_fmt, cmd_format fmt) {
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   uint8_t key[512];
@@ -1550,9 +1793,10 @@ int yh_com_put_asymmetric(yubihsm_context *ctx, Argument *argv,
 // arg 5: c:delegated_capabilities
 // arg 6: x:password
 int yh_com_put_authentication(yubihsm_context *ctx, Argument *argv,
-                              cmd_format fmt) {
+                              cmd_format in_fmt, cmd_format fmt) {
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yh_rc yrc;
@@ -1572,6 +1816,64 @@ int yh_com_put_authentication(yubihsm_context *ctx, Argument *argv,
   return 0;
 }
 
+// NOTE: Store an asymmetric authentication key
+// argc = 7
+// arg 0: e:session
+// arg 1: w:key_id
+// arg 2: s:label
+// arg 3: w:domains
+// arg 4: c:capabilities
+// arg 5: c:delegated_capabilities
+// arg 6: x:password
+int yh_com_put_authentication_asym(yubihsm_context *ctx, Argument *argv,
+                                   cmd_format in_fmt, cmd_format fmt) {
+
+  UNUSED(ctx);
+  UNUSED(fmt);
+
+  yh_rc yrc;
+
+  uint8_t pubkey[YH_EC_P256_PUBKEY_LEN];
+
+  if (in_fmt == fmt_password) {
+    uint8_t privkey[YH_EC_P256_PRIVKEY_LEN];
+    yrc = yh_util_derive_ec_p256_key(argv[6].x, argv[6].len, privkey,
+                                     sizeof(privkey), pubkey, sizeof(pubkey));
+    insecure_memzero(argv[6].x, argv[6].len);
+    insecure_memzero(privkey, sizeof(privkey));
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr, "Failed to derive asymmetric authentication key: %s\n",
+              yh_strerror(yrc));
+      return -1;
+    }
+    fprintf(stderr, "Derived public key (PK.OCE)\n");
+    for (size_t i = 0; i < sizeof(pubkey); i++)
+      fprintf(stderr, "%02x", pubkey[i]);
+    fprintf(stderr, "\n");
+  } else if (argv[6].len <= sizeof(pubkey)) {
+    memset(pubkey, 0, sizeof(pubkey) - argv[6].len);
+    memcpy(pubkey + sizeof(pubkey) - argv[6].len, argv[6].x, argv[6].len);
+  } else {
+    fprintf(stderr, "Invalid asymmetric authkey: %s\n",
+            yh_strerror(YHR_INVALID_PARAMETERS));
+    return -1;
+  }
+
+  yrc =
+    yh_util_import_authentication_key(argv[0].e, &argv[1].w, argv[2].s,
+                                      argv[3].w, &argv[4].c, &argv[5].c,
+                                      pubkey + 1, sizeof(pubkey) - 1, NULL, 0);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to store asymmetric authkey: %s\n",
+            yh_strerror(yrc));
+    return -1;
+  }
+
+  fprintf(stderr, "Stored Asymmetric Authentication key 0x%04x\n", argv[1].w);
+
+  return 0;
+}
+
 // NOTE(adma): Store an opaque object
 // argc = 6
 // arg 0: e:session
@@ -1581,11 +1883,13 @@ int yh_com_put_authentication(yubihsm_context *ctx, Argument *argv,
 // arg 4: c:capabilities
 // arg 5: a:algorithm
 // arg 6: i:datafile
-int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                      cmd_format fmt) {
 
   yh_rc yrc;
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yrc = yh_util_import_opaque(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
@@ -1605,9 +1909,11 @@ int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // arg 0: e:session
 // arg 1: o:option
 // arg 2: x:value
-int yh_com_put_option(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_put_option(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                      cmd_format fmt) {
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yh_rc yrc;
@@ -1630,9 +1936,11 @@ int yh_com_put_option(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // arg 4: c:capabilities
 // arg 5: a:algorithm
 // arg 6: x:key
-int yh_com_put_hmac(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_put_hmac(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                    cmd_format fmt) {
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yh_rc yrc;
@@ -1663,10 +1971,12 @@ int yh_com_put_hmac(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // arg 4: c:capabilities
 // arg 5: c:delegated_capabilities
 // arg 6: x:key
-int yh_com_put_wrapkey(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_put_wrapkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                       cmd_format fmt) {
   yh_rc yrc;
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
   yh_algorithm algo;
 
@@ -1699,13 +2009,15 @@ int yh_com_put_wrapkey(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // arg 0: e:session
 // arg 1: w:key_id
 // arg 2: i:data
-int yh_com_put_wrapped(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_put_wrapped(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                       cmd_format fmt) {
   yh_rc yrc;
   yh_object_type object_type;
   uint16_t object_id;
   const char *type = "";
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yrc = yh_util_import_wrapped(argv[0].e, argv[1].w, argv[2].x, argv[2].len,
@@ -1731,11 +2043,13 @@ int yh_com_put_wrapped(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // arg 4: c:capabilities
 // arg 5: a:algorithm
 // arg 6: i:datafile
-int yh_com_put_template(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_put_template(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                        cmd_format fmt) {
 
   yh_rc yrc;
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yrc = yh_util_import_template(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
@@ -1756,7 +2070,10 @@ int yh_com_put_template(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // arg 1: w:key_id
 // arg 2: a:algorithm
 // arg 3: i:datafile
-int yh_com_sign_ecdsa(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_sign_ecdsa(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                      cmd_format fmt) {
+
+  UNUSED(in_fmt);
 
   yh_rc yrc;
 
@@ -1813,7 +2130,10 @@ int yh_com_sign_ecdsa(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // arg 1: w:key_id
 // arg 2: a:algorithm
 // arg 3: i:datafile
-int yh_com_sign_eddsa(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_sign_eddsa(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                      cmd_format fmt) {
+
+  UNUSED(in_fmt);
 
   yh_rc yrc;
 
@@ -1844,7 +2164,9 @@ int yh_com_sign_eddsa(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // arg 2: a:algorithm
 // arg 3: f:datafile
 int yh_com_sign_pkcs1v1_5(yubihsm_context *ctx, Argument *argv,
-                          cmd_format fmt) {
+                          cmd_format in_fmt, cmd_format fmt) {
+
+  UNUSED(in_fmt);
 
   yh_rc yrc;
 
@@ -1902,7 +2224,10 @@ int yh_com_sign_pkcs1v1_5(yubihsm_context *ctx, Argument *argv,
 // arg 1: w:key_id
 // arg 2: a:algorithm
 // arg 3: f:datafile
-int yh_com_sign_pss(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_sign_pss(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                    cmd_format fmt) {
+
+  UNUSED(in_fmt);
 
   yh_rc yrc;
 
@@ -1963,9 +2288,10 @@ int yh_com_sign_pss(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // algorithms
 // argc = 0
 int yh_com_get_device_info(yubihsm_context *ctx, Argument *argv,
-                           cmd_format fmt) {
+                           cmd_format in_fmt, cmd_format fmt) {
 
   UNUSED(argv);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   if (ctx->connector == NULL) {
@@ -2015,9 +2341,11 @@ int yh_com_get_device_info(yubihsm_context *ctx, Argument *argv,
 // arg 0: e:session
 // arg 1: w:key_id
 // arg 2: x:data
-int yh_com_hmac(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_hmac(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                cmd_format fmt) {
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
 
   yh_rc yrc;
 
@@ -2039,8 +2367,10 @@ int yh_com_hmac(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // NOTE: Reset device
 // argc = 1
 // arg 0: e:session
-int yh_com_reset(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_reset(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                 cmd_format fmt) {
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yh_rc yrc;
@@ -2061,8 +2391,10 @@ int yh_com_reset(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // arg 0: e:session
 // arg 1: w:id
 // arg 2: t:type
-int yh_com_delete(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_delete(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                  cmd_format fmt) {
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yh_rc yrc = yh_util_delete_object(argv[0].e, argv[1].w, argv[2].t);
@@ -2082,8 +2414,9 @@ int yh_com_delete(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // arg 3: a:algorithm
 // arg 4: i:datafile
 int yh_com_sign_ssh_certificate(yubihsm_context *ctx, Argument *argv,
-                                cmd_format fmt) {
+                                cmd_format in_fmt, cmd_format fmt) {
 
+  UNUSED(in_fmt);
   UNUSED(fmt); // TODO: respect output format
 
   yh_rc yrc;
@@ -2197,9 +2530,11 @@ static bool time_less(struct timeval *a, struct timeval *b) {
 // arg 1: d:count
 // arg 2: w:key_id
 // arg 3: a:algorithm
-int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                     cmd_format fmt) {
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   struct {
@@ -2258,6 +2593,7 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
     {0, 0, 512, "Random 512 bytes"},
     {0, 0, 1024, "Random 1024 bytes"},
     {YH_ALGO_AES128_YUBICO_AUTHENTICATION, 0, 0, ""},
+    {YH_ALGO_EC_P256_YUBICO_AUTHENTICATION, 0, 0, ""},
   };
 
   // this is some data for the OTP benchmark
@@ -2285,6 +2621,9 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
     const char *str1 = NULL, *str2 = "", *str3 = "";
     uint16_t id = argv[2].w;
     char label[YH_OBJ_LABEL_LEN + 1] = {0};
+    uint8_t sk_oce[YH_EC_P256_PRIVKEY_LEN], pk_oce[YH_EC_P256_PUBKEY_LEN],
+      pk_sd[YH_EC_P256_PUBKEY_LEN];
+    size_t pk_sd_len;
     yh_object_type type = 0;
 #ifndef _WIN32
     size_t chars = 0;
@@ -2408,10 +2747,26 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
     } else if (benchmarks[i].algo == YH_ALGO_AES128_YUBICO_AUTHENTICATION) {
       type = YH_AUTHENTICATION_KEY;
       yh_string_to_capabilities("", &capabilities);
-      yrc =
-        yh_util_import_authentication_key_derived(argv[0].e, &id, label, 0xffff,
-                                                  &capabilities, &capabilities,
-                                                  password, sizeof(password));
+      yrc = yh_util_import_authentication_key_derived(argv[0].e, &id, label,
+                                                      0xffff, &capabilities,
+                                                      &capabilities, password,
+                                                      sizeof(password) - 1);
+    } else if (benchmarks[i].algo == YH_ALGO_EC_P256_YUBICO_AUTHENTICATION) {
+      type = YH_AUTHENTICATION_KEY;
+      yh_string_to_capabilities("", &capabilities);
+      yrc = yh_util_generate_ec_p256_key(sk_oce, sizeof(sk_oce), pk_oce,
+                                         sizeof(pk_oce));
+      if (yrc == YHR_SUCCESS) {
+        yrc = yh_util_import_authentication_key(argv[0].e, &id, label, 0xffff,
+                                                &capabilities, &capabilities,
+                                                pk_oce + 1, sizeof(pk_oce) - 1,
+                                                NULL, 0);
+        if (yrc == YHR_SUCCESS) {
+          pk_sd_len = sizeof(pk_sd);
+          yrc =
+            yh_util_get_device_pubkey(ctx->connector, pk_sd, &pk_sd_len, NULL);
+        }
+      }
     } else {
       fprintf(stderr, "Unknown benchmark algorithms\n");
       return -1;
@@ -2483,10 +2838,17 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
       } else if (benchmarks[i].algo == YH_ALGO_AES128_YUBICO_AUTHENTICATION) {
         yh_session *ses = NULL;
         yrc = yh_create_session_derived(ctx->connector, id, password,
-                                        sizeof(password), false, &ses);
+                                        sizeof(password) - 1, false, &ses);
         if (yrc == YHR_SUCCESS) {
           yrc = yh_authenticate_session(ses);
         }
+        if (yrc == YHR_SUCCESS) {
+          yrc = yh_util_close_session(ses);
+        }
+      } else if (benchmarks[i].algo == YH_ALGO_EC_P256_YUBICO_AUTHENTICATION) {
+        yh_session *ses = NULL;
+        yrc = yh_create_session_asym(ctx->connector, id, sk_oce, sizeof(sk_oce),
+                                     pk_sd, pk_sd_len, &ses);
         if (yrc == YHR_SUCCESS) {
           yrc = yh_util_close_session(ses);
         }
@@ -2561,7 +2923,9 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // arg 3: x:private_id
 // arg 4: f:aead
 int yh_com_otp_aead_create(yubihsm_context *ctx, Argument *argv,
-                           cmd_format fmt) {
+                           cmd_format in_fmt, cmd_format fmt) {
+
+  UNUSED(in_fmt);
 
   uint8_t response[YH_MSG_BUF_SIZE];
   size_t response_len = sizeof(response);
@@ -2598,7 +2962,9 @@ int yh_com_otp_aead_create(yubihsm_context *ctx, Argument *argv,
 // arg 1: w:key_id
 // arg 2: f:aead
 int yh_com_otp_aead_random(yubihsm_context *ctx, Argument *argv,
-                           cmd_format fmt) {
+                           cmd_format in_fmt, cmd_format fmt) {
+
+  UNUSED(in_fmt);
 
   uint8_t response[YH_MSG_BUF_SIZE];
   size_t response_len = sizeof(response);
@@ -2625,7 +2991,8 @@ int yh_com_otp_aead_random(yubihsm_context *ctx, Argument *argv,
 // arg 1: w:key_id
 // arg 2: s:otp
 // arg 3: i:aead
-int yh_com_otp_decrypt(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_otp_decrypt(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                       cmd_format fmt) {
   uint16_t useCtr;
   uint8_t sessionCtr;
   uint8_t tstph;
@@ -2635,6 +3002,7 @@ int yh_com_otp_decrypt(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
   size_t otp_len = sizeof(otp);
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   if (argv[2].len != 32) {
@@ -2667,7 +3035,9 @@ int yh_com_otp_decrypt(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // arg 1: w:key_id
 // arg 2: 2:attest_id
 int yh_com_sign_attestation_certificate(yubihsm_context *ctx, Argument *argv,
-                                        cmd_format fmt) {
+                                        cmd_format in_fmt, cmd_format fmt) {
+  UNUSED(in_fmt);
+
   uint8_t data[2048];
   size_t data_len = sizeof(data);
   yh_rc yrc;
@@ -2719,9 +3089,10 @@ int yh_com_sign_attestation_certificate(yubihsm_context *ctx, Argument *argv,
 // arg 5: d:nonce_id
 // arg 6: x:key
 int yh_com_put_otp_aead_key(yubihsm_context *ctx, Argument *argv,
-                            cmd_format fmt) {
+                            cmd_format in_fmt, cmd_format fmt) {
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yh_rc yrc;
@@ -2755,9 +3126,10 @@ int yh_com_put_otp_aead_key(yubihsm_context *ctx, Argument *argv,
 // arg 5: a:algorithm
 // arg 6: d:nonce_id
 int yh_com_generate_otp_aead_key(yubihsm_context *ctx, Argument *argv,
-                                 cmd_format fmt) {
+                                 cmd_format in_fmt, cmd_format fmt) {
 
   UNUSED(ctx);
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   yh_rc yrc;
@@ -2782,8 +3154,10 @@ int yh_com_generate_otp_aead_key(yubihsm_context *ctx, Argument *argv,
 // arg 2: a:algorithm
 // arg 3: f:datafile
 // arg 4: s:label
-int yh_com_decrypt_oaep(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_decrypt_oaep(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                        cmd_format fmt) {
 
+  UNUSED(in_fmt);
   yh_rc yrc;
 
   uint8_t response[YH_MSG_BUF_SIZE];
@@ -2842,8 +3216,10 @@ int yh_com_decrypt_oaep(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // NOTE: Set ca cert for https validation
 // argc = 1
 // arg 0: s:filename
-int yh_com_set_cacert(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_set_cacert(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                      cmd_format fmt) {
 
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   if (ctx->cacert) {
@@ -2857,8 +3233,10 @@ int yh_com_set_cacert(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // NOTE: Set proxy server to use for connector
 // argc = 1
 // arg 0: s:proxy
-int yh_com_set_proxy(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
+int yh_com_set_proxy(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                     cmd_format fmt) {
 
+  UNUSED(in_fmt);
   UNUSED(fmt);
 
   ctx->proxy = strdup(argv[0].s);
@@ -2875,8 +3253,9 @@ int yh_com_set_proxy(yubihsm_context *ctx, Argument *argv, cmd_format fmt) {
 // arg 1: w:key_id
 // arg 2: i:password
 int yh_com_change_authentication_key(yubihsm_context *ctx, Argument *argv,
-                                     cmd_format fmt) {
+                                     cmd_format in_fmt, cmd_format fmt) {
 
+  UNUSED(in_fmt);
   UNUSED(fmt);
   UNUSED(ctx);
 
@@ -2891,6 +3270,58 @@ int yh_com_change_authentication_key(yubihsm_context *ctx, Argument *argv,
   }
 
   fprintf(stderr, "Changed Authentication key 0x%04x\n", argv[1].w);
+
+  return 0;
+}
+
+// NOTE: Change asymmetric authentication key
+// argc = 3
+// arg 0: e:session
+// arg 1: w:key_id
+// arg 2: i:password
+int yh_com_change_authentication_key_asym(yubihsm_context *ctx, Argument *argv,
+                                          cmd_format in_fmt, cmd_format fmt) {
+
+  UNUSED(fmt);
+  UNUSED(ctx);
+
+  uint8_t pubkey[YH_EC_P256_PUBKEY_LEN];
+  yh_rc yrc;
+
+  if (in_fmt == fmt_password) {
+    uint8_t privkey[YH_EC_P256_PRIVKEY_LEN];
+    yrc = yh_util_derive_ec_p256_key(argv[2].x, argv[2].len, privkey,
+                                     sizeof(privkey), pubkey, sizeof(pubkey));
+    insecure_memzero(argv[2].x, argv[2].len);
+    insecure_memzero(privkey, sizeof(privkey));
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr, "Failed to derive asymmetric authentication key: %s\n",
+              yh_strerror(yrc));
+      return -1;
+    }
+    fprintf(stderr, "Derived public key (PK.OCE)\n");
+    for (size_t i = 0; i < sizeof(pubkey); i++)
+      fprintf(stderr, "%02x", pubkey[i]);
+    fprintf(stderr, "\n");
+  } else if (argv[2].len <= sizeof(pubkey)) {
+    memset(pubkey, 0, sizeof(pubkey) - argv[2].len);
+    memcpy(pubkey + sizeof(pubkey) - argv[2].len, argv[2].x, argv[2].len);
+  } else {
+    fprintf(stderr, "Invalid asymmetric authkey: %s\n",
+            yh_strerror(YHR_INVALID_PARAMETERS));
+    return -1;
+  }
+
+  yrc = yh_util_change_authentication_key(argv[0].e, &argv[1].w, pubkey + 1,
+                                          sizeof(pubkey) - 1, NULL, 0);
+
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to change asymmetric authentication key: %s\n",
+            yh_strerror(yrc));
+    return -1;
+  }
+
+  fprintf(stderr, "Changed Asymmetric Authentication key 0x%04x\n", argv[1].w);
 
   return 0;
 }

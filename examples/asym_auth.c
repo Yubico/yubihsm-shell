@@ -31,13 +31,15 @@
 const uint8_t password[] = "password";
 const uint8_t data[] = "sudo make me a sandwich";
 
+static int compare_algorithm(const void *a, const void *b) {
+  return (*(const yh_algorithm *) a - *(const yh_algorithm *) b);
+}
+
 int main(void) {
   yh_connector *connector = NULL;
   yh_rc yrc = YHR_GENERIC_ERROR;
 
-  const char *connector_url;
-
-  connector_url = getenv("DEFAULT_CONNECTOR_URL");
+  const char *connector_url = getenv("DEFAULT_CONNECTOR_URL");
   if (connector_url == NULL) {
     connector_url = DEFAULT_CONNECTOR_URL;
   }
@@ -59,6 +61,24 @@ int main(void) {
   assert(yrc == YHR_SUCCESS);
 
   yh_set_verbosity(connector, YH_VERB_ALL);
+
+  uint8_t d_major, d_minor, d_patch;
+  uint32_t serial;
+  uint8_t log_total, log_used;
+  yh_algorithm algorithms[YH_MAX_ALGORITHM_COUNT];
+  size_t n_algorithms = sizeof(algorithms);
+  yrc =
+    yh_util_get_device_info(connector, &d_major, &d_minor, &d_patch, &serial,
+                            &log_total, &log_used, algorithms, &n_algorithms);
+  assert(yrc == YHR_SUCCESS);
+
+  yh_algorithm key = YH_ALGO_EC_P256_YUBICO_AUTHENTICATION;
+  if (!bsearch(&key, algorithms, n_algorithms, sizeof(key),
+               compare_algorithm)) {
+    fprintf(stderr, "Skipping this test because the device does not support "
+                    "aymmetric authentication\n");
+    exit(EXIT_SUCCESS);
+  }
 
   printf("Send a plain (unencrypted, unauthenticated) echo command\n");
 
@@ -83,11 +103,46 @@ int main(void) {
 
   yh_session *session = NULL;
   uint16_t authkey = 1;
+
   yrc = yh_create_session_derived(connector, authkey, password,
                                   sizeof(password) - 1, false, &session);
   assert(yrc == YHR_SUCCESS);
 
   yrc = yh_authenticate_session(session);
+  assert(yrc == YHR_SUCCESS);
+
+  authkey = 2;
+
+  yh_util_delete_object(session, authkey, YH_AUTHENTICATION_KEY);
+  // Ignore result here
+
+  uint8_t sk_oce[YH_EC_P256_PRIVKEY_LEN], pk_oce[YH_EC_P256_PUBKEY_LEN];
+  yrc = yh_util_generate_ec_p256_key(sk_oce, sizeof(sk_oce), pk_oce,
+                                     sizeof(pk_oce));
+  assert(yrc == YHR_SUCCESS);
+
+  yh_capabilities caps = {{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}};
+  // The public key is imported without the uncompressed point marker (value
+  // 0x04), so skip the first byte
+  yrc = yh_util_import_authentication_key(session, &authkey, "EC Auth Key",
+                                          0xffff, &caps, &caps, pk_oce + 1,
+                                          sizeof(pk_oce) - 1, NULL, 0);
+  assert(yrc == YHR_SUCCESS);
+
+  yrc = yh_util_close_session(session);
+  assert(yrc == YHR_SUCCESS);
+
+  yrc = yh_destroy_session(&session);
+  assert(yrc == YHR_SUCCESS);
+
+  uint8_t pk_sd[YH_EC_P256_PUBKEY_LEN];
+  size_t pk_sd_len = sizeof(pk_sd);
+
+  yrc = yh_util_get_device_pubkey(connector, pk_sd, &pk_sd_len, NULL);
+  assert(yrc == YHR_SUCCESS);
+
+  yrc = yh_create_session_asym(connector, authkey, sk_oce, sizeof(sk_oce),
+                               pk_sd, pk_sd_len, &session);
   assert(yrc == YHR_SUCCESS);
 
   uint8_t session_id;
@@ -119,13 +174,31 @@ int main(void) {
   assert(response_len == response2_len);
   assert(memcmp(response, response2, response_len) == 0);
 
+  yrc = yh_util_generate_ec_p256_key(sk_oce, sizeof(sk_oce), pk_oce,
+                                     sizeof(pk_oce));
+  assert(yrc == YHR_SUCCESS);
+
+  yrc = yh_util_change_authentication_key(session, &authkey, pk_oce + 1,
+                                          sizeof(pk_oce) - 1, NULL, 0);
+  assert(yrc == YHR_SUCCESS);
+
   yrc = yh_util_close_session(session);
   assert(yrc == YHR_SUCCESS);
 
   yrc = yh_destroy_session(&session);
   assert(yrc == YHR_SUCCESS);
 
-  yh_disconnect(connector);
+  yrc = yh_create_session_asym(connector, authkey, sk_oce, sizeof(sk_oce),
+                               pk_sd, pk_sd_len, &session);
+  assert(yrc == YHR_SUCCESS);
+
+  yrc = yh_util_close_session(session);
+  assert(yrc == YHR_SUCCESS);
+
+  yrc = yh_destroy_session(&session);
+  assert(yrc == YHR_SUCCESS);
+
+  yrc = yh_disconnect(connector);
   assert(yrc == YHR_SUCCESS);
 
   yrc = yh_exit();

@@ -16,7 +16,7 @@ addons:
     - gengetopt
     - help2man
     - lcov
-    - libcurl4-openssl-dev
+    - libcurl4-gnutls-dev
     - libedit-dev
       libengine-pkcs11-openssl
     - libpcsclite-dev
@@ -49,6 +49,7 @@ matrix:
       env:
         - CMAKE_EXTRA="-DENABLE_COVERAGE=1"
         - LIBEXT="so"
+        - CRYPTOGRAPHY_ALLOW_OPENSSL_102="1"
       after_success:
         - gem install coveralls-lcov
         - cmake --build build --target lcov
@@ -58,6 +59,7 @@ matrix:
       compiler: clang
       env:
         - LIBEXT="so"
+        - CRYPTOGRAPHY_ALLOW_OPENSSL_102="1"
     - os: linux
       dist: bionic
       compiler: gcc
@@ -65,6 +67,16 @@ matrix:
         - LIBEXT="so"
     - os: linux
       dist: bionic
+      compiler: clang
+      env:
+        - LIBEXT="so"
+    - os: linux
+      dist: focal
+      compiler: gcc
+      env:
+        - LIBEXT="so"
+    - os: linux
+      dist: focal
       compiler: clang
       env:
         - LIBEXT="so"

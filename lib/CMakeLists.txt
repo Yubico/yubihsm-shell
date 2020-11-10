@@ -14,6 +14,9 @@
 # limitations under the License.
 #
 
+include(${CMAKE_SOURCE_DIR}/cmake/openssl.cmake)
+find_libcrypto()
+
 if(MSVC)
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
 endif()
@@ -25,10 +28,13 @@ set (
   ${CMAKE_CURRENT_SOURCE_DIR}/../common/hash.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../common/pkcs5.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../common/rand.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../common/ecdh.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../common/openssl-compat.c
   error.c
   lib_util.c
   yubihsm.c
 )
+
 if(MSVC)
   set(SOURCE ${SOURCE} ${CMAKE_CURRENT_SOURCE_DIR}/../common/time_win.c)
 endif(MSVC)
@@ -230,6 +236,11 @@ add_test(
 add_test(
   NAME echo
   COMMAND echo
+  )
+
+add_test(
+  NAME asym_auth
+  COMMAND asym_auth
   )
 
 add_test(

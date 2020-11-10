@@ -21,6 +21,7 @@ set(
   SOURCE
   ../common/hash.c
   ../common/util.c
+  ../common/openssl-compat.c
   util_pkcs11.c
   yubihsm_pkcs11.c
   list.c
@@ -42,11 +43,6 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${LIBCRYPTO_INCLUDEDIR}
   )
-
-if(${LIBCRYPTO_VERSION} VERSION_LESS 1.1.0)
-  set(SOURCE ${SOURCE}
-    ../common/openssl-compat.c)
-endif()
 
 # NOTE(adma): required by gengetopt
 add_definitions(-DPACKAGE="yubihsm_pkcs11")
