@@ -1963,7 +1963,7 @@ int main(int argc, char *argv[]) {
 #endif
 
   if (args_info.action_given) {
-    uint8_t buf[4096] = {0};
+    uint8_t buf[8192] = {0};
 
     ctx.out = open_file(args_info.out_arg, false);
     if (ctx.out == NULL) {
