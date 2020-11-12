@@ -309,7 +309,7 @@ static bool put_credential(ykyh_state *state, char *authkey, char *name,
     key_mac_parsed_len = YKYH_KEY_LEN;
   }
 
-  if (parse_pw("Password", password, pw_parsed, &pw_parsed_len) == false) {
+  if (parse_pw("Credential Password (16 characters)", password, pw_parsed, &pw_parsed_len) == false) {
     return false;
   }
 
