@@ -30,7 +30,7 @@ struct state {
 };
 
 struct curl_data {
-  uint8_t *data;
+  uint8_t *ptr;
   uint8_t *end;
 };
 
@@ -49,13 +49,13 @@ static size_t curl_callback_write(void *ptr, size_t size, size_t nmemb,
   }
 
   // Add & check for overflow
-  uint8_t *end = data->data + tot;
-  if (end < data->data || end > data->end) {
+  uint8_t *new_ptr = data->ptr + tot;
+  if (new_ptr < data->ptr || new_ptr > data->end) {
     return 0;
   }
 
-  memcpy(data->data, ptr, tot);
-  data->data = end;
+  memcpy(data->ptr, ptr, tot);
+  data->ptr = new_ptr;
 
   return tot;
 }
@@ -117,7 +117,7 @@ static yh_rc backend_connect(yh_connector *connector, int timeout) {
     return YHR_CONNECTOR_NOT_FOUND;
   }
 
-  size_t size = data.data - scratch;
+  size_t size = data.ptr - scratch;
   size_t len = strlen((char *) scratch);
 
   if (len != size) {
@@ -180,7 +180,7 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
     goto sm_failure;
   }
 
-  size_t size = data.data - response->raw;
+  size_t size = data.ptr - response->raw;
 
   if (size < 3) {
     DBG_ERR("Not enough data received: %zu", size);
