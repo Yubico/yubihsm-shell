@@ -648,7 +648,7 @@ ykyh_rc ykyh_get_authkey_retries(ykyh_state *state, uint8_t *retries) {
 
   *retries = data[0];
 
-  return YKYHR_GENERIC_ERROR;
+  return YKYHR_SUCCESS;
 }
 
 ykyh_rc ykyh_put_authkey(ykyh_state *state, uint8_t *authkey,
