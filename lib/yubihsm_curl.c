@@ -30,9 +30,8 @@ struct state {
 };
 
 struct curl_data {
-  uint8_t *data;
-  uint16_t size;
-  uint16_t max_size;
+  uint8_t *ptr;
+  uint8_t *end;
 };
 
 uint8_t YH_INTERNAL _yh_verbosity;
@@ -43,15 +42,22 @@ static size_t curl_callback_write(void *ptr, size_t size, size_t nmemb,
 
   struct curl_data *data = (struct curl_data *) stream;
 
-  if (data->size + size * nmemb < data->size ||
-      data->size + size * nmemb > data->max_size) {
+  // Multiply & check for overflow
+  size_t tot = size * nmemb;
+  if (tot < size || tot < nmemb) {
     return 0;
   }
 
-  memcpy(data->data + data->size, ptr, size * nmemb);
-  data->size += size * nmemb;
+  // Add & check for overflow
+  uint8_t *new_ptr = data->ptr + tot;
+  if (new_ptr < data->ptr || new_ptr > data->end) {
+    return 0;
+  }
 
-  return size * nmemb;
+  memcpy(data->ptr, ptr, tot);
+  data->ptr = new_ptr;
+
+  return tot;
 }
 
 static void backend_set_verbosity(uint8_t verbosity, FILE *output) {
@@ -79,10 +85,8 @@ static yh_backend *backend_create() { return curl_easy_init(); }
 static yh_rc backend_connect(yh_connector *connector, int timeout) {
 
   CURLcode rc;
-  struct url_data {
-    char scratch[257];
-    struct curl_data curl_data;
-  } data;
+  uint8_t scratch[257] = {0};
+  struct curl_data data = {scratch, scratch + sizeof(scratch) - 1};
   char curl_error[CURL_ERROR_SIZE] = {0};
 
   DBG_INFO("Trying to connect to %s", connector->status_url);
@@ -101,11 +105,7 @@ static yh_rc backend_connect(yh_connector *connector, int timeout) {
 
   curl_easy_setopt(connector->connection, CURLOPT_ERRORBUFFER, curl_error);
 
-  memset((uint8_t *) data.scratch, 0, sizeof(data.scratch));
-  data.curl_data.data = (uint8_t *) data.scratch;
-  data.curl_data.size = 0;
-  data.curl_data.max_size = sizeof(data.scratch) - 1;
-  curl_easy_setopt(connector->connection, CURLOPT_WRITEDATA, &data.curl_data);
+  curl_easy_setopt(connector->connection, CURLOPT_WRITEDATA, &data);
 
   rc = curl_easy_perform(connector->connection);
   if (rc != CURLE_OK) {
@@ -117,14 +117,22 @@ static yh_rc backend_connect(yh_connector *connector, int timeout) {
     return YHR_CONNECTOR_NOT_FOUND;
   }
 
-  if (strlen(data.scratch) != data.curl_data.size) {
+  size_t size = data.ptr - scratch;
+  size_t len = strlen((char *) scratch);
+
+  if (len != size) {
     DBG_ERR("Amount of data received does not match scratch buffer. Expected "
-            "%zu, found %d",
-            strlen(data.scratch), data.curl_data.size);
+            "%zu, found %zu",
+            len, size);
     return YHR_GENERIC_ERROR;
   }
 
-  parse_status_data(data.scratch, connector);
+  parse_status_data((char *) scratch, connector);
+
+  if (!connector->has_device) {
+    DBG_ERR("Failure when connecting: Connector has no device");
+    return YHR_CONNECTOR_NOT_FOUND;
+  }
 
   DBG_INFO("Found working connector");
 
@@ -142,7 +150,8 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
   CURLcode rc;
   yh_rc yrc = YHR_CONNECTION_ERROR;
   int32_t trf_len = msg->st.len + 3;
-  struct curl_data data = {response->raw, 0, SCP_MSG_BUF_SIZE};
+  struct curl_data data = {response->raw,
+                           response->raw + sizeof(response->raw)};
   struct curl_slist *headers = NULL;
   char curl_error[CURL_ERROR_SIZE] = {0};
   char hsm_identifier[64];
@@ -171,15 +180,17 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
     goto sm_failure;
   }
 
-  if (data.size < 3) {
-    DBG_ERR("Not enough data received: %d", data.size);
+  size_t size = data.ptr - response->raw;
+
+  if (size < 3) {
+    DBG_ERR("Not enough data received: %zu", size);
     return YHR_WRONG_LENGTH;
   }
 
   response->st.len = ntohs(response->st.len);
 
-  if (response->st.len != data.size - 3) {
-    DBG_ERR("Wrong length received, %d vs %d", response->st.len, data.size);
+  if (response->st.len != size - 3) {
+    DBG_ERR("Wrong length received, %d vs %zu", response->st.len, size);
     return YHR_WRONG_LENGTH;
   }
 
