@@ -38,7 +38,7 @@ cd $VCPKG_PATH
 .\vcpkg.exe install openssl:$ARCH-windows
 .\vcpkg.exe install getopt:$ARCH-windows
 
-$env:OPENSSL_ROOT_DIR ="$VCPKG_PATH/packages/openssl-windows_$ARCH-windows"
+$env:OPENSSL_ROOT_DIR ="$VCPKG_PATH/packages/openssl_$ARCH-windows"
 
 # Build binaries
 mkdir $BUILD_DIR; cd $BUILD_DIR
@@ -49,12 +49,12 @@ cmake --build . --config Release --target install
 cd $RELEASE_DIR/bin
 if($ARCH -eq "x86")
 {
-    cp $VCPKG_PATH/packages/openssl-windows_x86-windows/bin/libcrypto-1_1.dll .
+    cp $VCPKG_PATH/packages/openssl_x86-windows/bin/libcrypto-1_1.dll .
     cp $VCPKG_PATH/packages/getopt-win32_x86-windows/bin/getopt.dll .
 }
 else
 {
-    cp $VCPKG_PATH/packages/openssl-windows_x64-windows/bin/libcrypto-1_1-x64.dll .
+    cp $VCPKG_PATH/packages/openssl_x64-windows/bin/libcrypto-1_1-x64.dll .
     cp $VCPKG_PATH/packages/getopt-win32_x64-windows/bin/getopt.dll .
 }
 
@@ -66,7 +66,7 @@ mkdir -p $LICENSES_DIR
 $license=(Get-ChildItem -Path $SOURCE_DIR -Filter LICENSE -Recurse -ErrorAction SilentlyContinue -Force | %{$_.FullName})
 cp $license $LICENSES_DIR/yubihsm-shell.txt
 
-$license=(Get-ChildItem -Path $VCPKG_PATH\buildtrees\openssl-windows\src\ -Filter LICENSE -Recurse -ErrorAction SilentlyContinue -Force | %{$_.FullName})
+$license=(Get-ChildItem -Path $VCPKG_PATH\buildtrees\openssl\src\ -Filter LICENSE -Recurse -ErrorAction SilentlyContinue -Force | %{$_.FullName})
 cp $license $LICENSES_DIR\openssl.txt
 
 $license=(Get-ChildItem -Path $VCPKG_PATH\buildtrees\getopt-win32\src\ -Filter LICENSE -Recurse -ErrorAction SilentlyContinue -Force | %{$_.FullName})
