@@ -261,8 +261,15 @@ static yh_rc backend_connect(yh_connector *connector, int timeout) {
           res = YHR_CONNECTOR_NOT_FOUND;
         } else {
           parse_status_data((char *) buf, connector);
-          new_stage = REQUEST_SUCCESS;
-          res = YHR_SUCCESS;
+          if (!connector->has_device) {
+            DBG_ERR(
+              "Status response from server indicates no device is present");
+            new_stage = REQUEST_ERROR;
+            res = YHR_CONNECTOR_NOT_FOUND;
+          } else {
+            new_stage = REQUEST_SUCCESS;
+            res = YHR_SUCCESS;
+          }
         }
         break;
       case REQUEST_ERROR:
