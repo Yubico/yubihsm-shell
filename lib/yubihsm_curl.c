@@ -159,7 +159,7 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
   headers = curl_slist_append(NULL, "Content-Type: application/octet-stream");
 
   if (identifier != NULL && strlen(identifier) > 0 && strlen(identifier) < 32) {
-    snprintf(hsm_identifier, 63, "YubiHSM-Session: %s", identifier);
+    snprintf(hsm_identifier, 64, "YubiHSM-Session: %s", identifier);
     headers = curl_slist_append(headers, hsm_identifier);
   }
 
