@@ -20,37 +20,44 @@ set -eo pipefail
 
 p11="`pwd`/../yubihsm_pkcs11.so"
 
-os=`uname`
-if [ "x$os" = "xDarwin" ]; then
-  echo "mac os not supported yet"
-  exit 0
-elif [ "x$os" = "xFreeBSD" ]; then
+os=`uname -s`
+arch=`uname -m`
+if [ "x$arch" = "xarmv7l" ]; then
+  arch="arm"
+  abi="gnueabihf"
+else
+  abi="gnu"
+fi
+
+if [ "x$os" = "xFreeBSD" ]; then
   if [ -f "/usr/local/lib/engines/pkcs11.so" ]; then
     engine="/usr/local/lib/engines/pkcs11.so"
   else
-    echo "No engine found"
+    echo "No engine found for $os-$arch"
     exit 0
   fi
   ssl_cnf="/etc/ssl/openssl.cnf"
 elif [ "x$os" = "xLinux" ]; then
-  if [ -f "/usr/lib/ssl/engines/libpkcs11.so" ]; then
+  if [ -f "/usr/lib/ssl/engines/pkcs11.so" ]; then
+    engine="/usr/lib/ssl/engines/pkcs11.so"
+  elif [ -f "/usr/lib/ssl/engines/libpkcs11.so" ]; then
     engine="/usr/lib/ssl/engines/libpkcs11.so"
-  elif [ -f "/usr/lib/x86_64-linux-gnu/engines-1.1/pkcs11.so" ]; then
-    engine="/usr/lib/x86_64-linux-gnu/engines-1.1/pkcs11.so"
   elif [ -f "/usr/lib/ssl/engines/engine_pkcs11.so" ]; then
     engine="/usr/lib/ssl/engines/engine_pkcs11.so"
+  elif [ -f "/usr/lib/$arch-linux-$abi/engines-1.1/pkcs11.so" ]; then
+    engine="/usr/lib/$arch-linux-$abi/engines-1.1/pkcs11.so"
   else
-    echo "No engine found"
+    echo "No engine found for $os-$arch"
     exit 0
   fi
   ssl_cnf="/etc/ssl/openssl.cnf"
 else
-  echo "$os is unknown and not supported"
+  echo "$os-$arch is not supported"
   exit 0
 fi
 
 if [ ! -f $engine ]; then
-  echo "No engine found at $engine, failure."
+  echo "No engine found at $engine for $os-$arch"
   exit 1
 fi
 
