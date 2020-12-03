@@ -44,10 +44,10 @@ CK_BYTE P521_PARAMS[] = {0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x23};
 CK_FUNCTION_LIST_PTR p11;
 CK_SESSION_HANDLE session;
 
-char *CURVES[] = {"secp224r1", "secp384r1", "secp521r1"};
-CK_BYTE *CURVE_PARAMS[] = {P224_PARAMS, P384_PARAMS, P521_PARAMS};
-CK_ULONG CURVE_LENS[] = {sizeof(P224_PARAMS), sizeof(P384_PARAMS),
-                         sizeof(P521_PARAMS)};
+char *CURVES[] = {"secp224r1", "prime256v1", "secp384r1", "secp521r1"};
+CK_BYTE *CURVE_PARAMS[] = {P224_PARAMS, P256_PARAMS, P384_PARAMS, P521_PARAMS};
+CK_ULONG CURVE_LENS[] = {sizeof(P224_PARAMS), sizeof(P256_PARAMS),
+                         sizeof(P384_PARAMS), sizeof(P521_PARAMS)};
 int CURVE_COUNT = sizeof(CURVE_PARAMS) / sizeof(CURVE_PARAMS[0]);
 
 static void get_function_list(char *argv[]) {
@@ -965,7 +965,8 @@ int main(int argc, char **argv) {
     }
 
     printf("Testing deriving ECDH keys with faulty parameters... ");
-    if (test_faulty_ecdh(CURVES[i], "prime256v1", &yh_privkey, &ecdh1)) {
+    if (test_faulty_ecdh(CURVES[i], i == 0 ? CURVES[i + 1] : CURVES[i - 1],
+                         &yh_privkey, &ecdh1)) {
       printf("OK!\n");
     } else {
       printf("FAIL!\n");
