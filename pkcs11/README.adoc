@@ -68,7 +68,8 @@ in hexadecimal, zero padded if required) of the Authentication Key
 that should be used to perform the login operation.
 
 For example, to use the default Authentication Key with ID `1` and password
-`password`, the user PIN would then be `0001password`.
+`password`, the user PIN would then be `0001password`. To be compliant with PKCS#11
+standards, the Authentication Key password _MUST_ be at least `8` characters long.
 
 === PKCS#11 Attributes
 
