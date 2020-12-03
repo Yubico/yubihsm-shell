@@ -46,7 +46,9 @@ CK_SESSION_HANDLE session;
 
 char *CURVES[] = {"secp224r1", "secp384r1", "secp521r1"};
 CK_BYTE *CURVE_PARAMS[] = {P224_PARAMS, P384_PARAMS, P521_PARAMS};
-int CURVE_COUNT = 3;
+CK_ULONG CURVE_LENS[] = {sizeof(P224_PARAMS), sizeof(P384_PARAMS),
+                         sizeof(P521_PARAMS)};
+int CURVE_COUNT = sizeof(CURVE_PARAMS) / sizeof(CURVE_PARAMS[0]);
 
 static void get_function_list(char *argv[]) {
   void *handle = dlopen(argv[1], RTLD_NOW | RTLD_GLOBAL);
@@ -136,7 +138,7 @@ static bool destroy_object(CK_OBJECT_HANDLE key) {
   return true;
 }
 
-static void generate_keypair_yh(CK_BYTE *curve,
+static void generate_keypair_yh(CK_BYTE *curve, CK_ULONG curve_len,
                                 CK_OBJECT_HANDLE_PTR publicKeyPtr,
                                 CK_OBJECT_HANDLE_PTR privateKeyPtr) {
   CK_MECHANISM mechanism = {CKM_EC_KEY_PAIR_GEN, NULL_PTR, 0};
@@ -154,7 +156,7 @@ static void generate_keypair_yh(CK_BYTE *curve,
                                       {CKA_KEY_TYPE, &key_type,
                                        sizeof(key_type)},
                                       {CKA_LABEL, label, strlen(label)},
-                                      {CKA_EC_PARAMS, curve, sizeof(curve)}};
+                                      {CKA_EC_PARAMS, curve, curve_len}};
 
   CK_ATTRIBUTE privateKeyTemplate[] = {{CKA_CLASS, &privkey_class,
                                         sizeof(privkey_class)},
@@ -544,7 +546,8 @@ static bool check_attributes_buffer_too_small(CK_OBJECT_HANDLE key_id) {
      {CKA_NEVER_EXTRACTABLE, &is_never_extractable,
       sizeof(is_never_extractable) - 1},
      {CKA_SENSITIVE, &is_sensitive, sizeof(is_sensitive) - 1},
-     {CKA_ALWAYS_SENSITIVE, &is_always_sensitive, sizeof(is_always_sensitive) - 1},
+     {CKA_ALWAYS_SENSITIVE, &is_always_sensitive,
+      sizeof(is_always_sensitive) - 1},
      {CKA_MODIFIABLE, &is_modifiable, sizeof(is_modifiable) - 1},
      {CKA_COPYABLE, &is_copyable, sizeof(is_copyable) - 1},
      {CKA_SIGN, &is_sign, sizeof(is_sign) - 1},
@@ -570,7 +573,7 @@ static bool check_attributes_buffer_too_small(CK_OBJECT_HANDLE key_id) {
     return false;
   }
 
-  for(CK_ULONG i = 0; i < attribute_count; ++i) {
+  for (CK_ULONG i = 0; i < attribute_count; ++i) {
     if (template[i].ulValueLen != CK_UNAVAILABLE_INFORMATION) {
       fail("ulValueLen should be CK_UNAVAILABLE_INFORMATION.");
       return false;
@@ -938,7 +941,8 @@ int main(int argc, char **argv) {
 
     printf("\n/////// Testing curve %s\n", CURVES[i]);
 
-    generate_keypair_yh(CURVE_PARAMS[i], &yh_pubkey, &yh_privkey);
+    generate_keypair_yh(CURVE_PARAMS[i], CURVE_LENS[i], &yh_pubkey,
+                        &yh_privkey);
     CK_OBJECT_HANDLE ecdh1, ecdh2, ecdh3;
 
     printf("Testing the value of ECDH key derived by yubihsm-pkcs11... ");
