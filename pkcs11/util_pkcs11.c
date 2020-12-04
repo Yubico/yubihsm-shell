@@ -560,6 +560,7 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
 
     case CKA_MODIFIABLE:
     case CKA_COPYABLE:
+    case CKA_TRUSTED:
       *((CK_BBOOL *) value) = CK_FALSE;
       *length = sizeof(CK_BBOOL);
       break;
