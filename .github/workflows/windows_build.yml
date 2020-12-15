@@ -14,6 +14,7 @@ jobs:
       - name: Install prerequisites
         run: |
           set -x
+          sudo apt -q update
           sudo apt install libpcsclite-dev gengetopt help2man libedit-dev libcurl4-openssl-dev libssl-dev libusb-1.0-0-dev
       - name: Create tar.gz
         run: |
