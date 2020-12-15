@@ -562,6 +562,11 @@ void create_command_list(CommandList *c) {
                                     "e:session,w:key_id,s:otp,i:aead",
                                     fmt_binary, fmt_nofmt,
                                     "Decrypt an OTP with AEAD", NULL, NULL});
+  register_subcommand(
+    *c,
+    (Command){"rewrap", yh_com_otp_rewrap,
+              "e:session,w:id_from,w:id_to,i:aead_in,F:aead_out", fmt_binary,
+              fmt_binary, "Rewrap an OTP aead to a different key", NULL, NULL});
   *c = register_command(*c, (Command){"attest", yh_com_noop, NULL, fmt_nofmt,
                                       fmt_nofmt, "Attest device objects", NULL,
                                       NULL});

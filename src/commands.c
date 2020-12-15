@@ -3031,6 +3031,37 @@ int yh_com_otp_decrypt(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   return 0;
 }
 
+// NOTE: rewrap OTP AEAD to a different key
+// argc = 5
+// arg 0: e:session
+// arg 1: w:id_from
+// arg 2: w:id_to
+// arg 3: i:aead_in
+// arg 4: F:aead_out
+int yh_com_otp_rewrap(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                      cmd_format fmt) {
+  uint8_t response[YH_MSG_BUF_SIZE];
+  size_t response_len = sizeof(response);
+  yh_rc yrc;
+
+  UNUSED(ctx);
+  UNUSED(in_fmt);
+
+  yrc = yh_util_rewrap_otp_aead(argv[0].e, argv[1].w, argv[2].w, argv[3].x,
+                                argv[3].len, response, &response_len);
+
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to rewrap OTP AEAD: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  if (write_file(response, response_len, ctx->out, fmt_to_fmt(fmt))) {
+    return 0;
+  }
+
+  return -1;
+}
+
 // NOTE: decrypt OTP with AEAD
 // argc = 3
 // arg 0: e:session

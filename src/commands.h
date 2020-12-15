@@ -169,6 +169,8 @@ int yh_com_otp_aead_random(yubihsm_context *ctx, Argument *argv,
                            cmd_format in_fmt, cmd_format fmt);
 int yh_com_otp_decrypt(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                        cmd_format fmt);
+int yh_com_otp_rewrap(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                      cmd_format fmt);
 int yh_com_sign_attestation_certificate(yubihsm_context *ctx, Argument *argv,
                                         cmd_format in_fmt, cmd_format fmt);
 int yh_com_keepalive_on(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
