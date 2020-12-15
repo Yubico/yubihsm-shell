@@ -103,6 +103,10 @@ if (ENABLE_EXPERIMENTAL_YKYH)
   endif()
 endif()
 
+if (ENABLE_EXPERIMENTAL_ASYMMETRIC_AUTH)
+  add_definitions(-DUSE_ASYMMETRIC_AUTH="1")
+endif()
+
 install(
   TARGETS yubihsm-shell
   ARCHIVE DESTINATION "${YUBIHSM_INSTALL_LIB_DIR}"
