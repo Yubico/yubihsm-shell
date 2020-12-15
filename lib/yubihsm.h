@@ -234,6 +234,8 @@ typedef enum {
   YHR_CONNECTOR_ERROR = -29,
   /// Return value when encountering SSH CA constraint violation
   YHR_DEVICE_SSH_CA_CONSTRAINT_VIOLATION = -30,
+  /// Return value when an algorithm is disabled
+  YHR_DEVICE_ALGORITHM_DISABLED = -31,
 } yh_rc;
 
 /// Macro to define command and response command
@@ -498,6 +500,8 @@ typedef enum {
   YH_OPTION_FORCE_AUDIT = 1,
   /// Enable/Disable logging of specific commands
   YH_OPTION_COMMAND_AUDIT = 3,
+  /// Toggle algorithms on/off
+  YH_OPTION_ALGORITHM_TOGGLE = 4,
 } yh_option;
 
 /**
@@ -694,6 +698,7 @@ static const struct {
 } yh_options[] = {
   {"command-audit", YH_OPTION_COMMAND_AUDIT},
   {"force-audit", YH_OPTION_FORCE_AUDIT},
+  {"algorithm-toggle", YH_OPTION_ALGORITHM_TOGGLE},
 };
 
 /// The object was generated on the device

@@ -60,6 +60,7 @@ static const err_t errors[] = {
   ERR(YHR_DEVICE_OBJECT_EXISTS, "An Object with that ID already exists"),
   ERR(YHR_CONNECTOR_ERROR, "Connector operation failed"),
   ERR(YHR_DEVICE_SSH_CA_CONSTRAINT_VIOLATION, "SSH CA constraint violation"),
+  ERR(YHR_DEVICE_ALGORITHM_DISABLED, "Algorithm disabled"),
 };
 
 const char *yh_strerror(yh_rc err) {

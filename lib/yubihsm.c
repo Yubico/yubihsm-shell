@@ -207,8 +207,9 @@ static yh_rc translate_device_error(uint8_t device_error) {
     _DEVICE_INVALID_ID = 0x0c,                   // Invalid ID
     _DEVICE_SSH_CA_CONSTRAINT_VIOLIATION = 0x0e, // CA constraint violation
     _DEVICE_INVALID_OTP = 0x0f,                  // Invalid OTP
-    _DEVICE_DEMO_MODE = 0x10,     // Demo mode, power cycle device
-    _DEVICE_OBJECT_EXISTS = 0x11, // Object with that ID already exists
+    _DEVICE_DEMO_MODE = 0x10,          // Demo mode, power cycle device
+    _DEVICE_OBJECT_EXISTS = 0x11,      // Object with that ID already exists
+    _DEVICE_ALGORITHM_DISABLED = 0x12, // Algorithm is disabled
     _DEVICE_COMMAND_UNEXECUTED =
       0xff, // The command execution has not terminated
   };
@@ -264,6 +265,9 @@ static yh_rc translate_device_error(uint8_t device_error) {
 
     case _DEVICE_OBJECT_EXISTS:
       return YHR_DEVICE_OBJECT_EXISTS;
+
+    case _DEVICE_ALGORITHM_DISABLED:
+      return YHR_DEVICE_ALGORITHM_DISABLED;
 
     case _DEVICE_COMMAND_UNEXECUTED:
       return YHR_DEVICE_COMMAND_UNEXECUTED;
