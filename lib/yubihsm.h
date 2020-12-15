@@ -486,6 +486,8 @@ typedef enum {
   YH_ALGO_EC_ED25519 = 46,
   /// ecp224
   YH_ALGO_EC_P224 = 47,
+  /// rsa-pkcs1-decrypt
+  YH_ALGO_RSA_PKCS1_DECRYPT = 48,
   /// ec-p256-yubico-authentication
   YH_ALGO_EC_P256_YUBICO_AUTHENTICATION = 49,
 } yh_algorithm;
@@ -661,6 +663,7 @@ static const struct {
   {"rsa-oaep-sha256", YH_ALGO_RSA_OAEP_SHA256},
   {"rsa-oaep-sha384", YH_ALGO_RSA_OAEP_SHA384},
   {"rsa-oaep-sha512", YH_ALGO_RSA_OAEP_SHA512},
+  {"rsa-pkcs1-decrypt", YH_ALGO_RSA_PKCS1_DECRYPT},
   {"rsa-pkcs1-sha1", YH_ALGO_RSA_PKCS1_SHA1},
   {"rsa-pkcs1-sha256", YH_ALGO_RSA_PKCS1_SHA256},
   {"rsa-pkcs1-sha384", YH_ALGO_RSA_PKCS1_SHA384},
