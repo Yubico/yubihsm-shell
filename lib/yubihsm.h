@@ -2050,6 +2050,27 @@ yh_rc yh_util_decrypt_otp(yh_session *session, uint16_t key_id,
                           uint8_t *sessionCtr, uint8_t *tstph, uint16_t *tstpl);
 
 /**
+ * Rewrap an OTP AEAD from one #YH_OTP_AEAD_KEY to another.
+ *
+ * @param session Authenticated session to use
+ * @param id_from Object ID of the AEAD Key to wrap from.
+ * @param id_to Object ID of the AEAD Key to wrap to.
+ * @param aead_in AEAD to unwrap
+ * @param in_len Length of AEAD
+ * @param aead_out The created AEAD
+ * @param out_len Length of output AEAD
+ *
+ * @return #YHR_SUCCESS if successful.
+ *         #YHR_INVALID_PARAMETERS if input parameters are NULL.
+ *         See #yh_rc for other possible errors
+ **/
+
+yh_rc yh_util_rewrap_otp_aead(yh_session *session, uint16_t id_from,
+                              uint16_t id_to, const uint8_t *aead_in,
+                              size_t in_len, uint8_t *aead_out,
+                              size_t *out_len);
+
+/**
  * Import an #YH_OTP_AEAD_KEY used for Yubico OTP Decryption
  *
  * @param session Authenticated session to use
