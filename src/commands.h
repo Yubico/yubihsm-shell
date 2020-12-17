@@ -97,8 +97,10 @@ int yh_com_get_storage(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                        cmd_format fmt);
 int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                       cmd_format fmt);
+#ifdef USE_ASYMMETRIC_AUTH
 int yh_com_get_device_pubkey(yubihsm_context *ctx, Argument *argv,
                              cmd_format in_fmt, cmd_format fmt);
+#endif
 int yh_com_get_object_info(yubihsm_context *ctx, Argument *argv,
                            cmd_format in_fmt, cmd_format fmt);
 int yh_com_get_wrapped(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
