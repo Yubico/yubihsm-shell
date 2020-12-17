@@ -121,16 +121,20 @@ int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                         cmd_format fmt);
 int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                         cmd_format fmt);
+#ifdef USE_ASYMMETRIC_AUTH
 int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
                              cmd_format in_fmt, cmd_format fmt);
+#endif
 int yh_com_pecho(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                  cmd_format fmt);
 int yh_com_put_asymmetric(yubihsm_context *ctx, Argument *argv,
                           cmd_format in_fmt, cmd_format fmt);
 int yh_com_put_authentication(yubihsm_context *ctx, Argument *argv,
                               cmd_format in_fmt, cmd_format fmt);
+#ifdef USE_ASYMMETRIC_AUTH
 int yh_com_put_authentication_asym(yubihsm_context *ctx, Argument *argv,
                                    cmd_format in_fmt, cmd_format fmt);
+#endif
 int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                       cmd_format fmt);
 int yh_com_put_option(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
@@ -187,7 +191,9 @@ int yh_com_set_proxy(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
 int yh_com_change_authentication_key(yubihsm_context *ctx, Argument *argv,
                                      cmd_format in_fmt, cmd_format fmt);
+#ifdef USE_ASYMMETRIC_AUTH
 int yh_com_change_authentication_key_asym(yubihsm_context *ctx, Argument *argv,
                                           cmd_format in_fmt, cmd_format fmt);
+#endif
 
 #endif
