@@ -504,6 +504,8 @@ typedef enum {
   YH_OPTION_COMMAND_AUDIT = 3,
   /// Toggle algorithms on/off
   YH_OPTION_ALGORITHM_TOGGLE = 4,
+  /// Fips mode on/off
+  YH_OPTION_FIPS_MODE = 5,
 } yh_option;
 
 /**
@@ -702,6 +704,7 @@ static const struct {
   {"command-audit", YH_OPTION_COMMAND_AUDIT},
   {"force-audit", YH_OPTION_FORCE_AUDIT},
   {"algorithm-toggle", YH_OPTION_ALGORITHM_TOGGLE},
+  {"fips-mode", YH_OPTION_FIPS_MODE},
 };
 
 /// The object was generated on the device
