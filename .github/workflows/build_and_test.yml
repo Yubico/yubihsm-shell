@@ -45,7 +45,7 @@ jobs:
         OS: ${{ matrix.os }}
       run: |
         if [ "$OS" = "macos-latest" ]; then
-          brew update
+        # no update - no upgrade
           brew install cmake gengetopt help2man libedit libusb openssl@1.1 pcsc-lite pkg-config swig truncate
         else
         # the github actions ubuntu 16.04 comes with a broken ppa that we need to get rid of everything from
