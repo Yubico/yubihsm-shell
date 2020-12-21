@@ -321,11 +321,12 @@ void aes_add_padding(uint8_t *in, uint16_t *len) {
 
 void aes_remove_padding(uint8_t *in, uint16_t *len) {
 
-  while (in[(*len) - 1] == 0) {
+  while ((*len) > 1 && in[(*len) - 1] == 0) {
     (*len)--;
   }
 
-  (*len)--;
+  if (*len > 0)
+    (*len)--;
 }
 
 void aes_destroy(aes_context *ctx) {
