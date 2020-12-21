@@ -46,7 +46,7 @@ jobs:
       run: |
         if [ "$OS" = "macos-latest" ]; then
           brew update
-          brew install cmake gengetopt help2man libedit libusb openssl@1.1 pcsc-lite pkg-config swig truncate
+          brew install gengetopt help2man libedit pcsc-lite swig truncate
         else
         # the github actions ubuntu 16.04 comes with a broken ppa that we need to get rid of everything from
           if [ "$OS" = "ubuntu-16.04" ]; then
