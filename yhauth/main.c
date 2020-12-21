@@ -187,18 +187,28 @@ static bool parse_touch_policy(enum enum_touch touch_policy,
   return true;
 }
 
-static bool delete_credential(ykyh_state *state, char *name) {
+static bool delete_credential(ykyh_state *state, char *authkey, char *name) {
   ykyh_rc ykyhrc;
+  uint8_t authkey_parsed[YKYH_PW_LEN];
+  size_t authkey_parsed_len = sizeof(authkey_parsed);
   char name_parsed[YKYH_MAX_NAME_LEN + 2] = {0};
   size_t name_parsed_len = sizeof(name_parsed);
+  uint8_t retries;
+
+  if (parse_key("Authentication key", authkey, authkey_parsed,
+                &authkey_parsed_len) == false) {
+    return false;
+  }
 
   if (parse_name("Name", name, name_parsed, &name_parsed_len) == false) {
     return false;
   }
 
-  ykyhrc = ykyh_delete(state, name_parsed);
+  ykyhrc = ykyh_delete(state, authkey_parsed, authkey_parsed_len, name_parsed,
+                       &retries);
   if (ykyhrc != YKYHR_SUCCESS) {
-    fprintf(stderr, "Unable to delete credential: %s\n", ykyh_strerror(ykyhrc));
+    fprintf(stderr, "Unable to delete credential: %s, %d retries left\n",
+            ykyh_strerror(ykyhrc), retries);
     return false;
   }
 
@@ -234,11 +244,13 @@ static bool list_credentials(ykyh_state *state) {
   return true;
 }
 
-static bool put_credential(ykyh_state *state, char *name,
+static bool put_credential(ykyh_state *state, char *authkey, char *name,
                            char *derivation_password, char *key_enc,
                            char *key_mac, char *password,
                            enum enum_touch touch_policy) {
   ykyh_rc ykyhrc;
+  uint8_t authkey_parsed[YKYH_KEY_LEN];
+  size_t authkey_parsed_len = sizeof(authkey_parsed);
   char name_parsed[YKYH_MAX_NAME_LEN + 2] = {0};
   size_t name_parsed_len = sizeof(name_parsed);
   char dpw_parsed[256] = {0};
@@ -250,6 +262,12 @@ static bool put_credential(ykyh_state *state, char *name,
   char pw_parsed[YKYH_PW_LEN + 2] = {0};
   size_t pw_parsed_len = sizeof(pw_parsed);
   uint8_t touch_policy_parsed = 0;
+  uint8_t retries;
+
+  if (parse_key("Authentication key", authkey, authkey_parsed,
+                &authkey_parsed_len) == false) {
+    return false;
+  }
 
   if (parse_name("Name", name, name_parsed, &name_parsed_len) == false) {
     return false;
@@ -291,7 +309,7 @@ static bool put_credential(ykyh_state *state, char *name,
     key_mac_parsed_len = YKYH_KEY_LEN;
   }
 
-  if (parse_pw("Password", password, pw_parsed, &pw_parsed_len) == false) {
+  if (parse_pw("Credential Password (16 characters)", password, pw_parsed, &pw_parsed_len) == false) {
     return false;
   }
 
@@ -299,11 +317,13 @@ static bool put_credential(ykyh_state *state, char *name,
     return false;
   }
 
-  ykyhrc = ykyh_put(state, name_parsed, key_enc_parsed, key_enc_parsed_len,
-                    key_mac_parsed, key_mac_parsed_len, pw_parsed,
-                    touch_policy_parsed);
+  ykyhrc =
+    ykyh_put(state, authkey_parsed, authkey_parsed_len, name_parsed,
+             key_enc_parsed, key_enc_parsed_len, key_mac_parsed,
+             key_mac_parsed_len, pw_parsed, touch_policy_parsed, &retries);
   if (ykyhrc != YKYHR_SUCCESS) {
-    fprintf(stderr, "Unable to store credential: %s\n", ykyh_strerror(ykyhrc));
+    fprintf(stderr, "Unable to store credential: %s, %d retries left\n",
+            ykyh_strerror(ykyhrc), retries);
     return false;
   }
 
@@ -322,6 +342,22 @@ bool reset_device(ykyh_state *state) {
   }
 
   fprintf(stdout, "Device successuflly reset\n");
+
+  return true;
+}
+
+bool get_authkey_retries(ykyh_state *state) {
+  ykyh_rc ykyhrc;
+  uint8_t retries;
+
+  ykyhrc = ykyh_get_authkey_retries(state, &retries);
+  if (ykyhrc != YKYHR_SUCCESS) {
+    fprintf(stderr, "Unable to get authkey retries: %s\n",
+            ykyh_strerror(ykyhrc));
+    return false;
+  }
+
+  fprintf(stdout, "Retries left for Authentication Key: %d\n", retries);
 
   return true;
 }
@@ -400,6 +436,39 @@ static bool calculate_session_keys(ykyh_state *state, char *name,
   return true;
 }
 
+static bool put_authkey(ykyh_state *state, char *authkey, char *new_authkey) {
+  ykyh_rc ykyhrc;
+  uint8_t authkey_parsed[YKYH_KEY_LEN];
+  size_t authkey_parsed_len = sizeof(authkey_parsed);
+  uint8_t new_authkey_parsed[YKYH_KEY_LEN];
+  size_t new_authkey_parsed_len = sizeof(authkey_parsed);
+  uint8_t retries;
+
+  if (parse_key("Authentication key", authkey, authkey_parsed,
+                &authkey_parsed_len) == false) {
+    return false;
+  }
+
+  if (parse_key("New Authentication key", new_authkey, new_authkey_parsed,
+                &new_authkey_parsed_len) == false) {
+    return false;
+  }
+
+  ykyhrc =
+    ykyh_put_authkey(state, authkey_parsed, authkey_parsed_len,
+                     new_authkey_parsed, new_authkey_parsed_len, &retries);
+  if (ykyhrc != YKYHR_SUCCESS) {
+    fprintf(stderr,
+            "Unable to change Authentication key: %s, %d retries left\n",
+            ykyh_strerror(ykyhrc), retries);
+    return false;
+  }
+
+  fprintf(stdout, "Authentication key successfully changed\n");
+
+  return true;
+}
+
 int main(int argc, char *argv[]) {
   struct gengetopt_args_info args_info;
   ykyh_state *state = NULL;
@@ -431,8 +500,13 @@ int main(int argc, char *argv[]) {
                                args_info.password_arg, args_info.context_arg);
       break;
 
+    case action_arg_change:
+      result = put_authkey(state, args_info.authkey_arg, args_info.newkey_arg);
+      break;
+
     case action_arg_delete:
-      result = delete_credential(state, args_info.name_arg);
+      result =
+        delete_credential(state, args_info.authkey_arg, args_info.name_arg);
       break;
 
     case action_arg_list:
@@ -440,7 +514,7 @@ int main(int argc, char *argv[]) {
       break;
 
     case action_arg_put:
-      result = put_credential(state, args_info.name_arg,
+      result = put_credential(state, args_info.authkey_arg, args_info.name_arg,
                               args_info.derivation_password_arg,
                               args_info.enckey_arg, args_info.mackey_arg,
                               args_info.password_arg, args_info.touch_arg);
@@ -448,6 +522,10 @@ int main(int argc, char *argv[]) {
 
     case action_arg_reset:
       result = reset_device(state);
+      break;
+
+    case action_arg_retries:
+      result = get_authkey_retries(state);
       break;
 
     case action_arg_version:

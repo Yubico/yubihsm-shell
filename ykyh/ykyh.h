@@ -34,6 +34,8 @@ extern "C" {
 #define YKYH_INS_LIST 0x05
 #define YKYH_INS_RESET 0x06
 #define YKYH_INS_GET_VERSION 0x07
+#define YKYH_INS_PUT_AUTHKEY 0x08
+#define YKYH_INS_GET_AUTHKEY_RETRIES 0x09
 
 // P1 bytes
 #define YKYH_P1_RESET 0xde
@@ -52,6 +54,7 @@ extern "C" {
 #define YKYH_TAG_RESPONSE 0x78
 #define YKYH_TAG_VERSION 0x79
 #define YKYH_TAG_TOUCH 0x7a
+#define YKYH_TAG_AUTHKEY 0x7b
 
 // Algos
 #define YKYH_SCP03_ALGO 38
@@ -59,6 +62,10 @@ extern "C" {
 
 #define SW_SUCCESS 0x9000
 #define SW_ERR_AUTHENTICATION_FAILED 0x63c0
+#define SW_FILE_FULL 0x6a84
+#define SW_FILE_NOT_FOUND 0x6a82
+#define SW_MEMORY_ERROR 0x6581
+#define SW_SECURITY_STATUS_NOT_SATISFIED 0x6982
 
 // Lengths
 #define YKYH_MIN_NAME_LEN 1
@@ -81,6 +88,8 @@ typedef enum {
   YKYHR_WRONG_PW = -4,
   YKYHR_INVALID_PARAMS = -5,
   YKYHR_ENTRY_NOT_FOUND = -6,
+  YKYHR_STORAGE_FULL = -7,
+  YKYHR_TOUCH_ERROR = -8,
 } ykyh_rc;
 
 typedef struct {
@@ -101,11 +110,13 @@ ykyh_rc ykyh_disconnect(ykyh_state *state);
 
 ykyh_rc ykyh_get_version(ykyh_state *state, char *version, size_t len);
 
-ykyh_rc ykyh_put(ykyh_state *state, const char *name, const uint8_t *key_enc,
-                 size_t key_enc_len, const uint8_t *key_mac, size_t key_mac_len,
-                 const char *pw, const uint8_t touch_policy);
+ykyh_rc ykyh_put(ykyh_state *state, const uint8_t *authkey, size_t authkey_len,
+                 const char *name, const uint8_t *key_enc, size_t key_enc_len,
+                 const uint8_t *key_mac, size_t key_mac_len, const char *pw,
+                 const uint8_t touch_policy, uint8_t *retries);
 
-ykyh_rc ykyh_delete(ykyh_state *state, char *name);
+ykyh_rc ykyh_delete(ykyh_state *state, uint8_t *authkey, size_t authkey_len,
+                    char *name, uint8_t *retries);
 ykyh_rc ykyh_calculate(ykyh_state *state, const char *name, uint8_t *context,
                        size_t context_len, const char *pw, uint8_t *key_s_enc,
                        size_t key_s_enc_len, uint8_t *key_s_mac,
@@ -115,6 +126,10 @@ ykyh_rc ykyh_reset(ykyh_state *state);
 ykyh_rc ykyh_list_keys(ykyh_state *state, ykyh_list_entry *list,
                        size_t *list_items);
 ykyh_rc ykyh_get_challenge(ykyh_state *state);
+ykyh_rc ykyh_get_authkey_retries(ykyh_state *state, uint8_t *retries);
+ykyh_rc ykyh_put_authkey(ykyh_state *state, uint8_t *authkey,
+                         size_t authkey_len, uint8_t *new_authkey,
+                         size_t new_authkey_len, uint8_t *retries);
 
 #ifdef __cplusplus
 }

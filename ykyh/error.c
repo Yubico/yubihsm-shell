@@ -32,9 +32,11 @@ static const err_t errors[] = {
   ERR(YKYHR_MEMORY_ERROR, "Error allocating memory"),
   ERR(YKYHR_PCSC_ERROR, "Error in PCSC call"),
   ERR(YKYHR_GENERIC_ERROR, "Something went wrong"),
-  ERR(YKYHR_WRONG_PW, "Wrong Password"),
+  ERR(YKYHR_WRONG_PW, "Wrong Password/Authentication key"),
   ERR(YKYHR_INVALID_PARAMS, "Invalid argument to a function"),
   ERR(YKYHR_ENTRY_NOT_FOUND, "Entry not found"),
+  ERR(YKYHR_STORAGE_FULL, "Device storage full"),
+  ERR(YKYHR_TOUCH_ERROR, "Device not touched"),
 };
 
 const char *ykyh_strerror(ykyh_rc err) {

@@ -26,7 +26,7 @@
 bool read_string(const char *name, char *str_buf, size_t str_buf_len,
                  enum input_visibility visibility) {
 
-  char prompt[sizeof(READ_STR_PROMPT_BASE) + 32] = {0};
+  char prompt[sizeof(READ_STR_PROMPT_BASE) + 64] = {0};
   int ret;
 
   if (str_buf_len < 1) {
