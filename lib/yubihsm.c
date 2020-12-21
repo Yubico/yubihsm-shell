@@ -295,8 +295,6 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
   Msg msg;
   Msg response_msg;
 
-  insecure_memzero(&aes_ctx, sizeof(aes_ctx));
-
   if (session == NULL || (data_len != 0 && data == NULL) ||
       response_cmd == NULL || response == NULL || response_len == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
@@ -323,11 +321,12 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
                "Sending cmd %02x (%3lu Bytes): ", cmd,
                (unsigned long) data_len + 3);
 
-  aes_set_encrypt_key((uint8_t *) session->s.s_enc, SCP_KEY_LEN, &aes_ctx);
-
-  aes_add_padding(decrypted_data, &work_buf_len);
+  insecure_memzero(&aes_ctx, sizeof(aes_ctx));
+  aes_set_key((uint8_t *) session->s.s_enc, SCP_KEY_LEN, &aes_ctx);
 
   aes_encrypt(session->s.ctr, encrypted_ctr, &aes_ctx);
+
+  aes_add_padding(decrypted_data, &work_buf_len);
 
   DBG_CRYPTO(decrypted_data, work_buf_len,
              "CBC encrypting (%3d Bytes): ", work_buf_len);
@@ -335,8 +334,6 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
 
   aes_cbc_encrypt(decrypted_data, work_buf + 1, work_buf_len, encrypted_ctr,
                   &aes_ctx); // Make room for sid
-
-  aes_destroy(&aes_ctx);
 
   DBG_CRYPTO(work_buf + 1, work_buf_len,
              "Ciphertext (%3d Bytes): ", work_buf_len);
@@ -366,7 +363,7 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
 
   // Response is MAC'ed and encrypted. Unwrap it
   out_len = response_msg.st.len;
-  if (out_len < SCP_MAC_LEN - 3 ||
+  if (out_len < SCP_MAC_LEN ||
       (size_t)(3 + out_len - SCP_MAC_LEN) >= sizeof(work_buf)) {
     DBG_ERR("Received invalid length %u", out_len);
     yrc = YHR_BUFFER_TOO_SMALL;
@@ -400,21 +397,14 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
   }
   out_len -= 1;
 
-  // Recompute IV, apparently OpenSSL's CBC destroys it
-  aes_set_encrypt_key((uint8_t *) session->s.s_enc, SCP_KEY_LEN, &aes_ctx);
-  aes_encrypt(session->s.ctr, encrypted_ctr, &aes_ctx);
-
-  aes_set_decrypt_key(session->s.s_enc, SCP_KEY_LEN, &aes_ctx);
-
   DBG_CRYPTO(response_msg.st.data + 1, out_len,
              "CBC decrypting (%3d Bytes): ", out_len);
   DBG_CRYPTO(encrypted_ctr, SCP_PRF_LEN, "IV: ");
 
   aes_cbc_decrypt(response_msg.st.data + 1, decrypted_data, out_len,
                   encrypted_ctr, &aes_ctx);
-  aes_remove_padding(decrypted_data, &out_len);
 
-  aes_destroy(&aes_ctx);
+  aes_remove_padding(decrypted_data, &out_len);
 
   DBG_CRYPTO(decrypted_data, out_len, "Plaintext (%3d Bytes): ", out_len);
 

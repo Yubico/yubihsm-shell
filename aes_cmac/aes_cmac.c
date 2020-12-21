@@ -133,7 +133,7 @@ uint8_t aes_cmac_init(uint8_t *key, uint16_t key_len, aes_cmac_context_t *ctx) {
 
   insecure_memzero(zero, AES_BLOCK_SIZE);
 
-  aes_set_encrypt_key(key, key_len, &ctx->aes_ctx);
+  aes_set_key(key, key_len, &ctx->aes_ctx);
   aes_encrypt(zero, L, &ctx->aes_ctx);
 
   cmac_generate_subkey(L, ctx->k1);
