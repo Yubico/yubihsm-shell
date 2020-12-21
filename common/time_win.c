@@ -20,8 +20,10 @@
 int gettimeofday_win(struct timeval *tv) {
   // There's no equivalent implementation of gettimeofday() on Window
   struct timespec ts;
-  timespec_get(&ts, TIME_UTC);
-  tv->tv_sec = ts.tv_sec;
-  tv->tv_usec = ts.tv_nsec;
-  return 0;
+  if (timespec_get(&ts, TIME_UTC)) {
+    tv->tv_sec = (long) ts.tv_sec;
+    tv->tv_usec = ts.tv_nsec / 1000;
+    return 0;
+  }
+  return -1;
 }
