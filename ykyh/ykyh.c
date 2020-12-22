@@ -354,19 +354,19 @@ ykyh_rc ykyh_put(ykyh_state *state, const uint8_t *authkey, size_t authkey_len,
 
   *(ptr++) = YKYH_TAG_KEY_ENC;
   apdu.st.lc++;
-  *(ptr++) = 16;
+  *(ptr++) = YKYH_KEY_LEN;
   apdu.st.lc++;
-  memcpy(ptr, key_enc, 16);
-  ptr += 16;
-  apdu.st.lc += 16;
+  memcpy(ptr, key_enc, YKYH_KEY_LEN);
+  ptr += YKYH_KEY_LEN;
+  apdu.st.lc += YKYH_KEY_LEN;
 
   *(ptr++) = YKYH_TAG_KEY_MAC;
   apdu.st.lc++;
-  *(ptr++) = 16;
+  *(ptr++) = YKYH_KEY_LEN;
   apdu.st.lc++;
-  memcpy(ptr, key_mac, 16);
-  ptr += 16;
-  apdu.st.lc += 16;
+  memcpy(ptr, key_mac, YKYH_KEY_LEN);
+  ptr += YKYH_KEY_LEN;
+  apdu.st.lc += YKYH_KEY_LEN;
 
   *(ptr++) = YKYH_TAG_PW;
   apdu.st.lc++;
