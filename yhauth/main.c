@@ -29,41 +29,6 @@
 
 #include "cmdline.h"
 
-static bool hex_decode(const char *hex_in, size_t in_len, uint8_t *hex_out,
-                       size_t *out_len) {
-  const char hex_translate[] = "0123456789abcdef";
-  bool first = true;
-
-  if (*out_len < in_len / 2) {
-    fprintf(stderr, "Unable to decode hex, buffer too small\n");
-    return false;
-  } else if (in_len % 2 != 0) {
-    fprintf(stderr, "Unable to decode hex, wrong length\n");
-    return false;
-  }
-
-  *out_len = in_len / 2;
-  for (size_t i = 0; i < in_len; i++) {
-    char *ind_ptr = strchr(hex_translate, tolower(*hex_in++));
-    int index = 0;
-    if (ind_ptr) {
-      index = ind_ptr - hex_translate;
-    } else {
-      fprintf(stderr, "Unable to decode hex, invalid character\n");
-      return false;
-    }
-
-    if (first) {
-      *hex_out = index << 4;
-    } else {
-      *hex_out++ |= index;
-    }
-    first = !first;
-  }
-
-  return true;
-}
-
 static bool parse_name(const char *prompt, char *name, char *parsed,
                        size_t *parsed_len) {
   if (strlen(name) > *parsed_len) {
@@ -124,7 +89,7 @@ static bool parse_key(const char *prompt, char *key, uint8_t *parsed,
     buf_size = strlen(key);
   }
 
-  if (hex_decode(buf, buf_size, parsed, parsed_len) == false) {
+  if (hex_decode(buf, parsed, parsed_len) == false) {
     return false;
   }
 
@@ -157,7 +122,7 @@ static bool parse_context(const char *prompt, char *context, uint8_t *parsed,
     buf_size = strlen(context);
   }
 
-  if (hex_decode(buf, buf_size, parsed, parsed_len) == false) {
+  if (hex_decode(buf, parsed, parsed_len) == false) {
     return false;
   }
 

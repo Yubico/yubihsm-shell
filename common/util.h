@@ -57,11 +57,8 @@ bool YH_INTERNAL write_ed25519_key(uint8_t *buf, size_t buf_len, FILE *fp,
                                    format_t format);
 
 bool YH_INTERNAL base64_decode(const char *in, uint8_t *out, size_t *len);
-bool YH_INTERNAL hex_decode(const char *in, uint8_t *out, size_t *len);
 
 bool YH_INTERNAL split_hmac_key(yh_algorithm algorithm, uint8_t *in,
                                 size_t in_len, uint8_t *out, size_t *out_len);
-
-size_t YH_INTERNAL parse_hex(const char *hex, size_t hex_len, uint8_t *parsed);
 
 #endif

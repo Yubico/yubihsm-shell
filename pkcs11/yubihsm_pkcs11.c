@@ -30,7 +30,7 @@
 #include "util_pkcs11.h"
 #include "yubihsm_pkcs11.h"
 #include "../common/insecure_memzero.h"
-#include "../common/util.h"
+#include "../common/parsing.h"
 
 #ifdef __WIN32
 #include <winsock.h>
@@ -300,8 +300,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
   list_create(&g_ctx.device_pubkeys, YH_EC_P256_PUBKEY_LEN, NULL);
   for (unsigned int i = 0; i < args_info.device_pubkey_given; i++) {
     uint8_t pk[80];
-    if (parse_hex(args_info.device_pubkey_arg[i], 2 * sizeof(pk), pk) !=
-        YH_EC_P256_PUBKEY_LEN) {
+    size_t pk_len = sizeof(pk);
+    if (hex_decode(args_info.device_pubkey_arg[i], pk, &pk_len) == false ||
+        pk_len != YH_EC_P256_PUBKEY_LEN) {
       DBG_ERR("Invalid device public key configured");
       return CKR_FUNCTION_FAILED;
     }
@@ -1125,9 +1126,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
   }
 
   uint16_t key_id;
+  size_t key_id_len = sizeof(key_id);
+  char tmpPin[5] = {0};
+  memcpy(tmpPin, pPin, 4);
 
-  if (parse_hex((const char *) pPin, 4, (uint8_t *) &key_id) !=
-      sizeof(key_id)) {
+  if (hex_decode((const char *) tmpPin, (uint8_t *) &key_id, &key_id_len) ==
+        false ||
+      key_id_len != sizeof(key_id)) {
     DBG_ERR(
       "PIN contains invalid characters, first four digits must be [0-9A-Fa-f]");
     return CKR_PIN_INCORRECT;
