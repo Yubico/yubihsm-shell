@@ -1766,6 +1766,16 @@ int validate_and_call(yubihsm_context *ctx, CommandList l, const char *line) {
   return 0;
 }
 
+static void free_configured_connectors(yubihsm_context *ctx) {
+  if (ctx->connector_list) {
+    for (int i = 0; ctx->connector_list[i]; i++) {
+      free(ctx->connector_list[i]);
+    }
+    free(ctx->connector_list);
+    ctx->connector_list = NULL;
+  }
+}
+
 static int parse_configured_connectors(yubihsm_context *ctx, char **connectors,
                                        int n_connectors) {
 
@@ -1777,11 +1787,7 @@ static int parse_configured_connectors(yubihsm_context *ctx, char **connectors,
   for (int i = 0; i < n_connectors; i++) {
     ctx->connector_list[i] = strdup(connectors[i]);
     if (ctx->connector_list[i] == NULL) {
-      while (--i >= 0) {
-        free(ctx->connector_list[i]);
-      }
-      free(ctx->connector_list);
-      ctx->connector_list = NULL;
+      free_configured_connectors(ctx);
       return -1;
     }
   }
@@ -1790,6 +1796,17 @@ static int parse_configured_connectors(yubihsm_context *ctx, char **connectors,
 }
 
 #ifdef USE_ASYMMETRIC_AUTH
+
+static void free_configured_pubkeys(yubihsm_context *ctx) {
+  if (ctx->device_pubkey_list) {
+    for (int i = 0; ctx->device_pubkey_list[i]; i++) {
+      free(ctx->device_pubkey_list[i]);
+    }
+    free(ctx->device_pubkey_list);
+    ctx->device_pubkey_list = NULL;
+  }
+}
+
 static int parse_configured_pubkeys(yubihsm_context *ctx, char **pubkeys,
                                     int n_pubkeys) {
 
@@ -1806,11 +1823,7 @@ static int parse_configured_pubkeys(yubihsm_context *ctx, char **pubkeys,
     if (ctx->device_pubkey_list[i]) {
       memcpy(ctx->device_pubkey_list[i], pk, pk_len);
     } else {
-      while (--i >= 0) {
-        free(ctx->device_pubkey_list[i]);
-      }
-      free(ctx->device_pubkey_list);
-      ctx->device_pubkey_list = NULL;
+      free_configured_pubkeys(ctx);
       return -1;
     }
   }
@@ -1949,19 +1962,10 @@ int main(int argc, char *argv[]) {
   if (ctx.connector_list[0] == NULL) {
     fprintf(stderr, "Using default connector URL: %s\n", LOCAL_CONNECTOR_URL);
 
-    ctx.connector_list = calloc(2, sizeof(char *));
-    if (ctx.connector_list == NULL) {
-      fprintf(stderr, "Failed to allocate memory\n");
-      rc = EXIT_FAILURE;
-      goto main_exit;
-    }
+    char *local_connector_url = LOCAL_CONNECTOR_URL;
 
-    ctx.connector_list[0] = strdup(LOCAL_CONNECTOR_URL);
-    if (ctx.connector_list[0] == NULL) {
-      fprintf(stderr, "Failed to allocate memory\n");
-      rc = EXIT_FAILURE;
-      goto main_exit;
-    }
+    free_configured_connectors(&ctx);
+    parse_configured_connectors(&ctx, &local_connector_url, 1);
   }
 
   if (args_info.cacert_given) {
@@ -2866,13 +2870,11 @@ main_exit:
   ctx.state = NULL;
 #endif
 
-  if (ctx.connector_list != NULL) {
-    for (int i = 0; ctx.connector_list[i]; i++) {
-      free(ctx.connector_list[i]);
-    }
-    free(ctx.connector_list);
-    ctx.connector_list = NULL;
-  }
+#ifdef USE_ASYMMETRIC_AUTH
+  free_configured_pubkeys(&ctx);
+#endif
+
+  free_configured_connectors(&ctx);
 
   return rc;
 }
