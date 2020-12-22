@@ -294,7 +294,7 @@ ykyh_rc ykyh_get_version(ykyh_state *state, char *version, size_t len) {
   apdu.st.ins = YKYH_INS_GET_VERSION;
   if ((res = send_data(state, &apdu, data, &recv_len, &sw)) != YKYHR_SUCCESS) {
     return res;
-  } else if (sw == SW_SUCCESS) {
+  } else if (sw == SW_SUCCESS && recv_len == 3) {
     int result = snprintf(version, len, "%d.%d.%d", data[0], data[1], data[2]);
     if (result < 0) {
       if (state->verbose) {
@@ -508,6 +508,12 @@ ykyh_rc ykyh_calculate(ykyh_state *state, const char *name, uint8_t *context,
 
     return translate_error(sw, retries);
   }
+  if (recv_len != YKYH_KEY_LEN * 3) {
+    if (state->verbose) {
+      fprintf(stderr, "Wrong length returned: %zu\n", recv_len);
+    }
+    return YKYHR_GENERIC_ERROR;
+  }
 
   ptr = data;
 
@@ -578,6 +584,7 @@ ykyh_rc ykyh_list_keys(ykyh_state *state, ykyh_list_entry *list,
   }
 
   if (list == NULL) {
+    // FIXME: we don't seem to return number of entries as first byte?
     *list_items = data[0];
 
     return YKYHR_SUCCESS;
@@ -586,12 +593,21 @@ ykyh_rc ykyh_list_keys(ykyh_state *state, ykyh_list_entry *list,
   size_t element = 0;
   size_t i = 0;
 
-  while (i < recv_len) {
+  // i + 1 here guarantees we can read tag and len
+  while (i + 1 < recv_len) {
     if (data[i++] == YKYH_TAG_NAME_LIST) {
       size_t len = data[i++];
       if (list != NULL) {
         if (element >= *list_items) {
           return YKYHR_MEMORY_ERROR;
+        } else if (i + len > recv_len || len < 3 ||
+                   len - 3 > sizeof(list[element].name)) {
+          if (state->verbose) {
+            fprintf(stderr,
+                    "Length of element doesn't match expectations (%zu)\n",
+                    len);
+          }
+          return YKYHR_GENERIC_ERROR;
         }
 
         list[element].algo = data[i++];
@@ -604,6 +620,11 @@ ykyh_rc ykyh_list_keys(ykyh_state *state, ykyh_list_entry *list,
         i += len;
       }
       element++;
+    } else {
+      if (state->verbose) {
+        fprintf(stderr, "Unexpected tag returned on list\n");
+      }
+      return YKYHR_GENERIC_ERROR;
     }
   }
 
