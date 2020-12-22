@@ -1002,6 +1002,7 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   return 0;
 }
 
+#ifdef USE_ASYMMETRIC_AUTH
 // NOTE: Get device public key
 // argc = 0
 int yh_com_get_device_pubkey(yubihsm_context *ctx, Argument *argv,
@@ -1085,6 +1086,7 @@ int yh_com_get_device_pubkey(yubihsm_context *ctx, Argument *argv,
 
   return 0;
 }
+#endif
 
 // NOTE: Get object information
 // argc = 3

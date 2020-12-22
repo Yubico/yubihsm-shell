@@ -382,11 +382,13 @@ void create_command_list(CommandList *c) {
                                     "e:session,w:object_id,F:out=-", fmt_nofmt,
                                     fmt_base64, "Get a template object", NULL,
                                     NULL});
+#ifdef USE_ASYMMETRIC_AUTH
   register_subcommand(*c, (Command){"devicepubkey", yh_com_get_device_pubkey,
                                     NULL, fmt_nofmt, fmt_PEM,
                                     "Get the device public key for asymmetric "
                                     "authentication",
                                     NULL, NULL});
+#endif
   *c =
     register_command(*c, (Command){"help", yh_com_help, "s:command=", fmt_nofmt,
                                    fmt_nofmt, "Display help text", NULL, NULL});
@@ -1787,6 +1789,7 @@ static int parse_configured_connectors(yubihsm_context *ctx, char **connectors,
   return 0;
 }
 
+#ifdef USE_ASYMMETRIC_AUTH
 static int parse_configured_pubkeys(yubihsm_context *ctx, char **pubkeys,
                                     int n_pubkeys) {
 
@@ -1814,6 +1817,7 @@ static int parse_configured_pubkeys(yubihsm_context *ctx, char **pubkeys,
 
   return 0;
 }
+#endif
 
 int main(int argc, char *argv[]) {
 
@@ -1905,12 +1909,20 @@ int main(int argc, char *argv[]) {
     goto main_exit;
   }
 
+#ifdef USE_ASYMMETRIC_AUTH
   if (parse_configured_pubkeys(&ctx, args_info.device_pubkey_arg,
                                args_info.device_pubkey_given) == -1) {
     fprintf(stderr, "Unable to parse device pubkey list\n");
     rc = EXIT_FAILURE;
     goto main_exit;
   }
+#else
+  if (args_info.device_pubkey_given) {
+    fprintf(stderr, "This build does not support device-pubkey option\n");
+    rc = EXIT_FAILURE;
+    goto main_exit;
+  }
+#endif
 
   if (getenv("DEBUG") != NULL) {
     args_info.verbose_arg = YH_VERB_ALL;
@@ -2226,10 +2238,15 @@ int main(int argc, char *argv[]) {
         } break;
 
         case action_arg_getMINUS_deviceMINUS_pubkey:
+#ifdef USE_ASYMMETRIC_AUTH
           comrc = yh_com_get_device_pubkey(&ctx, arg, fmt_nofmt,
                                            g_out_fmt == fmt_nofmt ? fmt_PEM
                                                                   : g_out_fmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to get device public key");
+#else
+          fprintf(stderr, "get-device-pubkey not supported in this build.");
+          rc = EXIT_FAILURE;
+#endif
           break;
 
         case action_arg_getMINUS_objectMINUS_info: {
