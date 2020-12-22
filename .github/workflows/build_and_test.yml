@@ -36,7 +36,7 @@ jobs:
           - os: macos-latest
             cc: clang
             libext: dylib
-            test: true
+            test: false
     steps:
     - uses: actions/checkout@v1
     - name: Dependencies
