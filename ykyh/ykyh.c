@@ -583,13 +583,6 @@ ykyh_rc ykyh_list_keys(ykyh_state *state, ykyh_list_entry *list,
     return translate_error(sw, NULL);
   }
 
-  if (list == NULL) {
-    // FIXME: we don't seem to return number of entries as first byte?
-    *list_items = data[0];
-
-    return YKYHR_SUCCESS;
-  }
-
   size_t element = 0;
   size_t i = 0;
 
