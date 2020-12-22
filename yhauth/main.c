@@ -309,7 +309,14 @@ static bool put_credential(ykyh_state *state, char *authkey, char *name,
     key_mac_parsed_len = YKYH_KEY_LEN;
   }
 
-  if (parse_pw("Credential Password (16 characters)", password, pw_parsed, &pw_parsed_len) == false) {
+  if (parse_pw("Credential Password (max 16 characters)", password, pw_parsed,
+               &pw_parsed_len) == false) {
+    return false;
+  }
+
+  if (pw_parsed_len > YKYH_PW_LEN) {
+    fprintf(stderr, "Credential password can not be more than %d characters.\n",
+            YKYH_PW_LEN);
     return false;
   }
 
