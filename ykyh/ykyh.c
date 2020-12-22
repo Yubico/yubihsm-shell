@@ -322,7 +322,7 @@ ykyh_rc ykyh_put(ykyh_state *state, const uint8_t *authkey, size_t authkey_len,
       name == NULL || strlen(name) < YKYH_MIN_NAME_LEN ||
       strlen(name) > YKYH_MAX_NAME_LEN || key_enc == NULL ||
       key_enc_len != YKYH_KEY_LEN || key_mac == NULL ||
-      key_mac_len != YKYH_KEY_LEN || pw == NULL || strlen(pw) != YKYH_KEY_LEN) {
+      key_mac_len != YKYH_KEY_LEN || pw == NULL || strlen(pw) > YKYH_KEY_LEN) {
     return YKYHR_INVALID_PARAMS;
   }
 
@@ -372,7 +372,8 @@ ykyh_rc ykyh_put(ykyh_state *state, const uint8_t *authkey, size_t authkey_len,
   apdu.st.lc++;
   *(ptr++) = YKYH_PW_LEN;
   apdu.st.lc++;
-  memcpy(ptr, pw, YKYH_PW_LEN);
+  memcpy(ptr, pw, strlen(pw));
+  memset(ptr + strlen(pw), 0, YKYH_PW_LEN - strlen(pw));
   ptr += YKYH_PW_LEN;
   apdu.st.lc += YKYH_PW_LEN;
 
@@ -462,7 +463,7 @@ ykyh_rc ykyh_calculate(ykyh_state *state, const char *name, uint8_t *context,
   if (state == NULL || name == NULL || strlen(name) < YKYH_MIN_NAME_LEN ||
       strlen(name) > YKYH_MAX_NAME_LEN || context == NULL ||
       context_len != YKYH_CONTEXT_LEN || pw == NULL ||
-      strlen(pw) != YKYH_PW_LEN || key_s_enc == NULL ||
+      strlen(pw) > YKYH_PW_LEN || key_s_enc == NULL ||
       key_s_enc_len != YKYH_KEY_LEN || key_s_mac == NULL ||
       key_s_mac_len != YKYH_KEY_LEN || key_s_rmac == NULL ||
       key_s_rmac_len != YKYH_KEY_LEN) {
@@ -494,7 +495,8 @@ ykyh_rc ykyh_calculate(ykyh_state *state, const char *name, uint8_t *context,
   apdu.st.lc++;
   *(ptr++) = YKYH_PW_LEN;
   apdu.st.lc++;
-  memcpy(ptr, pw, YKYH_PW_LEN);
+  memcpy(ptr, pw, strlen(pw));
+  memset(ptr + strlen(pw), 0, YKYH_PW_LEN - strlen(pw));
   ptr += YKYH_PW_LEN;
   apdu.st.lc += YKYH_PW_LEN;
 
