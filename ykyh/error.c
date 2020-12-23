@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "ykyh.h"
+#include "ykhsmauth.h"
 
 #include <stddef.h>
 
@@ -22,25 +22,25 @@
   { name, #name, desc }
 
 typedef struct {
-  ykyh_rc rc;
+  ykhsmauth_rc rc;
   const char *name;
   const char *description;
 } err_t;
 
 static const err_t errors[] = {
-  ERR(YKYHR_SUCCESS, "Successful return"),
-  ERR(YKYHR_MEMORY_ERROR, "Error allocating memory"),
-  ERR(YKYHR_PCSC_ERROR, "Error in PCSC call"),
-  ERR(YKYHR_GENERIC_ERROR, "Something went wrong"),
-  ERR(YKYHR_WRONG_PW, "Wrong Password/Authentication key"),
-  ERR(YKYHR_INVALID_PARAMS, "Invalid argument to a function"),
-  ERR(YKYHR_ENTRY_NOT_FOUND, "Entry not found"),
-  ERR(YKYHR_STORAGE_FULL, "Device storage full"),
-  ERR(YKYHR_TOUCH_ERROR, "Device not touched"),
+  ERR(YKHSMAUTHR_SUCCESS, "Successful return"),
+  ERR(YKHSMAUTHR_MEMORY_ERROR, "Error allocating memory"),
+  ERR(YKHSMAUTHR_PCSC_ERROR, "Error in PCSC call"),
+  ERR(YKHSMAUTHR_GENERIC_ERROR, "Something went wrong"),
+  ERR(YKHSMAUTHR_WRONG_PW, "Wrong Password/Authentication key"),
+  ERR(YKHSMAUTHR_INVALID_PARAMS, "Invalid argument to a function"),
+  ERR(YKHSMAUTHR_ENTRY_NOT_FOUND, "Entry not found"),
+  ERR(YKHSMAUTHR_STORAGE_FULL, "Device storage full"),
+  ERR(YKHSMAUTHR_TOUCH_ERROR, "Device not touched"),
 };
 
-const char *ykyh_strerror(ykyh_rc err) {
-  static const char *unknown = "Unknown ykyh error";
+const char *ykhsmauth_strerror(ykhsmauth_rc err) {
+  static const char *unknown = "Unknown ykhsmauth error";
   const char *p;
 
   if (-err < 0 || -err >= (int) (sizeof(errors) / sizeof(errors[0]))) {
@@ -55,7 +55,7 @@ const char *ykyh_strerror(ykyh_rc err) {
   return p;
 }
 
-const char *ykyh_strerror_name(ykyh_rc err) {
+const char *ykhsmauth_strerror_name(ykhsmauth_rc err) {
   if (-err < 0 || -err >= (int) (sizeof(errors) / sizeof(errors[0]))) {
     return NULL;
   }

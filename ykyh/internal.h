@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef YKYH_INTERNAL_H
-#define YKYH_INTERNAL_H
+#ifndef YKHSMAUTH_INTERNAL_H
+#define YKHSMAUTH_INTERNAL_H
 
 #include <stdbool.h>
 
@@ -31,7 +31,7 @@
 #define READER_LEN 32
 #define MAX_READERS 16
 
-struct ykyh_state {
+struct ykhsmauth_state {
   SCARDCONTEXT context;
   SCARDHANDLE card;
   int verbose;
