@@ -14,6 +14,9 @@
 # limitations under the License.
 #
 
+include(${CMAKE_SOURCE_DIR}/cmake/openssl.cmake)
+find_libcrypto()
+
 set (
   SOURCE
   main.c
