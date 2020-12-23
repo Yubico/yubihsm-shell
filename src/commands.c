@@ -1376,7 +1376,6 @@ int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   return 0;
 }
 
-#ifdef USE_YKYH
 static int parse_yk_password(char *line, char **name, char *pw, size_t pw_len) {
 
   int len = strlen(line);
@@ -1385,7 +1384,7 @@ static int parse_yk_password(char *line, char **name, char *pw, size_t pw_len) {
   *name = line;
   for (int i = 0; i < len; i++) {
     if (line[i] == ':') {
-      if (len - i - 1 != YKYH_PW_LEN &&
+      if (len - i - 1 != YKHSMAUTH_PW_LEN &&
           (len - i - 1 != 1 && line[i + 1] != '-')) {
         return -1;
       }
@@ -1417,7 +1416,7 @@ static int parse_yk_password(char *line, char **name, char *pw, size_t pw_len) {
         }
 #endif
       } else {
-        strncpy(pw, tmp_pw, YKYH_PW_LEN);
+        strncpy(pw, tmp_pw, YKHSMAUTH_PW_LEN);
       }
 
       return 0;
@@ -1426,7 +1425,6 @@ static int parse_yk_password(char *line, char **name, char *pw, size_t pw_len) {
 
   return -1;
 }
-#endif
 
 // NOTE(adma): Open a session with a connector using an Authentication Key
 // argc = 2
@@ -1450,10 +1448,9 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
   uint16_t authkey = argv[0].w;
 
-#ifdef USE_YKYH
   uint8_t *yh_context;
   if (strncmp("yk:", (char *) argv[1].x, 3) == 0) {
-    ykyh_rc ykyhrc;
+    ykhsmauth_rc ykhsmauthrc;
     uint8_t card_cryptogram[YH_CONTEXT_LEN / 2];
     uint8_t key_s_enc[YH_KEY_LEN];
     uint8_t key_s_mac[YH_KEY_LEN];
@@ -1463,10 +1460,10 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     size_t key_s_rmac_len = sizeof(key_s_rmac);
     uint8_t retries;
 
-    ykyhrc = ykyh_connect(ctx->state, NULL);
-    if (ykyhrc != YKYHR_SUCCESS) {
+    ykhsmauthrc = ykhsmauth_connect(ctx->state, NULL);
+    if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
       fprintf(stderr, "Failed to connect to the YubiKey: %s\n",
-              ykyh_strerror(ykyhrc));
+              ykhsmauth_strerror(ykhsmauthrc));
       return -1;
     }
 
@@ -1479,25 +1476,26 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     }
 
     char *name;
-    char pw[YKYH_MAX_NAME_LEN + 2] = {0};
+    char pw[YKHSMAUTH_MAX_NAME_LEN + 2] = {0};
     if (parse_yk_password((char *) (argv[1].x + 3), &name, pw, sizeof(pw)) ==
         -1) {
       fprintf(stderr,
               "Failed to decode password, format must be "
               "yk:NAME[%d-%d]:PASSWORD[%d] or yk:NAME[%d-%d]:-\n",
-              YKYH_MIN_NAME_LEN, YKYH_MAX_NAME_LEN, YKYH_PW_LEN,
-              YKYH_MIN_NAME_LEN, YKYH_MAX_NAME_LEN);
+              YKHSMAUTH_MIN_NAME_LEN, YKHSMAUTH_MAX_NAME_LEN, YKHSMAUTH_PW_LEN,
+              YKHSMAUTH_MIN_NAME_LEN, YKHSMAUTH_MAX_NAME_LEN);
       return -1;
     }
 
-    ykyhrc =
-      ykyh_calculate(ctx->state, name, yh_context, YH_CONTEXT_LEN, pw,
-                     key_s_enc, sizeof(key_s_enc), key_s_mac, sizeof(key_s_mac),
-                     key_s_rmac, sizeof(key_s_rmac), &retries);
-    if (ykyhrc != YKYHR_SUCCESS) {
+    ykhsmauthrc =
+      ykhsmauth_calculate(ctx->state, name, yh_context, YH_CONTEXT_LEN, pw,
+                          key_s_enc, sizeof(key_s_enc), key_s_mac,
+                          sizeof(key_s_mac), key_s_rmac, sizeof(key_s_rmac),
+                          &retries);
+    if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
       fprintf(stderr, "Failed to get session keys from the YubiKey: %s",
-              ykyh_strerror(ykyhrc));
-      if (ykyhrc == YKYHR_WRONG_PW) {
+              ykhsmauth_strerror(ykhsmauthrc));
+      if (ykhsmauthrc == YKHSMAUTHR_WRONG_PW) {
         fprintf(stderr, ", %d attempts remaining", retries);
       }
       fprintf(stderr, "\n");
@@ -1515,7 +1513,6 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
       return -1;
     }
   } else {
-#endif
     yrc = yh_create_session_derived(ctx->connector, authkey, argv[1].x,
                                     argv[1].len, false, &ses);
     insecure_memzero(argv[1].x, argv[1].len);
@@ -1523,9 +1520,7 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
       fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
       return -1;
     }
-#ifdef USE_YKYH
   }
-#endif
 
   yrc = yh_authenticate_session(ses);
   if (yrc != YHR_SUCCESS) {

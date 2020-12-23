@@ -97,7 +97,7 @@ jobs:
         CC: ${{ matrix.cc }}
         LIBEXT: ${{ matrix.libext }}
       run: |
-        cmake -Bbuild -H. -DENABLE_EXPERIMENTAL_YKYH=1 -DDEFAULT_CONNECTOR_URL="$DEFAULT_CONNECTOR_URL"
+        cmake -Bbuild -H. -DDEFAULT_CONNECTOR_URL="$DEFAULT_CONNECTOR_URL"
         cmake --build build -- --jobs=2
         test -e ./build/src/yubihsm-shell
         test -e ./build/lib/libyubihsm.$LIBEXT

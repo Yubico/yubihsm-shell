@@ -20,7 +20,7 @@
 #include <assert.h>
 
 #include <yubihsm.h>
-#include <ykyh.h>
+#include <ykhsmauth.h>
 #include <cmdline.h>
 
 #define UNUSED(x) (void) (x)
@@ -48,7 +48,7 @@ typedef struct {
   char **connector_list;
   yh_connector *connector;
   yh_session *sessions[256];
-  ykyh_state *state;
+  ykhsmauth_state *state;
   FILE *out;
   char *cacert;
   char *proxy;

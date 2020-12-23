@@ -44,7 +44,7 @@ include_directories (
   ${CMAKE_CURRENT_SOURCE_DIR}/../lib
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/../common
-  ${CMAKE_CURRENT_SOURCE_DIR}/../ykyh
+  ${CMAKE_CURRENT_SOURCE_DIR}/../ykhsmauth
   )
 
 if(WIN32)
@@ -72,7 +72,8 @@ if (ENABLE_STATIC)
     ${LIBCRYPTO_LDFLAGS}
     ${LIBEDIT_LDFLAGS}
     ${GETOPT_LIBS}
-    yubihsm_static)
+    yubihsm_static
+    ykhsmauth_static)
   add_coverage (yubihsm-shell_static)
 endif ()
 
@@ -82,26 +83,13 @@ target_link_libraries (
   ${LIBEDIT_LDFLAGS}
   ${GETOPT_LIBS}
   yubihsm
+  ykhsmauth
   )
 
 # Set install RPATH
 set_target_properties(yubihsm-shell PROPERTIES INSTALL_RPATH "${YUBIHSM_INSTALL_LIB_DIR}")
 
 add_coverage (yubihsm-shell)
-
-if (ENABLE_EXPERIMENTAL_YKYH)
-  add_definitions(-DUSE_YKYH="1")
-  target_link_libraries (
-    yubihsm-shell
-    ykyh
-    )
-  if (ENABLE_STATIC)
-    target_link_libraries (
-      yubihsm-shell_static
-      ykyh_static
-      )
-  endif()
-endif()
 
 if (ENABLE_EXPERIMENTAL_ASYMMETRIC_AUTH)
   add_definitions(-DUSE_ASYMMETRIC_AUTH="1")

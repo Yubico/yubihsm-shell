@@ -33,7 +33,7 @@ endif(WIN32)
 
 include_directories (
   ${LIBCRYPTO_INCLUDEDIR}
-  ${CMAKE_CURRENT_SOURCE_DIR}/../ykyh
+  ${CMAKE_CURRENT_SOURCE_DIR}/../ykhsmauth
   ${CMAKE_CURRENT_SOURCE_DIR}/../common
 )
 
@@ -59,7 +59,7 @@ target_link_libraries (
   yhauth
   ${LIBCRYPTO_LDFLAGS}
   ${GETOPT_LIBS}
-  ykyh
+  ykhsmauth
   )
 
 # Set install RPATH
