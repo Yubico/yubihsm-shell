@@ -21,6 +21,7 @@ set(
   SOURCE
   ../common/hash.c
   ../common/util.c
+  ../common/parsing.c
   ../common/openssl-compat.c
   util_pkcs11.c
   yubihsm_pkcs11.c

@@ -28,6 +28,7 @@
 #include <sys/types.h>
 
 #include "util.h"
+#include "parsing.h"
 #include "commands.h"
 
 #include <openssl/evp.h>
@@ -1816,7 +1817,8 @@ static int parse_configured_pubkeys(yubihsm_context *ctx, char **pubkeys,
 
   for (int i = 0; i < n_pubkeys; i++) {
     uint8_t pk[80];
-    size_t pk_len = parse_hex(pubkeys[i], 2 * sizeof(pk), pk);
+    size_t pk_len = sizeof(pk);
+    hex_decode(pubkeys[i], pk, &pk_len);
     if (pk_len == YH_EC_P256_PUBKEY_LEN) {
       ctx->device_pubkey_list[i] = malloc(pk_len);
     }

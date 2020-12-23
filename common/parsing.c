@@ -16,6 +16,8 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
+#include <limits.h>
 
 #include <openssl/evp.h>
 
@@ -64,5 +66,43 @@ bool read_string(const char *name, char *str_buf, size_t str_buf_len,
       break;
   }
 
+  return true;
+}
+
+bool hex_decode(const char *in, uint8_t *out, size_t *len) {
+  int pos = 0;
+  if (in == NULL || out == NULL || len == NULL) {
+    return false;
+  }
+  size_t in_len = strlen(in);
+  if (in_len > 0 && in[in_len - 1] == '\n') {
+    in_len--;
+  }
+  if (in_len > 0 && in[in_len - 1] == '\r') {
+    in_len--;
+  }
+  if (in_len % 2 != 0) {
+    return false;
+  } else if (in_len / 2 > *len) {
+    return false;
+  }
+
+  for (size_t i = 0; i < in_len / 2; i++) {
+    char *endptr = NULL;
+    char buf[3] = {0};
+    long num;
+    errno = 0;
+
+    buf[0] = in[pos];
+    buf[1] = in[pos + 1];
+    num = strtol((const char *) buf, &endptr, 16);
+    if ((errno == ERANGE && (num < 0 || num > UCHAR_MAX)) ||
+        (errno != 0 && num == 0) || *endptr != '\0') {
+      return false;
+    }
+    out[i] = (uint8_t) num;
+    pos += 2;
+  }
+  *len = in_len / 2;
   return true;
 }
