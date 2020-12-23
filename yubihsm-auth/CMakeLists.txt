@@ -45,6 +45,7 @@ include_directories (
 if(WIN32)
   list(APPEND SOURCE ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc @ONLY)
+  set (BCRYPT_LIBRARY bcrypt)
 endif(WIN32)
 
 if (CMAKE_C_COMPILER_ID MATCHES Clang)
@@ -70,6 +71,7 @@ target_link_libraries (
   ${LIBCRYPTO_LDFLAGS}
   ${GETOPT_LIBS}
   ykhsmauth
+  ${BCRYPT_LIBRARY}
   )
 
 # Set install RPATH
