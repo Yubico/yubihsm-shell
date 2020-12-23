@@ -17,35 +17,35 @@
 set (
   SOURCE
   error.c
-  ykyh.c
+  ykhsmauth.c
 )
 
 include_directories (
   ${LIBPCSC_INCLUDEDIR}
 )
 
-add_library (ykyh SHARED ${SOURCE})
+add_library (ykhsmauth SHARED ${SOURCE})
 
 #add_definitions (-DVERSION="${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}")
 
-target_link_libraries (ykyh ${LIBPCSC_LDFLAGS})
+target_link_libraries (ykhsmauth ${LIBPCSC_LDFLAGS})
 
-set_target_properties (ykyh PROPERTIES VERSION "${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}" SOVERSION ${yubihsm_shell_VERSION_MAJOR})
+set_target_properties (ykhsmauth PROPERTIES VERSION "${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}" SOVERSION ${yubihsm_shell_VERSION_MAJOR})
 
 # Set install RPATH
-set_target_properties(ykyh PROPERTIES INSTALL_RPATH "${YUBIHSM_INSTALL_LIB_DIR}")
+set_target_properties(ykhsmauth PROPERTIES INSTALL_RPATH "${YUBIHSM_INSTALL_LIB_DIR}")
 
-add_library (ykyh_static STATIC ${SOURCE})
-set_target_properties (ykyh_static PROPERTIES POSITION_INDEPENDENT_CODE on OUTPUT_NAME ykyh)
-set_target_properties (ykyh_static PROPERTIES COMPILE_FLAGS "-DSTATIC")
-target_link_libraries (ykyh_static ${LIBPCSC_LDFLAGS})
+add_library (ykhsmauth_static STATIC ${SOURCE})
+set_target_properties (ykhsmauth_static PROPERTIES POSITION_INDEPENDENT_CODE on OUTPUT_NAME ykhsmauth)
+set_target_properties (ykhsmauth_static PROPERTIES COMPILE_FLAGS "-DSTATIC")
+target_link_libraries (ykhsmauth_static ${LIBPCSC_LDFLAGS})
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ykyh.pc.in ${CMAKE_CURRENT_BINARY_DIR}/ykyh.pc @ONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ykhsmauth.pc.in ${CMAKE_CURRENT_BINARY_DIR}/ykhsmauth.pc @ONLY)
 
 install(
-  TARGETS ykyh
+  TARGETS ykhsmauth
   ARCHIVE DESTINATION "${YUBIHSM_INSTALL_LIB_DIR}"
   LIBRARY DESTINATION "${YUBIHSM_INSTALL_LIB_DIR}"
   RUNTIME DESTINATION "${YUBIHSM_INSTALL_BIN_DIR}")
-install(FILES ykyh.h DESTINATION ${YUBIHSM_INSTALL_INC_DIR})
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ykyh.pc DESTINATION ${YUBIHSM_INSTALL_PKGCONFIG_DIR})
+install(FILES ykhsmauth.h DESTINATION ${YUBIHSM_INSTALL_INC_DIR})
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ykhsmauth.pc DESTINATION ${YUBIHSM_INSTALL_PKGCONFIG_DIR})

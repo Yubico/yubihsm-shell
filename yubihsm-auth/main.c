@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <ykyh.h>
+#include <ykhsmauth.h>
 
 #include <openssl/evp.h>
 
@@ -93,9 +93,9 @@ static bool parse_key(const char *prompt, char *key, uint8_t *parsed,
     return false;
   }
 
-  if (*parsed_len != YKYH_KEY_LEN) {
+  if (*parsed_len != YKHSMAUTH_KEY_LEN) {
     fprintf(stdout, "Unable to read key, wrong length (must be %d)\n",
-            YKYH_KEY_LEN);
+            YKHSMAUTH_KEY_LEN);
     return false;
   }
 
@@ -126,9 +126,9 @@ static bool parse_context(const char *prompt, char *context, uint8_t *parsed,
     return false;
   }
 
-  if (*parsed_len != YKYH_CONTEXT_LEN) {
+  if (*parsed_len != YKHSMAUTH_CONTEXT_LEN) {
     fprintf(stdout, "Unable to read context, wrong length (must be %d)\n",
-            YKYH_CONTEXT_LEN);
+            YKHSMAUTH_CONTEXT_LEN);
     return false;
   }
 
@@ -152,11 +152,12 @@ static bool parse_touch_policy(enum enum_touch touch_policy,
   return true;
 }
 
-static bool delete_credential(ykyh_state *state, char *authkey, char *name) {
-  ykyh_rc ykyhrc;
-  uint8_t authkey_parsed[YKYH_PW_LEN];
+static bool delete_credential(ykhsmauth_state *state, char *authkey,
+                              char *name) {
+  ykhsmauth_rc ykhsmauthrc;
+  uint8_t authkey_parsed[YKHSMAUTH_PW_LEN];
   size_t authkey_parsed_len = sizeof(authkey_parsed);
-  char name_parsed[YKYH_MAX_NAME_LEN + 2] = {0};
+  char name_parsed[YKHSMAUTH_MAX_NAME_LEN + 2] = {0};
   size_t name_parsed_len = sizeof(name_parsed);
   uint8_t retries;
 
@@ -169,11 +170,11 @@ static bool delete_credential(ykyh_state *state, char *authkey, char *name) {
     return false;
   }
 
-  ykyhrc = ykyh_delete(state, authkey_parsed, authkey_parsed_len, name_parsed,
-                       &retries);
-  if (ykyhrc != YKYHR_SUCCESS) {
+  ykhsmauthrc = ykhsmauth_delete(state, authkey_parsed, authkey_parsed_len,
+                                 name_parsed, &retries);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Unable to delete credential: %s, %d retries left\n",
-            ykyh_strerror(ykyhrc), retries);
+            ykhsmauth_strerror(ykhsmauthrc), retries);
     return false;
   }
 
@@ -182,14 +183,15 @@ static bool delete_credential(ykyh_state *state, char *authkey, char *name) {
   return true;
 }
 
-static bool list_credentials(ykyh_state *state) {
-  ykyh_rc ykyhrc;
-  ykyh_list_entry list[32];
+static bool list_credentials(ykhsmauth_state *state) {
+  ykhsmauth_rc ykhsmauthrc;
+  ykhsmauth_list_entry list[32];
   size_t list_items = sizeof(list) / sizeof(list[0]);
 
-  ykyhrc = ykyh_list_keys(state, list, &list_items);
-  if (ykyhrc != YKYHR_SUCCESS) {
-    fprintf(stderr, "Unable to list credentials: %s\n", ykyh_strerror(ykyhrc));
+  ykhsmauthrc = ykhsmauth_list_keys(state, list, &list_items);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
+    fprintf(stderr, "Unable to list credentials: %s\n",
+            ykhsmauth_strerror(ykhsmauthrc));
     return false;
   }
 
@@ -209,22 +211,22 @@ static bool list_credentials(ykyh_state *state) {
   return true;
 }
 
-static bool put_credential(ykyh_state *state, char *authkey, char *name,
+static bool put_credential(ykhsmauth_state *state, char *authkey, char *name,
                            char *derivation_password, char *key_enc,
                            char *key_mac, char *password,
                            enum enum_touch touch_policy) {
-  ykyh_rc ykyhrc;
-  uint8_t authkey_parsed[YKYH_KEY_LEN];
+  ykhsmauth_rc ykhsmauthrc;
+  uint8_t authkey_parsed[YKHSMAUTH_KEY_LEN];
   size_t authkey_parsed_len = sizeof(authkey_parsed);
-  char name_parsed[YKYH_MAX_NAME_LEN + 2] = {0};
+  char name_parsed[YKHSMAUTH_MAX_NAME_LEN + 2] = {0};
   size_t name_parsed_len = sizeof(name_parsed);
   char dpw_parsed[256] = {0};
   size_t dpw_parsed_len = sizeof(dpw_parsed);
-  uint8_t key_enc_parsed[YKYH_KEY_LEN];
+  uint8_t key_enc_parsed[YKHSMAUTH_KEY_LEN];
   size_t key_enc_parsed_len = sizeof(key_enc_parsed);
-  uint8_t key_mac_parsed[YKYH_KEY_LEN];
+  uint8_t key_mac_parsed[YKHSMAUTH_KEY_LEN];
   size_t key_mac_parsed_len = sizeof(key_mac_parsed);
-  char pw_parsed[YKYH_PW_LEN + 2] = {0};
+  char pw_parsed[YKHSMAUTH_PW_LEN + 2] = {0};
   size_t pw_parsed_len = sizeof(pw_parsed);
   uint8_t touch_policy_parsed = 0;
   uint8_t retries;
@@ -258,20 +260,21 @@ static bool put_credential(ykyh_state *state, char *authkey, char *name,
       return false;
     }
   } else {
-    uint8_t key[YKYH_KEY_LEN * 2];
-    int ret = PKCS5_PBKDF2_HMAC((const char *) dpw_parsed, dpw_parsed_len,
-                                (uint8_t *) YKYH_DEFAULT_SALT,
-                                strlen(YKYH_DEFAULT_SALT), YKYH_DEFAULT_ITERS,
-                                EVP_sha256(), sizeof(key), key);
+    uint8_t key[YKHSMAUTH_KEY_LEN * 2];
+    int ret =
+      PKCS5_PBKDF2_HMAC((const char *) dpw_parsed, dpw_parsed_len,
+                        (uint8_t *) YKHSMAUTH_DEFAULT_SALT,
+                        strlen(YKHSMAUTH_DEFAULT_SALT), YKHSMAUTH_DEFAULT_ITERS,
+                        EVP_sha256(), sizeof(key), key);
 
     if (ret != 1) {
       return false;
     }
 
-    memcpy(key_enc_parsed, key, YKYH_KEY_LEN);
-    key_enc_parsed_len = YKYH_KEY_LEN;
-    memcpy(key_mac_parsed, key + YKYH_KEY_LEN, YKYH_KEY_LEN);
-    key_mac_parsed_len = YKYH_KEY_LEN;
+    memcpy(key_enc_parsed, key, YKHSMAUTH_KEY_LEN);
+    key_enc_parsed_len = YKHSMAUTH_KEY_LEN;
+    memcpy(key_mac_parsed, key + YKHSMAUTH_KEY_LEN, YKHSMAUTH_KEY_LEN);
+    key_mac_parsed_len = YKHSMAUTH_KEY_LEN;
   }
 
   if (parse_pw("Credential Password (max 16 characters)", password, pw_parsed,
@@ -279,9 +282,9 @@ static bool put_credential(ykyh_state *state, char *authkey, char *name,
     return false;
   }
 
-  if (pw_parsed_len > YKYH_PW_LEN) {
+  if (pw_parsed_len > YKHSMAUTH_PW_LEN) {
     fprintf(stderr, "Credential password can not be more than %d characters.\n",
-            YKYH_PW_LEN);
+            YKHSMAUTH_PW_LEN);
     return false;
   }
 
@@ -289,13 +292,13 @@ static bool put_credential(ykyh_state *state, char *authkey, char *name,
     return false;
   }
 
-  ykyhrc =
-    ykyh_put(state, authkey_parsed, authkey_parsed_len, name_parsed,
-             key_enc_parsed, key_enc_parsed_len, key_mac_parsed,
-             key_mac_parsed_len, pw_parsed, touch_policy_parsed, &retries);
-  if (ykyhrc != YKYHR_SUCCESS) {
+  ykhsmauthrc =
+    ykhsmauth_put(state, authkey_parsed, authkey_parsed_len, name_parsed,
+                  key_enc_parsed, key_enc_parsed_len, key_mac_parsed,
+                  key_mac_parsed_len, pw_parsed, touch_policy_parsed, &retries);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Unable to store credential: %s, %d retries left\n",
-            ykyh_strerror(ykyhrc), retries);
+            ykhsmauth_strerror(ykhsmauthrc), retries);
     return false;
   }
 
@@ -304,12 +307,13 @@ static bool put_credential(ykyh_state *state, char *authkey, char *name,
   return true;
 }
 
-bool reset_device(ykyh_state *state) {
-  ykyh_rc ykyhrc;
+bool reset_device(ykhsmauth_state *state) {
+  ykhsmauth_rc ykhsmauthrc;
 
-  ykyhrc = ykyh_reset(state);
-  if (ykyhrc != YKYHR_SUCCESS) {
-    fprintf(stderr, "Unable to reset device: %s\n", ykyh_strerror(ykyhrc));
+  ykhsmauthrc = ykhsmauth_reset(state);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
+    fprintf(stderr, "Unable to reset device: %s\n",
+            ykhsmauth_strerror(ykhsmauthrc));
     return false;
   }
 
@@ -318,14 +322,14 @@ bool reset_device(ykyh_state *state) {
   return true;
 }
 
-bool get_authkey_retries(ykyh_state *state) {
-  ykyh_rc ykyhrc;
+bool get_authkey_retries(ykhsmauth_state *state) {
+  ykhsmauth_rc ykhsmauthrc;
   uint8_t retries;
 
-  ykyhrc = ykyh_get_authkey_retries(state, &retries);
-  if (ykyhrc != YKYHR_SUCCESS) {
+  ykhsmauthrc = ykhsmauth_get_authkey_retries(state, &retries);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Unable to get authkey retries: %s\n",
-            ykyh_strerror(ykyhrc));
+            ykhsmauth_strerror(ykhsmauthrc));
     return false;
   }
 
@@ -334,14 +338,15 @@ bool get_authkey_retries(ykyh_state *state) {
   return true;
 }
 
-bool get_version(ykyh_state *state) {
-  ykyh_rc ykyhrc;
+bool get_version(ykhsmauth_state *state) {
+  ykhsmauth_rc ykhsmauthrc;
   char version[64];
   size_t version_len = sizeof(version);
 
-  ykyhrc = ykyh_get_version(state, version, version_len);
-  if (ykyhrc != YKYHR_SUCCESS) {
-    fprintf(stderr, "Unable to get version: %s\n", ykyh_strerror(ykyhrc));
+  ykhsmauthrc = ykhsmauth_get_version(state, version, version_len);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
+    fprintf(stderr, "Unable to get version: %s\n",
+            ykhsmauth_strerror(ykhsmauthrc));
     return false;
   }
 
@@ -358,18 +363,18 @@ void print_key(char *prompt, uint8_t *key, size_t len) {
   fprintf(stdout, "\n");
 }
 
-static bool calculate_session_keys(ykyh_state *state, char *name,
+static bool calculate_session_keys(ykhsmauth_state *state, char *name,
                                    char *password, char *context) {
-  ykyh_rc ykyhrc;
-  char name_parsed[YKYH_MAX_NAME_LEN + 2] = {0};
+  ykhsmauth_rc ykhsmauthrc;
+  char name_parsed[YKHSMAUTH_MAX_NAME_LEN + 2] = {0};
   size_t name_parsed_len = sizeof(name_parsed);
-  uint8_t context_parsed[YKYH_CONTEXT_LEN];
+  uint8_t context_parsed[YKHSMAUTH_CONTEXT_LEN];
   size_t context_parsed_len = sizeof(context_parsed);
-  char pw_parsed[YKYH_PW_LEN + 2] = {0};
+  char pw_parsed[YKHSMAUTH_PW_LEN + 2] = {0};
   size_t pw_parsed_len = sizeof(pw_parsed);
-  uint8_t key_s_enc[YKYH_KEY_LEN];
-  uint8_t key_s_mac[YKYH_KEY_LEN];
-  uint8_t key_s_rmac[YKYH_KEY_LEN];
+  uint8_t key_s_enc[YKHSMAUTH_KEY_LEN];
+  uint8_t key_s_mac[YKHSMAUTH_KEY_LEN];
+  uint8_t key_s_rmac[YKHSMAUTH_KEY_LEN];
   size_t key_s_enc_len = sizeof(key_s_enc);
   size_t key_s_mac_len = sizeof(key_s_mac);
   size_t key_s_rmac_len = sizeof(key_s_rmac);
@@ -388,14 +393,14 @@ static bool calculate_session_keys(ykyh_state *state, char *name,
     return false;
   }
 
-  ykyhrc =
-    ykyh_calculate(state, name_parsed, context_parsed, context_parsed_len,
-                   pw_parsed, key_s_enc, key_s_enc_len, key_s_mac,
-                   key_s_mac_len, key_s_rmac, key_s_rmac_len, &retries);
-  if (ykyhrc != YKYHR_SUCCESS) {
+  ykhsmauthrc =
+    ykhsmauth_calculate(state, name_parsed, context_parsed, context_parsed_len,
+                        pw_parsed, key_s_enc, key_s_enc_len, key_s_mac,
+                        key_s_mac_len, key_s_rmac, key_s_rmac_len, &retries);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Unable to calculate session keys: %s\n",
-            ykyh_strerror(ykyhrc));
-    if (ykyhrc == YKYHR_WRONG_PW) {
+            ykhsmauth_strerror(ykhsmauthrc));
+    if (ykhsmauthrc == YKHSMAUTHR_WRONG_PW) {
       fprintf(stderr, "%d attempts left\n", retries);
     }
     return false;
@@ -408,11 +413,12 @@ static bool calculate_session_keys(ykyh_state *state, char *name,
   return true;
 }
 
-static bool put_authkey(ykyh_state *state, char *authkey, char *new_authkey) {
-  ykyh_rc ykyhrc;
-  uint8_t authkey_parsed[YKYH_KEY_LEN];
+static bool put_authkey(ykhsmauth_state *state, char *authkey,
+                        char *new_authkey) {
+  ykhsmauth_rc ykhsmauthrc;
+  uint8_t authkey_parsed[YKHSMAUTH_KEY_LEN];
   size_t authkey_parsed_len = sizeof(authkey_parsed);
-  uint8_t new_authkey_parsed[YKYH_KEY_LEN];
+  uint8_t new_authkey_parsed[YKHSMAUTH_KEY_LEN];
   size_t new_authkey_parsed_len = sizeof(authkey_parsed);
   uint8_t retries;
 
@@ -426,13 +432,13 @@ static bool put_authkey(ykyh_state *state, char *authkey, char *new_authkey) {
     return false;
   }
 
-  ykyhrc =
-    ykyh_put_authkey(state, authkey_parsed, authkey_parsed_len,
-                     new_authkey_parsed, new_authkey_parsed_len, &retries);
-  if (ykyhrc != YKYHR_SUCCESS) {
+  ykhsmauthrc =
+    ykhsmauth_put_authkey(state, authkey_parsed, authkey_parsed_len,
+                          new_authkey_parsed, new_authkey_parsed_len, &retries);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr,
             "Unable to change Authentication key: %s, %d retries left\n",
-            ykyh_strerror(ykyhrc), retries);
+            ykhsmauth_strerror(ykhsmauthrc), retries);
     return false;
   }
 
@@ -443,8 +449,8 @@ static bool put_authkey(ykyh_state *state, char *authkey, char *new_authkey) {
 
 int main(int argc, char *argv[]) {
   struct gengetopt_args_info args_info;
-  ykyh_state *state = NULL;
-  ykyh_rc ykyhrc;
+  ykhsmauth_state *state = NULL;
+  ykhsmauth_rc ykhsmauthrc;
 
   int rc = EXIT_FAILURE;
 
@@ -452,15 +458,15 @@ int main(int argc, char *argv[]) {
     goto main_exit;
   }
 
-  ykyhrc = ykyh_init(&state, args_info.verbose_arg);
-  if (ykyhrc != YKYHR_SUCCESS) {
-    fprintf(stderr, "Failed to initialize libykyh\n");
+  ykhsmauthrc = ykhsmauth_init(&state, args_info.verbose_arg);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
+    fprintf(stderr, "Failed to initialize libykhsmauth\n");
     goto main_exit;
   }
 
-  ykyhrc = ykyh_connect(state, args_info.reader_arg);
-  if (ykyhrc != YKYHR_SUCCESS) {
-    fprintf(stderr, "Unable to connect: %s\n", ykyh_strerror(ykyhrc));
+  ykhsmauthrc = ykhsmauth_connect(state, args_info.reader_arg);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
+    fprintf(stderr, "Unable to connect: %s\n", ykhsmauth_strerror(ykhsmauthrc));
     goto main_exit;
   }
 
@@ -515,7 +521,7 @@ int main(int argc, char *argv[]) {
 
 main_exit:
 
-  ykyh_done(state);
+  ykhsmauth_done(state);
 
   return rc;
 }

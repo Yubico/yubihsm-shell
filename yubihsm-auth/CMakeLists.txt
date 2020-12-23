@@ -33,7 +33,7 @@ endif(WIN32)
 
 include_directories (
   ${LIBCRYPTO_INCLUDEDIR}
-  ${CMAKE_CURRENT_SOURCE_DIR}/../ykyh
+  ${CMAKE_CURRENT_SOURCE_DIR}/../ykhsmauth
   ${CMAKE_CURRENT_SOURCE_DIR}/../common
 )
 
@@ -44,40 +44,40 @@ else ()
 endif ()
 
 # NOTE(adma): required by gengetopt
-add_definitions (-DPACKAGE="yhauth")
+add_definitions (-DPACKAGE="yubihsm-auth")
 add_definitions (-DVERSION="${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}")
 
-list(APPEND LCOV_REMOVE_PATTERNS "'${PROJECT_SOURCE_DIR}/yhauth/cmdline.c'")
+list(APPEND LCOV_REMOVE_PATTERNS "'${PROJECT_SOURCE_DIR}/yubihsm-auth/cmdline.c'")
 
 if ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
 set_property(SOURCE ${GGO_C} APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-unused-but-set-variable ")
 endif()
 
-add_executable (yhauth ${SOURCE})
+add_executable (yubihsm-auth ${SOURCE})
 
 target_link_libraries (
-  yhauth
+  yubihsm-auth
   ${LIBCRYPTO_LDFLAGS}
   ${GETOPT_LIBS}
-  ykyh
+  ykhsmauth
   )
 
 # Set install RPATH
-set_target_properties(yhauth PROPERTIES INSTALL_RPATH "${YUBIHSM_INSTALL_LIB_DIR}")
+set_target_properties(yubihsm-auth PROPERTIES INSTALL_RPATH "${YUBIHSM_INSTALL_LIB_DIR}")
 
 install(
-  TARGETS yhauth
+  TARGETS yubihsm-auth
   ARCHIVE DESTINATION "${YUBIHSM_INSTALL_LIB_DIR}"
   LIBRARY DESTINATION "${YUBIHSM_INSTALL_LIB_DIR}"
   RUNTIME DESTINATION "${YUBIHSM_INSTALL_BIN_DIR}")
 
 if (NOT WITHOUT_MANPAGES)
   include (help2man)
-  add_help2man_manpage (yhauth.1 yhauth)
+  add_help2man_manpage (yubihsm-auth.1 yubihsm-auth)
 
-  add_custom_target (yhauth-man ALL
-    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/yhauth.1
+  add_custom_target (yubihsm-auth-man ALL
+    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/yubihsm-auth.1
     )
 
-  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/yhauth.1" DESTINATION "${YUBIHSM_INSTALL_MAN_DIR}/man1")
+  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/yubihsm-auth.1" DESTINATION "${YUBIHSM_INSTALL_MAN_DIR}/man1")
 endif ()

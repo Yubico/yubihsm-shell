@@ -1951,15 +1951,14 @@ int main(int argc, char *argv[]) {
     goto main_exit;
   }
 
-#ifdef USE_YKYH
-  ykyh_rc ykyhrc;
-  ykyhrc = ykyh_init(&ctx.state, 1); // TODO(adma): do something about verbosity
-  if (ykyhrc != YKYHR_SUCCESS) {
-    fprintf(stderr, "Failed to initialize libykyh\n");
+  ykhsmauth_rc ykhsmauthrc;
+  ykhsmauthrc =
+    ykhsmauth_init(&ctx.state, 1); // TODO(adma): do something about verbosity
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
+    fprintf(stderr, "Failed to initialize libykhsmauth\n");
     rc = EXIT_FAILURE;
     goto main_exit;
   }
-#endif
 
   if (ctx.connector_list[0] == NULL) {
     fprintf(stderr, "Using default connector URL: %s\n", LOCAL_CONNECTOR_URL);
@@ -2867,10 +2866,8 @@ main_exit:
 
   yh_exit();
 
-#ifdef USE_YKYH
-  ykyh_done(ctx.state); // TODO(adma): more consistent naming
+  ykhsmauth_done(ctx.state);
   ctx.state = NULL;
-#endif
 
 #ifdef USE_ASYMMETRIC_AUTH
   free_configured_pubkeys(&ctx);
