@@ -19,14 +19,12 @@
 
 #include <stdbool.h>
 
-//#if BACKEND_PCSC
-//#if defined HAVE_PCSC_WINSCARD_H
+#if defined(_WIN32)
+#include <winscard.h>
+#else
 #include <PCSC/wintypes.h>
 #include <PCSC/winscard.h>
-//#else
-//# include <winscard.h>
-//#endif
-//#endif
+#endif
 
 #define READER_LEN 32
 #define MAX_READERS 16
