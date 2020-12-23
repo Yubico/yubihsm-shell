@@ -213,7 +213,7 @@ if(NOT BUILD_ONLY_LIB)
 
   add_subdirectory (examples)
 
-  add_subdirectory (yhauth)
+  add_subdirectory (yubihsm-auth)
 
   add_subdirectory(yhwrap)
 endif()
