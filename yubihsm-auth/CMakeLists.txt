@@ -18,6 +18,8 @@ set (
   SOURCE
   main.c
   ../common/parsing.c
+  ../common/pkcs5.c
+  ../common/hash.c
   )
 
 if(WIN32)

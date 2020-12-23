@@ -23,8 +23,7 @@
 
 #include <ykhsmauth.h>
 
-#include <openssl/evp.h>
-
+#include "pkcs5.h"
 #include "parsing.h"
 
 #include "cmdline.h"
@@ -261,13 +260,11 @@ static bool put_credential(ykhsmauth_state *state, char *authkey, char *name,
     }
   } else {
     uint8_t key[YKHSMAUTH_KEY_LEN * 2];
-    int ret =
-      PKCS5_PBKDF2_HMAC((const char *) dpw_parsed, dpw_parsed_len,
-                        (uint8_t *) YKHSMAUTH_DEFAULT_SALT,
-                        strlen(YKHSMAUTH_DEFAULT_SALT), YKHSMAUTH_DEFAULT_ITERS,
-                        EVP_sha256(), sizeof(key), key);
-
-    if (ret != 1) {
+    if (pkcs5_pbkdf2_hmac((uint8_t *) dpw_parsed, dpw_parsed_len,
+                          (const uint8_t *) YKHSMAUTH_DEFAULT_SALT,
+                          strlen(YKHSMAUTH_DEFAULT_SALT),
+                          YKHSMAUTH_DEFAULT_ITERS, _SHA256, key,
+                          sizeof(key)) == false) {
       return false;
     }
 
