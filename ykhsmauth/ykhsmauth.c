@@ -523,7 +523,7 @@ ykhsmauth_rc ykhsmauth_calculate(ykhsmauth_state *state, const char *name,
   }
   if (recv_len != YKHSMAUTH_KEY_LEN * 3) {
     if (state->verbose) {
-      fprintf(stderr, "Wrong length returned: %zu\n", recv_len);
+      fprintf(stderr, "Wrong length returned: %lu\n", recv_len);
     }
     return YKHSMAUTHR_GENERIC_ERROR;
   }

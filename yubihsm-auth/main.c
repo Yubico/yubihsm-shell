@@ -200,7 +200,7 @@ static bool list_credentials(ykhsmauth_state *state) {
     return true;
   }
 
-  fprintf(stdout, "Found %lu item(s)\n", list_items);
+  fprintf(stdout, "Found %zu item(s)\n", list_items);
   fprintf(stdout, "Algo\tTouch\tCounter\tName\n");
 
   for (size_t i = 0; i < list_items; i++) {
