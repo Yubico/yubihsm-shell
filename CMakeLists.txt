@@ -204,9 +204,14 @@ add_subdirectory (lib)
 if(NOT BUILD_ONLY_LIB)
   add_subdirectory (pkcs11)
 
-  if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+  if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     pkg_search_module (LIBPCSC REQUIRED libpcsclite)
   endif()
+
+  if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    set(LIBPCSC_LDFLAGS "-Wl,-framework -Wl,PCSC")
+  endif()
+
   add_subdirectory (ykhsmauth)
 
   add_subdirectory (src)
