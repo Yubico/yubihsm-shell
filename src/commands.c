@@ -961,8 +961,13 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
       return -1;
     }
     int nid = algo2nid(algo);
-    EC_POINT *point;
+    EC_POINT *point = NULL;
     EC_GROUP *group = EC_GROUP_new_by_curve_name(nid);
+    if(group == NULL) {
+      fprintf(stderr, "Failed to create EC group from curve name\n");
+      error = true;
+      goto ec_cleanup;
+    }
 
     EC_GROUP_set_asn1_flag(group, nid);
     if (EC_KEY_set_group(eckey, group) != 1 ) {
