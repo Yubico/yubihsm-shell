@@ -1754,7 +1754,9 @@ CK_RV apply_sign_mechanism_init(yubihsm_pkcs11_op_info *op_info) {
   }
 
   op_info->op.sign.md_ctx = EVP_MD_CTX_create();
-
+  if (op_info->op.sign.md_ctx == NULL) {
+    return CKR_FUNCTION_FAILED;
+  }
   if (EVP_DigestInit_ex(op_info->op.sign.md_ctx, md, NULL) == 0) {
     EVP_MD_CTX_destroy(op_info->op.sign.md_ctx);
     op_info->op.sign.md_ctx = NULL;
@@ -1821,6 +1823,8 @@ CK_RV apply_verify_mechanism_init(yubihsm_pkcs11_op_info *op_info) {
     return CKR_FUNCTION_FAILED;
   }
   if (EVP_DigestInit(op_info->op.verify.md_ctx, md) == 0) {
+    EVP_MD_CTX_destroy(op_info->op.verify.md_ctx);
+    op_info->op.verify.md_ctx = NULL;
     return CKR_FUNCTION_FAILED;
   }
 
@@ -1872,7 +1876,9 @@ CK_RV apply_digest_mechanism_init(yubihsm_pkcs11_op_info *op_info) {
   }
 
   op_info->op.digest.md_ctx = EVP_MD_CTX_create();
-
+  if (op_info->op.digest.md_ctx == NULL) {
+    return CKR_FUNCTION_FAILED;
+  }
   op_info->op.digest.is_multipart = false;
 
   if (EVP_DigestInit_ex(op_info->op.digest.md_ctx, md, NULL) == 0) {
