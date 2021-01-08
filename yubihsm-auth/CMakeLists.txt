@@ -14,10 +14,15 @@
 # limitations under the License.
 #
 
+include(${CMAKE_SOURCE_DIR}/cmake/openssl.cmake)
+find_libcrypto()
+
 set (
   SOURCE
   main.c
   ../common/parsing.c
+  ../common/pkcs5.c
+  ../common/hash.c
   )
 
 if(WIN32)
@@ -36,6 +41,12 @@ include_directories (
   ${CMAKE_CURRENT_SOURCE_DIR}/../ykhsmauth
   ${CMAKE_CURRENT_SOURCE_DIR}/../common
 )
+
+if(WIN32)
+  list(APPEND SOURCE ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
+  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc @ONLY)
+  set (BCRYPT_LIBRARY bcrypt)
+endif(WIN32)
 
 if (CMAKE_C_COMPILER_ID MATCHES Clang)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE")
@@ -60,6 +71,7 @@ target_link_libraries (
   ${LIBCRYPTO_LDFLAGS}
   ${GETOPT_LIBS}
   ykhsmauth
+  ${BCRYPT_LIBRARY}
   )
 
 # Set install RPATH
