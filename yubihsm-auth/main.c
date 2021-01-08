@@ -221,10 +221,8 @@ static bool put_credential(ykhsmauth_state *state, char *authkey, char *name,
   size_t name_parsed_len = sizeof(name_parsed);
   char dpw_parsed[256] = {0};
   size_t dpw_parsed_len = sizeof(dpw_parsed);
-  uint8_t key_enc_parsed[YKHSMAUTH_KEY_LEN];
-  size_t key_enc_parsed_len = sizeof(key_enc_parsed);
-  uint8_t key_mac_parsed[YKHSMAUTH_KEY_LEN];
-  size_t key_mac_parsed_len = sizeof(key_mac_parsed);
+  uint8_t key_parsed[YKHSMAUTH_KEY_LEN * 2];
+  size_t key_parsed_len = sizeof(key_parsed);
   char pw_parsed[YKHSMAUTH_PW_LEN + 2] = {0};
   size_t pw_parsed_len = sizeof(pw_parsed);
   uint8_t touch_policy_parsed = 0;
@@ -249,6 +247,11 @@ static bool put_credential(ykhsmauth_state *state, char *authkey, char *name,
   }
 
   if (dpw_parsed_len == 0) {
+    uint8_t key_enc_parsed[YKHSMAUTH_KEY_LEN];
+    size_t key_enc_parsed_len = sizeof(key_enc_parsed);
+    uint8_t key_mac_parsed[YKHSMAUTH_KEY_LEN];
+    size_t key_mac_parsed_len = sizeof(key_mac_parsed);
+
     if (parse_key("Encryption key", key_enc, key_enc_parsed,
                   &key_enc_parsed_len) == false) {
       return false;
@@ -258,20 +261,19 @@ static bool put_credential(ykhsmauth_state *state, char *authkey, char *name,
         false) {
       return false;
     }
+
+    memcpy(key_parsed, key_enc_parsed, key_enc_parsed_len);
+    memcpy(key_parsed + YKHSMAUTH_KEY_LEN, key_mac_parsed, key_mac_parsed_len);
   } else {
-    uint8_t key[YKHSMAUTH_KEY_LEN * 2];
     if (pkcs5_pbkdf2_hmac((uint8_t *) dpw_parsed, dpw_parsed_len,
                           (const uint8_t *) YKHSMAUTH_DEFAULT_SALT,
                           strlen(YKHSMAUTH_DEFAULT_SALT),
-                          YKHSMAUTH_DEFAULT_ITERS, _SHA256, key,
-                          sizeof(key)) == false) {
+                          YKHSMAUTH_DEFAULT_ITERS, _SHA256, key_parsed,
+                          sizeof(key_parsed)) == false) {
       return false;
     }
 
-    memcpy(key_enc_parsed, key, YKHSMAUTH_KEY_LEN);
-    key_enc_parsed_len = YKHSMAUTH_KEY_LEN;
-    memcpy(key_mac_parsed, key + YKHSMAUTH_KEY_LEN, YKHSMAUTH_KEY_LEN);
-    key_mac_parsed_len = YKHSMAUTH_KEY_LEN;
+    key_parsed_len = sizeof(key_parsed);
   }
 
   if (parse_pw("Credential Password (max 16 characters)", password, pw_parsed,
@@ -291,8 +293,8 @@ static bool put_credential(ykhsmauth_state *state, char *authkey, char *name,
 
   ykhsmauthrc =
     ykhsmauth_put(state, authkey_parsed, authkey_parsed_len, name_parsed,
-                  key_enc_parsed, key_enc_parsed_len, key_mac_parsed,
-                  key_mac_parsed_len, pw_parsed, touch_policy_parsed, &retries);
+                  YKHSMAUTH_SCP03_ALGO, key_parsed, key_parsed_len, pw_parsed,
+                  touch_policy_parsed, &retries);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Unable to store credential: %s, %d retries left\n",
             ykhsmauth_strerror(ykhsmauthrc), retries);
