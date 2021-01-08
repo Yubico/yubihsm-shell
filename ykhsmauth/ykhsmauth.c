@@ -22,6 +22,10 @@
 #include "internal.h"
 #include "ykhsmauth.h"
 
+#ifdef _WIN32
+#define strncasecmp _strnicmp
+#endif
+
 static ykhsmauth_rc send_data(ykhsmauth_state *state, APDU *apdu,
                               unsigned char *data, unsigned long *recv_len,
                               int *sw);
