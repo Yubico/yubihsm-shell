@@ -327,21 +327,21 @@ ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *authkey,
   unsigned long recv_len = sizeof(data);
   int sw;
 
-  if (state == NULL || authkey == NULL || authkey_len != YKHSMAUTH_KEY_LEN ||
+  if (state == NULL || authkey == NULL || authkey_len != YKHSMAUTH_PW_LEN ||
       name == NULL || strlen(name) < YKHSMAUTH_MIN_NAME_LEN ||
       strlen(name) > YKHSMAUTH_MAX_NAME_LEN || key == NULL || pw == NULL ||
-      strlen(pw) > YKHSMAUTH_KEY_LEN) {
+      strlen(pw) > YKHSMAUTH_PW_LEN) {
     return YKHSMAUTHR_INVALID_PARAMS;
   }
 
-  if (algo != YKHSMAUTH_SCP03_ALGO) {
+  if (algo != YKHSMAUTH_YUBICO_AES128_ALGO) {
     if (state->verbose) {
-      fprintf(stderr, "Only YKHSMAUTH_SCP03_ALGO supported\n");
+      fprintf(stderr, "Only YKHSMAUTH_YUBICO_AES128_ALGO supported\n");
     }
     return YKHSMAUTHR_INVALID_PARAMS;
   }
 
-  if (key_len != YKHSMAUTH_KEY_LEN * 2) {
+  if (key_len != YKHSMAUTH_YUBICO_AES128_KEY_LEN) {
     return YKHSMAUTHR_INVALID_PARAMS;
   }
 
@@ -368,24 +368,25 @@ ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *authkey,
   apdu.st.lc++;
   *(ptr++) = 1;
   apdu.st.lc++;
-  *(ptr++) = YKHSMAUTH_SCP03_ALGO;
+  *(ptr++) = algo;
   apdu.st.lc++;
 
   *(ptr++) = YKHSMAUTH_TAG_KEY_ENC;
   apdu.st.lc++;
-  *(ptr++) = YKHSMAUTH_KEY_LEN;
+  *(ptr++) = YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
   apdu.st.lc++;
-  memcpy(ptr, key, YKHSMAUTH_KEY_LEN);
-  ptr += YKHSMAUTH_KEY_LEN;
-  apdu.st.lc += YKHSMAUTH_KEY_LEN;
+  memcpy(ptr, key, YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2);
+  ptr += YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
+  apdu.st.lc += YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
 
   *(ptr++) = YKHSMAUTH_TAG_KEY_MAC;
   apdu.st.lc++;
-  *(ptr++) = YKHSMAUTH_KEY_LEN;
+  *(ptr++) = YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
   apdu.st.lc++;
-  memcpy(ptr, key + YKHSMAUTH_KEY_LEN, YKHSMAUTH_KEY_LEN);
-  ptr += YKHSMAUTH_KEY_LEN;
-  apdu.st.lc += YKHSMAUTH_KEY_LEN;
+  memcpy(ptr, key + YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2,
+         YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2);
+  ptr += YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
+  apdu.st.lc += YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
 
   *(ptr++) = YKHSMAUTH_TAG_PW;
   apdu.st.lc++;
@@ -427,7 +428,7 @@ ykhsmauth_rc ykhsmauth_delete(ykhsmauth_state *state, uint8_t *authkey,
   int sw;
   ykhsmauth_rc rc;
 
-  if (state == NULL || authkey == NULL || authkey_len != YKHSMAUTH_KEY_LEN ||
+  if (state == NULL || authkey == NULL || authkey_len != YKHSMAUTH_PW_LEN ||
       name == NULL || strlen(name) < YKHSMAUTH_MIN_NAME_LEN ||
       strlen(name) > YKHSMAUTH_MAX_NAME_LEN) {
     return YKHSMAUTHR_INVALID_PARAMS;
@@ -486,9 +487,9 @@ ykhsmauth_rc ykhsmauth_calculate(ykhsmauth_state *state, const char *name,
       strlen(name) > YKHSMAUTH_MAX_NAME_LEN || context == NULL ||
       context_len != YKHSMAUTH_CONTEXT_LEN || pw == NULL ||
       strlen(pw) > YKHSMAUTH_PW_LEN || key_s_enc == NULL ||
-      key_s_enc_len != YKHSMAUTH_KEY_LEN || key_s_mac == NULL ||
-      key_s_mac_len != YKHSMAUTH_KEY_LEN || key_s_rmac == NULL ||
-      key_s_rmac_len != YKHSMAUTH_KEY_LEN) {
+      key_s_enc_len != YKHSMAUTH_SESSION_KEY_LEN || key_s_mac == NULL ||
+      key_s_mac_len != YKHSMAUTH_SESSION_KEY_LEN || key_s_rmac == NULL ||
+      key_s_rmac_len != YKHSMAUTH_SESSION_KEY_LEN) {
     return YKHSMAUTHR_INVALID_PARAMS;
   }
 
@@ -532,7 +533,7 @@ ykhsmauth_rc ykhsmauth_calculate(ykhsmauth_state *state, const char *name,
 
     return translate_error(sw, retries);
   }
-  if (recv_len != YKHSMAUTH_KEY_LEN * 3) {
+  if (recv_len != YKHSMAUTH_SESSION_KEY_LEN * 3) {
     if (state->verbose) {
       fprintf(stderr, "Wrong length returned: %lu\n", recv_len);
     }
@@ -541,12 +542,12 @@ ykhsmauth_rc ykhsmauth_calculate(ykhsmauth_state *state, const char *name,
 
   ptr = data;
 
-  memcpy(key_s_enc, ptr, YKHSMAUTH_KEY_LEN);
-  ptr += YKHSMAUTH_KEY_LEN;
-  memcpy(key_s_mac, ptr, YKHSMAUTH_KEY_LEN);
-  ptr += YKHSMAUTH_KEY_LEN;
-  memcpy(key_s_rmac, ptr, YKHSMAUTH_KEY_LEN);
-  ptr += YKHSMAUTH_KEY_LEN;
+  memcpy(key_s_enc, ptr, YKHSMAUTH_SESSION_KEY_LEN);
+  ptr += YKHSMAUTH_SESSION_KEY_LEN;
+  memcpy(key_s_mac, ptr, YKHSMAUTH_SESSION_KEY_LEN);
+  ptr += YKHSMAUTH_SESSION_KEY_LEN;
+  memcpy(key_s_rmac, ptr, YKHSMAUTH_SESSION_KEY_LEN);
+  ptr += YKHSMAUTH_SESSION_KEY_LEN;
 
   return YKHSMAUTHR_SUCCESS;
 }
@@ -700,8 +701,8 @@ ykhsmauth_rc ykhsmauth_put_authkey(ykhsmauth_state *state, uint8_t *authkey,
   unsigned long recv_len = sizeof(data);
   int sw;
 
-  if (state == NULL || authkey == NULL || authkey_len != YKHSMAUTH_KEY_LEN ||
-      new_authkey == NULL || new_authkey_len != YKHSMAUTH_KEY_LEN) {
+  if (state == NULL || authkey == NULL || authkey_len != YKHSMAUTH_PW_LEN ||
+      new_authkey == NULL || new_authkey_len != YKHSMAUTH_PW_LEN) {
     return YKHSMAUTHR_INVALID_PARAMS;
   }
 
