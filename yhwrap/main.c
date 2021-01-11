@@ -57,7 +57,7 @@ static bool wrap_data(uint8_t *key, size_t key_len, uint8_t *in, size_t in_len,
   int len;
 
   ctx = EVP_CIPHER_CTX_new();
-  if(ctx == NULL) {
+  if (ctx == NULL) {
     return false;
   }
 

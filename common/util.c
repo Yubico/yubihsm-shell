@@ -36,8 +36,8 @@ bool set_component(unsigned char *in_ptr, const BIGNUM *bn, int element_len) {
 
   memset(in_ptr, 0, (size_t)(element_len - real_len));
   in_ptr += element_len - real_len;
-  //BN_bn2bin(bn, in_ptr);
-  //return true;
+  // BN_bn2bin(bn, in_ptr);
+  // return true;
   return BN_bn2bin(bn, in_ptr) > 0;
 }
 
@@ -88,7 +88,7 @@ bool read_ed25519_key(uint8_t *in, size_t in_len, uint8_t *out,
   int ret;
   BIO *b64 = BIO_new(BIO_f_base64());
   BIO *bio = BIO_new(BIO_s_mem());
-  if(b64 == NULL || bio == NULL) {
+  if (b64 == NULL || bio == NULL) {
     return false;
   }
   BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
@@ -184,7 +184,7 @@ bool read_private_key(uint8_t *buf, size_t len, yh_algorithm *algo,
   switch (EVP_PKEY_base_id(private_key)) {
     case EVP_PKEY_RSA: {
       rsa = EVP_PKEY_get1_RSA(private_key);
-      if(rsa == NULL) {
+      if (rsa == NULL) {
         goto cleanup;
       }
       unsigned char e[4];
@@ -544,7 +544,7 @@ bool base64_decode(const char *in, uint8_t *out, size_t *len) {
   int ret;
   BIO *b64 = BIO_new(BIO_f_base64());
   BIO *bio = BIO_new(BIO_s_mem());
-  if(b64 == NULL || bio == NULL) {
+  if (b64 == NULL || bio == NULL) {
     return false;
   }
   BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
@@ -578,7 +578,7 @@ bool write_file(const uint8_t *buf, size_t buf_len, FILE *fp, format_t format) {
 
     b64 = BIO_new(BIO_f_base64());
     bio = BIO_new(BIO_s_mem());
-    if(b64 == NULL || bio == NULL) {
+    if (b64 == NULL || bio == NULL) {
       return false;
     }
     bio = BIO_push(b64, bio);

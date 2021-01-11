@@ -928,26 +928,26 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   }
 
   public_key = EVP_PKEY_new();
-  if(public_key == NULL) {
+  if (public_key == NULL) {
     fprintf(stderr, "Failed to create public key\n");
     return -1;
   }
 
   if (yh_is_rsa(algo)) {
     RSA *rsa = RSA_new();
-    if(rsa == NULL) {
+    if (rsa == NULL) {
       fprintf(stderr, "Failed to create RSA key\n");
       return -1;
     }
     BIGNUM *e = BN_new();
     BIGNUM *n = BN_bin2bn(response, response_len, NULL);
     BN_hex2bn(&e, "10001");
-    if ( RSA_set0_key(rsa, n, e, NULL) != 1) {
+    if (RSA_set0_key(rsa, n, e, NULL) != 1) {
       fprintf(stderr, "Failed to set RSA key\n");
       RSA_free(rsa);
       return -1;
     }
-    if( EVP_PKEY_set1_RSA(public_key, rsa) != 1) {
+    if (EVP_PKEY_set1_RSA(public_key, rsa) != 1) {
       fprintf(stderr, "Failed to set RSA key\n");
       RSA_free(rsa);
       return -1;
@@ -956,21 +956,21 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   } else if (yh_is_ec(algo)) {
     bool error = false;
     EC_KEY *eckey = EC_KEY_new();
-    if(eckey == NULL) {
+    if (eckey == NULL) {
       fprintf(stderr, "Failed to create EC key\n");
       return -1;
     }
     int nid = algo2nid(algo);
     EC_POINT *point = NULL;
     EC_GROUP *group = EC_GROUP_new_by_curve_name(nid);
-    if(group == NULL) {
+    if (group == NULL) {
       fprintf(stderr, "Failed to create EC group from curve name\n");
       error = true;
       goto ec_cleanup;
     }
 
     EC_GROUP_set_asn1_flag(group, nid);
-    if (EC_KEY_set_group(eckey, group) != 1 ) {
+    if (EC_KEY_set_group(eckey, group) != 1) {
       fprintf(stderr, "Failed to set EC group\n");
       error = true;
       goto ec_cleanup;
@@ -981,33 +981,33 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     response[0] = 0x04; // hack to make it a valid ec pubkey..
     response_len++;
 
-    if( EC_POINT_oct2point(group, point, response, response_len, NULL) != 1) {
+    if (EC_POINT_oct2point(group, point, response, response_len, NULL) != 1) {
       fprintf(stderr, "Failed to parse EC point\n");
       error = true;
       goto ec_cleanup;
     }
 
-    if(EC_KEY_set_public_key(eckey, point) != 1) {
+    if (EC_KEY_set_public_key(eckey, point) != 1) {
       fprintf(stderr, "Failed to set EC public key\n");
       error = true;
       goto ec_cleanup;
     }
 
-    if(EVP_PKEY_set1_EC_KEY(public_key, eckey) != 1) {
+    if (EVP_PKEY_set1_EC_KEY(public_key, eckey) != 1) {
       fprintf(stderr, "Failed to set EC public key\n");
       error = true;
     }
-ec_cleanup:
-    if(point != NULL) {
+  ec_cleanup:
+    if (point != NULL) {
       EC_POINT_free(point);
     }
-    if(eckey != NULL) {
+    if (eckey != NULL) {
       EC_KEY_free(eckey);
     }
-    if(group != NULL) {
+    if (group != NULL) {
       EC_GROUP_free(group);
     }
-    if(error) {
+    if (error) {
       return -1;
     }
   } else {
@@ -1023,7 +1023,7 @@ ec_cleanup:
   }
 
   if (fmt == fmt_PEM) {
-    if(PEM_write_PUBKEY(ctx->out, public_key) != 1) {
+    if (PEM_write_PUBKEY(ctx->out, public_key) != 1) {
       fprintf(stderr, "Failed to write public key in PEM format\n");
       EVP_PKEY_free(public_key);
       return -1;
@@ -2498,7 +2498,7 @@ int yh_com_sign_ssh_certificate(yubihsm_context *ctx, Argument *argv,
 
   b64 = BIO_new(BIO_f_base64());
   bio = BIO_new(BIO_s_mem());
-  if(b64 == NULL || bio == NULL) {
+  if (b64 == NULL || bio == NULL) {
     fprintf(stderr, "Failed to sign SSH certificate.\n");
     return -1;
   }

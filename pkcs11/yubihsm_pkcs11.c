@@ -2836,7 +2836,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
           goto c_di_out;
       }
       mdctx = EVP_MD_CTX_create();
-      if(mdctx == NULL) {
+      if (mdctx == NULL) {
         rv = CKR_FUNCTION_FAILED;
         goto c_di_out;
       }
