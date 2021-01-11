@@ -1033,14 +1033,20 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   } else if (fmt == fmt_base64) {
     BIO *bio;
     BIO *b64;
+    bool error = false;
 
     b64 = BIO_new(BIO_f_base64());
-    bio = BIO_new_fp(ctx->out, BIO_NOCLOSE);
+    if (b64 == NULL) {
+      fprintf(stderr, "Unable to allocate buffer\n");
+      error = true;
+      goto getpk_base64_cleanup;
+    }
 
-    if (b64 == NULL || bio == NULL) {
+    bio = BIO_new_fp(ctx->out, BIO_NOCLOSE);
+    if (bio == NULL) {
       fprintf(stderr, "Unable to allocate BIO\n");
-      EVP_PKEY_free(public_key);
-      return -1;
+      error = true;
+      goto getpk_base64_cleanup;
     }
 
     bio = BIO_push(b64, bio);
@@ -1049,6 +1055,11 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
     (void) BIO_flush(bio);
     (void) BIO_free_all(bio);
+  getpk_base64_cleanup:
+    if (error) {
+      EVP_PKEY_free(public_key);
+      return -1;
+    }
   } // FIXME: other formats or error.
   EVP_PKEY_free(public_key);
 
@@ -1117,15 +1128,20 @@ int yh_com_get_device_pubkey(yubihsm_context *ctx, Argument *argv,
   } else if (fmt == fmt_base64) {
     BIO *bio;
     BIO *b64;
+    bool error = false;
 
     b64 = BIO_new(BIO_f_base64());
+    if (b64 == NULL) {
+      fprintf(stderr, "Unable to allocate buffer\n");
+      error = true;
+      goto getdpk_base64_cleanup;
+    }
+
     bio = BIO_new_fp(ctx->out, BIO_NOCLOSE);
-
-    if (b64 == NULL || bio == NULL) {
+    if (bio == NULL) {
       fprintf(stderr, "Unable to allocate BIO\n");
-      EVP_PKEY_free(public_key);
-
-      return -1;
+      error = true;
+      goto getdpk_base64_cleanup;
     }
 
     bio = BIO_push(b64, bio);
@@ -1134,6 +1150,11 @@ int yh_com_get_device_pubkey(yubihsm_context *ctx, Argument *argv,
 
     (void) BIO_flush(bio);
     (void) BIO_free_all(bio);
+  getdpk_base64_cleanup:
+    if (error) {
+      EVP_PKEY_free(public_key);
+      return -1;
+    }
   } // FIXME: other formats or error.
   EVP_PKEY_free(public_key);
 
@@ -2497,8 +2518,12 @@ int yh_com_sign_ssh_certificate(yubihsm_context *ctx, Argument *argv,
   BUF_MEM *bufferPtr;
 
   b64 = BIO_new(BIO_f_base64());
+  if (b64 == NULL) {
+    fprintf(stderr, "Failed to sign SSH certificate.\n");
+    return -1;
+  }
   bio = BIO_new(BIO_s_mem());
-  if (b64 == NULL || bio == NULL) {
+  if (bio == NULL) {
     fprintf(stderr, "Failed to sign SSH certificate.\n");
     return -1;
   }
