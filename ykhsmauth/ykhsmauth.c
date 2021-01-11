@@ -318,11 +318,9 @@ ykhsmauth_rc ykhsmauth_get_version(ykhsmauth_state *state, char *version,
 }
 
 ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *authkey,
-                           size_t authkey_len, const char *name,
-                           const uint8_t *key_enc, size_t key_enc_len,
-                           const uint8_t *key_mac, size_t key_mac_len,
-                           const char *pw, const uint8_t touch_policy,
-                           uint8_t *retries) {
+                           size_t authkey_len, const char *name, uint8_t algo,
+                           const uint8_t *key, size_t key_len, const char *pw,
+                           const uint8_t touch_policy, uint8_t *retries) {
   APDU apdu;
   uint8_t *ptr = apdu.st.data;
   unsigned char data[261];
@@ -331,10 +329,19 @@ ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *authkey,
 
   if (state == NULL || authkey == NULL || authkey_len != YKHSMAUTH_KEY_LEN ||
       name == NULL || strlen(name) < YKHSMAUTH_MIN_NAME_LEN ||
-      strlen(name) > YKHSMAUTH_MAX_NAME_LEN || key_enc == NULL ||
-      key_enc_len != YKHSMAUTH_KEY_LEN || key_mac == NULL ||
-      key_mac_len != YKHSMAUTH_KEY_LEN || pw == NULL ||
+      strlen(name) > YKHSMAUTH_MAX_NAME_LEN || key == NULL || pw == NULL ||
       strlen(pw) > YKHSMAUTH_KEY_LEN) {
+    return YKHSMAUTHR_INVALID_PARAMS;
+  }
+
+  if (algo != YKHSMAUTH_SCP03_ALGO) {
+    if (state->verbose) {
+      fprintf(stderr, "Only YKHSMAUTH_SCP03_ALGO supported\n");
+    }
+    return YKHSMAUTHR_INVALID_PARAMS;
+  }
+
+  if (key_len != YKHSMAUTH_KEY_LEN * 2) {
     return YKHSMAUTHR_INVALID_PARAMS;
   }
 
@@ -368,7 +375,7 @@ ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *authkey,
   apdu.st.lc++;
   *(ptr++) = YKHSMAUTH_KEY_LEN;
   apdu.st.lc++;
-  memcpy(ptr, key_enc, YKHSMAUTH_KEY_LEN);
+  memcpy(ptr, key, YKHSMAUTH_KEY_LEN);
   ptr += YKHSMAUTH_KEY_LEN;
   apdu.st.lc += YKHSMAUTH_KEY_LEN;
 
@@ -376,7 +383,7 @@ ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *authkey,
   apdu.st.lc++;
   *(ptr++) = YKHSMAUTH_KEY_LEN;
   apdu.st.lc++;
-  memcpy(ptr, key_mac, YKHSMAUTH_KEY_LEN);
+  memcpy(ptr, key + YKHSMAUTH_KEY_LEN, YKHSMAUTH_KEY_LEN);
   ptr += YKHSMAUTH_KEY_LEN;
   apdu.st.lc += YKHSMAUTH_KEY_LEN;
 
