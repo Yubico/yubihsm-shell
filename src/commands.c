@@ -1045,6 +1045,7 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     bio = BIO_new_fp(ctx->out, BIO_NOCLOSE);
     if (bio == NULL) {
       fprintf(stderr, "Unable to allocate BIO\n");
+      BIO_free_all(b64);
       error = true;
       goto getpk_base64_cleanup;
     }
@@ -1140,6 +1141,7 @@ int yh_com_get_device_pubkey(yubihsm_context *ctx, Argument *argv,
     bio = BIO_new_fp(ctx->out, BIO_NOCLOSE);
     if (bio == NULL) {
       fprintf(stderr, "Unable to allocate BIO\n");
+      Bio_free_all(b64);
       error = true;
       goto getdpk_base64_cleanup;
     }
@@ -2525,6 +2527,7 @@ int yh_com_sign_ssh_certificate(yubihsm_context *ctx, Argument *argv,
   bio = BIO_new(BIO_s_mem());
   if (bio == NULL) {
     fprintf(stderr, "Failed to sign SSH certificate.\n");
+    Bio_free_all(b64);
     return -1;
   }
   bio = BIO_push(b64, bio);
