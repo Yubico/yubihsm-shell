@@ -47,7 +47,7 @@
 static bool wrap_data(uint8_t *key, size_t key_len, uint8_t *in, size_t in_len,
                       uint8_t *out, size_t *out_len) {
 
-  EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+  EVP_CIPHER_CTX *ctx = NULL;
   const EVP_CIPHER *cipher_type;
 
   uint8_t nonce[13];
@@ -55,6 +55,11 @@ static bool wrap_data(uint8_t *key, size_t key_len, uint8_t *in, size_t in_len,
   int tag_len = 16;
 
   int len;
+
+  ctx = EVP_CIPHER_CTX_new();
+  if (ctx == NULL) {
+    return false;
+  }
 
   switch (key_len) {
     case 16:

@@ -928,38 +928,88 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   }
 
   public_key = EVP_PKEY_new();
+  if (public_key == NULL) {
+    fprintf(stderr, "Failed to create public key\n");
+    return -1;
+  }
 
   if (yh_is_rsa(algo)) {
     RSA *rsa = RSA_new();
+    if (rsa == NULL) {
+      fprintf(stderr, "Failed to create RSA key\n");
+      return -1;
+    }
     BIGNUM *e = BN_new();
     BIGNUM *n = BN_bin2bn(response, response_len, NULL);
     BN_hex2bn(&e, "10001");
-    RSA_set0_key(rsa, n, e, NULL);
-    EVP_PKEY_set1_RSA(public_key, rsa);
+    if (RSA_set0_key(rsa, n, e, NULL) != 1) {
+      fprintf(stderr, "Failed to set RSA key\n");
+      RSA_free(rsa);
+      return -1;
+    }
+    if (EVP_PKEY_set1_RSA(public_key, rsa) != 1) {
+      fprintf(stderr, "Failed to set RSA key\n");
+      RSA_free(rsa);
+      return -1;
+    }
     RSA_free(rsa);
   } else if (yh_is_ec(algo)) {
+    bool error = false;
     EC_KEY *eckey = EC_KEY_new();
+    if (eckey == NULL) {
+      fprintf(stderr, "Failed to create EC key\n");
+      return -1;
+    }
     int nid = algo2nid(algo);
-    EC_POINT *point;
+    EC_POINT *point = NULL;
     EC_GROUP *group = EC_GROUP_new_by_curve_name(nid);
+    if (group == NULL) {
+      fprintf(stderr, "Failed to create EC group from curve name\n");
+      error = true;
+      goto ec_cleanup;
+    }
 
     EC_GROUP_set_asn1_flag(group, nid);
-    EC_KEY_set_group(eckey, group);
+    if (EC_KEY_set_group(eckey, group) != 1) {
+      fprintf(stderr, "Failed to set EC group\n");
+      error = true;
+      goto ec_cleanup;
+    }
     point = EC_POINT_new(group);
 
     memmove(response + 1, response, response_len);
     response[0] = 0x04; // hack to make it a valid ec pubkey..
     response_len++;
 
-    EC_POINT_oct2point(group, point, response, response_len, NULL);
+    if (EC_POINT_oct2point(group, point, response, response_len, NULL) != 1) {
+      fprintf(stderr, "Failed to parse EC point\n");
+      error = true;
+      goto ec_cleanup;
+    }
 
-    EC_KEY_set_public_key(eckey, point);
+    if (EC_KEY_set_public_key(eckey, point) != 1) {
+      fprintf(stderr, "Failed to set EC public key\n");
+      error = true;
+      goto ec_cleanup;
+    }
 
-    EVP_PKEY_set1_EC_KEY(public_key, eckey);
-
-    EC_POINT_free(point);
-    EC_KEY_free(eckey);
-    EC_GROUP_free(group);
+    if (EVP_PKEY_set1_EC_KEY(public_key, eckey) != 1) {
+      fprintf(stderr, "Failed to set EC public key\n");
+      error = true;
+    }
+  ec_cleanup:
+    if (point != NULL) {
+      EC_POINT_free(point);
+    }
+    if (eckey != NULL) {
+      EC_KEY_free(eckey);
+    }
+    if (group != NULL) {
+      EC_GROUP_free(group);
+    }
+    if (error) {
+      return -1;
+    }
   } else {
     // NOTE(adma): ED25519, there is (was) no support for this in
     // OpenSSL, so we manually export them
@@ -973,21 +1023,31 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   }
 
   if (fmt == fmt_PEM) {
-    PEM_write_PUBKEY(ctx->out, public_key);
+    if (PEM_write_PUBKEY(ctx->out, public_key) != 1) {
+      fprintf(stderr, "Failed to write public key in PEM format\n");
+      EVP_PKEY_free(public_key);
+      return -1;
+    }
   } else if (fmt == fmt_binary) {
     i2d_PUBKEY_fp(ctx->out, public_key);
   } else if (fmt == fmt_base64) {
     BIO *bio;
     BIO *b64;
+    bool error = false;
 
     b64 = BIO_new(BIO_f_base64());
+    if (b64 == NULL) {
+      fprintf(stderr, "Unable to allocate buffer\n");
+      error = true;
+      goto getpk_base64_cleanup;
+    }
+
     bio = BIO_new_fp(ctx->out, BIO_NOCLOSE);
-
-    if (b64 == NULL || bio == NULL) {
+    if (bio == NULL) {
       fprintf(stderr, "Unable to allocate BIO\n");
-      EVP_PKEY_free(public_key);
-
-      return -1;
+      BIO_free_all(b64);
+      error = true;
+      goto getpk_base64_cleanup;
     }
 
     bio = BIO_push(b64, bio);
@@ -996,6 +1056,11 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
     (void) BIO_flush(bio);
     (void) BIO_free_all(bio);
+  getpk_base64_cleanup:
+    if (error) {
+      EVP_PKEY_free(public_key);
+      return -1;
+    }
   } // FIXME: other formats or error.
   EVP_PKEY_free(public_key);
 
@@ -1064,15 +1129,21 @@ int yh_com_get_device_pubkey(yubihsm_context *ctx, Argument *argv,
   } else if (fmt == fmt_base64) {
     BIO *bio;
     BIO *b64;
+    bool error = false;
 
     b64 = BIO_new(BIO_f_base64());
+    if (b64 == NULL) {
+      fprintf(stderr, "Unable to allocate buffer\n");
+      error = true;
+      goto getdpk_base64_cleanup;
+    }
+
     bio = BIO_new_fp(ctx->out, BIO_NOCLOSE);
-
-    if (b64 == NULL || bio == NULL) {
+    if (bio == NULL) {
       fprintf(stderr, "Unable to allocate BIO\n");
-      EVP_PKEY_free(public_key);
-
-      return -1;
+      BIO_free_all(b64);
+      error = true;
+      goto getdpk_base64_cleanup;
     }
 
     bio = BIO_push(b64, bio);
@@ -1081,6 +1152,11 @@ int yh_com_get_device_pubkey(yubihsm_context *ctx, Argument *argv,
 
     (void) BIO_flush(bio);
     (void) BIO_free_all(bio);
+  getdpk_base64_cleanup:
+    if (error) {
+      EVP_PKEY_free(public_key);
+      return -1;
+    }
   } // FIXME: other formats or error.
   EVP_PKEY_free(public_key);
 
@@ -2444,7 +2520,16 @@ int yh_com_sign_ssh_certificate(yubihsm_context *ctx, Argument *argv,
   BUF_MEM *bufferPtr;
 
   b64 = BIO_new(BIO_f_base64());
+  if (b64 == NULL) {
+    fprintf(stderr, "Failed to sign SSH certificate.\n");
+    return -1;
+  }
   bio = BIO_new(BIO_s_mem());
+  if (bio == NULL) {
+    fprintf(stderr, "Failed to sign SSH certificate.\n");
+    BIO_free_all(b64);
+    return -1;
+  }
   bio = BIO_push(b64, bio);
 
   (void) BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);

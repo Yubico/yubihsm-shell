@@ -2836,6 +2836,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
           goto c_di_out;
       }
       mdctx = EVP_MD_CTX_create();
+      if (mdctx == NULL) {
+        rv = CKR_FUNCTION_FAILED;
+        goto c_di_out;
+      }
 
       if (EVP_DigestInit_ex(mdctx, md, NULL) == 0) {
         rv = CKR_MECHANISM_PARAM_INVALID;
