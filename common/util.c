@@ -93,7 +93,7 @@ bool read_ed25519_key(uint8_t *in, size_t in_len, uint8_t *out,
   }
   bio = BIO_new(BIO_s_mem());
   if (bio == NULL) {
-    Bio_free_all(b64);
+    BIO_free_all(b64);
     return false;
   }
   BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
@@ -556,7 +556,7 @@ bool base64_decode(const char *in, uint8_t *out, size_t *len) {
   }
   bio = BIO_new(BIO_s_mem());
   if (bio == NULL) {
-    Bio_free_all(b64);
+    BIO_free_all(b64);
     return false;
   }
   BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
@@ -594,7 +594,7 @@ bool write_file(const uint8_t *buf, size_t buf_len, FILE *fp, format_t format) {
     }
     bio = BIO_new(BIO_s_mem());
     if (bio == NULL) {
-      Bio_free_all(b64);
+      BIO_free_all(b64);
       return false;
     }
     bio = BIO_push(b64, bio);
