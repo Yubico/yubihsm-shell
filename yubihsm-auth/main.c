@@ -92,9 +92,9 @@ static bool parse_key(const char *prompt, char *key, uint8_t *parsed,
     return false;
   }
 
-  if (*parsed_len != YKHSMAUTH_KEY_LEN) {
+  if (*parsed_len != YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2) {
     fprintf(stdout, "Unable to read key, wrong length (must be %d)\n",
-            YKHSMAUTH_KEY_LEN);
+            YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2);
     return false;
   }
 
@@ -215,13 +215,13 @@ static bool put_credential(ykhsmauth_state *state, char *authkey, char *name,
                            char *key_mac, char *password,
                            enum enum_touch touch_policy) {
   ykhsmauth_rc ykhsmauthrc;
-  uint8_t authkey_parsed[YKHSMAUTH_KEY_LEN];
+  uint8_t authkey_parsed[YKHSMAUTH_PW_LEN];
   size_t authkey_parsed_len = sizeof(authkey_parsed);
   char name_parsed[YKHSMAUTH_MAX_NAME_LEN + 2] = {0};
   size_t name_parsed_len = sizeof(name_parsed);
   char dpw_parsed[256] = {0};
   size_t dpw_parsed_len = sizeof(dpw_parsed);
-  uint8_t key_parsed[YKHSMAUTH_KEY_LEN * 2];
+  uint8_t key_parsed[YKHSMAUTH_YUBICO_AES128_KEY_LEN];
   size_t key_parsed_len = sizeof(key_parsed);
   char pw_parsed[YKHSMAUTH_PW_LEN + 2] = {0};
   size_t pw_parsed_len = sizeof(pw_parsed);
@@ -247,23 +247,20 @@ static bool put_credential(ykhsmauth_state *state, char *authkey, char *name,
   }
 
   if (dpw_parsed_len == 0) {
-    uint8_t key_enc_parsed[YKHSMAUTH_KEY_LEN];
-    size_t key_enc_parsed_len = sizeof(key_enc_parsed);
-    uint8_t key_mac_parsed[YKHSMAUTH_KEY_LEN];
-    size_t key_mac_parsed_len = sizeof(key_mac_parsed);
+    size_t key_enc_parsed_len = sizeof(key_parsed) / 2;
+    size_t key_mac_parsed_len = sizeof(key_parsed) / 2;
 
-    if (parse_key("Encryption key", key_enc, key_enc_parsed,
-                  &key_enc_parsed_len) == false) {
-      return false;
-    }
-
-    if (parse_key("MAC key", key_mac, key_mac_parsed, &key_mac_parsed_len) ==
+    if (parse_key("Encryption key", key_enc, key_parsed, &key_enc_parsed_len) ==
         false) {
       return false;
     }
 
-    memcpy(key_parsed, key_enc_parsed, key_enc_parsed_len);
-    memcpy(key_parsed + YKHSMAUTH_KEY_LEN, key_mac_parsed, key_mac_parsed_len);
+    if (parse_key("MAC key", key_mac, key_parsed + key_enc_parsed_len,
+                  &key_mac_parsed_len) == false) {
+      return false;
+    }
+
+    key_parsed_len = key_enc_parsed_len + key_mac_parsed_len;
   } else {
     if (pkcs5_pbkdf2_hmac((uint8_t *) dpw_parsed, dpw_parsed_len,
                           (const uint8_t *) YKHSMAUTH_DEFAULT_SALT,
@@ -293,8 +290,8 @@ static bool put_credential(ykhsmauth_state *state, char *authkey, char *name,
 
   ykhsmauthrc =
     ykhsmauth_put(state, authkey_parsed, authkey_parsed_len, name_parsed,
-                  YKHSMAUTH_SCP03_ALGO, key_parsed, key_parsed_len, pw_parsed,
-                  touch_policy_parsed, &retries);
+                  YKHSMAUTH_YUBICO_AES128_ALGO, key_parsed, key_parsed_len,
+                  pw_parsed, touch_policy_parsed, &retries);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Unable to store credential: %s, %d retries left\n",
             ykhsmauth_strerror(ykhsmauthrc), retries);
@@ -371,9 +368,9 @@ static bool calculate_session_keys(ykhsmauth_state *state, char *name,
   size_t context_parsed_len = sizeof(context_parsed);
   char pw_parsed[YKHSMAUTH_PW_LEN + 2] = {0};
   size_t pw_parsed_len = sizeof(pw_parsed);
-  uint8_t key_s_enc[YKHSMAUTH_KEY_LEN];
-  uint8_t key_s_mac[YKHSMAUTH_KEY_LEN];
-  uint8_t key_s_rmac[YKHSMAUTH_KEY_LEN];
+  uint8_t key_s_enc[YKHSMAUTH_SESSION_KEY_LEN];
+  uint8_t key_s_mac[YKHSMAUTH_SESSION_KEY_LEN];
+  uint8_t key_s_rmac[YKHSMAUTH_SESSION_KEY_LEN];
   size_t key_s_enc_len = sizeof(key_s_enc);
   size_t key_s_mac_len = sizeof(key_s_mac);
   size_t key_s_rmac_len = sizeof(key_s_rmac);
@@ -415,9 +412,9 @@ static bool calculate_session_keys(ykhsmauth_state *state, char *name,
 static bool put_authkey(ykhsmauth_state *state, char *authkey,
                         char *new_authkey) {
   ykhsmauth_rc ykhsmauthrc;
-  uint8_t authkey_parsed[YKHSMAUTH_KEY_LEN];
+  uint8_t authkey_parsed[YKHSMAUTH_PW_LEN];
   size_t authkey_parsed_len = sizeof(authkey_parsed);
-  uint8_t new_authkey_parsed[YKHSMAUTH_KEY_LEN];
+  uint8_t new_authkey_parsed[YKHSMAUTH_PW_LEN];
   size_t new_authkey_parsed_len = sizeof(authkey_parsed);
   uint8_t retries;
 
