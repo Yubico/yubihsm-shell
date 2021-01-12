@@ -1488,10 +1488,10 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     }
 
     ykhsmauthrc =
-      ykhsmauth_calculate(ctx->state, name, yh_context, YH_CONTEXT_LEN, pw,
-                          key_s_enc, sizeof(key_s_enc), key_s_mac,
-                          sizeof(key_s_mac), key_s_rmac, sizeof(key_s_rmac),
-                          &retries);
+      ykhsmauth_calculate(ctx->state, name, yh_context, YH_CONTEXT_LEN,
+                          (uint8_t *) pw, strlen(pw), key_s_enc,
+                          sizeof(key_s_enc), key_s_mac, sizeof(key_s_mac),
+                          key_s_rmac, sizeof(key_s_rmac), &retries);
     if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
       fprintf(stderr, "Failed to get session keys from the YubiKey: %s",
               ykhsmauth_strerror(ykhsmauthrc));

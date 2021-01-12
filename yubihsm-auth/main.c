@@ -48,7 +48,7 @@ static bool parse_name(const char *prompt, char *name, char *parsed,
   return true;
 }
 
-static bool parse_pw(const char *prompt, char *pw, char *parsed,
+static bool parse_pw(const char *prompt, char *pw, uint8_t *parsed,
                      size_t *parsed_len) {
   if (strlen(pw) > *parsed_len) {
     fprintf(stderr, "Unable to read password, buffer too small\n");
@@ -56,14 +56,15 @@ static bool parse_pw(const char *prompt, char *pw, char *parsed,
   }
 
   if (strlen(pw) == 0) {
-    if (read_string(prompt, parsed, *parsed_len, HIDDEN_CHECKED) == false) {
+    if (read_string(prompt, (char *) parsed, *parsed_len, HIDDEN_CHECKED) ==
+        false) {
       return false;
     }
   } else {
-    strncpy(parsed, pw, *parsed_len);
+    strncpy((char *) parsed, pw, *parsed_len);
   }
 
-  *parsed_len = strlen(parsed);
+  *parsed_len = strlen((char *) parsed);
 
   return true;
 }
@@ -219,11 +220,11 @@ static bool put_credential(ykhsmauth_state *state, char *authkey, char *name,
   size_t authkey_parsed_len = sizeof(authkey_parsed);
   char name_parsed[YKHSMAUTH_MAX_NAME_LEN + 2] = {0};
   size_t name_parsed_len = sizeof(name_parsed);
-  char dpw_parsed[256] = {0};
+  uint8_t dpw_parsed[256] = {0};
   size_t dpw_parsed_len = sizeof(dpw_parsed);
   uint8_t key_parsed[YKHSMAUTH_YUBICO_AES128_KEY_LEN];
   size_t key_parsed_len = sizeof(key_parsed);
-  char pw_parsed[YKHSMAUTH_PW_LEN + 2] = {0};
+  uint8_t pw_parsed[YKHSMAUTH_PW_LEN + 2] = {0};
   size_t pw_parsed_len = sizeof(pw_parsed);
   uint8_t touch_policy_parsed = 0;
   uint8_t retries;
@@ -291,7 +292,7 @@ static bool put_credential(ykhsmauth_state *state, char *authkey, char *name,
   ykhsmauthrc =
     ykhsmauth_put(state, authkey_parsed, authkey_parsed_len, name_parsed,
                   YKHSMAUTH_YUBICO_AES128_ALGO, key_parsed, key_parsed_len,
-                  pw_parsed, touch_policy_parsed, &retries);
+                  pw_parsed, pw_parsed_len, touch_policy_parsed, &retries);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Unable to store credential: %s, %d retries left\n",
             ykhsmauth_strerror(ykhsmauthrc), retries);
@@ -366,7 +367,7 @@ static bool calculate_session_keys(ykhsmauth_state *state, char *name,
   size_t name_parsed_len = sizeof(name_parsed);
   uint8_t context_parsed[YKHSMAUTH_CONTEXT_LEN];
   size_t context_parsed_len = sizeof(context_parsed);
-  char pw_parsed[YKHSMAUTH_PW_LEN + 2] = {0};
+  uint8_t pw_parsed[YKHSMAUTH_PW_LEN + 2] = {0};
   size_t pw_parsed_len = sizeof(pw_parsed);
   uint8_t key_s_enc[YKHSMAUTH_SESSION_KEY_LEN];
   uint8_t key_s_mac[YKHSMAUTH_SESSION_KEY_LEN];
@@ -391,8 +392,9 @@ static bool calculate_session_keys(ykhsmauth_state *state, char *name,
 
   ykhsmauthrc =
     ykhsmauth_calculate(state, name_parsed, context_parsed, context_parsed_len,
-                        pw_parsed, key_s_enc, key_s_enc_len, key_s_mac,
-                        key_s_mac_len, key_s_rmac, key_s_rmac_len, &retries);
+                        pw_parsed, pw_parsed_len, key_s_enc, key_s_enc_len,
+                        key_s_mac, key_s_mac_len, key_s_rmac, key_s_rmac_len,
+                        &retries);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Unable to calculate session keys: %s\n",
             ykhsmauth_strerror(ykhsmauthrc));

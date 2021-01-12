@@ -115,17 +115,19 @@ ykhsmauth_rc ykhsmauth_get_version(ykhsmauth_state *state, char *version,
 
 ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *authkey,
                            size_t authkey_len, const char *name, uint8_t algo,
-                           const uint8_t *key, size_t key_len, const char *pw,
+                           const uint8_t *key, size_t key_len,
+                           const uint8_t *pw, size_t pw_len,
                            const uint8_t touch_policy, uint8_t *retries);
 
 ykhsmauth_rc ykhsmauth_delete(ykhsmauth_state *state, uint8_t *authkey,
                               size_t authkey_len, char *name, uint8_t *retries);
 ykhsmauth_rc ykhsmauth_calculate(ykhsmauth_state *state, const char *name,
                                  uint8_t *context, size_t context_len,
-                                 const char *pw, uint8_t *key_s_enc,
-                                 size_t key_s_enc_len, uint8_t *key_s_mac,
-                                 size_t key_s_mac_len, uint8_t *key_s_rmac,
-                                 size_t key_s_rmac_len, uint8_t *retries);
+                                 const uint8_t *pw, size_t pw_len,
+                                 uint8_t *key_s_enc, size_t key_s_enc_len,
+                                 uint8_t *key_s_mac, size_t key_s_mac_len,
+                                 uint8_t *key_s_rmac, size_t key_s_rmac_len,
+                                 uint8_t *retries);
 ykhsmauth_rc ykhsmauth_reset(ykhsmauth_state *state);
 ykhsmauth_rc ykhsmauth_list_keys(ykhsmauth_state *state,
                                  ykhsmauth_list_entry *list,

@@ -319,7 +319,8 @@ ykhsmauth_rc ykhsmauth_get_version(ykhsmauth_state *state, char *version,
 
 ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *authkey,
                            size_t authkey_len, const char *name, uint8_t algo,
-                           const uint8_t *key, size_t key_len, const char *pw,
+                           const uint8_t *key, size_t key_len,
+                           const uint8_t *pw, size_t pw_len,
                            const uint8_t touch_policy, uint8_t *retries) {
   APDU apdu;
   uint8_t *ptr = apdu.st.data;
@@ -330,7 +331,7 @@ ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *authkey,
   if (state == NULL || authkey == NULL || authkey_len != YKHSMAUTH_PW_LEN ||
       name == NULL || strlen(name) < YKHSMAUTH_MIN_NAME_LEN ||
       strlen(name) > YKHSMAUTH_MAX_NAME_LEN || key == NULL || pw == NULL ||
-      strlen(pw) > YKHSMAUTH_PW_LEN) {
+      pw_len > YKHSMAUTH_PW_LEN) {
     return YKHSMAUTHR_INVALID_PARAMS;
   }
 
@@ -392,8 +393,8 @@ ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *authkey,
   apdu.st.lc++;
   *(ptr++) = YKHSMAUTH_PW_LEN;
   apdu.st.lc++;
-  memcpy(ptr, pw, strlen(pw));
-  memset(ptr + strlen(pw), 0, YKHSMAUTH_PW_LEN - strlen(pw));
+  memcpy(ptr, pw, pw_len);
+  memset(ptr + pw_len, 0, YKHSMAUTH_PW_LEN - pw_len);
   ptr += YKHSMAUTH_PW_LEN;
   apdu.st.lc += YKHSMAUTH_PW_LEN;
 
@@ -471,10 +472,11 @@ ykhsmauth_rc ykhsmauth_delete(ykhsmauth_state *state, uint8_t *authkey,
 
 ykhsmauth_rc ykhsmauth_calculate(ykhsmauth_state *state, const char *name,
                                  uint8_t *context, size_t context_len,
-                                 const char *pw, uint8_t *key_s_enc,
-                                 size_t key_s_enc_len, uint8_t *key_s_mac,
-                                 size_t key_s_mac_len, uint8_t *key_s_rmac,
-                                 size_t key_s_rmac_len, uint8_t *retries) {
+                                 const uint8_t *pw, size_t pw_len,
+                                 uint8_t *key_s_enc, size_t key_s_enc_len,
+                                 uint8_t *key_s_mac, size_t key_s_mac_len,
+                                 uint8_t *key_s_rmac, size_t key_s_rmac_len,
+                                 uint8_t *retries) {
   APDU apdu;
   uint8_t *ptr;
   unsigned char
@@ -486,7 +488,7 @@ ykhsmauth_rc ykhsmauth_calculate(ykhsmauth_state *state, const char *name,
   if (state == NULL || name == NULL || strlen(name) < YKHSMAUTH_MIN_NAME_LEN ||
       strlen(name) > YKHSMAUTH_MAX_NAME_LEN || context == NULL ||
       context_len != YKHSMAUTH_CONTEXT_LEN || pw == NULL ||
-      strlen(pw) > YKHSMAUTH_PW_LEN || key_s_enc == NULL ||
+      pw_len > YKHSMAUTH_PW_LEN || key_s_enc == NULL ||
       key_s_enc_len != YKHSMAUTH_SESSION_KEY_LEN || key_s_mac == NULL ||
       key_s_mac_len != YKHSMAUTH_SESSION_KEY_LEN || key_s_rmac == NULL ||
       key_s_rmac_len != YKHSMAUTH_SESSION_KEY_LEN) {
@@ -518,8 +520,8 @@ ykhsmauth_rc ykhsmauth_calculate(ykhsmauth_state *state, const char *name,
   apdu.st.lc++;
   *(ptr++) = YKHSMAUTH_PW_LEN;
   apdu.st.lc++;
-  memcpy(ptr, pw, strlen(pw));
-  memset(ptr + strlen(pw), 0, YKHSMAUTH_PW_LEN - strlen(pw));
+  memcpy(ptr, pw, pw_len);
+  memset(ptr + pw_len, 0, YKHSMAUTH_PW_LEN - pw_len);
   ptr += YKHSMAUTH_PW_LEN;
   apdu.st.lc += YKHSMAUTH_PW_LEN;
 
