@@ -30,6 +30,7 @@
 #include "util.h"
 #include "parsing.h"
 #include "commands.h"
+#include "insecure_memzero.h"
 
 #include <openssl/evp.h>
 
@@ -2027,18 +2028,28 @@ int main(int argc, char *argv[]) {
     Argument arg[7];
 
     if (requires_session == true) {
+      size_t pw_len = sizeof(buf);
       arg[0].w = args_info.authkey_arg;
-      arg[1].x = buf;
-      arg[1].len = sizeof(buf);
       if (get_input_data(args_info.password_given ? args_info.password_arg
                                                   : "-",
-                         arg[1].x, &arg[1].len, fmt_password) == false) {
+                         buf, &pw_len, fmt_password) == false) {
         fprintf(stderr, "Failed to get password\n");
         rc = EXIT_FAILURE;
         goto main_exit;
       }
 
-      comrc = yh_com_open_session(&ctx, arg, fmt_nofmt, fmt_nofmt);
+      if (args_info.ykhsmauth_name_given) {
+        arg[1].s = args_info.ykhsmauth_name_arg;
+        arg[1].len = strlen(args_info.ykhsmauth_name_arg);
+        arg[2].x = buf;
+        arg[2].len = pw_len;
+        comrc = yh_com_open_yksession(&ctx, arg, fmt_nofmt, fmt_nofmt);
+      } else {
+        arg[1].x = buf;
+        arg[1].len = pw_len;
+        comrc = yh_com_open_session(&ctx, arg, fmt_nofmt, fmt_nofmt);
+      }
+      insecure_memzero(buf, pw_len);
       if (comrc != 0) {
         fprintf(stderr, "Failed to open session\n");
         rc = EXIT_FAILURE;
