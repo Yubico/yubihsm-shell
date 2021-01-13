@@ -1452,56 +1452,6 @@ int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   return 0;
 }
 
-static int parse_yk_password(char *line, char **name, char *pw, size_t pw_len) {
-
-  int len = strlen(line);
-  char *tmp_pw = NULL;
-
-  *name = line;
-  for (int i = 0; i < len; i++) {
-    if (line[i] == ':') {
-      if (len - i - 1 != YKHSMAUTH_PW_LEN &&
-          (len - i - 1 != 1 && line[i + 1] != '-')) {
-        return -1;
-      }
-
-      line[i] = '\0';
-      tmp_pw = line + i + 1;
-
-      if (strcmp(tmp_pw, "-") == 0) {
-#ifndef __WIN32
-        // NOTE: we have to stop the timer around the call to
-        // EVP_read_pw_string(), openssl gets sad if a signal hits while waiting
-        // for input from the user. So we stop the timer and restore it when
-        // we're done
-        struct itimerval stoptimer, oldtimer;
-        memset(&stoptimer, 0, sizeof(stoptimer));
-        if (setitimer(ITIMER_REAL, &stoptimer, &oldtimer) != 0) {
-          fprintf(stderr, "Failed to setup timer\n");
-          return false;
-        }
-#endif
-        if (read_string("Credential password", pw, pw_len, HIDDEN_UNCHECKED) ==
-            false) {
-          return -1;
-        }
-#ifndef __WIN32
-        if (setitimer(ITIMER_REAL, &oldtimer, NULL) != 0) {
-          fprintf(stderr, "Failed to restore timer\n");
-          return false;
-        }
-#endif
-      } else {
-        strncpy(pw, tmp_pw, YKHSMAUTH_PW_LEN);
-      }
-
-      return 0;
-    }
-  }
-
-  return -1;
-}
-
 // NOTE(adma): Open a session with a connector using an Authentication Key
 // argc = 2
 // arg 0: w:authkey
@@ -1520,82 +1470,12 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     return -1;
   }
 
-  yh_rc yrc;
-
-  uint16_t authkey = argv[0].w;
-
-  uint8_t *yh_context;
-  if (strncmp("yk:", (char *) argv[1].x, 3) == 0) {
-    ykhsmauth_rc ykhsmauthrc;
-    uint8_t card_cryptogram[YH_CONTEXT_LEN / 2];
-    uint8_t key_s_enc[YH_KEY_LEN];
-    uint8_t key_s_mac[YH_KEY_LEN];
-    uint8_t key_s_rmac[YH_KEY_LEN];
-    size_t key_s_enc_len = sizeof(key_s_enc);
-    size_t key_s_mac_len = sizeof(key_s_mac);
-    size_t key_s_rmac_len = sizeof(key_s_rmac);
-    uint8_t retries;
-
-    ykhsmauthrc = ykhsmauth_connect(ctx->state, NULL);
-    if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
-      fprintf(stderr, "Failed to connect to the YubiKey: %s\n",
-              ykhsmauth_strerror(ykhsmauthrc));
-      return -1;
-    }
-
-    yrc = yh_begin_create_session_ext(ctx->connector, argv[0].w, &yh_context,
-                                      card_cryptogram, sizeof(card_cryptogram),
-                                      &ses);
-    if (yrc != YHR_SUCCESS) {
-      fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
-      return -1;
-    }
-
-    char *name;
-    char pw[YKHSMAUTH_MAX_NAME_LEN + 2] = {0};
-    if (parse_yk_password((char *) (argv[1].x + 3), &name, pw, sizeof(pw)) ==
-        -1) {
-      fprintf(stderr,
-              "Failed to decode password, format must be "
-              "yk:NAME[%d-%d]:PASSWORD[%d] or yk:NAME[%d-%d]:-\n",
-              YKHSMAUTH_MIN_NAME_LEN, YKHSMAUTH_MAX_NAME_LEN, YKHSMAUTH_PW_LEN,
-              YKHSMAUTH_MIN_NAME_LEN, YKHSMAUTH_MAX_NAME_LEN);
-      return -1;
-    }
-
-    ykhsmauthrc =
-      ykhsmauth_calculate(ctx->state, name, yh_context, YH_CONTEXT_LEN,
-                          (uint8_t *) pw, strlen(pw), key_s_enc,
-                          sizeof(key_s_enc), key_s_mac, sizeof(key_s_mac),
-                          key_s_rmac, sizeof(key_s_rmac), &retries);
-    if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
-      fprintf(stderr, "Failed to get session keys from the YubiKey: %s",
-              ykhsmauth_strerror(ykhsmauthrc));
-      if (ykhsmauthrc == YKHSMAUTHR_WRONG_PW) {
-        fprintf(stderr, ", %d attempts remaining", retries);
-      }
-      fprintf(stderr, "\n");
-
-      return -1;
-    }
-
-    yrc =
-      yh_finish_create_session_ext(ctx->connector, ses, key_s_enc,
-                                   key_s_enc_len, key_s_mac, key_s_mac_len,
-                                   key_s_rmac, key_s_rmac_len, card_cryptogram,
-                                   sizeof(card_cryptogram));
-    if (yrc != YHR_SUCCESS) {
-      fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
-      return -1;
-    }
-  } else {
-    yrc = yh_create_session_derived(ctx->connector, authkey, argv[1].x,
-                                    argv[1].len, false, &ses);
-    insecure_memzero(argv[1].x, argv[1].len);
-    if (yrc != YHR_SUCCESS) {
-      fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
-      return -1;
-    }
+  yh_rc yrc = yh_create_session_derived(ctx->connector, argv[0].w, argv[1].x,
+                                        argv[1].len, false, &ses);
+  insecure_memzero(argv[1].x, argv[1].len);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
+    return -1;
   }
 
   yrc = yh_authenticate_session(ses);
@@ -1728,6 +1608,103 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
   return 0;
 }
 #endif
+
+// NOTE: Open a session using a key stored on YubiKey
+// argc = 3
+// arg 0: w:authkey
+// arg 1: s:name
+// arg 2: i:password
+int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
+                          cmd_format in_fmt, cmd_format fmt) {
+  UNUSED(in_fmt);
+  UNUSED(fmt);
+
+  yh_session *ses = NULL;
+  uint8_t session_id = 0;
+
+  if (ctx->connector == NULL) {
+    fprintf(stderr, "Not connected\n");
+    return -1;
+  }
+
+  uint8_t *yh_context;
+
+  uint8_t card_cryptogram[YH_CONTEXT_LEN / 2];
+  uint8_t key_s_enc[YH_KEY_LEN];
+  uint8_t key_s_mac[YH_KEY_LEN];
+  uint8_t key_s_rmac[YH_KEY_LEN];
+  size_t key_s_enc_len = sizeof(key_s_enc);
+  size_t key_s_mac_len = sizeof(key_s_mac);
+  size_t key_s_rmac_len = sizeof(key_s_rmac);
+  uint8_t retries;
+
+  ykhsmauth_rc ykhsmauthrc = ykhsmauth_connect(ctx->state, NULL);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
+    fprintf(stderr, "Failed to connect to the YubiKey: %s\n",
+            ykhsmauth_strerror(ykhsmauthrc));
+    return -1;
+  }
+
+  yh_rc yrc =
+    yh_begin_create_session_ext(ctx->connector, argv[0].w, &yh_context,
+                                card_cryptogram, sizeof(card_cryptogram), &ses);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  ykhsmauthrc =
+    ykhsmauth_calculate(ctx->state, argv[1].s, yh_context, YH_CONTEXT_LEN,
+                        argv[2].x, argv[2].len, key_s_enc, sizeof(key_s_enc),
+                        key_s_mac, sizeof(key_s_mac), key_s_rmac,
+                        sizeof(key_s_rmac), &retries);
+  insecure_memzero(argv[2].x, argv[2].len);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
+    fprintf(stderr, "Failed to get session keys from the YubiKey: %s",
+            ykhsmauth_strerror(ykhsmauthrc));
+    if (ykhsmauthrc == YKHSMAUTHR_WRONG_PW) {
+      fprintf(stderr, ", %d attempts remaining", retries);
+    }
+    fprintf(stderr, "\n");
+
+    return -1;
+  }
+
+  yrc = yh_finish_create_session_ext(ctx->connector, ses, key_s_enc,
+                                     key_s_enc_len, key_s_mac, key_s_mac_len,
+                                     key_s_rmac, key_s_rmac_len,
+                                     card_cryptogram, sizeof(card_cryptogram));
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  yrc = yh_authenticate_session(ses);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to authenticate session: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  yrc = yh_get_session_id(ses, &session_id);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  if (ctx->sessions[session_id] != NULL) {
+    yrc = yh_destroy_session(&ctx->sessions[session_id]);
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr, "Failed to destroy old session with same id (%d): %s\n",
+              session_id, yh_strerror(yrc));
+      return -1;
+    }
+  }
+  ctx->sessions[session_id] = ses;
+
+  fprintf(stderr, "Created session %d\n", session_id);
+
+  return 0;
+}
 
 // NOTE(adma): Send unauthenticated echo
 // argc = 2

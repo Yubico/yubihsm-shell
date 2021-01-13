@@ -513,6 +513,12 @@ void create_command_list(CommandList *c) {
                                     "specific Asymmetric Authentication Key",
                                     NULL, NULL});
 #endif
+  register_subcommand(*c, (Command){"ykopen", yh_com_open_yksession,
+                                    "w:authkey,s:name,i:password=-",
+                                    fmt_password, fmt_nofmt,
+                                    "Open a session with a device using an "
+                                    "Authentication in a YubiKey",
+                                    NULL, NULL});
   *c = register_command(*c, (Command){"sign", yh_com_noop, NULL, fmt_nofmt,
                                       fmt_nofmt, "Sign data", NULL, NULL});
   register_subcommand(
