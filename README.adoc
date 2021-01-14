@@ -15,6 +15,10 @@ The available components are:
 
 - link:yhwrap/README.adoc[yubihsm-wrap] -- command-line tool to create encrypted objects (wraps) that can be imported in the YubiHSM
 
+- link:ykhsmauth/README.adoc[libykhsmauth] -- C library for using the YubiKey HSM Auth application
+
+- link:yubihsm-auth/README.adoc[yubihsm-auth] -- command-line tool to use the YubiKey HSM Auth application
+
 === Dependencies
 
 - cmake
@@ -26,7 +30,7 @@ The available components are:
 - libcurl
 - libedit
 - libusb
-- libpcsclite (optional)
+- libpcsclite
 - llvm/clang and friends
 - pkg-config
 - pre-commit
