@@ -102,6 +102,10 @@ bool hash_bytes(const uint8_t *in, size_t len, hash_t hash, uint8_t *out,
     return false;
   }
 
+  if (EVP_MD_size(md) < 0 || *out_len < (size_t) EVP_MD_size(md)) {
+    return false;
+  }
+
   EVP_MD_CTX *mdctx = EVP_MD_CTX_create();
   if ((EVP_DigestInit_ex(mdctx, md, NULL)) != 1) {
     goto hash_bytes_exit;

@@ -2134,7 +2134,7 @@ int yh_com_sign_ecdsa(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   yh_rc yrc;
 
   uint8_t data[YH_MSG_BUF_SIZE];
-  size_t data_len;
+  size_t data_len = sizeof(data);
 
   uint8_t response[YH_MSG_BUF_SIZE];
   size_t response_len = sizeof(response);
@@ -2227,7 +2227,7 @@ int yh_com_sign_pkcs1v1_5(yubihsm_context *ctx, Argument *argv,
   yh_rc yrc;
 
   uint8_t data[YH_MSG_BUF_SIZE];
-  size_t data_len;
+  size_t data_len = sizeof(data);
 
   uint8_t response[YH_MSG_BUF_SIZE];
   size_t response_len = sizeof(response);
@@ -2288,7 +2288,7 @@ int yh_com_sign_pss(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   yh_rc yrc;
 
   uint8_t data[YH_MSG_BUF_SIZE];
-  size_t data_len;
+  size_t data_len = sizeof(data);
 
   uint8_t response[YH_MSG_BUF_SIZE];
   size_t response_len = sizeof(response);

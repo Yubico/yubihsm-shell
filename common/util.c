@@ -124,7 +124,8 @@ bool read_ed25519_key(uint8_t *in, size_t in_len, uint8_t *out,
 bool read_private_key(uint8_t *buf, size_t len, yh_algorithm *algo,
                       uint8_t *bytes, size_t *bytes_len, bool internal_repr) {
 
-  if (read_ed25519_key(buf, len, bytes, bytes_len) == true) {
+  size_t out_len = *bytes_len;
+  if (read_ed25519_key(buf, len, bytes, &out_len) == true) {
     *algo = YH_ALGO_EC_ED25519;
 
     if (internal_repr == true) {
@@ -132,7 +133,7 @@ bool read_private_key(uint8_t *buf, size_t len, yh_algorithm *algo,
       return false;
 #else
       EVP_PKEY *pkey =
-        EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519, NULL, bytes, *bytes_len);
+        EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519, NULL, bytes, out_len);
       if (pkey == NULL) {
         return false;
       }
@@ -152,7 +153,7 @@ bool read_private_key(uint8_t *buf, size_t len, yh_algorithm *algo,
         bytes[31 - i] = tmp;
       }
 
-      if (hash_bytes(bytes, *bytes_len, _SHA512, bytes, bytes_len) == false) {
+      if (hash_bytes(bytes, out_len, _SHA512, bytes, bytes_len) == false) {
         return false;
       }
 
