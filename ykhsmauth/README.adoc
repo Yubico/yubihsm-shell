@@ -1,0 +1,9 @@
+== YkHSMAuth Library
+
+The YkHSMAuth C Library `libykhsmauth` is a native library to interact
+with the HSM auth application on a YubiKey. This application is meant
+to be used for having the HSM authentication keys on a YubiKey.
+
+The library exposes functions in the `ykhsmauth_` namespace. These all
+interact with the HSM auth application over PCSC and are meant for
+management and usage for the application.
