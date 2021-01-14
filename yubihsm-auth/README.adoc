@@ -1,0 +1,37 @@
+== YubiHSM Auth
+
+YubiHSM Auth is a command-line tool for the YubiKey HSM Auth
+application. This is used for storing the authentication keys of a
+YubiHSM in a YubiKey.
+
+=== Examples
+
+This example shows how to store a new authentication key in the application,
+then using it with the YubiHSM.
+
+First we store the key in a YubiKey, if options are omitted they will be
+asked for:
+
+[source, bash]
+----
+$ yubihsm-auth -a put --name="default key" --derivation-password="password" --password="my secret"
+Credential successfully stored
+----
+
+Then we authenticate with a YubiHSM (in interactive mode) using the YubiKey:
+[source, bash]
+----
+yubihsm> session ykopen 1 "default key" "my secret"
+trying to connect to reader 'Yubico Yubikey 4 OTP+U2F+CCID 00 00'
+Created session 0
+----
+
+Alternatively using the command line:
+[source, bash]
+----
+$ yubihsm-shell -a get-pseudo-random --ykhsmauth-name="default key" --password="my secret"
+Session keepalive set up to run every 15 seconds
+trying to connect to reader 'Yubico Yubikey 4 OTP+U2F+CCID 00 00'
+Created session 0
+06a4d93be9bbcf97891f09979d4297eee335c4ea9526bfb8565baa9239b6359d68d9c636364052bee91a5b1801d6844b88dd3aa1e47f34f2389d841a21398f60ba67507d7f282e8fdc3b7090a2465b3b0358df660f74dd8e9aa5af2c73aadd9d82101c762e558e129703fe44ecb8433537db4d04350141c73ba9d36143afe5264125ec2bfc202d18f73155c34f0e16d45a4ade4a92f17433a6426d4cda6d4b36e831c641be71c561cbeb537e412341b6318810b581b006c29acef3b5bdae157d536d05f4275b86510d6a22c37b352dc148a3400a513dad2a91162795964212b9f361328e5f98fb47ae7ad9e4c4d66ff912d90cb028e15f89d3b8e5d8c3664ed3
+----
