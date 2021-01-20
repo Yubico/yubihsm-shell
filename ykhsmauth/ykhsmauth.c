@@ -136,7 +136,16 @@ ykhsmauth_rc ykhsmauth_connect(ykhsmauth_state *state, const char *wanted) {
   for (reader_ptr = reader_buf; *reader_ptr != '\0';
        reader_ptr += strlen(reader_ptr) + 1) {
     if (wanted) {
-      if (!strncasecmp(reader_ptr, wanted, strlen(wanted))) {
+      bool found = false;
+      char *ptr = reader_ptr;
+      while (strlen(ptr) >= strlen(wanted)) {
+        if (strncasecmp(ptr, wanted, strlen(wanted)) == 0) {
+          found = true;
+          break;
+        }
+        ptr++;
+      }
+      if (found == false) {
         if (state->verbose) {
           fprintf(stderr, "skipping reader '%s' since it doesn't match '%s'\n",
                   reader_ptr, wanted);
