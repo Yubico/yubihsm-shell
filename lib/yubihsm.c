@@ -67,19 +67,27 @@ _Static_assert(SCP_KEY_LEN == YH_KEY_LEN, "Message buffer size mismatch");
 uint8_t _yh_verbosity YH_INTERNAL = 0;
 FILE *_yh_output YH_INTERNAL = NULL;
 
-static void compute_full_mac(uint8_t *data, uint16_t data_len, uint8_t *key,
-                             uint16_t key_len, uint8_t *mac) {
+static yh_rc compute_full_mac(uint8_t *data, uint16_t data_len, uint8_t *key,
+                              uint16_t key_len, uint8_t *mac) {
 
   aes_cmac_context_t ctx;
 
   insecure_memzero(&ctx, sizeof(ctx));
-  aes_cmac_init((uint8_t *) key, key_len, &ctx);
-  aes_cmac_encrypt(&ctx, data, data_len, mac);
+  if (aes_cmac_init((uint8_t *) key, key_len, &ctx)) {
+    DBG_ERR("aes_cmac_init failed");
+    return YHR_GENERIC_ERROR;
+  }
+
+  if (aes_cmac_encrypt(&ctx, data, data_len, mac)) {
+    DBG_ERR("aes_cmac_encrypt failed");
+    return YHR_GENERIC_ERROR;
+  }
 
   DBG_CRYPTO(data, data_len, "Compute MAC (%3d Bytes): ", data_len);
   DBG_CRYPTO(mac, SCP_PRF_LEN, "Full result is: ");
 
   insecure_memzero(&ctx, sizeof(ctx));
+  return YHR_SUCCESS;
 }
 
 static yh_rc send_msg(yh_connector *connector, Msg *msg, Msg *response,
@@ -118,8 +126,11 @@ static yh_rc send_authenticated_msg(yh_session *session, Msg *msg,
   memcpy(mac_buf + SCP_PRF_LEN, msg->raw, msg_len + 3 - SCP_MAC_LEN);
   msg->st.len = ntohs(msg->st.len);
   mac_buf_len = SCP_PRF_LEN + msg->st.len + 3 - SCP_MAC_LEN;
-  compute_full_mac(mac_buf, mac_buf_len, session->s.s_mac, SCP_KEY_LEN,
-                   session->s.mac_chaining_value);
+  if (compute_full_mac(mac_buf, mac_buf_len, session->s.s_mac, SCP_KEY_LEN,
+                       session->s.mac_chaining_value) != YHR_SUCCESS) {
+    DBG_ERR("compute_full_mac %s", yh_strerror(YHR_GENERIC_ERROR));
+    return YHR_GENERIC_ERROR;
+  }
   memcpy(msg->st.data + msg->st.len - SCP_MAC_LEN,
          session->s.mac_chaining_value, SCP_MAC_LEN);
 
@@ -294,6 +305,7 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
   yh_rc yrc;
   Msg msg;
   Msg response_msg;
+  int rc;
 
   if (session == NULL || (data_len != 0 && data == NULL) ||
       response_cmd == NULL || response == NULL || response_len == NULL) {
@@ -322,9 +334,18 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
                (unsigned long) data_len + 3);
 
   insecure_memzero(&aes_ctx, sizeof(aes_ctx));
-  aes_set_key((uint8_t *) session->s.s_enc, SCP_KEY_LEN, &aes_ctx);
+  rc = aes_set_key((uint8_t *) session->s.s_enc, SCP_KEY_LEN, &aes_ctx);
+  if (rc) {
+    DBG_ERR("aes_set_key %s", yh_strerror(YHR_GENERIC_ERROR));
+    return YHR_GENERIC_ERROR;
+  }
 
-  aes_encrypt(session->s.ctr, encrypted_ctr, &aes_ctx);
+  rc = aes_encrypt(session->s.ctr, encrypted_ctr, &aes_ctx);
+  if (rc) {
+    DBG_ERR("aes_encrypt %s", yh_strerror(YHR_GENERIC_ERROR));
+    yrc = YHR_GENERIC_ERROR;
+    goto cleanup;
+  }
 
   aes_add_padding(decrypted_data, &work_buf_len);
 
@@ -332,8 +353,14 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
              "CBC encrypting (%3d Bytes): ", work_buf_len);
   DBG_CRYPTO(encrypted_ctr, SCP_PRF_LEN, "IV: ");
 
-  aes_cbc_encrypt(decrypted_data, work_buf + 1, work_buf_len, encrypted_ctr,
-                  &aes_ctx); // Make room for sid
+  rc =
+    aes_cbc_encrypt(decrypted_data, work_buf + 1, work_buf_len, encrypted_ctr,
+                    &aes_ctx); // Make room for sid
+  if (rc) {
+    DBG_ERR("aes_cbc_encrypt %s", yh_strerror(YHR_GENERIC_ERROR));
+    yrc = YHR_GENERIC_ERROR;
+    goto cleanup;
+  }
 
   DBG_CRYPTO(work_buf + 1, work_buf_len,
              "Ciphertext (%3d Bytes): ", work_buf_len);
@@ -373,8 +400,13 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
   memcpy(work_buf, session->s.mac_chaining_value, SCP_PRF_LEN);
   response_msg.st.len = htons(response_msg.st.len);
   memcpy(work_buf + SCP_PRF_LEN, response_msg.raw, 3 + out_len - SCP_MAC_LEN);
-  compute_full_mac(work_buf, SCP_PRF_LEN + 3 + out_len - SCP_MAC_LEN,
-                   session->s.s_rmac, SCP_KEY_LEN, mac_buf);
+  if (compute_full_mac(work_buf, SCP_PRF_LEN + 3 + out_len - SCP_MAC_LEN,
+                       session->s.s_rmac, SCP_KEY_LEN,
+                       mac_buf) != YHR_SUCCESS) {
+    DBG_ERR("compute_full_mac %s", yh_strerror(YHR_GENERIC_ERROR));
+    yrc = YHR_GENERIC_ERROR;
+    goto cleanup;
+  }
   response_msg.st.len = ntohs(response_msg.st.len);
 
   if (memcmp(response_msg.st.data + response_msg.st.len - SCP_MAC_LEN, mac_buf,
@@ -401,8 +433,13 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
              "CBC decrypting (%3d Bytes): ", out_len);
   DBG_CRYPTO(encrypted_ctr, SCP_PRF_LEN, "IV: ");
 
-  aes_cbc_decrypt(response_msg.st.data + 1, decrypted_data, out_len,
-                  encrypted_ctr, &aes_ctx);
+  rc = aes_cbc_decrypt(response_msg.st.data + 1, decrypted_data, out_len,
+                       encrypted_ctr, &aes_ctx);
+  if (rc) {
+    DBG_ERR("aes_cbc_decrypt %s", yh_strerror(YHR_GENERIC_ERROR));
+    yrc = YHR_GENERIC_ERROR;
+    goto cleanup;
+  }
 
   aes_remove_padding(decrypted_data, &out_len);
 
@@ -497,10 +534,15 @@ static yh_rc compute_cryptogram(const uint8_t *key, uint16_t key_len,
   ptr += SCP_CONTEXT_LEN;
 
   insecure_memzero(&ctx, sizeof(ctx));
-  aes_cmac_init((uint8_t *) key, key_len, &ctx);
+  if (aes_cmac_init((uint8_t *) key, key_len, &ctx)) {
+    return YHR_GENERIC_ERROR;
+  }
 
   for (i = 0; i < n_iterations; i++) {
-    aes_cmac_encrypt(&ctx, input, ptr - input, result + (i * SCP_PRF_LEN));
+    if (aes_cmac_encrypt(&ctx, input, ptr - input,
+                         result + (i * SCP_PRF_LEN))) {
+      return YHR_GENERIC_ERROR;
+    }
 
     // Update i
     input[15]++;
@@ -1183,7 +1225,12 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
   uint8_t keys[2 * sizeof(epk_oce)], mac[SCP_PRF_LEN];
   memcpy(keys, response_msg.st.data + 1, sizeof(epk_oce));
   memcpy(keys + sizeof(epk_oce), epk_oce, sizeof(epk_oce));
-  compute_full_mac(keys, sizeof(keys), shs, SCP_KEY_LEN, mac);
+  if (compute_full_mac(keys, sizeof(keys), shs, SCP_KEY_LEN, mac) !=
+      YHR_SUCCESS) {
+    DBG_ERR("compute_full_mac %s", yh_strerror(YHR_GENERIC_ERROR));
+    rc = YHR_GENERIC_ERROR;
+    goto err;
+  }
 
   if (memcmp(mac, response_msg.st.data + 1 + sizeof(epk_oce), SCP_PRF_LEN)) {
     DBG_ERR("Verify receipt %s",
@@ -3293,8 +3340,11 @@ yh_rc yh_authenticate_session(yh_session *session) {
   memcpy(mac_buf + SCP_PRF_LEN, msg.raw, mac_buf_len);
   msg.st.len = ntohs(msg.st.len);
 
-  compute_full_mac(mac_buf, mac_buf_len, session->s.s_mac, SCP_KEY_LEN,
-                   session->s.mac_chaining_value);
+  if (compute_full_mac(mac_buf, mac_buf_len, session->s.s_mac, SCP_KEY_LEN,
+                       session->s.mac_chaining_value) != YHR_SUCCESS) {
+    DBG_ERR("compute_full_mac %s", yh_strerror(YHR_GENERIC_ERROR));
+    return YHR_GENERIC_ERROR;
+  }
   memcpy(msg.st.data + 1 + SCP_HOST_CRYPTO_LEN, session->s.mac_chaining_value,
          SCP_MAC_LEN);
 
