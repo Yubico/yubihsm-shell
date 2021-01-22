@@ -82,8 +82,8 @@ static void cmac_generate_subkey(const uint8_t *key, uint8_t *subkey) {
   subkey[AES_BLOCK_SIZE - 1] ^= 0x87 >> (8 - (carry * 8));
 }
 
-void aes_cmac_encrypt(const aes_cmac_context_t *ctx, const uint8_t *message,
-                      const uint16_t message_len, uint8_t *mac) {
+int aes_cmac_encrypt(aes_cmac_context_t *ctx, const uint8_t *message,
+                     const uint16_t message_len, uint8_t *mac) {
 
   uint8_t n_blocks;
   uint8_t i;
@@ -91,6 +91,7 @@ void aes_cmac_encrypt(const aes_cmac_context_t *ctx, const uint8_t *message,
 
   uint8_t M[AES_BLOCK_SIZE];
   uint8_t *ptr = (uint8_t *) message;
+  int rc;
 
   memcpy(mac, zero, AES_BLOCK_SIZE);
   insecure_memzero(M, AES_BLOCK_SIZE);
@@ -104,7 +105,10 @@ void aes_cmac_encrypt(const aes_cmac_context_t *ctx, const uint8_t *message,
 
   for (i = 0; i < n_blocks; i++) {
     do_xor(ptr, mac);
-    aes_encrypt(mac, mac, &ctx->aes_ctx);
+    rc = aes_encrypt(mac, mac, &ctx->aes_ctx);
+    if (rc) {
+      return rc;
+    }
     ptr += AES_BLOCK_SIZE;
   }
 
@@ -124,29 +128,35 @@ void aes_cmac_encrypt(const aes_cmac_context_t *ctx, const uint8_t *message,
 
   do_xor(M, mac);
 
-  aes_encrypt(mac, mac, &ctx->aes_ctx);
+  return aes_encrypt(mac, mac, &ctx->aes_ctx);
 }
 
-uint8_t aes_cmac_init(uint8_t *key, uint16_t key_len, aes_cmac_context_t *ctx) {
+int aes_cmac_init(uint8_t *key, uint16_t key_len, aes_cmac_context_t *ctx) {
 
   uint8_t L[AES_BLOCK_SIZE];
+  int rc;
 
   insecure_memzero(zero, AES_BLOCK_SIZE);
 
-  aes_set_encrypt_key(key, key_len, &ctx->aes_ctx);
-  aes_encrypt(zero, L, &ctx->aes_ctx);
+  rc = aes_set_key(key, key_len, &ctx->aes_ctx);
+  if (rc) {
+    return rc;
+  }
+
+  rc = aes_encrypt(zero, L, &ctx->aes_ctx);
+  if (rc) {
+    return rc;
+  }
 
   cmac_generate_subkey(L, ctx->k1);
   cmac_generate_subkey(ctx->k1, ctx->k2);
 
-  aes_cmac_encrypt(ctx, zero, AES_BLOCK_SIZE, ctx->mac);
-
-  return 0;
+  return aes_cmac_encrypt(ctx, zero, AES_BLOCK_SIZE, ctx->mac);
 }
 
 void aes_cmac_destroy(aes_cmac_context_t *ctx) {
-  if (!ctx)
-    return;
-  aes_destroy(&(ctx->aes_ctx));
-  insecure_memzero(ctx, sizeof(aes_cmac_context_t));
+  if (ctx) {
+    aes_destroy(&(ctx->aes_ctx));
+    insecure_memzero(ctx, sizeof(aes_cmac_context_t));
+  }
 }

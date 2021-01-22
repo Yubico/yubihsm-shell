@@ -168,66 +168,120 @@ cleanup:
   return !BCRYPT_SUCCESS(status);
 }
 
+#else
+
+static const EVP_CIPHER *aes_ecb(uint16_t key_len) {
+  switch (key_len) {
+    case 16:
+      return EVP_aes_128_ecb();
+    case 24:
+      return EVP_aes_192_ecb();
+    case 32:
+      return EVP_aes_256_ecb();
+    default:
+      return NULL;
+  }
+}
+
+static const EVP_CIPHER *aes_cbc(uint16_t key_len) {
+  switch (key_len) {
+    case 16:
+      return EVP_aes_128_cbc();
+    case 24:
+      return EVP_aes_192_cbc();
+    case 32:
+      return EVP_aes_256_cbc();
+    default:
+      return NULL;
+  }
+}
+
+static int aes_encrypt_ex(const EVP_CIPHER *cipher, uint8_t *in, uint8_t *out,
+                          uint16_t len, uint8_t *iv, aes_context *ctx) {
+  if (EVP_EncryptInit_ex(ctx->ctx, cipher, NULL, ctx->key, iv) != 1) {
+    return -1;
+  }
+  if (EVP_CIPHER_CTX_set_padding(ctx->ctx, 0) != 1) {
+    return -2;
+  }
+  int update_len = len;
+  if (EVP_EncryptUpdate(ctx->ctx, out, &update_len, in, len) != 1) {
+    return -3;
+  }
+  int final_len = len - update_len;
+  if (EVP_EncryptFinal_ex(ctx->ctx, out + update_len, &final_len) != 1) {
+    return -4;
+  }
+  if (update_len + final_len != len) {
+    return -5;
+  }
+  return 0;
+}
+
+static int aes_decrypt_ex(const EVP_CIPHER *cipher, uint8_t *in, uint8_t *out,
+                          uint16_t len, uint8_t *iv, aes_context *ctx) {
+  if (EVP_DecryptInit_ex(ctx->ctx, cipher, NULL, ctx->key, iv) != 1) {
+    return -1;
+  }
+  if (EVP_CIPHER_CTX_set_padding(ctx->ctx, 0) != 1) {
+    return -2;
+  }
+  int update_len = len;
+  if (EVP_DecryptUpdate(ctx->ctx, out, &update_len, in, len) != 1) {
+    return -3;
+  }
+  int final_len = len - update_len;
+  if (EVP_DecryptFinal_ex(ctx->ctx, out + update_len, &final_len) != 1) {
+    return -4;
+  }
+  if (update_len + final_len != len) {
+    return -5;
+  }
+  return 0;
+}
+
 #endif
 
-uint8_t aes_set_encrypt_key(uint8_t *key, uint16_t key_len, aes_context *ctx) {
+int aes_set_key(uint8_t *key, uint16_t key_len, aes_context *ctx) {
 #ifdef _WIN32_BCRYPT
   NTSTATUS status = STATUS_SUCCESS;
 
   if (!BCRYPT_SUCCESS(status = init_ctx(ctx))) {
-    return 1;
+    return -1;
   }
 
   if (!BCRYPT_SUCCESS(status = import_key(ctx->hAlgCBC, &(ctx->hKeyCBC),
                                           &(ctx->pbKeyCBCObj), ctx->cbKeyObj,
                                           key, key_len))) {
-    return 1;
+    return -2;
   }
 
   if (!BCRYPT_SUCCESS(status = import_key(ctx->hAlgECB, &(ctx->hKeyECB),
                                           &(ctx->pbKeyECBObj), ctx->cbKeyObj,
                                           key, key_len))) {
-    return 1;
+    return -3;
   }
 
 #else
-  AES_set_encrypt_key(key, key_len * 8, &ctx->key);
+
+  if (key == NULL || aes_ecb(key_len) == NULL) {
+    return -1;
+  }
+  if (!ctx->ctx) {
+    ctx->ctx = EVP_CIPHER_CTX_new();
+    if (!ctx->ctx) {
+      return -2;
+    }
+  }
   ctx->key_len = key_len;
+  memcpy(ctx->key, key, key_len);
 
 #endif
 
   return 0;
 }
 
-uint8_t aes_set_decrypt_key(uint8_t *key, uint16_t key_len, aes_context *ctx) {
-#ifdef _WIN32_BCRYPT
-  NTSTATUS status = STATUS_SUCCESS;
-
-  if (!BCRYPT_SUCCESS(status = init_ctx(ctx))) {
-    return 1;
-  }
-
-  if (!BCRYPT_SUCCESS(status = import_key(ctx->hAlgCBC, &(ctx->hKeyCBC),
-                                          &(ctx->pbKeyCBCObj), ctx->cbKeyObj,
-                                          key, key_len))) {
-    return 1;
-  }
-
-  if (!BCRYPT_SUCCESS(status = import_key(ctx->hAlgECB, &(ctx->hKeyECB),
-                                          &(ctx->pbKeyECBObj), ctx->cbKeyObj,
-                                          key, key_len))) {
-    return 1;
-  }
-
-#else
-  AES_set_decrypt_key(key, key_len * 8, &ctx->key);
-  ctx->key_len = key_len;
-
-#endif
-  return 0;
-}
-
-uint8_t aes_encrypt(uint8_t *in, uint8_t *out, const aes_context *ctx) {
+int aes_encrypt(uint8_t *in, uint8_t *out, aes_context *ctx) {
 #ifdef _WIN32_BCRYPT
   NTSTATUS status = STATUS_SUCCESS;
   ULONG cbResult = 0;
@@ -235,19 +289,24 @@ uint8_t aes_encrypt(uint8_t *in, uint8_t *out, const aes_context *ctx) {
   if (!BCRYPT_SUCCESS(status = BCryptEncrypt(ctx->hKeyECB, in, AES_BLOCK_SIZE,
                                              NULL, NULL, 0, out, AES_BLOCK_SIZE,
                                              &cbResult, 0))) {
+    return -1;
+  }
+
+  if (cbResult != AES_BLOCK_SIZE) {
     return -2;
   }
 
+  return 0;
+
 #else
 
-  AES_ecb_encrypt(in, out, &ctx->key, AES_ENCRYPT);
+  return aes_encrypt_ex(aes_ecb(ctx->key_len), in, out, AES_BLOCK_SIZE, NULL,
+                        ctx);
 
 #endif
-
-  return 0;
 }
 
-uint8_t aes_decrypt(uint8_t *in, uint8_t *out, const aes_context *ctx) {
+int aes_decrypt(uint8_t *in, uint8_t *out, aes_context *ctx) {
 #ifdef _WIN32_BCRYPT
   NTSTATUS status = STATUS_SUCCESS;
   ULONG cbResult = 0;
@@ -258,19 +317,22 @@ uint8_t aes_decrypt(uint8_t *in, uint8_t *out, const aes_context *ctx) {
     return -1;
   }
 
-  assert(cbResult == AES_BLOCK_SIZE);
+  if (cbResult != AES_BLOCK_SIZE) {
+    return -2;
+  }
+
+  return 0;
 
 #else
 
-  AES_ecb_encrypt(in, out, &ctx->key, AES_DECRYPT);
+  return aes_decrypt_ex(aes_ecb(ctx->key_len), in, out, AES_BLOCK_SIZE, NULL,
+                        ctx);
 
 #endif
-
-  return 0;
 }
 
-uint8_t aes_cbc_encrypt(uint8_t *in, uint8_t *out, uint16_t len, uint8_t *iv,
-                        aes_context *ctx) {
+int aes_cbc_encrypt(uint8_t *in, uint8_t *out, uint16_t len, uint8_t *iv,
+                    aes_context *ctx) {
 #ifdef _WIN32_BCRYPT
   NTSTATUS status = STATUS_SUCCESS;
   ULONG cbResult = 0;
@@ -281,17 +343,21 @@ uint8_t aes_cbc_encrypt(uint8_t *in, uint8_t *out, uint16_t len, uint8_t *iv,
     return -1;
   }
 
-#else
-
-  AES_cbc_encrypt(in, out, len, &ctx->key, iv, AES_ENCRYPT);
-
-#endif
+  if (cbResult != len) {
+    return -2;
+  }
 
   return 0;
+
+#else
+
+  return aes_encrypt_ex(aes_cbc(ctx->key_len), in, out, len, iv, ctx);
+
+#endif
 }
 
-uint8_t aes_cbc_decrypt(uint8_t *in, uint8_t *out, uint16_t len, uint8_t *iv,
-                        aes_context *ctx) {
+int aes_cbc_decrypt(uint8_t *in, uint8_t *out, uint16_t len, uint8_t *iv,
+                    aes_context *ctx) {
 #ifdef _WIN32_BCRYPT
   NTSTATUS status = STATUS_SUCCESS;
   ULONG cbResult = 0;
@@ -302,13 +368,17 @@ uint8_t aes_cbc_decrypt(uint8_t *in, uint8_t *out, uint16_t len, uint8_t *iv,
     return -1;
   }
 
-#else
-
-  AES_cbc_encrypt(in, out, len, &ctx->key, iv, AES_DECRYPT);
-
-#endif
+  if (cbResult != len) {
+    return -2;
+  }
 
   return 0;
+
+#else
+
+  return aes_decrypt_ex(aes_cbc(ctx->key_len), in, out, len, iv, ctx);
+
+#endif
 }
 
 void aes_add_padding(uint8_t *in, uint16_t *len) {
@@ -353,6 +423,10 @@ void aes_destroy(aes_context *ctx) {
   if (ctx->hAlgECB) {
     BCryptCloseAlgorithmProvider(ctx->hAlgECB, 0);
   }
+
+#else
+
+  EVP_CIPHER_CTX_free(ctx->ctx);
 
 #endif
 
