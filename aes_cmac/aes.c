@@ -201,19 +201,20 @@ static int aes_encrypt_ex(const EVP_CIPHER *cipher, uint8_t *in, uint8_t *out,
   if (EVP_EncryptInit_ex(ctx->ctx, cipher, NULL, ctx->key, iv) != 1) {
     return -1;
   }
-  EVP_CIPHER_CTX_set_padding(ctx->ctx, 0);
+  if (EVP_CIPHER_CTX_set_padding(ctx->ctx, 0) != 1) {
+    return -2;
+  }
   int update_len = len;
   if (EVP_EncryptUpdate(ctx->ctx, out, &update_len, in, len) != 1) {
-    return -2;
+    return -3;
   }
   int final_len = len - update_len;
   if (EVP_EncryptFinal_ex(ctx->ctx, out + update_len, &final_len) != 1) {
-    return -3;
-  }
-  if (update_len + final_len != len) {
     return -4;
   }
-
+  if (update_len + final_len != len) {
+    return -5;
+  }
   return 0;
 }
 
@@ -222,19 +223,20 @@ static int aes_decrypt_ex(const EVP_CIPHER *cipher, uint8_t *in, uint8_t *out,
   if (EVP_DecryptInit_ex(ctx->ctx, cipher, NULL, ctx->key, iv) != 1) {
     return -1;
   }
-  EVP_CIPHER_CTX_set_padding(ctx->ctx, 0);
+  if (EVP_CIPHER_CTX_set_padding(ctx->ctx, 0) != 1) {
+    return -2;
+  }
   int update_len = len;
   if (EVP_DecryptUpdate(ctx->ctx, out, &update_len, in, len) != 1) {
-    return -2;
+    return -3;
   }
   int final_len = len - update_len;
   if (EVP_DecryptFinal_ex(ctx->ctx, out + update_len, &final_len) != 1) {
-    return -3;
-  }
-  if (update_len + final_len != len) {
     return -4;
   }
-
+  if (update_len + final_len != len) {
+    return -5;
+  }
   return 0;
 }
 
