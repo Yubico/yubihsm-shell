@@ -114,6 +114,7 @@ static yh_rc send_authenticated_msg(yh_session *session, Msg *msg,
   uint8_t mac_buf[SCP_MSG_BUF_SIZE + SCP_MAC_LEN];
   uint16_t mac_buf_len;
   uint16_t msg_len;
+  yh_rc yrc;
 
   msg->st.len += SCP_MAC_LEN;
   msg_len = msg->st.len;
@@ -127,10 +128,11 @@ static yh_rc send_authenticated_msg(yh_session *session, Msg *msg,
   memcpy(mac_buf + SCP_PRF_LEN, msg->raw, msg_len + 3 - SCP_MAC_LEN);
   msg->st.len = ntohs(msg->st.len);
   mac_buf_len = SCP_PRF_LEN + msg->st.len + 3 - SCP_MAC_LEN;
-  if (compute_full_mac(mac_buf, mac_buf_len, session->s.s_mac, SCP_KEY_LEN,
-                       session->s.mac_chaining_value) != YHR_SUCCESS) {
-    DBG_ERR("compute_full_mac %s", yh_strerror(YHR_GENERIC_ERROR));
-    return YHR_GENERIC_ERROR;
+  yrc = compute_full_mac(mac_buf, mac_buf_len, session->s.s_mac, SCP_KEY_LEN,
+                         session->s.mac_chaining_value);
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("compute_full_mac %s", yh_strerror(yrc));
+    return yrc;
   }
   memcpy(msg->st.data + msg->st.len - SCP_MAC_LEN,
          session->s.mac_chaining_value, SCP_MAC_LEN);
@@ -396,11 +398,10 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
   memcpy(work_buf, session->s.mac_chaining_value, SCP_PRF_LEN);
   response_msg.st.len = htons(response_msg.st.len);
   memcpy(work_buf + SCP_PRF_LEN, response_msg.raw, 3 + out_len - SCP_MAC_LEN);
-  if (compute_full_mac(work_buf, SCP_PRF_LEN + 3 + out_len - SCP_MAC_LEN,
-                       session->s.s_rmac, SCP_KEY_LEN,
-                       mac_buf) != YHR_SUCCESS) {
-    DBG_ERR("compute_full_mac %s", yh_strerror(YHR_GENERIC_ERROR));
-    yrc = YHR_GENERIC_ERROR;
+  yrc = compute_full_mac(work_buf, SCP_PRF_LEN + 3 + out_len - SCP_MAC_LEN,
+                         session->s.s_rmac, SCP_KEY_LEN, mac_buf);
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("compute_full_mac %s", yh_strerror(yrc));
     goto cleanup;
   }
   response_msg.st.len = ntohs(response_msg.st.len);
@@ -1221,10 +1222,9 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
   uint8_t keys[2 * sizeof(epk_oce)], mac[SCP_PRF_LEN];
   memcpy(keys, response_msg.st.data + 1, sizeof(epk_oce));
   memcpy(keys + sizeof(epk_oce), epk_oce, sizeof(epk_oce));
-  if (compute_full_mac(keys, sizeof(keys), shs, SCP_KEY_LEN, mac) !=
-      YHR_SUCCESS) {
-    DBG_ERR("compute_full_mac %s", yh_strerror(YHR_GENERIC_ERROR));
-    rc = YHR_GENERIC_ERROR;
+  rc = compute_full_mac(keys, sizeof(keys), shs, SCP_KEY_LEN, mac);
+  if (rc != YHR_SUCCESS) {
+    DBG_ERR("compute_full_mac %s", yh_strerror(rc));
     goto err;
   }
 
@@ -3336,10 +3336,11 @@ yh_rc yh_authenticate_session(yh_session *session) {
   memcpy(mac_buf + SCP_PRF_LEN, msg.raw, mac_buf_len);
   msg.st.len = ntohs(msg.st.len);
 
-  if (compute_full_mac(mac_buf, mac_buf_len, session->s.s_mac, SCP_KEY_LEN,
-                       session->s.mac_chaining_value) != YHR_SUCCESS) {
-    DBG_ERR("compute_full_mac %s", yh_strerror(YHR_GENERIC_ERROR));
-    return YHR_GENERIC_ERROR;
+  yrc = compute_full_mac(mac_buf, mac_buf_len, session->s.s_mac, SCP_KEY_LEN,
+                         session->s.mac_chaining_value);
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("compute_full_mac %s", yh_strerror(yrc));
+    return yrc;
   }
   memcpy(msg.st.data + 1 + SCP_HOST_CRYPTO_LEN, session->s.mac_chaining_value,
          SCP_MAC_LEN);
