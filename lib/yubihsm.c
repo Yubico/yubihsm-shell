@@ -80,13 +80,14 @@ static yh_rc compute_full_mac(uint8_t *data, uint16_t data_len, uint8_t *key,
 
   if (aes_cmac_encrypt(&ctx, data, data_len, mac)) {
     DBG_ERR("aes_cmac_encrypt failed");
+    aes_cmac_destroy(&ctx);
     return YHR_GENERIC_ERROR;
   }
 
   DBG_CRYPTO(data, data_len, "Compute MAC (%3d Bytes): ", data_len);
   DBG_CRYPTO(mac, SCP_PRF_LEN, "Full result is: ");
 
-  insecure_memzero(&ctx, sizeof(ctx));
+  aes_cmac_destroy(&ctx);
   return YHR_SUCCESS;
 }
 
@@ -541,6 +542,7 @@ static yh_rc compute_cryptogram(const uint8_t *key, uint16_t key_len,
   for (i = 0; i < n_iterations; i++) {
     if (aes_cmac_encrypt(&ctx, input, ptr - input,
                          result + (i * SCP_PRF_LEN))) {
+      aes_cmac_destroy(&ctx);
       return YHR_GENERIC_ERROR;
     }
 
