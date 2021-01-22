@@ -40,7 +40,7 @@ static bool parse_name(const char *prompt, char *name, char *parsed,
       return false;
     }
   } else {
-    strncpy(parsed, name, strlen(name));
+    strcpy(parsed, name);
   }
 
   *parsed_len = strlen(name);
