@@ -306,7 +306,6 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
   yh_rc yrc;
   Msg msg;
   Msg response_msg;
-  int rc;
 
   if (session == NULL || (data_len != 0 && data == NULL) ||
       response_cmd == NULL || response == NULL || response_len == NULL) {
@@ -335,14 +334,12 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
                (unsigned long) data_len + 3);
 
   insecure_memzero(&aes_ctx, sizeof(aes_ctx));
-  rc = aes_set_key((uint8_t *) session->s.s_enc, SCP_KEY_LEN, &aes_ctx);
-  if (rc) {
+  if (aes_set_key((uint8_t *) session->s.s_enc, SCP_KEY_LEN, &aes_ctx)) {
     DBG_ERR("aes_set_key %s", yh_strerror(YHR_GENERIC_ERROR));
     return YHR_GENERIC_ERROR;
   }
 
-  rc = aes_encrypt(session->s.ctr, encrypted_ctr, &aes_ctx);
-  if (rc) {
+  if (aes_encrypt(session->s.ctr, encrypted_ctr, &aes_ctx)) {
     DBG_ERR("aes_encrypt %s", yh_strerror(YHR_GENERIC_ERROR));
     yrc = YHR_GENERIC_ERROR;
     goto cleanup;
@@ -354,10 +351,8 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
              "CBC encrypting (%3d Bytes): ", work_buf_len);
   DBG_CRYPTO(encrypted_ctr, SCP_PRF_LEN, "IV: ");
 
-  rc =
-    aes_cbc_encrypt(decrypted_data, work_buf + 1, work_buf_len, encrypted_ctr,
-                    &aes_ctx); // Make room for sid
-  if (rc) {
+  if (aes_cbc_encrypt(decrypted_data, work_buf + 1, work_buf_len, encrypted_ctr,
+                      &aes_ctx)) { // Make room for sid
     DBG_ERR("aes_cbc_encrypt %s", yh_strerror(YHR_GENERIC_ERROR));
     yrc = YHR_GENERIC_ERROR;
     goto cleanup;
@@ -434,9 +429,8 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
              "CBC decrypting (%3d Bytes): ", out_len);
   DBG_CRYPTO(encrypted_ctr, SCP_PRF_LEN, "IV: ");
 
-  rc = aes_cbc_decrypt(response_msg.st.data + 1, decrypted_data, out_len,
-                       encrypted_ctr, &aes_ctx);
-  if (rc) {
+  if (aes_cbc_decrypt(response_msg.st.data + 1, decrypted_data, out_len,
+                      encrypted_ctr, &aes_ctx)) {
     DBG_ERR("aes_cbc_decrypt %s", yh_strerror(YHR_GENERIC_ERROR));
     yrc = YHR_GENERIC_ERROR;
     goto cleanup;
