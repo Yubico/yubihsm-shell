@@ -196,6 +196,48 @@ static const EVP_CIPHER *aes_cbc(uint16_t key_len) {
   }
 }
 
+static int aes_encrypt_ex(const EVP_CIPHER *cipher, uint8_t *in, uint8_t *out,
+                          uint16_t len, uint8_t *iv, aes_context *ctx) {
+  if (EVP_EncryptInit_ex(ctx->ctx, cipher, NULL, ctx->key, iv) != 1) {
+    return -1;
+  }
+  EVP_CIPHER_CTX_set_padding(ctx->ctx, 0);
+  int update_len = len;
+  if (EVP_EncryptUpdate(ctx->ctx, out, &update_len, in, len) != 1) {
+    return -2;
+  }
+  int final_len = len - update_len;
+  if (EVP_EncryptFinal_ex(ctx->ctx, out + update_len, &final_len) != 1) {
+    return -3;
+  }
+  if (update_len + final_len != len) {
+    return -4;
+  }
+
+  return 0;
+}
+
+static int aes_decrypt_ex(const EVP_CIPHER *cipher, uint8_t *in, uint8_t *out,
+                          uint16_t len, uint8_t *iv, aes_context *ctx) {
+  if (EVP_DecryptInit_ex(ctx->ctx, cipher, NULL, ctx->key, iv) != 1) {
+    return -1;
+  }
+  EVP_CIPHER_CTX_set_padding(ctx->ctx, 0);
+  int update_len = len;
+  if (EVP_DecryptUpdate(ctx->ctx, out, &update_len, in, len) != 1) {
+    return -2;
+  }
+  int final_len = len - update_len;
+  if (EVP_DecryptFinal_ex(ctx->ctx, out + update_len, &final_len) != 1) {
+    return -3;
+  }
+  if (update_len + final_len != len) {
+    return -4;
+  }
+
+  return 0;
+}
+
 #endif
 
 int aes_set_key(uint8_t *key, uint16_t key_len, aes_context *ctx) {
@@ -237,7 +279,7 @@ int aes_set_key(uint8_t *key, uint16_t key_len, aes_context *ctx) {
   return 0;
 }
 
-int aes_encrypt(uint8_t *in, uint8_t *out, const aes_context *ctx) {
+int aes_encrypt(uint8_t *in, uint8_t *out, aes_context *ctx) {
 #ifdef _WIN32_BCRYPT
   NTSTATUS status = STATUS_SUCCESS;
   ULONG cbResult = 0;
@@ -248,31 +290,21 @@ int aes_encrypt(uint8_t *in, uint8_t *out, const aes_context *ctx) {
     return -1;
   }
 
-#else
-
-  if (EVP_EncryptInit_ex(ctx->ctx, aes_ecb(ctx->key_len), NULL, ctx->key,
-                         NULL) != 1) {
-    return -1;
-  }
-  EVP_CIPHER_CTX_set_padding(ctx->ctx, 0);
-  int update_len = AES_BLOCK_SIZE;
-  if (EVP_EncryptUpdate(ctx->ctx, out, &update_len, in, AES_BLOCK_SIZE) != 1) {
+  if (cbResult != AES_BLOCK_SIZE) {
     return -2;
   }
-  int final_len = AES_BLOCK_SIZE - update_len;
-  if (EVP_EncryptFinal_ex(ctx->ctx, out + update_len, &final_len) != 1) {
-    return -3;
-  }
-  if (update_len + final_len != AES_BLOCK_SIZE) {
-    return -4;
-  }
-
-#endif
 
   return 0;
+
+#else
+
+  return aes_encrypt_ex(aes_ecb(ctx->key_len), in, out, AES_BLOCK_SIZE, NULL,
+                        ctx);
+
+#endif
 }
 
-int aes_decrypt(uint8_t *in, uint8_t *out, const aes_context *ctx) {
+int aes_decrypt(uint8_t *in, uint8_t *out, aes_context *ctx) {
 #ifdef _WIN32_BCRYPT
   NTSTATUS status = STATUS_SUCCESS;
   ULONG cbResult = 0;
@@ -283,30 +315,18 @@ int aes_decrypt(uint8_t *in, uint8_t *out, const aes_context *ctx) {
     return -1;
   }
 
-  assert(cbResult == AES_BLOCK_SIZE);
+  if (cbResult != AES_BLOCK_SIZE) {
+    return -2;
+  }
+
+  return 0;
 
 #else
 
-  if (EVP_DecryptInit_ex(ctx->ctx, aes_ecb(ctx->key_len), NULL, ctx->key,
-                         NULL) != 1) {
-    return -1;
-  }
-  EVP_CIPHER_CTX_set_padding(ctx->ctx, 0);
-  int update_len = AES_BLOCK_SIZE;
-  if (EVP_DecryptUpdate(ctx->ctx, out, &update_len, in, AES_BLOCK_SIZE) != 1) {
-    return -2;
-  }
-  int final_len = AES_BLOCK_SIZE - update_len;
-  if (EVP_DecryptFinal_ex(ctx->ctx, out + update_len, &final_len) != 1) {
-    return -3;
-  }
-  if (update_len + final_len != AES_BLOCK_SIZE) {
-    return -4;
-  }
+  return aes_decrypt_ex(aes_ecb(ctx->key_len), in, out, AES_BLOCK_SIZE, NULL,
+                        ctx);
 
 #endif
-
-  return 0;
 }
 
 int aes_cbc_encrypt(uint8_t *in, uint8_t *out, uint16_t len, uint8_t *iv,
@@ -321,28 +341,17 @@ int aes_cbc_encrypt(uint8_t *in, uint8_t *out, uint16_t len, uint8_t *iv,
     return -1;
   }
 
-#else
-
-  if (EVP_EncryptInit_ex(ctx->ctx, aes_cbc(ctx->key_len), NULL, ctx->key, iv) !=
-      1) {
-    return -1;
-  }
-  EVP_CIPHER_CTX_set_padding(ctx->ctx, 0);
-  int update_len = len;
-  if (EVP_EncryptUpdate(ctx->ctx, out, &update_len, in, len) != 1) {
+  if (cbResult != len) {
     return -2;
   }
-  int final_len = len - update_len;
-  if (EVP_EncryptFinal_ex(ctx->ctx, out + update_len, &final_len) != 1) {
-    return -3;
-  }
-  if (update_len + final_len != len) {
-    return -4;
-  }
-
-#endif
 
   return 0;
+
+#else
+
+  return aes_encrypt_ex(aes_cbc(ctx->key_len), in, out, len, iv, ctx);
+
+#endif
 }
 
 int aes_cbc_decrypt(uint8_t *in, uint8_t *out, uint16_t len, uint8_t *iv,
@@ -357,28 +366,17 @@ int aes_cbc_decrypt(uint8_t *in, uint8_t *out, uint16_t len, uint8_t *iv,
     return -1;
   }
 
-#else
-
-  if (EVP_DecryptInit_ex(ctx->ctx, aes_cbc(ctx->key_len), NULL, ctx->key, iv) !=
-      1) {
-    return -1;
-  }
-  EVP_CIPHER_CTX_set_padding(ctx->ctx, 0);
-  int update_len = len;
-  if (EVP_DecryptUpdate(ctx->ctx, out, &update_len, in, len) != 1) {
+  if (cbResult != len) {
     return -2;
   }
-  int final_len = len - update_len;
-  if (EVP_DecryptFinal_ex(ctx->ctx, out + update_len, &final_len) != 1) {
-    return -3;
-  }
-  if (update_len + final_len != len) {
-    return -4;
-  }
-
-#endif
 
   return 0;
+
+#else
+
+  return aes_decrypt_ex(aes_cbc(ctx->key_len), in, out, len, iv, ctx);
+
+#endif
 }
 
 void aes_add_padding(uint8_t *in, uint16_t *len) {

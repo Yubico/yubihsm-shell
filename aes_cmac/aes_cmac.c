@@ -82,7 +82,7 @@ static void cmac_generate_subkey(const uint8_t *key, uint8_t *subkey) {
   subkey[AES_BLOCK_SIZE - 1] ^= 0x87 >> (8 - (carry * 8));
 }
 
-int aes_cmac_encrypt(const aes_cmac_context_t *ctx, const uint8_t *message,
+int aes_cmac_encrypt(aes_cmac_context_t *ctx, const uint8_t *message,
                      const uint16_t message_len, uint8_t *mac) {
 
   uint8_t n_blocks;

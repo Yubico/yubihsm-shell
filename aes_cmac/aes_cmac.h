@@ -31,7 +31,7 @@ typedef struct {
 
 int YH_INTERNAL aes_cmac_init(uint8_t *key, uint16_t key_len,
                               aes_cmac_context_t *ctx);
-int YH_INTERNAL aes_cmac_encrypt(const aes_cmac_context_t *ctx,
+int YH_INTERNAL aes_cmac_encrypt(aes_cmac_context_t *ctx,
                                  const uint8_t *message,
                                  const uint16_t message_len, uint8_t *mac);
 void YH_INTERNAL aes_cmac_destroy(aes_cmac_context_t *ctx);

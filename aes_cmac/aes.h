@@ -65,8 +65,8 @@ typedef struct {
 
 int YH_INTERNAL aes_set_key(uint8_t *key, uint16_t key_len, aes_context *ctx);
 
-int YH_INTERNAL aes_encrypt(uint8_t *in, uint8_t *out, const aes_context *ctx);
-int YH_INTERNAL aes_decrypt(uint8_t *in, uint8_t *out, const aes_context *ctx);
+int YH_INTERNAL aes_encrypt(uint8_t *in, uint8_t *out, aes_context *ctx);
+int YH_INTERNAL aes_decrypt(uint8_t *in, uint8_t *out, aes_context *ctx);
 
 int YH_INTERNAL aes_cbc_encrypt(uint8_t *in, uint8_t *out, uint16_t len,
                                 uint8_t *iv, aes_context *ctx);
