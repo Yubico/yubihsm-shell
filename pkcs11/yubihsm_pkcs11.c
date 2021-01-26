@@ -275,6 +275,20 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
         goto c_i_failure;
       }
     }
+    if (args_info.cert_given) {
+      if (yh_set_connector_option(connector_list[i], YH_CONNECTOR_HTTPS_CERT,
+                                  args_info.cert_arg) != YHR_SUCCESS) {
+        DBG_ERR("Failed to set HTTPS cert option");
+        goto c_i_failure;
+      }
+    }
+    if (args_info.key_given) {
+      if (yh_set_connector_option(connector_list[i], YH_CONNECTOR_HTTPS_KEY,
+                                  args_info.key_arg) != YHR_SUCCESS) {
+        DBG_ERR("Failed to set HTTPS key option");
+	goto c_i_failure;
+      }
+    }
     if (args_info.proxy_given) {
       if (yh_set_connector_option(connector_list[i], YH_CONNECTOR_PROXY_SERVER,
                                   args_info.proxy_arg) != YHR_SUCCESS) {

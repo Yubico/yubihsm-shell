@@ -227,6 +227,14 @@ static yh_rc backend_option(yh_backend *connection, yh_connector_option opt,
       option = CURLOPT_CAINFO;
       optname = "CURLOPT_CAINFO";
       break;
+    case YH_CONNECTOR_HTTPS_CERT:
+      option = CURLOPT_SSLCERT;
+      optname = "CURLOPT_SSLCERT";
+      break;
+    case YH_CONNECTOR_HTTPS_KEY:
+      option = CURLOPT_SSLKEY;
+      optname = "CURLOPT_SSLKEY";
+      break;
     case YH_CONNECTOR_PROXY_SERVER:
       option = CURLOPT_PROXY;
       optname = "CURLOPT_PROXY";
