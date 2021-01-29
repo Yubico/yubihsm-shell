@@ -14,7 +14,12 @@
  * limitations under the License.
  */
 
+#ifdef __WIN32
+#include <winsock.h>
+#else
 #include <arpa/inet.h>
+#endif
+
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
