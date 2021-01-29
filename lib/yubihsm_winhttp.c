@@ -299,7 +299,7 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
   struct urlComponents components = {0};
   bool complete = false;
   yh_rc yrc = YHR_CONNECTOR_ERROR;
-  uint16_t raw_len = msg->st.len + 3;
+  uint16_t raw_len = ntohs(msg->st.len) + 3;
   DWORD dwStatusCode = 0;
   DWORD dwSize = sizeof(dwStatusCode);
   struct context *context = calloc(1, sizeof(struct context));
@@ -321,9 +321,6 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
     swprintf(hsm_identifier, 64, L"YubiHSM-Session: %hs", identifier);
     headers = hsm_identifier;
   }
-
-  // swap the length in the message
-  msg->st.len = htons(msg->st.len);
 
   context->stage = NO_INIT;
   context->len = 0;
@@ -422,9 +419,6 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
   DeleteCriticalSection(&context->mtx);
 
   free(context);
-
-  // restore the msg len
-  msg->st.len = ntohs(msg->st.len);
 
   return yrc;
 }

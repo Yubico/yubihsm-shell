@@ -73,10 +73,9 @@ static void backend_disconnect(yh_backend *connection) {
 
 static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
                               const char *identifier) {
-  int32_t trf_len = msg->st.len + 3;
+  int32_t trf_len = ntohs(msg->st.len) + 3;
   yh_rc ret = YHR_GENERIC_ERROR;
   unsigned long read_len = 0;
-  msg->st.len = htons(msg->st.len);
 
   (void) identifier;
 
@@ -114,10 +113,9 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
     return YHR_WRONG_LENGTH;
   }
 
-  response->st.len = ntohs(response->st.len);
-
-  if (response->st.len != read_len - 3) {
-    DBG_ERR("Wrong length received, %d vs %lu", response->st.len, read_len);
+  if (ntohs(response->st.len) != read_len - 3) {
+    DBG_ERR("Wrong length received, %d vs %lu", ntohs(response->st.len),
+            read_len);
     return YHR_WRONG_LENGTH;
   }
 

@@ -48,20 +48,20 @@ void dump_hex(FILE *file, const uint8_t *ptr, uint16_t len) {
 
 void dump_msg(FILE *file, const Msg *msg) {
 
-  fprintf(file, "SEND >> (03 + %04d) %02x %04x ", msg->st.len, msg->st.cmd,
-          msg->st.len);
+  fprintf(file, "SEND >> (03 + %04d) %02x %04x ", ntohs(msg->st.len),
+          msg->st.cmd, ntohs(msg->st.len));
 
-  dump_hex(file, msg->st.data, msg->st.len);
+  dump_hex(file, msg->st.data, ntohs(msg->st.len));
 
   fprintf(file, "\n");
 }
 
 void dump_response(FILE *file, const Msg *msg) {
 
-  fprintf(file, "RECV << (03 + %04d) %02x %04x ", msg->st.len, msg->st.cmd,
-          msg->st.len);
+  fprintf(file, "RECV << (03 + %04d) %02x %04x ", ntohs(msg->st.len),
+          msg->st.cmd, ntohs(msg->st.len));
 
-  dump_hex(file, msg->st.data, msg->st.len);
+  dump_hex(file, msg->st.data, ntohs(msg->st.len));
 
   fprintf(file, " \n");
 }

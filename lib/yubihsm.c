@@ -108,38 +108,6 @@ static yh_rc send_msg(yh_connector *connector, Msg *msg, Msg *response,
   return yrc;
 }
 
-static yh_rc send_authenticated_msg(yh_session *session, Msg *msg,
-                                    Msg *response) {
-
-  uint8_t mac_buf[SCP_MSG_BUF_SIZE + SCP_MAC_LEN];
-  uint16_t mac_buf_len;
-  uint16_t msg_len;
-  yh_rc yrc;
-
-  msg->st.len += SCP_MAC_LEN;
-  msg_len = msg->st.len;
-
-  if (msg->st.len > SCP_MSG_BUF_SIZE - 3) {
-    return YHR_BUFFER_TOO_SMALL;
-  }
-
-  memcpy(mac_buf, session->s.mac_chaining_value, SCP_PRF_LEN);
-  msg->st.len = htons(msg->st.len);
-  memcpy(mac_buf + SCP_PRF_LEN, msg->raw, msg_len + 3 - SCP_MAC_LEN);
-  msg->st.len = ntohs(msg->st.len);
-  mac_buf_len = SCP_PRF_LEN + msg->st.len + 3 - SCP_MAC_LEN;
-  yrc = compute_full_mac(mac_buf, mac_buf_len, session->s.s_mac, SCP_KEY_LEN,
-                         session->s.mac_chaining_value);
-  if (yrc != YHR_SUCCESS) {
-    DBG_ERR("compute_full_mac %s", yh_strerror(yrc));
-    return yrc;
-  }
-  memcpy(msg->st.data + msg->st.len - SCP_MAC_LEN,
-         session->s.mac_chaining_value, SCP_MAC_LEN);
-
-  return send_msg(session->parent, msg, response, session->s.identifier);
-}
-
 static void increment_ctr(uint8_t *ctr, uint16_t len) {
 
   while (len > 0) {
@@ -172,7 +140,7 @@ yh_rc yh_send_plain_msg(yh_connector *connector, yh_cmd cmd,
   }
 
   msg.st.cmd = cmd;
-  msg.st.len = data_len;
+  msg.st.len = htons(data_len);
   if (data_len > 0) {
     memcpy(msg.st.data, data, data_len);
   }
@@ -185,6 +153,8 @@ yh_rc yh_send_plain_msg(yh_connector *connector, yh_cmd cmd,
     DBG_ERR("%s", yh_strerror(yrc));
     return yrc;
   }
+
+  response_msg.st.len = ntohs(response_msg.st.len);
 
   if (*response_len < response_msg.st.len) {
     DBG_DUMPERR(response_msg.raw, response_msg.st.len + 3,
@@ -295,20 +265,6 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
                               yh_cmd *response_cmd, uint8_t *response,
                               size_t *response_len) {
 
-  uint8_t work_buf[SCP_MSG_BUF_SIZE + SCP_PRF_LEN];
-  uint8_t decrypted_data[SCP_MSG_BUF_SIZE]; // NOTE(adma): this exists because
-                                            // OpenSSL encryption doesn't work
-                                            // when using the same buffer for in
-                                            // and out
-  uint8_t encrypted_ctr[SCP_PRF_LEN];
-  uint8_t mac_buf[SCP_PRF_LEN];
-  uint16_t work_buf_len;
-  uint16_t out_len;
-  aes_context aes_ctx;
-  yh_rc yrc;
-  Msg msg;
-  Msg response_msg;
-
   if (session == NULL || (data_len != 0 && data == NULL) ||
       response_cmd == NULL || response == NULL || response_len == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
@@ -321,144 +277,138 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
     return YHR_BUFFER_TOO_SMALL;
   }
 
-  decrypted_data[0] = cmd;
-  decrypted_data[1] = (data_len & 0xff00) >> 8;
-  decrypted_data[2] = data_len & 0x00ff;
-  if (data != NULL) {
-    // NOTE(adma): when data_len is 0, data can be NULL. This is UB for
-    // memcpy. Explicitly check against that
-    memcpy(decrypted_data + 3, data, data_len);
-  }
-  work_buf_len = 3 + data_len;
+  struct {
+    uint8_t mac_chaining_value[SCP_PRF_LEN];
+    Msg msg;
+  } msg, enc_msg;
 
-  DBG_DUMPINFO(decrypted_data, data_len + 3,
-               "Sending cmd %02x (%3lu Bytes): ", cmd,
-               (unsigned long) data_len + 3);
+  msg.msg.st.cmd = cmd;
+  msg.msg.st.len = htons(data_len);
+  memcpy(msg.msg.st.data, data, data_len);
 
+  DBG_NET(&msg.msg, dump_msg);
+
+  uint16_t len = data_len + 3;
+  aes_add_padding(msg.msg.raw, &len);
+
+  aes_context aes_ctx;
   insecure_memzero(&aes_ctx, sizeof(aes_ctx));
-  if (aes_set_key((uint8_t *) session->s.s_enc, SCP_KEY_LEN, &aes_ctx)) {
+  if (aes_set_key(session->s.s_enc, SCP_KEY_LEN, &aes_ctx)) {
     DBG_ERR("aes_set_key %s", yh_strerror(YHR_GENERIC_ERROR));
     return YHR_GENERIC_ERROR;
   }
 
+  yh_rc yrc = YHR_SUCCESS;
+  uint8_t encrypted_ctr[SCP_PRF_LEN];
   if (aes_encrypt(session->s.ctr, encrypted_ctr, &aes_ctx)) {
     DBG_ERR("aes_encrypt %s", yh_strerror(YHR_GENERIC_ERROR));
     yrc = YHR_GENERIC_ERROR;
     goto cleanup;
   }
 
-  aes_add_padding(decrypted_data, &work_buf_len);
+  memcpy(enc_msg.mac_chaining_value, session->s.mac_chaining_value,
+         SCP_PRF_LEN);
+  enc_msg.msg.st.cmd = YHC_SESSION_MESSAGE;
+  enc_msg.msg.st.len = htons(len + SCP_MAC_LEN + 1);
+  enc_msg.msg.st.data[0] = session->s.sid;
 
-  DBG_CRYPTO(decrypted_data, work_buf_len,
-             "CBC encrypting (%3d Bytes): ", work_buf_len);
-  DBG_CRYPTO(encrypted_ctr, SCP_PRF_LEN, "IV: ");
-
-  if (aes_cbc_encrypt(decrypted_data, work_buf + 1, work_buf_len, encrypted_ctr,
-                      &aes_ctx)) { // Make room for sid
+  if (aes_cbc_encrypt(msg.msg.raw, enc_msg.msg.st.data + 1, len, encrypted_ctr,
+                      &aes_ctx)) {
     DBG_ERR("aes_cbc_encrypt %s", yh_strerror(YHR_GENERIC_ERROR));
     yrc = YHR_GENERIC_ERROR;
     goto cleanup;
   }
 
-  DBG_CRYPTO(work_buf + 1, work_buf_len,
-             "Ciphertext (%3d Bytes): ", work_buf_len);
-
-  msg.st.cmd = YHC_SESSION_MESSAGE;
-  msg.st.len = 1 + work_buf_len;
-  work_buf[0] = session->s.sid;
-  memcpy(msg.st.data, work_buf, work_buf_len + 1);
-
-  yrc = send_authenticated_msg(session, &msg, &response_msg);
+  yrc = compute_full_mac(enc_msg.mac_chaining_value, len + (SCP_PRF_LEN + 4),
+                         session->s.s_mac, SCP_KEY_LEN,
+                         session->s.mac_chaining_value);
   if (yrc != YHR_SUCCESS) {
-    DBG_ERR("%s", yh_strerror(yrc));
+    DBG_ERR("compute_full_mac %s", yh_strerror(yrc));
     goto cleanup;
   }
 
-  if (response_msg.st.cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response_msg.st.data[0]);
+  memcpy(enc_msg.msg.st.data + len + 1, session->s.mac_chaining_value,
+         SCP_MAC_LEN);
+
+  yrc =
+    send_msg(session->parent, &enc_msg.msg, &msg.msg, session->s.identifier);
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("send_msg %s", yh_strerror(yrc));
+    goto cleanup;
+  }
+
+  if (msg.msg.st.cmd == YHC_ERROR) {
+    yh_rc translated = translate_device_error(msg.msg.st.data[0]);
     DBG_ERR("%s", yh_strerror(translated));
 
     *response_cmd = YHC_ERROR;
-    response[0] = response_msg.st.data[0];
+    response[0] = msg.msg.st.data[0];
     *response_len = 1;
 
     yrc = translated;
     goto cleanup;
   }
 
-  // Response is MAC'ed and encrypted. Unwrap it
-  out_len = response_msg.st.len;
-  if (out_len < SCP_MAC_LEN ||
-      (size_t)(3 + out_len - SCP_MAC_LEN) >= sizeof(work_buf)) {
-    DBG_ERR("Received invalid length %u", out_len);
+  // The minimum message is { sid | 1 aes block | mac }
+  if (ntohs(msg.msg.st.len) < 1 + SCP_PRF_LEN + SCP_MAC_LEN) {
+    DBG_ERR("%s", yh_strerror(YHR_BUFFER_TOO_SMALL));
     yrc = YHR_BUFFER_TOO_SMALL;
     goto cleanup;
   }
 
-  memcpy(work_buf, session->s.mac_chaining_value, SCP_PRF_LEN);
-  response_msg.st.len = htons(response_msg.st.len);
-  memcpy(work_buf + SCP_PRF_LEN, response_msg.raw, 3 + out_len - SCP_MAC_LEN);
-  yrc = compute_full_mac(work_buf, SCP_PRF_LEN + 3 + out_len - SCP_MAC_LEN,
-                         session->s.s_rmac, SCP_KEY_LEN, mac_buf);
+  uint8_t mac[SCP_PRF_LEN];
+  memcpy(msg.mac_chaining_value, session->s.mac_chaining_value, SCP_PRF_LEN);
+  yrc =
+    compute_full_mac(msg.mac_chaining_value,
+                     ntohs(msg.msg.st.len) + (SCP_PRF_LEN + 3 - SCP_MAC_LEN),
+                     session->s.s_rmac, SCP_KEY_LEN, mac);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("compute_full_mac %s", yh_strerror(yrc));
     goto cleanup;
   }
-  response_msg.st.len = ntohs(response_msg.st.len);
 
-  if (memcmp(response_msg.st.data + response_msg.st.len - SCP_MAC_LEN, mac_buf,
-             SCP_MAC_LEN) != 0) {
-    DBG_DUMPERR(response_msg.st.data + out_len - SCP_MAC_LEN, SCP_MAC_LEN,
+  len = ntohs(msg.msg.st.len) - SCP_MAC_LEN;
+
+  if (memcmp(msg.msg.st.data + len, mac, SCP_MAC_LEN)) {
+    DBG_DUMPERR(mac, SCP_MAC_LEN,
                 "%s, expected: ", yh_strerror(YHR_MAC_MISMATCH));
     yrc = YHR_MAC_MISMATCH;
     goto cleanup;
   }
 
-  DBG_INFO("Response MAC successfully verified");
-
-  out_len -= SCP_MAC_LEN;
-
-  if (session->s.sid != response_msg.st.data[0]) {
+  if (session->s.sid != msg.msg.st.data[0]) {
     DBG_ERR("Session ID mismatch, expected %d, got %d", session->s.sid,
-            response_msg.st.data[0]);
-    yrc = YHR_GENERIC_ERROR;
+            msg.msg.st.data[0]);
+    yrc = YHR_DEVICE_INVALID_SESSION;
     goto cleanup;
   }
-  out_len -= 1;
 
-  DBG_CRYPTO(response_msg.st.data + 1, out_len,
-             "CBC decrypting (%3d Bytes): ", out_len);
-  DBG_CRYPTO(encrypted_ctr, SCP_PRF_LEN, "IV: ");
+  len -= 1;
 
-  if (aes_cbc_decrypt(response_msg.st.data + 1, decrypted_data, out_len,
-                      encrypted_ctr, &aes_ctx)) {
+  if (aes_cbc_decrypt(msg.msg.st.data + 1, enc_msg.msg.raw, len, encrypted_ctr,
+                      &aes_ctx)) {
     DBG_ERR("aes_cbc_decrypt %s", yh_strerror(YHR_GENERIC_ERROR));
     yrc = YHR_GENERIC_ERROR;
     goto cleanup;
   }
 
-  aes_remove_padding(decrypted_data, &out_len);
-
-  DBG_CRYPTO(decrypted_data, out_len, "Plaintext (%3d Bytes): ", out_len);
-
-  increment_ctr(session->s.ctr, SCP_PRF_LEN);
-
-  out_len -= 3;
-  if (out_len > *response_len) {
-    yrc = YHR_BUFFER_TOO_SMALL;
+  aes_remove_padding(enc_msg.msg.raw, &len);
+  if (len < 3 || len - 3 != ntohs(enc_msg.msg.st.len)) {
+    DBG_ERR("aes_remove_padding %s", yh_strerror(YHR_WRONG_LENGTH));
+    yrc = YHR_WRONG_LENGTH;
     goto cleanup;
   }
 
-  *response_len = out_len;
-  *response_cmd = decrypted_data[0];
-  memcpy(response, decrypted_data + 3, *response_len);
+  increment_ctr(session->s.ctr, SCP_PRF_LEN);
+
+  DBG_NET(&enc_msg.msg, dump_response);
+
+  memcpy(response, enc_msg.msg.st.data, len - 3);
+  *response_cmd = enc_msg.msg.st.cmd;
+  *response_len = len - 3;
 
 cleanup:
-
-  insecure_memzero(decrypted_data, sizeof(decrypted_data));
-
   aes_destroy(&aes_ctx);
-
   return yrc;
 }
 
@@ -712,7 +662,7 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
 
   // Send CREATE SESSION command
   msg.st.cmd = YHC_CREATE_SESSION;
-  msg.st.len = SCP_AUTHKEY_ID_LEN + SCP_HOST_CHAL_LEN;
+  msg.st.len = htons(SCP_AUTHKEY_ID_LEN + SCP_HOST_CHAL_LEN);
 
   uint16_t authkey_id_n = htons(authkey_id);
   memcpy(msg.st.data, &authkey_id_n, SCP_AUTHKEY_ID_LEN);
@@ -725,6 +675,8 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
   if (yrc != YHR_SUCCESS) {
     goto cs_failure;
   }
+
+  response_msg.st.len = ntohs(response_msg.st.len);
 
   // Parse response
   if (response_msg.st.cmd != YHC_CREATE_SESSION_R) {
@@ -845,7 +797,7 @@ yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
 
   // Send CREATE SESSION command
   msg.st.cmd = YHC_CREATE_SESSION;
-  msg.st.len = SCP_AUTHKEY_ID_LEN + SCP_HOST_CHAL_LEN;
+  msg.st.len = htons(SCP_AUTHKEY_ID_LEN + SCP_HOST_CHAL_LEN);
 
   uint16_t authkey_id_n = htons(authkey_id);
   memcpy(msg.st.data, &authkey_id_n, SCP_AUTHKEY_ID_LEN);
@@ -877,7 +829,8 @@ yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
     goto bcse_failure;
   }
 
-  if (response_msg.st.len != 1 + SCP_CARD_CHAL_LEN + SCP_CARD_CRYPTO_LEN) {
+  if (ntohs(response_msg.st.len) !=
+      1 + SCP_CARD_CHAL_LEN + SCP_CARD_CRYPTO_LEN) {
     yrc = YHR_WRONG_LENGTH;
     goto bcse_failure;
   }
@@ -1171,7 +1124,7 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
 
   // Send CREATE SESSION command
   msg.st.cmd = YHC_CREATE_SESSION;
-  msg.st.len = sizeof(authkey_id_n) + sizeof(epk_oce);
+  msg.st.len = htons(sizeof(authkey_id_n) + sizeof(epk_oce));
 
   memcpy(msg.st.data, &authkey_id_n, sizeof(authkey_id_n));
   memcpy(msg.st.data + sizeof(authkey_id_n), epk_oce, sizeof(epk_oce));
@@ -3317,7 +3270,7 @@ yh_rc yh_authenticate_session(yh_session *session) {
 
   // Send AUTHENTICATE SESSION command
   msg.st.cmd = YHC_AUTHENTICATE_SESSION;
-  msg.st.len = 1 + SCP_HOST_CRYPTO_LEN + SCP_MAC_LEN;
+  msg.st.len = htons(1 + SCP_HOST_CRYPTO_LEN + SCP_MAC_LEN);
 
   msg.st.data[0] = session->s.sid;
 
@@ -3330,11 +3283,9 @@ yh_rc yh_authenticate_session(yh_session *session) {
 
   DBG_INT(msg.st.data + 1, SCP_HOST_CRYPTO_LEN, "Host cryptogram: ");
 
-  mac_buf_len = SCP_PRF_LEN + msg.st.len + 3 - SCP_MAC_LEN;
+  mac_buf_len = SCP_PRF_LEN + ntohs(msg.st.len) + 3 - SCP_MAC_LEN;
   memset(mac_buf, 0, SCP_PRF_LEN); // Initial mac chaining value
-  msg.st.len = htons(msg.st.len);
   memcpy(mac_buf + SCP_PRF_LEN, msg.raw, mac_buf_len);
-  msg.st.len = ntohs(msg.st.len);
 
   yrc = compute_full_mac(mac_buf, mac_buf_len, session->s.s_mac, SCP_KEY_LEN,
                          session->s.mac_chaining_value);
