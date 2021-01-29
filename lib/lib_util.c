@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <arpa/inet.h>
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
