@@ -111,10 +111,23 @@ int main(void) {
          "%04x\n",
          session_id, key_id);
 
+  printf("Trying to get log entries\n");
+
+  uint16_t unlogged_boot, unlogged_auth;
+  yh_log_entry logs[YH_MAX_LOG_ENTRIES];
+  size_t n_items = sizeof(logs) / sizeof(yh_log_entry);
+
+  yrc = yh_util_get_log_entries(session, &unlogged_boot, &unlogged_auth, logs,
+                                &n_items);
+  assert(yrc == YHR_SUCCESS);
+
+  printf("Got %zu log entries: %s\n", n_items, yh_strerror(yrc));
+
   printf("Trying to get 16 bytes of random data\n");
 
   uint8_t data[16];
   size_t data_len = sizeof(data);
+
   yrc = yh_util_get_pseudo_random(session, 16, data, &data_len);
   assert(yrc == YHR_DEVICE_INSUFFICIENT_PERMISSIONS);
 

@@ -121,7 +121,11 @@ int main(void) {
                                      sizeof(pk_oce));
   assert(yrc == YHR_SUCCESS);
 
-  yh_capabilities caps = {{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}};
+  yh_capabilities caps = {{0}};
+  yrc = yh_string_to_capabilities("change-authentication-key,get-pseudo-random",
+                                  &caps);
+  assert(yrc == YHR_SUCCESS);
+
   // The public key is imported without the uncompressed point marker (value
   // 0x04), so skip the first byte
   yrc = yh_util_import_authentication_key(session, &authkey, "EC Auth Key",
@@ -150,6 +154,11 @@ int main(void) {
   assert(yrc == YHR_SUCCESS);
 
   printf("Successfully established session %02d\n", session_id);
+
+  uint8_t buf[32];
+  size_t buf_len = sizeof(buf);
+  yrc = yh_util_get_pseudo_random(session, buf_len, buf, &buf_len);
+  assert(yrc == YHR_SUCCESS);
 
   printf("Send a secure echo command\n");
 
@@ -190,6 +199,10 @@ int main(void) {
 
   yrc = yh_create_session_asym(connector, authkey, sk_oce, sizeof(sk_oce),
                                pk_sd, pk_sd_len, &session);
+  assert(yrc == YHR_SUCCESS);
+
+  buf_len = sizeof(buf);
+  yrc = yh_util_get_pseudo_random(session, buf_len, buf, &buf_len);
   assert(yrc == YHR_SUCCESS);
 
   yrc = yh_util_close_session(session);
