@@ -20,6 +20,10 @@ elseif (NOT MSVC)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE -pie")
 endif ()
 
+if(MSVC)
+  set(ADDITIONAL_LIBRARY ws2_32)
+endif(MSVC)
+
 set (
   SOURCE_PARSING
   test_parsing.c
@@ -39,7 +43,6 @@ set (
   )
 if(MSVC)
   set(SOURCE_USB_URL ${SOURCE_USB_URL} ../../common/time_win.c)
-  set(ADDITIONAL_LIBRARY ws2_32)
 endif(MSVC)
 set (
   SOURCE_UTIL
@@ -48,7 +51,6 @@ set (
   )
 if(MSVC)
   set(SOURCE_UTIL ${SOURCE_UTIL} ../../common/time_win.c)
-  set(ADDITIONAL_LIBRARY ws2_32)
 endif(MSVC)
 include_directories (
   ${CMAKE_CURRENT_SOURCE_DIR}/../lib
@@ -72,3 +74,7 @@ target_link_libraries (
   # this doesn't really need libyubihsm, needs openssl/windows whatever
   yubihsm
   )
+
+target_link_libraries (test_usb_url ${ADDITIONAL_LIBRARY})
+
+target_link_libraries (test_util ${ADDITIONAL_LIBRARY})
