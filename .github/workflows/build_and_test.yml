@@ -131,6 +131,7 @@ jobs:
         elif [ "$OS" = "ubuntu-16.04" ]; then
           export CRYPTOGRAPHY_ALLOW_OPENSSL_102="1"
         fi
+        pip3 install --upgrade pip==20.3.4
         python3 -m pip install 'pykcs11' 'cryptography>=1.4.0'
         python3 setup.py test
         popd
