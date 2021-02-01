@@ -14,12 +14,6 @@
  * limitations under the License.
  */
 
-#ifdef __WIN32
-#include <winsock.h>
-#else
-#include <arpa/inet.h>
-#endif
-
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -29,6 +23,12 @@
 #include "yubihsm.h"
 #include "internal.h"
 #include "debug_lib.h"
+
+#ifdef __WIN32
+#include <winsock.h>
+#else
+#include <arpa/inet.h>
+#endif
 
 #define STATUS_STR "status="
 #define VERSION_STR "version="
