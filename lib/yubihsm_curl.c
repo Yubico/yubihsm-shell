@@ -199,9 +199,6 @@ sm_failure:
     DBG_ERR("Curl perform failed: '%s'", curl_easy_strerror(rc));
   }
 
-  // Clear response length
-  response->st.len = 0;
-
   return yrc;
 }
 
