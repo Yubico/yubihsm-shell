@@ -319,7 +319,7 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
     goto cleanup;
   }
 
-  yrc = compute_full_mac(enc_msg.mac_chaining_value, len + (SCP_PRF_LEN + 4),
+  yrc = compute_full_mac(enc_msg.mac_chaining_value, len + SCP_PRF_LEN + 4,
                          session->s.s_mac, SCP_KEY_LEN,
                          session->s.mac_chaining_value);
   if (yrc != YHR_SUCCESS) {
@@ -409,6 +409,8 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
 
 cleanup:
   aes_destroy(&aes_ctx);
+  insecure_memzero(&msg, sizeof(msg));
+  insecure_memzero(&enc_msg, sizeof(enc_msg));
   return yrc;
 }
 
