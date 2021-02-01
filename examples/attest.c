@@ -293,7 +293,6 @@ int main(void) {
   }
 
   assert(X509_verify(x509, attesting_key));
-  assert(X509_verify(x509, X509_get0_pubkey(x509)));
 
 #ifdef ATTEST_DEVICE_PUBKEY
 
