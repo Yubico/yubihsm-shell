@@ -387,13 +387,12 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
           yrc = YHR_CONNECTOR_ERROR;
         } else {
           WinHttpCloseHandle(context->req);
-          response->st.len = ntohs(response->st.len);
-          if (response->st.len + 3 == context->len) {
+          if (ntohs(response->st.len) + 3 == context->len) {
             new_stage = REQUEST_SUCCESS;
             yrc = YHR_SUCCESS;
           } else {
-            DBG_ERR("Wrong length received, %d vs %d", response->st.len + 3,
-                    context->len);
+            DBG_ERR("Wrong length received, %d vs %d",
+                    ntohs(response->st.len) + 3, context->len);
             new_stage = REQUEST_ERROR;
             yrc = YHR_WRONG_LENGTH;
           }
