@@ -39,6 +39,7 @@ set (
   )
 if(MSVC)
   set(SOURCE_USB_URL ${SOURCE_USB_URL} ../../common/time_win.c)
+  set(ADDITIONAL_LIBRARY ws2_32)
 endif(MSVC)
 set (
   SOURCE_UTIL
@@ -47,6 +48,7 @@ set (
   )
 if(MSVC)
   set(SOURCE_UTIL ${SOURCE_UTIL} ../../common/time_win.c)
+  set(ADDITIONAL_LIBRARY ws2_32)
 endif(MSVC)
 include_directories (
   ${CMAKE_CURRENT_SOURCE_DIR}/../lib
