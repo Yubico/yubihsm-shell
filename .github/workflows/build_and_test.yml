@@ -25,13 +25,6 @@ jobs:
             cc: clang-10
             libext: so
             test: true
-          - os: ubuntu-16.04
-            cc: gcc-5
-            libext: so
-            test: true
-          - os: ubuntu-16.04
-            cc: clang-8
-            libext: so
           - os: macos-latest
             cc: clang
             libext: dylib
