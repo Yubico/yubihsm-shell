@@ -24,6 +24,7 @@ option "cacert" - "Cacert to use for HTTPS validation" string optional
 option "cert" - "HTTPS client certificate to authenticate with" string optional
 option "key" - "HTTPS client certificate key" string optional
 option "proxy" - "Proxy server to use for connector" string optional
+option "noproxy" - "Comma separated list of hosts ignore proxy for" string optional
 option "timeout" - "Timeout to use for initial connection to connector" int optional default="5"
 option "device-pubkey" - "List of device public keys allowed for asymmetric authentication" string optional multiple
 

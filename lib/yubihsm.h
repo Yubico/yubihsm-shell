@@ -524,6 +524,9 @@ typedef enum {
   /// File with client certificates key (const char *).
   /// Not implemented on Windows
   YH_CONNECTOR_HTTPS_KEY = 4,
+  /// Comma separated list of hosts ignoring proxy, `*` to disable proxy.
+  /// Not implemented on Windows
+  YH_CONNECTOR_NOPROXY = 5,
 } yh_connector_option;
 
 #pragma pack(push, 1)

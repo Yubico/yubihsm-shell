@@ -296,6 +296,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
         goto c_i_failure;
       }
     }
+    if (args_info.noproxy_given) {
+      if (yh_set_connector_option(connector_list[i], YH_CONNECTOR_NOPROXY,
+                                  args_info.noproxy_arg) != YHR_SUCCESS) {
+        DBG_ERR("Failed to set noproxy option");
+	goto c_i_failure;
+      }
+    }
 
     if (yh_connect(connector_list[i], args_info.timeout_arg) != YHR_SUCCESS) {
       DBG_ERR("Failed to connect '%s'", args_info.connector_arg[i]);
