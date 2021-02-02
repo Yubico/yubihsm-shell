@@ -271,8 +271,11 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
     return YHR_INVALID_PARAMETERS;
   }
 
-  // Check length for the worst case
-  if (4 + data_len + SCP_PRF_LEN > SCP_MSG_BUF_SIZE) {
+  uint16_t len = 3 + data_len;
+  aes_add_padding(NULL, &len);
+
+  // Encrypted message { sid | padded len | mac }
+  if (1 + len + SCP_MAC_LEN > SCP_MSG_BUF_SIZE) {
     DBG_ERR("%s", yh_strerror(YHR_BUFFER_TOO_SMALL));
     return YHR_BUFFER_TOO_SMALL;
   }
@@ -288,7 +291,7 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
 
   DBG_NET(&msg.msg, dump_msg);
 
-  uint16_t len = data_len + 3;
+  len = 3 + data_len;
   aes_add_padding(msg.msg.raw, &len);
 
   aes_context aes_ctx;
@@ -299,7 +302,7 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
   }
 
   yh_rc yrc = YHR_SUCCESS;
-  uint8_t encrypted_ctr[SCP_PRF_LEN];
+  uint8_t encrypted_ctr[AES_BLOCK_SIZE];
   if (aes_encrypt(session->s.ctr, encrypted_ctr, &aes_ctx)) {
     DBG_ERR("aes_encrypt %s", yh_strerror(YHR_GENERIC_ERROR));
     yrc = YHR_GENERIC_ERROR;
@@ -350,7 +353,7 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
   }
 
   // The minimum message is { sid | 1 aes block | mac }
-  if (ntohs(msg.msg.st.len) < 1 + SCP_PRF_LEN + SCP_MAC_LEN) {
+  if (ntohs(msg.msg.st.len) < 1 + AES_BLOCK_SIZE + SCP_MAC_LEN) {
     DBG_ERR("%s", yh_strerror(YHR_BUFFER_TOO_SMALL));
     yrc = YHR_BUFFER_TOO_SMALL;
     goto cleanup;

@@ -383,9 +383,15 @@ int aes_cbc_decrypt(uint8_t *in, uint8_t *out, uint16_t len, uint8_t *iv,
 
 void aes_add_padding(uint8_t *in, uint16_t *len) {
 
-  in[(*len)++] = 0x80;
+  if (in) {
+    in[*len] = 0x80;
+  }
+  (*len)++;
   while ((*len) % AES_BLOCK_SIZE != 0) {
-    in[(*len)++] = 0x00;
+    if (in) {
+      in[*len] = 0x00;
+    }
+    (*len)++;
   }
 }
 
