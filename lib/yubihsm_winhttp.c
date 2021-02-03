@@ -238,6 +238,16 @@ static yh_rc backend_send_msg(yh_backend *backend, Msg *msg, Msg *response,
 
   WinHttpCloseHandle(request);
 
+  if (offs < 3) {
+    DBG_ERR("Not enough data received; %lu", offs);
+    return YHR_WRONG_LENGTH;
+  }
+
+  if (ntohs(response->st.len) != offs - 3) {
+    DBG_ERR("Wrong length received, %d vs %lu", ntohs(response->st.len), offs);
+    return YHR_WRONG_LENGTH;
+  }
+
   return YHR_SUCCESS;
 }
 
