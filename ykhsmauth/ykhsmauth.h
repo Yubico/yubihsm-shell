@@ -113,15 +113,15 @@ ykhsmauth_rc ykhsmauth_disconnect(ykhsmauth_state *state);
 ykhsmauth_rc ykhsmauth_get_version(ykhsmauth_state *state, char *version,
                                    size_t len);
 
-ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *authkey,
-                           size_t authkey_len, const char *name, uint8_t algo,
+ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *mgmkey,
+                           size_t mgmkey_len, const char *label, uint8_t algo,
                            const uint8_t *key, size_t key_len,
                            const uint8_t *pw, size_t pw_len,
                            const uint8_t touch_policy, uint8_t *retries);
 
-ykhsmauth_rc ykhsmauth_delete(ykhsmauth_state *state, uint8_t *authkey,
-                              size_t authkey_len, char *name, uint8_t *retries);
-ykhsmauth_rc ykhsmauth_calculate(ykhsmauth_state *state, const char *name,
+ykhsmauth_rc ykhsmauth_delete(ykhsmauth_state *state, uint8_t *mgmkey,
+                              size_t mgmkey_len, char *label, uint8_t *retries);
+ykhsmauth_rc ykhsmauth_calculate(ykhsmauth_state *state, const char *label,
                                  uint8_t *context, size_t context_len,
                                  const uint8_t *pw, size_t pw_len,
                                  uint8_t *key_s_enc, size_t key_s_enc_len,
@@ -133,11 +133,11 @@ ykhsmauth_rc ykhsmauth_list_keys(ykhsmauth_state *state,
                                  ykhsmauth_list_entry *list,
                                  size_t *list_items);
 ykhsmauth_rc ykhsmauth_get_challenge(ykhsmauth_state *state);
-ykhsmauth_rc ykhsmauth_get_authkey_retries(ykhsmauth_state *state,
-                                           uint8_t *retries);
-ykhsmauth_rc ykhsmauth_put_authkey(ykhsmauth_state *state, uint8_t *authkey,
-                                   size_t authkey_len, uint8_t *new_authkey,
-                                   size_t new_authkey_len, uint8_t *retries);
+ykhsmauth_rc ykhsmauth_get_mgmkey_retries(ykhsmauth_state *state,
+                                          uint8_t *retries);
+ykhsmauth_rc ykhsmauth_put_mgmkey(ykhsmauth_state *state, uint8_t *mgmkey,
+                                  size_t mgmkey_len, uint8_t *new_mgmkey,
+                                  size_t new_mgmkey_len, uint8_t *retries);
 
 #ifdef __cplusplus
 }
