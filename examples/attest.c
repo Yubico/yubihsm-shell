@@ -29,6 +29,7 @@
 #include <yubihsm.h>
 
 #include "openssl-compat.h"
+#include "util.h"
 
 #ifndef DEFAULT_CONNECTOR_URL
 #define DEFAULT_CONNECTOR_URL "http://127.0.0.1:12345"
@@ -157,6 +158,38 @@ int main(void) {
 
   printf("Generated attesting key with ID %04x\n", attesting_key_id);
 
+  uint8_t public_key[256];
+  size_t public_key_len = sizeof(public_key) - 1;
+  yh_algorithm algo;
+
+  yrc = yh_util_get_public_key(session, attesting_key_id, public_key + 1,
+                               &public_key_len, &algo);
+  assert(yrc == YHR_SUCCESS);
+
+  public_key[0] = 0x04; // hack to make it a valid ec pubkey..
+  public_key_len++;
+
+  int nid = algo2nid(algo);
+  assert(nid);
+  EC_GROUP *group = EC_GROUP_new_by_curve_name(nid);
+  assert(group != NULL);
+  EC_GROUP_set_asn1_flag(group, nid);
+
+  EC_POINT *point = EC_POINT_new(group);
+  assert(point != NULL);
+  assert(EC_POINT_oct2point(group, point, public_key, public_key_len, NULL));
+
+  EC_KEY *eckey = EC_KEY_new();
+  assert(eckey != NULL);
+  assert(EC_KEY_set_group(eckey, group));
+  assert(EC_KEY_set_public_key(eckey, point));
+
+  EVP_PKEY *attesting_key = EVP_PKEY_new();
+  assert(attesting_key != NULL);
+  assert(EVP_PKEY_set1_EC_KEY(attesting_key, eckey) == 1);
+
+  EC_KEY_free(eckey);
+
   FILE *fp = fopen(attestation_template_file, "rb");
   assert(fp != NULL);
 
@@ -224,14 +257,79 @@ int main(void) {
   assert(sk_X509_EXTENSION_num(extensions_list) >= 6);
 
   for (int i = 0; i < sk_X509_EXTENSION_num(extensions_list); i++) {
-    X509_EXTENSION *extension;
-
-    extension = sk_X509_EXTENSION_value(extensions_list, i);
-
+    X509_EXTENSION *extension = sk_X509_EXTENSION_value(extensions_list, i);
     print_extension(extension);
   }
 
+  assert(X509_verify(x509, attesting_key));
+
   X509_free(x509);
+
+  attestation_len = sizeof(attestation);
+
+  yrc = yh_util_sign_attestation_certificate(session, attesting_key_id,
+                                             attesting_key_id, attestation,
+                                             &attestation_len);
+
+  assert(yrc == YHR_SUCCESS);
+
+  ptr = attestation;
+
+  x509 = d2i_X509(NULL, &ptr, attestation_len);
+  assert(x509 != NULL);
+
+  STDout = BIO_new_fp(stdout, BIO_NOCLOSE);
+
+  X509_print_ex(STDout, x509, 0, 0);
+
+  BIO_free(STDout);
+
+  extensions_list = X509_get0_extensions(x509);
+  assert(sk_X509_EXTENSION_num(extensions_list) >= 6);
+
+  for (int i = 0; i < sk_X509_EXTENSION_num(extensions_list); i++) {
+    X509_EXTENSION *extension = sk_X509_EXTENSION_value(extensions_list, i);
+    print_extension(extension);
+  }
+
+  assert(X509_verify(x509, attesting_key));
+
+#ifdef ATTEST_DEVICE_PUBKEY
+
+  X509_free(x509);
+
+  attestation_len = sizeof(attestation);
+
+  yrc = yh_util_sign_attestation_certificate(session, 0, attesting_key_id,
+                                             attestation, &attestation_len);
+
+  assert(yrc == YHR_SUCCESS);
+
+  ptr = attestation;
+
+  x509 = d2i_X509(NULL, &ptr, attestation_len);
+  assert(x509 != NULL);
+
+  STDout = BIO_new_fp(stdout, BIO_NOCLOSE);
+
+  X509_print_ex(STDout, x509, 0, 0);
+
+  BIO_free(STDout);
+
+  extensions_list = X509_get0_extensions(x509);
+  assert(sk_X509_EXTENSION_num(extensions_list) >= 6);
+
+  for (int i = 0; i < sk_X509_EXTENSION_num(extensions_list); i++) {
+    X509_EXTENSION *extension = sk_X509_EXTENSION_value(extensions_list, i);
+    print_extension(extension);
+  }
+
+  assert(X509_verify(x509, attesting_key));
+
+#endif
+
+  X509_free(x509);
+  EVP_PKEY_free(attesting_key);
 
   yrc = yh_util_close_session(session);
   assert(yrc == YHR_SUCCESS);

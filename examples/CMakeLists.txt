@@ -69,6 +69,8 @@ set (
 set (
   SOURCE_ATTEST
   attest.c
+  ../common/util.c
+  ../common/hash.c
   ../common/openssl-compat.c
   )
 
