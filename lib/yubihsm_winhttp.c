@@ -156,6 +156,26 @@ static yh_rc backend_connect(yh_connector *connector, int timeout) {
     return YHR_CONNECTOR_ERROR;
   }
 
+  DWORD dwStatusCode, dwSize = sizeof(dwStatusCode);
+
+  if (!WinHttpQueryHeaders(request,
+                           WINHTTP_QUERY_STATUS_CODE |
+                             WINHTTP_QUERY_FLAG_NUMBER,
+                           WINHTTP_HEADER_NAME_BY_INDEX, &dwStatusCode, &dwSize,
+                           WINHTTP_NO_HEADER_INDEX)) {
+    DBG_ERR("Failed retrieveing status code from %s",
+            backend->connector->status_url);
+    WinHttpCloseHandle(request);
+    return YHR_CONNECTOR_ERROR;
+  }
+
+  if (dwStatusCode != 200) {
+    DBG_ERR("Invalid status code %u received from %s", dwStatusCode,
+            backend->connector->status_url);
+    WinHttpCloseHandle(request);
+    return YHR_CONNECTOR_ERROR;
+  }
+
   char buf[256];
   DWORD offs = 0, bytes;
   while (WinHttpReadData(request, buf + offs, sizeof(buf) - offs, &bytes)) {
@@ -220,6 +240,26 @@ static yh_rc backend_send_msg(yh_backend *backend, Msg *msg, Msg *response,
 
   if (!WinHttpReceiveResponse(request, 0)) {
     DBG_ERR("Failed receiving response from %s", backend->connector->api_url);
+    WinHttpCloseHandle(request);
+    return YHR_CONNECTOR_ERROR;
+  }
+
+  DWORD dwStatusCode, dwSize = sizeof(dwStatusCode);
+
+  if (!WinHttpQueryHeaders(request,
+                           WINHTTP_QUERY_STATUS_CODE |
+                             WINHTTP_QUERY_FLAG_NUMBER,
+                           WINHTTP_HEADER_NAME_BY_INDEX, &dwStatusCode, &dwSize,
+                           WINHTTP_NO_HEADER_INDEX)) {
+    DBG_ERR("Failed retrieveing status code from %s",
+            backend->connector->api_url);
+    WinHttpCloseHandle(request);
+    return YHR_CONNECTOR_ERROR;
+  }
+
+  if (dwStatusCode != 200) {
+    DBG_ERR("Invalid status code %u received from %s", dwStatusCode,
+            backend->connector->api_url);
     WinHttpCloseHandle(request);
     return YHR_CONNECTOR_ERROR;
   }
