@@ -14,11 +14,11 @@
 # limitations under the License.
 #
 
-option "action" a "Action to take" values="calculate", "change", "delete", "list", "put", "reset", "retries", "version" enum optional
-option "authkey" k "Authentication key" string optional default="00000000000000000000000000000000"
-option "newkey" K "New authentication key" string optional default=""
-option "password" p "Credential password" string optional default=""
-option "name" n "Credential name" string optional default=""
+option "action" a "Action to perform" values="calculate", "change-mgmkey", "delete", "list", "put", "reset", "retries", "version" enum optional
+option "mgmkey" k "Management key is required to put and delete credentials. Sometimes, this key is also referenced as 'Admin Access Code'" string optional default="00000000000000000000000000000000"
+option "new-mgmkey" K "New management key" string optional default=""
+option "credpwd" p "Credential password is used to access the credential when logging into the YubiHSM2. Sometimes, this password is also referenced as 'User Access Code'" string optional default=""
+option "label" l "Credential label" string optional default=""
 option "reader" r "Only use a matching reader" string optional default="Yubikey"
 option "touch" t "Touch required" values="off","on" enum optional default="off"
 option "context" c "Session keys calculation context" string optional default=""

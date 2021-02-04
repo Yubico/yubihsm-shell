@@ -34,8 +34,8 @@ extern "C" {
 #define YKHSMAUTH_INS_LIST 0x05
 #define YKHSMAUTH_INS_RESET 0x06
 #define YKHSMAUTH_INS_GET_VERSION 0x07
-#define YKHSMAUTH_INS_PUT_AUTHKEY 0x08
-#define YKHSMAUTH_INS_GET_AUTHKEY_RETRIES 0x09
+#define YKHSMAUTH_INS_PUT_MGMKEY 0x08
+#define YKHSMAUTH_INS_GET_MGMKEY_RETRIES 0x09
 
 // P1 bytes
 #define YKHSMAUTH_P1_RESET 0xde
@@ -44,8 +44,8 @@ extern "C" {
 #define YKHSMAUTH_P2_RESET 0xad
 
 // Tag codes
-#define YKHSMAUTH_TAG_NAME 0x71
-#define YKHSMAUTH_TAG_NAME_LIST 0x72
+#define YKHSMAUTH_TAG_LABEL 0x71
+#define YKHSMAUTH_TAG_LABEL_LIST 0x72
 #define YKHSMAUTH_TAG_PW 0x73
 #define YKHSMAUTH_TAG_ALGO 0x74
 #define YKHSMAUTH_TAG_KEY_ENC 0x75
@@ -54,7 +54,7 @@ extern "C" {
 #define YKHSMAUTH_TAG_RESPONSE 0x78
 #define YKHSMAUTH_TAG_VERSION 0x79
 #define YKHSMAUTH_TAG_TOUCH 0x7a
-#define YKHSMAUTH_TAG_AUTHKEY 0x7b
+#define YKHSMAUTH_TAG_MGMKEY 0x7b
 
 // Algos
 #define YKHSMAUTH_YUBICO_AES128_ALGO 38
@@ -68,8 +68,8 @@ extern "C" {
 #define SW_SECURITY_STATUS_NOT_SATISFIED 0x6982
 
 // Lengths
-#define YKHSMAUTH_MIN_NAME_LEN 1
-#define YKHSMAUTH_MAX_NAME_LEN 64
+#define YKHSMAUTH_MIN_LABEL_LEN 1
+#define YKHSMAUTH_MAX_LABEL_LEN 64
 #define YKHSMAUTH_SESSION_KEY_LEN 16
 #define YKHSMAUTH_YUBICO_AES128_KEY_LEN 32
 #define YKHSMAUTH_PW_LEN 16
@@ -96,7 +96,7 @@ typedef enum {
 typedef struct {
   uint8_t algo;
   uint8_t touch;
-  char name[YKHSMAUTH_MAX_NAME_LEN + 1];
+  char label[YKHSMAUTH_MAX_LABEL_LEN + 1];
   uint8_t ctr;
 } ykhsmauth_list_entry;
 
@@ -113,15 +113,15 @@ ykhsmauth_rc ykhsmauth_disconnect(ykhsmauth_state *state);
 ykhsmauth_rc ykhsmauth_get_version(ykhsmauth_state *state, char *version,
                                    size_t len);
 
-ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *authkey,
-                           size_t authkey_len, const char *name, uint8_t algo,
+ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *mgmkey,
+                           size_t mgmkey_len, const char *label, uint8_t algo,
                            const uint8_t *key, size_t key_len,
                            const uint8_t *pw, size_t pw_len,
                            const uint8_t touch_policy, uint8_t *retries);
 
-ykhsmauth_rc ykhsmauth_delete(ykhsmauth_state *state, uint8_t *authkey,
-                              size_t authkey_len, char *name, uint8_t *retries);
-ykhsmauth_rc ykhsmauth_calculate(ykhsmauth_state *state, const char *name,
+ykhsmauth_rc ykhsmauth_delete(ykhsmauth_state *state, uint8_t *mgmkey,
+                              size_t mgmkey_len, char *label, uint8_t *retries);
+ykhsmauth_rc ykhsmauth_calculate(ykhsmauth_state *state, const char *label,
                                  uint8_t *context, size_t context_len,
                                  const uint8_t *pw, size_t pw_len,
                                  uint8_t *key_s_enc, size_t key_s_enc_len,
@@ -133,11 +133,11 @@ ykhsmauth_rc ykhsmauth_list_keys(ykhsmauth_state *state,
                                  ykhsmauth_list_entry *list,
                                  size_t *list_items);
 ykhsmauth_rc ykhsmauth_get_challenge(ykhsmauth_state *state);
-ykhsmauth_rc ykhsmauth_get_authkey_retries(ykhsmauth_state *state,
-                                           uint8_t *retries);
-ykhsmauth_rc ykhsmauth_put_authkey(ykhsmauth_state *state, uint8_t *authkey,
-                                   size_t authkey_len, uint8_t *new_authkey,
-                                   size_t new_authkey_len, uint8_t *retries);
+ykhsmauth_rc ykhsmauth_get_mgmkey_retries(ykhsmauth_state *state,
+                                          uint8_t *retries);
+ykhsmauth_rc ykhsmauth_put_mgmkey(ykhsmauth_state *state, uint8_t *mgmkey,
+                                  size_t mgmkey_len, uint8_t *new_mgmkey,
+                                  size_t new_mgmkey_len, uint8_t *retries);
 
 #ifdef __cplusplus
 }

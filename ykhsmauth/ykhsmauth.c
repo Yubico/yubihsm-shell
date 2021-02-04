@@ -326,10 +326,10 @@ ykhsmauth_rc ykhsmauth_get_version(ykhsmauth_state *state, char *version,
   }
 }
 
-ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *authkey,
-                           size_t authkey_len, const char *name, uint8_t algo,
+ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *mgmkey,
+                           size_t mgmkey_len, const char *label, uint8_t algo,
                            const uint8_t *key, size_t key_len,
-                           const uint8_t *pw, size_t pw_len,
+                           const uint8_t *cpw, size_t cpw_len,
                            const uint8_t touch_policy, uint8_t *retries) {
   APDU apdu;
   uint8_t *ptr = apdu.st.data;
@@ -337,10 +337,10 @@ ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *authkey,
   unsigned long recv_len = sizeof(data);
   int sw;
 
-  if (state == NULL || authkey == NULL || authkey_len != YKHSMAUTH_PW_LEN ||
-      name == NULL || strlen(name) < YKHSMAUTH_MIN_NAME_LEN ||
-      strlen(name) > YKHSMAUTH_MAX_NAME_LEN || key == NULL || pw == NULL ||
-      pw_len > YKHSMAUTH_PW_LEN) {
+  if (state == NULL || mgmkey == NULL || mgmkey_len != YKHSMAUTH_PW_LEN ||
+      label == NULL || strlen(label) < YKHSMAUTH_MIN_LABEL_LEN ||
+      strlen(label) > YKHSMAUTH_MAX_LABEL_LEN || key == NULL || cpw == NULL ||
+      cpw_len > YKHSMAUTH_PW_LEN) {
     return YKHSMAUTHR_INVALID_PARAMS;
   }
 
@@ -358,21 +358,21 @@ ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *authkey,
   memset(apdu.raw, 0, sizeof(apdu));
   apdu.st.ins = YKHSMAUTH_INS_PUT;
 
-  *(ptr++) = YKHSMAUTH_TAG_AUTHKEY;
+  *(ptr++) = YKHSMAUTH_TAG_MGMKEY;
   apdu.st.lc++;
   *(ptr++) = 16;
   apdu.st.lc++;
-  memcpy(ptr, authkey, 16);
+  memcpy(ptr, mgmkey, 16);
   ptr += 16;
   apdu.st.lc += 16;
 
-  *(ptr++) = YKHSMAUTH_TAG_NAME;
+  *(ptr++) = YKHSMAUTH_TAG_LABEL;
   apdu.st.lc++;
-  *(ptr++) = strlen(name);
+  *(ptr++) = strlen(label);
   apdu.st.lc++;
-  memcpy(ptr, name, strlen(name));
-  ptr += strlen(name);
-  apdu.st.lc += strlen(name);
+  memcpy(ptr, label, strlen(label));
+  ptr += strlen(label);
+  apdu.st.lc += strlen(label);
 
   *(ptr++) = YKHSMAUTH_TAG_ALGO;
   apdu.st.lc++;
@@ -402,8 +402,8 @@ ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *authkey,
   apdu.st.lc++;
   *(ptr++) = YKHSMAUTH_PW_LEN;
   apdu.st.lc++;
-  memcpy(ptr, pw, pw_len);
-  memset(ptr + pw_len, 0, YKHSMAUTH_PW_LEN - pw_len);
+  memcpy(ptr, cpw, cpw_len);
+  memset(ptr + cpw_len, 0, YKHSMAUTH_PW_LEN - cpw_len);
   ptr += YKHSMAUTH_PW_LEN;
   apdu.st.lc += YKHSMAUTH_PW_LEN;
 
@@ -428,8 +428,8 @@ ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *authkey,
   return YKHSMAUTHR_SUCCESS;
 }
 
-ykhsmauth_rc ykhsmauth_delete(ykhsmauth_state *state, uint8_t *authkey,
-                              size_t authkey_len, char *name,
+ykhsmauth_rc ykhsmauth_delete(ykhsmauth_state *state, uint8_t *mgmkey,
+                              size_t mgmkey_len, char *label,
                               uint8_t *retries) {
   APDU apdu;
   uint8_t *ptr;
@@ -438,9 +438,9 @@ ykhsmauth_rc ykhsmauth_delete(ykhsmauth_state *state, uint8_t *authkey,
   int sw;
   ykhsmauth_rc rc;
 
-  if (state == NULL || authkey == NULL || authkey_len != YKHSMAUTH_PW_LEN ||
-      name == NULL || strlen(name) < YKHSMAUTH_MIN_NAME_LEN ||
-      strlen(name) > YKHSMAUTH_MAX_NAME_LEN) {
+  if (state == NULL || mgmkey == NULL || mgmkey_len != YKHSMAUTH_PW_LEN ||
+      label == NULL || strlen(label) < YKHSMAUTH_MIN_LABEL_LEN ||
+      strlen(label) > YKHSMAUTH_MAX_LABEL_LEN) {
     return YKHSMAUTHR_INVALID_PARAMS;
   }
 
@@ -449,28 +449,28 @@ ykhsmauth_rc ykhsmauth_delete(ykhsmauth_state *state, uint8_t *authkey,
 
   ptr = apdu.st.data;
 
-  *(ptr++) = YKHSMAUTH_TAG_AUTHKEY;
+  *(ptr++) = YKHSMAUTH_TAG_MGMKEY;
   apdu.st.lc++;
   *(ptr++) = 16;
   apdu.st.lc++;
-  memcpy(ptr, authkey, 16);
+  memcpy(ptr, mgmkey, 16);
   ptr += 16;
   apdu.st.lc += 16;
 
-  *(ptr++) = YKHSMAUTH_TAG_NAME;
+  *(ptr++) = YKHSMAUTH_TAG_LABEL;
   apdu.st.lc++;
-  *(ptr++) = strlen(name);
+  *(ptr++) = strlen(label);
   apdu.st.lc++;
-  memcpy(ptr, name, strlen(name));
-  ptr += strlen(name);
-  apdu.st.lc += strlen(name);
+  memcpy(ptr, label, strlen(label));
+  ptr += strlen(label);
+  apdu.st.lc += strlen(label);
 
   rc = send_data(state, &apdu, data, &recv_len, &sw);
   if (rc != YKHSMAUTHR_SUCCESS) {
     return rc;
   } else if (sw != SW_SUCCESS) {
     if (state->verbose) {
-      fprintf(stderr, "Unable to delete key: %04x\n", sw);
+      fprintf(stderr, "Unable to delete credential: %04x\n", sw);
     }
 
     return translate_error(sw, retries);
@@ -479,7 +479,7 @@ ykhsmauth_rc ykhsmauth_delete(ykhsmauth_state *state, uint8_t *authkey,
   return YKHSMAUTHR_SUCCESS;
 }
 
-ykhsmauth_rc ykhsmauth_calculate(ykhsmauth_state *state, const char *name,
+ykhsmauth_rc ykhsmauth_calculate(ykhsmauth_state *state, const char *label,
                                  uint8_t *context, size_t context_len,
                                  const uint8_t *pw, size_t pw_len,
                                  uint8_t *key_s_enc, size_t key_s_enc_len,
@@ -494,8 +494,9 @@ ykhsmauth_rc ykhsmauth_calculate(ykhsmauth_state *state, const char *name,
   int sw;
   ykhsmauth_rc rc;
 
-  if (state == NULL || name == NULL || strlen(name) < YKHSMAUTH_MIN_NAME_LEN ||
-      strlen(name) > YKHSMAUTH_MAX_NAME_LEN || context == NULL ||
+  if (state == NULL || label == NULL ||
+      strlen(label) < YKHSMAUTH_MIN_LABEL_LEN ||
+      strlen(label) > YKHSMAUTH_MAX_LABEL_LEN || context == NULL ||
       context_len != YKHSMAUTH_CONTEXT_LEN || pw == NULL ||
       pw_len > YKHSMAUTH_PW_LEN || key_s_enc == NULL ||
       key_s_enc_len != YKHSMAUTH_SESSION_KEY_LEN || key_s_mac == NULL ||
@@ -509,13 +510,13 @@ ykhsmauth_rc ykhsmauth_calculate(ykhsmauth_state *state, const char *name,
 
   ptr = apdu.st.data;
 
-  *(ptr++) = YKHSMAUTH_TAG_NAME;
+  *(ptr++) = YKHSMAUTH_TAG_LABEL;
   apdu.st.lc++;
-  *(ptr++) = strlen(name);
+  *(ptr++) = strlen(label);
   apdu.st.lc++;
-  memcpy(ptr, name, strlen(name));
-  ptr += strlen(name);
-  apdu.st.lc += strlen(name);
+  memcpy(ptr, label, strlen(label));
+  ptr += strlen(label);
+  apdu.st.lc += strlen(label);
 
   *(ptr++) = YKHSMAUTH_TAG_CONTEXT;
   apdu.st.lc++;
@@ -625,13 +626,13 @@ ykhsmauth_rc ykhsmauth_list_keys(ykhsmauth_state *state,
 
   // i + 1 here guarantees we can read tag and len
   while (i + 1 < recv_len) {
-    if (data[i++] == YKHSMAUTH_TAG_NAME_LIST) {
+    if (data[i++] == YKHSMAUTH_TAG_LABEL_LIST) {
       size_t len = data[i++];
       if (list != NULL) {
         if (element >= *list_items) {
           return YKHSMAUTHR_MEMORY_ERROR;
         } else if (i + len > recv_len || len < 3 ||
-                   len - 3 > sizeof(list[element].name)) {
+                   len - 3 > sizeof(list[element].label)) {
           if (state->verbose) {
             fprintf(stderr,
                     "Length of element doesn't match expectations (%zu)\n",
@@ -642,8 +643,8 @@ ykhsmauth_rc ykhsmauth_list_keys(ykhsmauth_state *state,
 
         list[element].algo = data[i++];
         list[element].touch = data[i++];
-        memset(list[element].name, 0, sizeof(list[element].name));
-        memcpy(list[element].name, data + i, len - 3);
+        memset(list[element].label, 0, sizeof(list[element].label));
+        memcpy(list[element].label, data + i, len - 3);
         i += len - 3;
         list[element].ctr = data[i++];
       } else {
@@ -673,8 +674,8 @@ ykhsmauth_rc ykhsmauth_get_challenge(ykhsmauth_state *state) {
   return YKHSMAUTHR_SUCCESS;
 }
 
-ykhsmauth_rc ykhsmauth_get_authkey_retries(ykhsmauth_state *state,
-                                           uint8_t *retries) {
+ykhsmauth_rc ykhsmauth_get_mgmkey_retries(ykhsmauth_state *state,
+                                          uint8_t *retries) {
   APDU apdu;
   unsigned char data[261];
   unsigned long recv_len = sizeof(data);
@@ -686,13 +687,13 @@ ykhsmauth_rc ykhsmauth_get_authkey_retries(ykhsmauth_state *state,
   }
 
   memset(apdu.raw, 0, sizeof(apdu));
-  apdu.st.ins = YKHSMAUTH_INS_GET_AUTHKEY_RETRIES;
+  apdu.st.ins = YKHSMAUTH_INS_GET_MGMKEY_RETRIES;
   rc = send_data(state, &apdu, data, &recv_len, &sw);
   if (rc != YKHSMAUTHR_SUCCESS) {
     return rc;
   } else if (sw != SW_SUCCESS) {
     if (state->verbose) {
-      fprintf(stderr, "Unable to get Authentication key retries: %04x\n", sw);
+      fprintf(stderr, "Unable to get Management key retries: %04x\n", sw);
     }
 
     return translate_error(sw, NULL);
@@ -703,36 +704,36 @@ ykhsmauth_rc ykhsmauth_get_authkey_retries(ykhsmauth_state *state,
   return YKHSMAUTHR_SUCCESS;
 }
 
-ykhsmauth_rc ykhsmauth_put_authkey(ykhsmauth_state *state, uint8_t *authkey,
-                                   size_t authkey_len, uint8_t *new_authkey,
-                                   size_t new_authkey_len, uint8_t *retries) {
+ykhsmauth_rc ykhsmauth_put_mgmkey(ykhsmauth_state *state, uint8_t *mgmkey,
+                                  size_t mgmkey_len, uint8_t *new_mgmkey,
+                                  size_t new_mgmkey_len, uint8_t *retries) {
   APDU apdu;
   uint8_t *ptr = apdu.st.data;
   unsigned char data[261];
   unsigned long recv_len = sizeof(data);
   int sw;
 
-  if (state == NULL || authkey == NULL || authkey_len != YKHSMAUTH_PW_LEN ||
-      new_authkey == NULL || new_authkey_len != YKHSMAUTH_PW_LEN) {
+  if (state == NULL || mgmkey == NULL || mgmkey_len != YKHSMAUTH_PW_LEN ||
+      new_mgmkey == NULL || new_mgmkey_len != YKHSMAUTH_PW_LEN) {
     return YKHSMAUTHR_INVALID_PARAMS;
   }
 
   memset(apdu.raw, 0, sizeof(apdu));
-  apdu.st.ins = YKHSMAUTH_INS_PUT_AUTHKEY;
+  apdu.st.ins = YKHSMAUTH_INS_PUT_MGMKEY;
 
-  *(ptr++) = YKHSMAUTH_TAG_AUTHKEY;
+  *(ptr++) = YKHSMAUTH_TAG_MGMKEY;
   apdu.st.lc++;
   *(ptr++) = 16;
   apdu.st.lc++;
-  memcpy(ptr, authkey, 16);
+  memcpy(ptr, mgmkey, 16);
   ptr += 16;
   apdu.st.lc += 16;
 
-  *(ptr++) = YKHSMAUTH_TAG_AUTHKEY;
+  *(ptr++) = YKHSMAUTH_TAG_MGMKEY;
   apdu.st.lc++;
   *(ptr++) = 16;
   apdu.st.lc++;
-  memcpy(ptr, new_authkey, 16);
+  memcpy(ptr, new_mgmkey, 16);
   ptr += 16;
   apdu.st.lc += 16;
 
@@ -741,7 +742,7 @@ ykhsmauth_rc ykhsmauth_put_authkey(ykhsmauth_state *state, uint8_t *authkey,
     return rc;
   } else if (sw != SW_SUCCESS) {
     if (state->verbose) {
-      fprintf(stderr, "Unable to store Authentication key: %04x\n", sw);
+      fprintf(stderr, "Unable to store Management key: %04x\n", sw);
     }
 
     return translate_error(sw, retries);

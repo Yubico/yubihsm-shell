@@ -28,22 +28,22 @@
 
 #include "cmdline.h"
 
-static bool parse_name(const char *prompt, char *name, char *parsed,
-                       size_t *parsed_len) {
-  if (strlen(name) > *parsed_len) {
-    fprintf(stdout, "Unable to read name, buffer too small\n");
+static bool parse_label(const char *prompt, char *label, char *parsed,
+                        size_t *parsed_len) {
+  if (strlen(label) > *parsed_len) {
+    fprintf(stdout, "Unable to read label, buffer too small\n");
     return false;
   }
 
-  if (strlen(name) == 0) {
+  if (strlen(label) == 0) {
     if (read_string(prompt, parsed, *parsed_len, false) == false) {
       return false;
     }
   } else {
-    strcpy(parsed, name);
+    strcpy(parsed, label);
   }
 
-  *parsed_len = strlen(name);
+  *parsed_len = strlen(label);
 
   return true;
 }
@@ -152,26 +152,26 @@ static bool parse_touch_policy(enum enum_touch touch_policy,
   return true;
 }
 
-static bool delete_credential(ykhsmauth_state *state, char *authkey,
-                              char *name) {
+static bool delete_credential(ykhsmauth_state *state, char *mgmkey,
+                              char *label) {
   ykhsmauth_rc ykhsmauthrc;
-  uint8_t authkey_parsed[YKHSMAUTH_PW_LEN];
-  size_t authkey_parsed_len = sizeof(authkey_parsed);
-  char name_parsed[YKHSMAUTH_MAX_NAME_LEN + 2] = {0};
-  size_t name_parsed_len = sizeof(name_parsed);
+  uint8_t mgmkey_parsed[YKHSMAUTH_PW_LEN];
+  size_t mgmkey_parsed_len = sizeof(mgmkey_parsed);
+  char label_parsed[YKHSMAUTH_MAX_LABEL_LEN + 2] = {0};
+  size_t label_parsed_len = sizeof(label_parsed);
   uint8_t retries;
 
-  if (parse_key("Authentication key", authkey, authkey_parsed,
-                &authkey_parsed_len) == false) {
+  if (parse_key("Management key", mgmkey, mgmkey_parsed, &mgmkey_parsed_len) ==
+      false) {
     return false;
   }
 
-  if (parse_name("Name", name, name_parsed, &name_parsed_len) == false) {
+  if (parse_label("Label", label, label_parsed, &label_parsed_len) == false) {
     return false;
   }
 
-  ykhsmauthrc = ykhsmauth_delete(state, authkey_parsed, authkey_parsed_len,
-                                 name_parsed, &retries);
+  ykhsmauthrc = ykhsmauth_delete(state, mgmkey_parsed, mgmkey_parsed_len,
+                                 label_parsed, &retries);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Unable to delete credential: %s, %d retries left\n",
             ykhsmauth_strerror(ykhsmauthrc), retries);
@@ -201,40 +201,40 @@ static bool list_credentials(ykhsmauth_state *state) {
   }
 
   fprintf(stdout, "Found %zu item(s)\n", list_items);
-  fprintf(stdout, "Algo\tTouch\tCounter\tName\n");
+  fprintf(stdout, "Algo\tTouch\tCounter\tLabel\n");
 
   for (size_t i = 0; i < list_items; i++) {
     fprintf(stdout, "%d\t%d\t%d\t%s\n", list[i].algo, list[i].touch,
-            list[i].ctr, list[i].name);
+            list[i].ctr, list[i].label);
   }
 
   return true;
 }
 
-static bool put_credential(ykhsmauth_state *state, char *authkey, char *name,
+static bool put_credential(ykhsmauth_state *state, char *mgmkey, char *label,
                            char *derivation_password, char *key_enc,
-                           char *key_mac, char *password,
+                           char *key_mac, char *credpassword,
                            enum enum_touch touch_policy) {
   ykhsmauth_rc ykhsmauthrc;
-  uint8_t authkey_parsed[YKHSMAUTH_PW_LEN];
-  size_t authkey_parsed_len = sizeof(authkey_parsed);
-  char name_parsed[YKHSMAUTH_MAX_NAME_LEN + 2] = {0};
-  size_t name_parsed_len = sizeof(name_parsed);
+  uint8_t mgmkey_parsed[YKHSMAUTH_PW_LEN];
+  size_t mgmkey_parsed_len = sizeof(mgmkey_parsed);
+  char label_parsed[YKHSMAUTH_MAX_LABEL_LEN + 2] = {0};
+  size_t label_parsed_len = sizeof(label_parsed);
   uint8_t dpw_parsed[256] = {0};
   size_t dpw_parsed_len = sizeof(dpw_parsed);
   uint8_t key_parsed[YKHSMAUTH_YUBICO_AES128_KEY_LEN];
   size_t key_parsed_len = sizeof(key_parsed);
-  uint8_t pw_parsed[YKHSMAUTH_PW_LEN + 2] = {0};
-  size_t pw_parsed_len = sizeof(pw_parsed);
+  uint8_t cpw_parsed[YKHSMAUTH_PW_LEN + 2] = {0};
+  size_t cpw_parsed_len = sizeof(cpw_parsed);
   uint8_t touch_policy_parsed = 0;
   uint8_t retries;
 
-  if (parse_key("Authentication key", authkey, authkey_parsed,
-                &authkey_parsed_len) == false) {
+  if (parse_key("Management key", mgmkey, mgmkey_parsed, &mgmkey_parsed_len) ==
+      false) {
     return false;
   }
 
-  if (parse_name("Name", name, name_parsed, &name_parsed_len) == false) {
+  if (parse_label("Label", label, label_parsed, &label_parsed_len) == false) {
     return false;
   }
 
@@ -274,12 +274,12 @@ static bool put_credential(ykhsmauth_state *state, char *authkey, char *name,
     key_parsed_len = sizeof(key_parsed);
   }
 
-  if (parse_pw("Credential Password (max 16 characters)", password, pw_parsed,
-               &pw_parsed_len) == false) {
+  if (parse_pw("Credential Password (max 16 characters)", credpassword,
+               cpw_parsed, &cpw_parsed_len) == false) {
     return false;
   }
 
-  if (pw_parsed_len > YKHSMAUTH_PW_LEN) {
+  if (cpw_parsed_len > YKHSMAUTH_PW_LEN) {
     fprintf(stderr, "Credential password can not be more than %d characters.\n",
             YKHSMAUTH_PW_LEN);
     return false;
@@ -290,9 +290,9 @@ static bool put_credential(ykhsmauth_state *state, char *authkey, char *name,
   }
 
   ykhsmauthrc =
-    ykhsmauth_put(state, authkey_parsed, authkey_parsed_len, name_parsed,
+    ykhsmauth_put(state, mgmkey_parsed, mgmkey_parsed_len, label_parsed,
                   YKHSMAUTH_YUBICO_AES128_ALGO, key_parsed, key_parsed_len,
-                  pw_parsed, pw_parsed_len, touch_policy_parsed, &retries);
+                  cpw_parsed, cpw_parsed_len, touch_policy_parsed, &retries);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Unable to store credential: %s, %d retries left\n",
             ykhsmauth_strerror(ykhsmauthrc), retries);
@@ -319,18 +319,18 @@ bool reset_device(ykhsmauth_state *state) {
   return true;
 }
 
-bool get_authkey_retries(ykhsmauth_state *state) {
+bool get_mgmkey_retries(ykhsmauth_state *state) {
   ykhsmauth_rc ykhsmauthrc;
   uint8_t retries;
 
-  ykhsmauthrc = ykhsmauth_get_authkey_retries(state, &retries);
+  ykhsmauthrc = ykhsmauth_get_mgmkey_retries(state, &retries);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
-    fprintf(stderr, "Unable to get authkey retries: %s\n",
+    fprintf(stderr, "Unable to get mgmkey retries: %s\n",
             ykhsmauth_strerror(ykhsmauthrc));
     return false;
   }
 
-  fprintf(stdout, "Retries left for Authentication Key: %d\n", retries);
+  fprintf(stdout, "Retries left for Management Key: %d\n", retries);
 
   return true;
 }
@@ -360,15 +360,15 @@ void print_key(char *prompt, uint8_t *key, size_t len) {
   fprintf(stdout, "\n");
 }
 
-static bool calculate_session_keys(ykhsmauth_state *state, char *name,
-                                   char *password, char *context) {
+static bool calculate_session_keys(ykhsmauth_state *state, char *label,
+                                   char *credpassword, char *context) {
   ykhsmauth_rc ykhsmauthrc;
-  char name_parsed[YKHSMAUTH_MAX_NAME_LEN + 2] = {0};
-  size_t name_parsed_len = sizeof(name_parsed);
+  char label_parsed[YKHSMAUTH_MAX_LABEL_LEN + 2] = {0};
+  size_t label_parsed_len = sizeof(label_parsed);
   uint8_t context_parsed[YKHSMAUTH_CONTEXT_LEN];
   size_t context_parsed_len = sizeof(context_parsed);
-  uint8_t pw_parsed[YKHSMAUTH_PW_LEN + 2] = {0};
-  size_t pw_parsed_len = sizeof(pw_parsed);
+  uint8_t cpw_parsed[YKHSMAUTH_PW_LEN + 2] = {0};
+  size_t cpw_parsed_len = sizeof(cpw_parsed);
   uint8_t key_s_enc[YKHSMAUTH_SESSION_KEY_LEN];
   uint8_t key_s_mac[YKHSMAUTH_SESSION_KEY_LEN];
   uint8_t key_s_rmac[YKHSMAUTH_SESSION_KEY_LEN];
@@ -377,7 +377,7 @@ static bool calculate_session_keys(ykhsmauth_state *state, char *name,
   size_t key_s_rmac_len = sizeof(key_s_rmac);
   uint8_t retries;
 
-  if (parse_name("Name", name, name_parsed, &name_parsed_len) == false) {
+  if (parse_label("Label", label, label_parsed, &label_parsed_len) == false) {
     return false;
   }
 
@@ -386,13 +386,14 @@ static bool calculate_session_keys(ykhsmauth_state *state, char *name,
     return false;
   }
 
-  if (parse_pw("Password", password, pw_parsed, &pw_parsed_len) == false) {
+  if (parse_pw("Credential password", credpassword, cpw_parsed,
+               &cpw_parsed_len) == false) {
     return false;
   }
 
   ykhsmauthrc =
-    ykhsmauth_calculate(state, name_parsed, context_parsed, context_parsed_len,
-                        pw_parsed, pw_parsed_len, key_s_enc, key_s_enc_len,
+    ykhsmauth_calculate(state, label_parsed, context_parsed, context_parsed_len,
+                        cpw_parsed, cpw_parsed_len, key_s_enc, key_s_enc_len,
                         key_s_mac, key_s_mac_len, key_s_rmac, key_s_rmac_len,
                         &retries);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
@@ -411,36 +412,34 @@ static bool calculate_session_keys(ykhsmauth_state *state, char *name,
   return true;
 }
 
-static bool put_authkey(ykhsmauth_state *state, char *authkey,
-                        char *new_authkey) {
+static bool put_mgmkey(ykhsmauth_state *state, char *mgmkey, char *new_mgmkey) {
   ykhsmauth_rc ykhsmauthrc;
-  uint8_t authkey_parsed[YKHSMAUTH_PW_LEN];
-  size_t authkey_parsed_len = sizeof(authkey_parsed);
-  uint8_t new_authkey_parsed[YKHSMAUTH_PW_LEN];
-  size_t new_authkey_parsed_len = sizeof(authkey_parsed);
+  uint8_t mgmkey_parsed[YKHSMAUTH_PW_LEN];
+  size_t mgmkey_parsed_len = sizeof(mgmkey_parsed);
+  uint8_t new_mgmkey_parsed[YKHSMAUTH_PW_LEN];
+  size_t new_mgmkey_parsed_len = sizeof(mgmkey_parsed);
   uint8_t retries;
 
-  if (parse_key("Authentication key", authkey, authkey_parsed,
-                &authkey_parsed_len) == false) {
+  if (parse_key("Management key", mgmkey, mgmkey_parsed, &mgmkey_parsed_len) ==
+      false) {
     return false;
   }
 
-  if (parse_key("New Authentication key", new_authkey, new_authkey_parsed,
-                &new_authkey_parsed_len) == false) {
+  if (parse_key("New Management key", new_mgmkey, new_mgmkey_parsed,
+                &new_mgmkey_parsed_len) == false) {
     return false;
   }
 
   ykhsmauthrc =
-    ykhsmauth_put_authkey(state, authkey_parsed, authkey_parsed_len,
-                          new_authkey_parsed, new_authkey_parsed_len, &retries);
+    ykhsmauth_put_mgmkey(state, mgmkey_parsed, mgmkey_parsed_len,
+                         new_mgmkey_parsed, new_mgmkey_parsed_len, &retries);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
-    fprintf(stderr,
-            "Unable to change Authentication key: %s, %d retries left\n",
+    fprintf(stderr, "Unable to change Management key: %s, %d retries left\n",
             ykhsmauth_strerror(ykhsmauthrc), retries);
     return false;
   }
 
-  fprintf(stdout, "Authentication key successfully changed\n");
+  fprintf(stdout, "Management key successfully changed\n");
 
   return true;
 }
@@ -472,17 +471,18 @@ int main(int argc, char *argv[]) {
   switch (args_info.action_arg) {
     case action_arg_calculate:
       result =
-        calculate_session_keys(state, args_info.name_arg,
-                               args_info.password_arg, args_info.context_arg);
+        calculate_session_keys(state, args_info.label_arg,
+                               args_info.credpwd_arg, args_info.context_arg);
       break;
 
-    case action_arg_change:
-      result = put_authkey(state, args_info.authkey_arg, args_info.newkey_arg);
+    case action_arg_changeMINUS_mgmkey:
+      result =
+        put_mgmkey(state, args_info.mgmkey_arg, args_info.new_mgmkey_arg);
       break;
 
     case action_arg_delete:
       result =
-        delete_credential(state, args_info.authkey_arg, args_info.name_arg);
+        delete_credential(state, args_info.mgmkey_arg, args_info.label_arg);
       break;
 
     case action_arg_list:
@@ -490,10 +490,10 @@ int main(int argc, char *argv[]) {
       break;
 
     case action_arg_put:
-      result = put_credential(state, args_info.authkey_arg, args_info.name_arg,
+      result = put_credential(state, args_info.mgmkey_arg, args_info.label_arg,
                               args_info.derivation_password_arg,
                               args_info.enckey_arg, args_info.mackey_arg,
-                              args_info.password_arg, args_info.touch_arg);
+                              args_info.credpwd_arg, args_info.touch_arg);
       break;
 
     case action_arg_reset:
@@ -501,7 +501,7 @@ int main(int argc, char *argv[]) {
       break;
 
     case action_arg_retries:
-      result = get_authkey_retries(state);
+      result = get_mgmkey_retries(state);
       break;
 
     case action_arg_version:
