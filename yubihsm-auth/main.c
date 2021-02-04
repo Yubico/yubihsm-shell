@@ -157,7 +157,7 @@ static bool delete_credential(ykhsmauth_state *state, char *mgmkey,
   ykhsmauth_rc ykhsmauthrc;
   uint8_t mgmkey_parsed[YKHSMAUTH_PW_LEN];
   size_t mgmkey_parsed_len = sizeof(mgmkey_parsed);
-  char label_parsed[YKHSMAUTH_MAX_NAME_LEN + 2] = {0};
+  char label_parsed[YKHSMAUTH_MAX_LABEL_LEN + 2] = {0};
   size_t label_parsed_len = sizeof(label_parsed);
   uint8_t retries;
 
@@ -201,11 +201,11 @@ static bool list_credentials(ykhsmauth_state *state) {
   }
 
   fprintf(stdout, "Found %zu item(s)\n", list_items);
-  fprintf(stdout, "Algo\tTouch\tCounter\tName\n");
+  fprintf(stdout, "Algo\tTouch\tCounter\tLabel\n");
 
   for (size_t i = 0; i < list_items; i++) {
     fprintf(stdout, "%d\t%d\t%d\t%s\n", list[i].algo, list[i].touch,
-            list[i].ctr, list[i].name);
+            list[i].ctr, list[i].label);
   }
 
   return true;
@@ -218,7 +218,7 @@ static bool put_credential(ykhsmauth_state *state, char *mgmkey, char *label,
   ykhsmauth_rc ykhsmauthrc;
   uint8_t mgmkey_parsed[YKHSMAUTH_PW_LEN];
   size_t mgmkey_parsed_len = sizeof(mgmkey_parsed);
-  char label_parsed[YKHSMAUTH_MAX_NAME_LEN + 2] = {0};
+  char label_parsed[YKHSMAUTH_MAX_LABEL_LEN + 2] = {0};
   size_t label_parsed_len = sizeof(label_parsed);
   uint8_t dpw_parsed[256] = {0};
   size_t dpw_parsed_len = sizeof(dpw_parsed);
@@ -363,7 +363,7 @@ void print_key(char *prompt, uint8_t *key, size_t len) {
 static bool calculate_session_keys(ykhsmauth_state *state, char *label,
                                    char *credpassword, char *context) {
   ykhsmauth_rc ykhsmauthrc;
-  char label_parsed[YKHSMAUTH_MAX_NAME_LEN + 2] = {0};
+  char label_parsed[YKHSMAUTH_MAX_LABEL_LEN + 2] = {0};
   size_t label_parsed_len = sizeof(label_parsed);
   uint8_t context_parsed[YKHSMAUTH_CONTEXT_LEN];
   size_t context_parsed_len = sizeof(context_parsed);

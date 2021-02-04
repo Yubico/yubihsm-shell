@@ -338,8 +338,8 @@ ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *mgmkey,
   int sw;
 
   if (state == NULL || mgmkey == NULL || mgmkey_len != YKHSMAUTH_PW_LEN ||
-      label == NULL || strlen(label) < YKHSMAUTH_MIN_NAME_LEN ||
-      strlen(label) > YKHSMAUTH_MAX_NAME_LEN || key == NULL || cpw == NULL ||
+      label == NULL || strlen(label) < YKHSMAUTH_MIN_LABEL_LEN ||
+      strlen(label) > YKHSMAUTH_MAX_LABEL_LEN || key == NULL || cpw == NULL ||
       cpw_len > YKHSMAUTH_PW_LEN) {
     return YKHSMAUTHR_INVALID_PARAMS;
   }
@@ -358,7 +358,7 @@ ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *mgmkey,
   memset(apdu.raw, 0, sizeof(apdu));
   apdu.st.ins = YKHSMAUTH_INS_PUT;
 
-  *(ptr++) = YKHSMAUTH_TAG_AUTHKEY;
+  *(ptr++) = YKHSMAUTH_TAG_MGMKEY;
   apdu.st.lc++;
   *(ptr++) = 16;
   apdu.st.lc++;
@@ -366,7 +366,7 @@ ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *mgmkey,
   ptr += 16;
   apdu.st.lc += 16;
 
-  *(ptr++) = YKHSMAUTH_TAG_NAME;
+  *(ptr++) = YKHSMAUTH_TAG_LABEL;
   apdu.st.lc++;
   *(ptr++) = strlen(label);
   apdu.st.lc++;
@@ -439,8 +439,8 @@ ykhsmauth_rc ykhsmauth_delete(ykhsmauth_state *state, uint8_t *mgmkey,
   ykhsmauth_rc rc;
 
   if (state == NULL || mgmkey == NULL || mgmkey_len != YKHSMAUTH_PW_LEN ||
-      label == NULL || strlen(label) < YKHSMAUTH_MIN_NAME_LEN ||
-      strlen(label) > YKHSMAUTH_MAX_NAME_LEN) {
+      label == NULL || strlen(label) < YKHSMAUTH_MIN_LABEL_LEN ||
+      strlen(label) > YKHSMAUTH_MAX_LABEL_LEN) {
     return YKHSMAUTHR_INVALID_PARAMS;
   }
 
@@ -449,7 +449,7 @@ ykhsmauth_rc ykhsmauth_delete(ykhsmauth_state *state, uint8_t *mgmkey,
 
   ptr = apdu.st.data;
 
-  *(ptr++) = YKHSMAUTH_TAG_AUTHKEY;
+  *(ptr++) = YKHSMAUTH_TAG_MGMKEY;
   apdu.st.lc++;
   *(ptr++) = 16;
   apdu.st.lc++;
@@ -457,7 +457,7 @@ ykhsmauth_rc ykhsmauth_delete(ykhsmauth_state *state, uint8_t *mgmkey,
   ptr += 16;
   apdu.st.lc += 16;
 
-  *(ptr++) = YKHSMAUTH_TAG_NAME;
+  *(ptr++) = YKHSMAUTH_TAG_LABEL;
   apdu.st.lc++;
   *(ptr++) = strlen(label);
   apdu.st.lc++;
@@ -495,8 +495,8 @@ ykhsmauth_rc ykhsmauth_calculate(ykhsmauth_state *state, const char *label,
   ykhsmauth_rc rc;
 
   if (state == NULL || label == NULL ||
-      strlen(label) < YKHSMAUTH_MIN_NAME_LEN ||
-      strlen(label) > YKHSMAUTH_MAX_NAME_LEN || context == NULL ||
+      strlen(label) < YKHSMAUTH_MIN_LABEL_LEN ||
+      strlen(label) > YKHSMAUTH_MAX_LABEL_LEN || context == NULL ||
       context_len != YKHSMAUTH_CONTEXT_LEN || pw == NULL ||
       pw_len > YKHSMAUTH_PW_LEN || key_s_enc == NULL ||
       key_s_enc_len != YKHSMAUTH_SESSION_KEY_LEN || key_s_mac == NULL ||
@@ -510,7 +510,7 @@ ykhsmauth_rc ykhsmauth_calculate(ykhsmauth_state *state, const char *label,
 
   ptr = apdu.st.data;
 
-  *(ptr++) = YKHSMAUTH_TAG_NAME;
+  *(ptr++) = YKHSMAUTH_TAG_LABEL;
   apdu.st.lc++;
   *(ptr++) = strlen(label);
   apdu.st.lc++;
@@ -626,13 +626,13 @@ ykhsmauth_rc ykhsmauth_list_keys(ykhsmauth_state *state,
 
   // i + 1 here guarantees we can read tag and len
   while (i + 1 < recv_len) {
-    if (data[i++] == YKHSMAUTH_TAG_NAME_LIST) {
+    if (data[i++] == YKHSMAUTH_TAG_LABEL_LIST) {
       size_t len = data[i++];
       if (list != NULL) {
         if (element >= *list_items) {
           return YKHSMAUTHR_MEMORY_ERROR;
         } else if (i + len > recv_len || len < 3 ||
-                   len - 3 > sizeof(list[element].name)) {
+                   len - 3 > sizeof(list[element].label)) {
           if (state->verbose) {
             fprintf(stderr,
                     "Length of element doesn't match expectations (%zu)\n",
@@ -643,8 +643,8 @@ ykhsmauth_rc ykhsmauth_list_keys(ykhsmauth_state *state,
 
         list[element].algo = data[i++];
         list[element].touch = data[i++];
-        memset(list[element].name, 0, sizeof(list[element].name));
-        memcpy(list[element].name, data + i, len - 3);
+        memset(list[element].label, 0, sizeof(list[element].label));
+        memcpy(list[element].label, data + i, len - 3);
         i += len - 3;
         list[element].ctr = data[i++];
       } else {
@@ -687,7 +687,7 @@ ykhsmauth_rc ykhsmauth_get_mgmkey_retries(ykhsmauth_state *state,
   }
 
   memset(apdu.raw, 0, sizeof(apdu));
-  apdu.st.ins = YKHSMAUTH_INS_GET_AUTHKEY_RETRIES;
+  apdu.st.ins = YKHSMAUTH_INS_GET_MGMKEY_RETRIES;
   rc = send_data(state, &apdu, data, &recv_len, &sw);
   if (rc != YKHSMAUTHR_SUCCESS) {
     return rc;
@@ -719,9 +719,9 @@ ykhsmauth_rc ykhsmauth_put_mgmkey(ykhsmauth_state *state, uint8_t *mgmkey,
   }
 
   memset(apdu.raw, 0, sizeof(apdu));
-  apdu.st.ins = YKHSMAUTH_INS_PUT_AUTHKEY;
+  apdu.st.ins = YKHSMAUTH_INS_PUT_MGMKEY;
 
-  *(ptr++) = YKHSMAUTH_TAG_AUTHKEY;
+  *(ptr++) = YKHSMAUTH_TAG_MGMKEY;
   apdu.st.lc++;
   *(ptr++) = 16;
   apdu.st.lc++;
@@ -729,7 +729,7 @@ ykhsmauth_rc ykhsmauth_put_mgmkey(ykhsmauth_state *state, uint8_t *mgmkey,
   ptr += 16;
   apdu.st.lc += 16;
 
-  *(ptr++) = YKHSMAUTH_TAG_AUTHKEY;
+  *(ptr++) = YKHSMAUTH_TAG_MGMKEY;
   apdu.st.lc++;
   *(ptr++) = 16;
   apdu.st.lc++;
