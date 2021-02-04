@@ -515,7 +515,7 @@ void create_command_list(CommandList *c) {
                                     NULL, NULL});
 #endif
   register_subcommand(*c, (Command){"ykopen", yh_com_open_yksession,
-                                    "w:authkey,s:name,i:password=-",
+                                    "w:authkey,s:label,i:password=-",
                                     fmt_password, fmt_nofmt,
                                     "Open a session with a device using an "
                                     "Authentication in a YubiKey",
@@ -2038,9 +2038,9 @@ int main(int argc, char *argv[]) {
         goto main_exit;
       }
 
-      if (args_info.ykhsmauth_name_given) {
-        arg[1].s = args_info.ykhsmauth_name_arg;
-        arg[1].len = strlen(args_info.ykhsmauth_name_arg);
+      if (args_info.ykhsmauth_label_given) {
+        arg[1].s = args_info.ykhsmauth_label_arg;
+        arg[1].len = strlen(args_info.ykhsmauth_label_arg);
         arg[2].x = buf;
         arg[2].len = pw_len;
         comrc = yh_com_open_yksession(&ctx, arg, fmt_nofmt, fmt_nofmt);

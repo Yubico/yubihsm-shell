@@ -14,7 +14,7 @@ asked for:
 
 [source, bash]
 ----
-$ yubihsm-auth -a put --name="default key" --derivation-password="password" --password="my secret"
+$ yubihsm-auth -a put --label="default key" --derivation-password="password" --credpwd="my secret"
 Credential successfully stored
 ----
 
@@ -29,7 +29,7 @@ Created session 0
 Alternatively using the command line:
 [source, bash]
 ----
-$ yubihsm-shell -a get-pseudo-random --ykhsmauth-name="default key" --password="my secret"
+$ yubihsm-shell -a get-pseudo-random --ykhsmauth-label="default key" --password="my secret"
 Session keepalive set up to run every 15 seconds
 trying to connect to reader 'Yubico Yubikey 4 OTP+U2F+CCID 00 00'
 Created session 0
