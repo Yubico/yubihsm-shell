@@ -95,7 +95,7 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
       continue;
     }
 
-    read_len = SCP_MSG_BUF_SIZE;
+    read_len = sizeof(response->raw);
     if (usb_read(connection, response->raw, &read_len) == 0) {
       ret = YHR_CONNECTION_ERROR;
       DBG_ERR("USB read failed");
