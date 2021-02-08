@@ -299,7 +299,7 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
   struct urlComponents components = {0};
   bool complete = false;
   yh_rc yrc = YHR_CONNECTOR_ERROR;
-  uint16_t raw_len = msg->st.len + 3;
+  uint16_t raw_len = ntohs(msg->st.len) + 3;
   DWORD dwStatusCode = 0;
   DWORD dwSize = sizeof(dwStatusCode);
   struct context *context = calloc(1, sizeof(struct context));
@@ -321,9 +321,6 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
     swprintf(hsm_identifier, 64, L"YubiHSM-Session: %hs", identifier);
     headers = hsm_identifier;
   }
-
-  // swap the length in the message
-  msg->st.len = htons(msg->st.len);
 
   context->stage = NO_INIT;
   context->len = 0;
@@ -390,13 +387,12 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
           yrc = YHR_CONNECTOR_ERROR;
         } else {
           WinHttpCloseHandle(context->req);
-          response->st.len = ntohs(response->st.len);
-          if (response->st.len + 3 == context->len) {
+          if (ntohs(response->st.len) + 3 == context->len) {
             new_stage = REQUEST_SUCCESS;
             yrc = YHR_SUCCESS;
           } else {
-            DBG_ERR("Wrong length received, %d vs %d", response->st.len + 3,
-                    context->len);
+            DBG_ERR("Wrong length received, %d vs %d",
+                    ntohs(response->st.len) + 3, context->len);
             new_stage = REQUEST_ERROR;
             yrc = YHR_WRONG_LENGTH;
           }
@@ -422,9 +418,6 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
   DeleteCriticalSection(&context->mtx);
 
   free(context);
-
-  // restore the msg len
-  msg->st.len = ntohs(msg->st.len);
 
   return yrc;
 }

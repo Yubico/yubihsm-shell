@@ -149,7 +149,7 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
                               const char *identifier) {
   CURLcode rc;
   yh_rc yrc = YHR_CONNECTION_ERROR;
-  int32_t trf_len = msg->st.len + 3;
+  int32_t trf_len = ntohs(msg->st.len) + 3;
   struct curl_data data = {response->raw,
                            response->raw + sizeof(response->raw)};
   struct curl_slist *headers = NULL;
@@ -170,9 +170,6 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
   curl_easy_setopt(connection, CURLOPT_WRITEDATA, &data);
   curl_easy_setopt(connection, CURLOPT_ERRORBUFFER, curl_error);
 
-  // Endian swap length
-  msg->st.len = htons(msg->st.len);
-
   // NOTE(adma): connection is actually established here the first time
   rc = curl_easy_perform(connection);
   curl_slist_free_all(headers);
@@ -187,10 +184,8 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
     return YHR_WRONG_LENGTH;
   }
 
-  response->st.len = ntohs(response->st.len);
-
-  if (response->st.len != size - 3) {
-    DBG_ERR("Wrong length received, %d vs %zu", response->st.len, size);
+  if (ntohs(response->st.len) != size - 3) {
+    DBG_ERR("Wrong length received, %d vs %zu", ntohs(response->st.len), size);
     return YHR_WRONG_LENGTH;
   }
 
@@ -203,12 +198,6 @@ sm_failure:
   } else {
     DBG_ERR("Curl perform failed: '%s'", curl_easy_strerror(rc));
   }
-
-  // Restore original value
-  msg->st.len = ntohs(msg->st.len);
-
-  // Clear response length
-  response->st.len = 0;
 
   return yrc;
 }
