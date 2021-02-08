@@ -266,7 +266,8 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
                               size_t *response_len) {
 
   if (session == NULL || (data_len != 0 && data == NULL) ||
-      response_cmd == NULL || response == NULL || response_len == NULL) {
+      data_len > SCP_MSG_BUF_SIZE || response_cmd == NULL || response == NULL ||
+      response_len == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
