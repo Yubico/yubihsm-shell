@@ -14,6 +14,8 @@ fi
 mkdir yubihsm-shell_test_dir; cd yubihsm-shell_test_dir
 echo test signing data > data.txt
 
+set -e
+
 $BIN --version
 $BIN --help
 $BIN -a get-device-info | grep "Serial number:"
@@ -74,7 +76,7 @@ echo $info | grep 'label: "template"'
 echo $info | grep "domains: 1"
 echo $info | grep "origin: imported"
 echo "=== Get template"
-$BIN -p password -a get-template -i $id  2> resp.txt
+$BIN -p password -a get-template -i $id  > resp.txt
 echo "=== Delete template"
 $BIN -p password -a delete-object -i $id -t template
 
@@ -96,3 +98,5 @@ echo "=== Login using new authetication key"
 $BIN --authkey $keyid -p foo123 -a get-object-info -i 1 -t authentication-key
 echo "=== Delete new authentication key"
 $BIN -p password -a delete-object -i $keyid -t authentication-key
+
+set +e
