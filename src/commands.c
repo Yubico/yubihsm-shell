@@ -642,12 +642,6 @@ int yh_com_echo(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     return -1;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    fprintf(stderr, "Unable to get echo data: %s (%x)\n",
-            yh_strerror(response[0]), response[0]);
-    return -1;
-  }
-
   fprintf(ctx->out, "Response (%zu bytes):\n", response_len);
   for (size_t i = 0; i < response_len; i++) {
     if (i && !(i % 64))
@@ -1746,13 +1740,7 @@ int yh_com_pecho(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   yrc = yh_send_plain_msg(ctx->connector, YHC_ECHO, data, data_len,
                           &response_cmd, response, &response_len);
   if (yrc != YHR_SUCCESS) {
-    fprintf(stderr, "Failed to send ECHO command): %s\n", yh_strerror(yrc));
-    return -1;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    fprintf(stderr, "Unable to get echo data: %s (%x)\n",
-            yh_strerror(response[0]), response[0]);
+    fprintf(stderr, "Failed to send ECHO command: %s\n", yh_strerror(yrc));
     return -1;
   }
 

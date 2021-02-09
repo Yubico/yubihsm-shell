@@ -89,13 +89,7 @@ int main(void) {
   yrc = yh_send_plain_msg(connector, YHC_ECHO, data, data_len, &response_cmd,
                           response, &response_len);
   if (yrc != YHR_SUCCESS) {
-    fprintf(stderr, "Failed to send ECHO command): %s\n", yh_strerror(yrc));
-    exit(EXIT_FAILURE);
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    fprintf(stderr, "Unable to get echo data: %s (%x)\n",
-            yh_strerror(response[0]), response[0]);
+    fprintf(stderr, "Failed to send ECHO command: %s\n", yh_strerror(yrc));
     exit(EXIT_FAILURE);
   }
 
@@ -169,12 +163,6 @@ int main(void) {
                            response2, &response2_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to send ECHO command: %s\n", yh_strerror(yrc));
-    exit(EXIT_FAILURE);
-  }
-
-  if (response2_cmd == YHC_ERROR) {
-    fprintf(stderr, "Unable to get echo data: %s (%x)\n",
-            yh_strerror(response[0]), response[0]);
     exit(EXIT_FAILURE);
   }
 

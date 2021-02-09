@@ -763,8 +763,8 @@ static bool probe_session(yubihsm_context *ctx, size_t index) {
     // silently ignore transmit errors..?
     if (yh_send_secure_msg(ctx->sessions[index], YHC_ECHO, &data, 1,
                            &response_cmd, response,
-                           &response_len) == YHR_SUCCESS) {
-      if (response_cmd != YHC_ECHO_R) {
+                           &response_len) != YHR_SUCCESS) {
+      if (response_len == 1 && response_cmd == YHC_ERROR) {
         yh_destroy_session(&ctx->sessions[index]);
         ctx->sessions[index] = NULL;
         return false;
