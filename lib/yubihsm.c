@@ -342,14 +342,13 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
   }
 
   if (msg.msg.st.cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(msg.msg.st.data[0]);
-    DBG_ERR("%s", yh_strerror(translated));
+    yrc = translate_device_error(msg.msg.st.data[0]);
+    DBG_ERR("%s", yh_strerror(yrc));
 
     *response_cmd = YHC_ERROR;
     response[0] = msg.msg.st.data[0];
     *response_len = 1;
 
-    yrc = translated;
     goto cleanup;
   }
 
@@ -407,9 +406,18 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
 
   DBG_NET(&enc_msg.msg, dump_response);
 
-  memcpy(response, enc_msg.msg.st.data, len - 3);
   *response_cmd = enc_msg.msg.st.cmd;
-  *response_len = len - 3;
+  len -= 3;
+
+  if (*response_len < len) {
+    DBG_ERR("%s (received %u Bytes, can fit %zu Bytes) ",
+            yh_strerror(YHR_BUFFER_TOO_SMALL), len, *response_len);
+    yrc = YHR_BUFFER_TOO_SMALL;
+    goto cleanup;
+  }
+
+  memcpy(response, enc_msg.msg.st.data, len);
+  *response_len = len;
 
 cleanup:
   aes_destroy(&aes_ctx);
