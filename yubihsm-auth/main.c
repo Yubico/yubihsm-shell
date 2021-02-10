@@ -90,6 +90,8 @@ static bool parse_key(const char *prompt, char *key, uint8_t *parsed,
   }
 
   if (hex_decode(buf, parsed, parsed_len) == false) {
+    fprintf(stdout, "Unable to parse key, must be %d characters hexadecimal\n",
+            YKHSMAUTH_YUBICO_AES128_KEY_LEN);
     return false;
   }
 
@@ -123,6 +125,9 @@ static bool parse_context(const char *prompt, char *context, uint8_t *parsed,
   }
 
   if (hex_decode(buf, parsed, parsed_len) == false) {
+    fprintf(stdout,
+            "Unable to parse context, must be %d characters hexadecimal\n",
+            YKHSMAUTH_CONTEXT_LEN * 2);
     return false;
   }
 
