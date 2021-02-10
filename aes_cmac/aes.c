@@ -337,7 +337,10 @@ int aes_cbc_encrypt(uint8_t *in, uint8_t *out, uint16_t len, uint8_t *iv,
   NTSTATUS status = STATUS_SUCCESS;
   ULONG cbResult = 0;
 
-  if (!BCRYPT_SUCCESS(status = BCryptEncrypt(ctx->hKeyCBC, in, len, NULL, iv,
+  UCHAR _iv[AES_BLOCK_SIZE];
+  memcpy(_iv, iv, AES_BLOCK_SIZE);
+
+  if (!BCRYPT_SUCCESS(status = BCryptEncrypt(ctx->hKeyCBC, in, len, NULL, _iv,
                                              AES_BLOCK_SIZE, out, len,
                                              &cbResult, 0))) {
     return -1;
@@ -362,7 +365,10 @@ int aes_cbc_decrypt(uint8_t *in, uint8_t *out, uint16_t len, uint8_t *iv,
   NTSTATUS status = STATUS_SUCCESS;
   ULONG cbResult = 0;
 
-  if (!BCRYPT_SUCCESS(status = BCryptDecrypt(ctx->hKeyCBC, in, len, NULL, iv,
+  UCHAR _iv[AES_BLOCK_SIZE];
+  memcpy(_iv, iv, AES_BLOCK_SIZE);
+
+  if (!BCRYPT_SUCCESS(status = BCryptDecrypt(ctx->hKeyCBC, in, len, NULL, _iv,
                                              AES_BLOCK_SIZE, out, len,
                                              &cbResult, 0))) {
     return -1;
