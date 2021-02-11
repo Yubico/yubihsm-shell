@@ -319,7 +319,7 @@ bool reset_device(ykhsmauth_state *state) {
     return false;
   }
 
-  fprintf(stdout, "Device successuflly reset\n");
+  fprintf(stdout, "Device successfully reset\n");
 
   return true;
 }
