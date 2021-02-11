@@ -695,10 +695,8 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
 
   // Parse response
   if (response_msg.st.cmd != YHC_CREATE_SESSION_R) {
-    yh_rc translated = translate_device_error(response_msg.st.data[0]);
-    DBG_ERR("Device error %s (%d)", yh_strerror(translated),
-            response_msg.st.data[0]);
-    yrc = translated;
+    yrc = translate_device_error(response_msg.st.data[0]);
+    DBG_ERR("Device error %s (%d)", yh_strerror(yrc), response_msg.st.data[0]);
     goto cs_failure;
   }
 
@@ -837,10 +835,8 @@ yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
 
   // Parse response
   if (response_msg.st.cmd != YHC_CREATE_SESSION_R) {
-    yh_rc translated = translate_device_error(response_msg.st.data[0]);
-    DBG_ERR("Device error %s (%d)", yh_strerror(translated),
-            response_msg.st.data[0]);
-    yrc = translated;
+    yrc = translate_device_error(response_msg.st.data[0]);
+    DBG_ERR("Device error %s (%d)", yh_strerror(yrc), response_msg.st.data[0]);
     goto bcse_failure;
   }
 
@@ -3101,8 +3097,9 @@ yh_rc yh_authenticate_session(yh_session *session) {
   }
 
   if (response_msg.st.cmd != YHC_AUTHENTICATE_SESSION_R) {
-    DBG_ERR("%s", yh_strerror(yrc));
-    return YHR_SESSION_AUTHENTICATION_FAILED;
+    yrc = translate_device_error(response_msg.st.data[0]);
+    DBG_ERR("Device error %s (%d)", yh_strerror(yrc), response_msg.st.data[0]);
+    return yrc;
   }
 
   return YHR_SUCCESS;
