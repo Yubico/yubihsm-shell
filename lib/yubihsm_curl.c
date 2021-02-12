@@ -66,6 +66,7 @@ static void backend_set_verbosity(uint8_t verbosity, FILE *output) {
 }
 
 static yh_rc backend_init(uint8_t verbosity, FILE *output) {
+  DBG_INFO("backend_init");
   CURLcode rc;
 
   backend_set_verbosity(verbosity, output);
@@ -80,9 +81,13 @@ static yh_rc backend_init(uint8_t verbosity, FILE *output) {
   return YHR_SUCCESS;
 }
 
-static yh_backend *backend_create() { return curl_easy_init(); }
+static yh_backend *backend_create() {
+  DBG_INFO("backend_create");
+  return curl_easy_init();
+}
 
 static yh_rc backend_connect(yh_connector *connector, int timeout) {
+  DBG_INFO("backend_connect");
 
   CURLcode rc;
   uint8_t scratch[257] = {0};
@@ -142,6 +147,7 @@ static yh_rc backend_connect(yh_connector *connector, int timeout) {
 }
 
 static void backend_disconnect(yh_backend *connection) {
+  DBG_INFO("backend_disconnect");
   curl_easy_cleanup(connection);
 }
 
@@ -203,6 +209,7 @@ sm_failure:
 }
 
 static void backend_cleanup(void) {
+  DBG_INFO("backend_cleanup");
   /* by all rights we should call curl_global_cleanup() here, but.. if curl is
    * using openssl that will cleanup all openssl context, which if we're called
    * through pkcs11_engine and our pkcs11 module will break everything, so we
