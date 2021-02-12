@@ -2795,10 +2795,6 @@ int main(int argc, char *argv[]) {
 
     calling_device = false;
 
-    if (requires_session == true) {
-      yh_util_close_session(arg[0].e);
-    }
-
   } else {
     int num = 0;
 #ifndef __WIN32
@@ -2836,6 +2832,10 @@ int main(int argc, char *argv[]) {
 
     create_command_list(&g_commands);
 
+    if (args_info.pre_connect_flag) {
+      yh_com_connect(&ctx, NULL, fmt_nofmt, fmt_nofmt);
+    }
+
     while (g_running == true) {
 #ifdef __WIN32
       fprintf(stdout, PROMPT);
@@ -2867,6 +2867,8 @@ int main(int argc, char *argv[]) {
   }
 
 main_exit:
+
+  yh_com_disconnect(&ctx, NULL, fmt_nofmt, fmt_nofmt);
 
   cmdline_parser_free(&args_info);
 

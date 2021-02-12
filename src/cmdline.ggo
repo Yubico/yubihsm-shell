@@ -91,5 +91,6 @@ option "connector" C "List of connectors to use" string optional multiple
 option "cacert" - "HTTPS cacert for connector" string optional
 option "proxy" - "Proxy server to use for connector" string optional
 option "verbose" v "Print more information" int optional default="0"
+option "pre-connect" P "Connect immediately in interactive mode" flag off
 
 option "device-pubkey" - "List of device public keys allowed for asymmetric authentication" string optional multiple hidden

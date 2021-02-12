@@ -583,6 +583,10 @@ int yh_com_disconnect(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   for (size_t i = 0; i < sizeof(ctx->sessions) / sizeof(ctx->sessions[0]);
        i++) {
     if (ctx->sessions[i]) {
+      yrc = yh_util_close_session(ctx->sessions[i]);
+      if (yrc != YHR_SUCCESS) {
+        fprintf(stderr, "Failed to close session: %s\n", yh_strerror(yrc));
+      }
       yrc = yh_destroy_session(&ctx->sessions[i]);
       if (yrc != YHR_SUCCESS) {
         fprintf(stderr, "Failed to destroy session: %s\n", yh_strerror(yrc));
@@ -591,12 +595,14 @@ int yh_com_disconnect(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     }
   }
 
-  yrc = yh_disconnect(ctx->connector);
-  if (yrc != YHR_SUCCESS) {
-    fprintf(stderr, "Unable to disconnect: %s\n", yh_strerror(yrc));
-    return -1;
+  if (ctx->connector) {
+    yrc = yh_disconnect(ctx->connector);
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr, "Unable to disconnect: %s\n", yh_strerror(yrc));
+      return -1;
+    }
+    ctx->connector = NULL;
   }
-  ctx->connector = NULL;
 
   return 0;
 }
