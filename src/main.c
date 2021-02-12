@@ -2868,6 +2868,8 @@ int main(int argc, char *argv[]) {
 
 main_exit:
 
+  calling_device = true;
+
   yh_com_disconnect(&ctx, NULL, fmt_nofmt, fmt_nofmt);
 
   cmdline_parser_free(&args_info);
