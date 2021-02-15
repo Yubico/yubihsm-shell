@@ -277,10 +277,12 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
     return YHR_BUFFER_TOO_SMALL;
   }
 
+#pragma pack(push, 1)
   struct {
     uint8_t mac_chaining_value[SCP_PRF_LEN];
     Msg msg;
   } msg, enc_msg;
+#pragma pack(pop)
 
   msg.msg.st.cmd = cmd;
   msg.msg.st.len = htons(data_len);
