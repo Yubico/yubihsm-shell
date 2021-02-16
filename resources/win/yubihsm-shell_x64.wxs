@@ -29,13 +29,18 @@
           <Publish Dialog="WelcomeDlg"
             Control="Next"
             Event="NewDialog"
+            Value="LicenseAgreementDlg"
+            Order="2">1</Publish>
+          <Publish Dialog="LicenseAgreementDlg"
+            Control="Next"
+            Event="NewDialog"
             Value="InstallDirDlg"
             Order="2">1</Publish>
           <Publish Dialog="InstallDirDlg"
             Control="Back"
             Event="NewDialog"
-            Value="WelcomeDlg"
-            Order="2">1</Publish>
+            Value="LicenseAgreementDlg"
+            Order="2">2</Publish>
       </UI>
 
       <Directory Id="TARGETDIR" Name="SourceDir">
