@@ -361,5 +361,8 @@ $BIN -p password -a derive-ecdh -i $keyid --in brainpool512r1-pubkey.pem
 $BIN -p password -a delete-object -i $keyid -t asymmetric-key
 $BIN -p password -a delete-object -i $import_keyid -t asymmetric-key
 
+cd ..
+rm -rf yubihsm-shell_test_dir
+
 set +e
 set +x

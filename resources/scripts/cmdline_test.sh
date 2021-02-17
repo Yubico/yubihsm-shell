@@ -99,4 +99,7 @@ $BIN --authkey $keyid -p foo123 -a get-object-info -i 1 -t authentication-key
 echo "=== Delete new authentication key"
 $BIN -p password -a delete-object -i $keyid -t authentication-key
 
+cd ..
+rm -rf yubihsm-shell_test_dir
+
 set +e

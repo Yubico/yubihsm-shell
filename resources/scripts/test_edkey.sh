@@ -49,5 +49,8 @@ fi
 # Delete
 $BIN -p password -a delete-object -i 100 -t asymmetric-key
 
+cd ..
+rm -rf yubihsm-shell_test_dir
+
 set +e
 set +x

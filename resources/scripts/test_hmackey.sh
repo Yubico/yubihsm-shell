@@ -73,4 +73,7 @@ echo $info | grep "algorithm: hmac-sha512"
 echo "=== Delete keys"
 $BIN -p password -a delete-object -i $keyid -t hmac-key
 
+cd ..
+rm -rf yubihsm-shell_test_dir
+
 set +e

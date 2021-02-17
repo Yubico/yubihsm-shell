@@ -31,7 +31,7 @@ echo $info | grep "domains: 1"
 echo $info | grep "origin: generated"
 echo $info | grep "capabilities: decrypt-oaep:decrypt-pkcs:sign-attestation-certificate:sign-pkcs:sign-pss"
 echo "=== Get public key of generated key"
-$BIN -p password -a get-public-key -i $keyid --outformat=PEM --out pubkey.pem
+$BIN -p password -a get-public-key -i $keyid --outformat=PEM --out pubkey_rsa2048.pem
 echo "=== Import into YubiHSM"
 openssl genrsa -out rsa2048-keypair.pem 2048
 $BIN -p password -a put-asymmetric-key -i 0 -l "rsaKeyImport" -d "2" -c "sign-pkcs,sign-pss,decrypt-pkcs,decrypt-oaep,sign-attestation-certificate" --in=rsa2048-keypair.pem 2> resp.txt
@@ -45,7 +45,7 @@ echo $info | grep "domains: 2"
 echo $info | grep "origin: imported"
 echo $info | grep "capabilities: decrypt-oaep:decrypt-pkcs:sign-attestation-certificate:sign-pkcs:sign-pss"
 echo "=== Get public key of imported key"
-$BIN -p password -a get-public-key -i $import_keyid --outformat=PEM --out pubkey_imported.pem
+$BIN -p password -a get-public-key -i $import_keyid --outformat=PEM --out pubkey_rsa2048_imported.pem
 echo "=== Signing with generated key and"
 echo "===== rsa-pkcs1-sha1"
 $BIN -p password -a sign-pkcs1v15 -i $keyid -A rsa-pkcs1-sha1 --in data.txt --out data.2048pkcs1sha1.sig
@@ -90,8 +90,9 @@ $BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate
 echo "=== Sign attestation certificate"
 $BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
 $BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
+rm cert.pem cert.der selfsigned_cert.pem
 echo "=== Decrypt with generated key and PKCS1v15"
-openssl rsautl -encrypt -inkey pubkey.pem -pubin -in data.txt -out data.enc
+openssl rsautl -encrypt -inkey pubkey_rsa2048.pem -pubin -in data.txt -out data.enc
 $BIN -p password -a decrypt-pkcs1v15 -i $keyid --in data.enc --out data.dec
 if [[ $(cat data.txt) != $(cat data.dec) ]]; then
   echo "Decrypt failed"
@@ -99,7 +100,7 @@ if [[ $(cat data.txt) != $(cat data.dec) ]]; then
 fi
 rm data.dec
 echo "=== Decrypt with imported key and PKCS1v15"
-openssl rsautl -encrypt -inkey pubkey_imported.pem -pubin -in data.txt -out data.enc
+openssl rsautl -encrypt -inkey pubkey_rsa2048_imported.pem -pubin -in data.txt -out data.enc
 $BIN -p password -a decrypt-pkcs1v15 -i $import_keyid --in data.enc --out data.dec
 if [[ $(cat data.txt) != $(cat data.dec) ]]; then
   echo "Decrypt failed"
@@ -120,14 +121,14 @@ cat resp.txt
 keyid=$(tail -1 resp.txt | awk '{print $4}')
 info=$($BIN -p password -a get-object-info -i $keyid -t asymmetric-key)
 echo "=== Get public key of generated key"
-$BIN -p password -a get-public-key -i $keyid --outformat=PEM --out pubkey.pem
+$BIN -p password -a get-public-key -i $keyid --outformat=PEM --out pubkey_rsa3072.pem
 echo "=== Import into YubiHSM"
 openssl genrsa -out rsa3072-keypair.pem 3072
 $BIN -p password -a put-asymmetric-key -i 0 -l "rsaKeyImport" -d "2" -c "sign-pkcs,sign-pss,decrypt-pkcs,decrypt-oaep,sign-attestation-certificate" --in=rsa3072-keypair.pem 2> resp.txt
 import_keyid=$(tail -1 resp.txt | awk '{print $4}')
 info=$($BIN -p password -a get-object-info -i $import_keyid -t asymmetric-key)
 echo "=== Get public key of imported key"
-$BIN -p password -a get-public-key -i $import_keyid --outformat=PEM --out pubkey_imported.pem
+$BIN -p password -a get-public-key -i $import_keyid --outformat=PEM --out pubkey_rsa3072_imported.pem
 echo "=== Signing with generated key and"
 echo "===== rsa-pkcs1-sha1"
 $BIN -p password -a sign-pkcs1v15 -i $keyid -A rsa-pkcs1-sha1 --in data.txt --out data.3072pkcs1sha1.sig
@@ -172,8 +173,9 @@ $BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate
 echo "=== Sign attestation certificate"
 $BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
 $BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
+rm cert.pem cert.der selfsigned_cert.pem
 echo "=== Decrypt with generated key and PKCS1v15"
-openssl rsautl -encrypt -inkey pubkey.pem -pubin -in data.txt -out data.enc
+openssl rsautl -encrypt -inkey pubkey_rsa3072.pem -pubin -in data.txt -out data.enc
 $BIN -p password -a decrypt-pkcs1v15 -i $keyid --in data.enc --out data.dec
 if [[ $(cat data.txt) != $(cat data.dec) ]]; then
   echo "Decrypt failed"
@@ -181,7 +183,7 @@ if [[ $(cat data.txt) != $(cat data.dec) ]]; then
 fi
 rm data.dec
 echo "=== Decrypt with imported key and PKCS1v15"
-openssl rsautl -encrypt -inkey pubkey_imported.pem -pubin -in data.txt -out data.enc
+openssl rsautl -encrypt -inkey pubkey_rsa3072_imported.pem -pubin -in data.txt -out data.enc
 $BIN -p password -a decrypt-pkcs1v15 -i $import_keyid --in data.enc --out data.dec
 if [[ $(cat data.txt) != $(cat data.dec) ]]; then
   echo "Decrypt failed"
@@ -203,14 +205,14 @@ cat resp.txt
 keyid=$(tail -1 resp.txt | awk '{print $4}')
 info=$($BIN -p password -a get-object-info -i $keyid -t asymmetric-key)
 echo "=== Get public key of generated key"
-$BIN -p password -a get-public-key -i $keyid --outformat=PEM --out pubkey.pem
+$BIN -p password -a get-public-key -i $keyid --outformat=PEM --out pubkey_rsa4096.pem
 echo "=== Import into YubiHSM"
 openssl genrsa -out rsa4096-keypair.pem 4096
 $BIN -p password -a put-asymmetric-key -i 0 -l "rsaKeyImport" -d "2" -c "sign-pkcs,sign-pss,decrypt-pkcs,decrypt-oaep,sign-attestation-certificate" --in=rsa4096-keypair.pem 2> resp.txt
 import_keyid=$(tail -1 resp.txt | awk '{print $4}')
 info=$($BIN -p password -a get-object-info -i $import_keyid -t asymmetric-key)
 echo "=== Get public key of imported key"
-$BIN -p password -a get-public-key -i $import_keyid --outformat=PEM --out pubkey_imported.pem
+$BIN -p password -a get-public-key -i $import_keyid --outformat=PEM --out pubkey_rsa4096_imported.pem
 echo "=== Signing with generated key and"
 echo "===== rsa-pkcs1-sha1"
 $BIN -p password -a sign-pkcs1v15 -i $keyid -A rsa-pkcs1-sha1 --in data.txt --out data.4096pkcs1sha1.sig
@@ -255,8 +257,9 @@ $BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate
 echo "=== Sign attestation certificate"
 $BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
 $BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
+rm cert.pem cert.der selfsigned_cert.pem
 echo "=== Decrypt with generated key and PKCS1v15"
-openssl rsautl -encrypt -inkey pubkey.pem -pubin -in data.txt -out data.enc
+openssl rsautl -encrypt -inkey pubkey_rsa4096.pem -pubin -in data.txt -out data.enc
 $BIN -p password -a decrypt-pkcs1v15 -i $keyid --in data.enc --out data.dec
 if [[ $(cat data.txt) != $(cat data.dec) ]]; then
   echo "Decrypt failed"
@@ -264,7 +267,7 @@ if [[ $(cat data.txt) != $(cat data.dec) ]]; then
 fi
 rm data.dec
 echo "=== Decrypt with imported key and PKCS1v15"
-openssl rsautl -encrypt -inkey pubkey_imported.pem -pubin -in data.txt -out data.enc
+openssl rsautl -encrypt -inkey pubkey_rsa4096_imported.pem -pubin -in data.txt -out data.enc
 $BIN -p password -a decrypt-pkcs1v15 -i $import_keyid --in data.enc --out data.dec
 if [[ $(cat data.txt) != $(cat data.dec) ]]; then
   echo "Decrypt failed"
@@ -274,6 +277,9 @@ rm data.dec
 echo "=== Delete keys"
 $BIN -p password -a delete-object -i $keyid -t asymmetric-key
 $BIN -p password -a delete-object -i $import_keyid -t asymmetric-key
+
+cd ..
+rm -rf yubihsm-shell_test_dir
 
 set +e
 #set +x

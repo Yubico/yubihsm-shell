@@ -75,4 +75,7 @@ echo "=== Randomize OTP AEAD"
 echo "=== Delete keys"
 $BIN -p password -a delete-object -i $keyid -t otp-aead-key
 
+cd ..
+rm -rf yubihsm-shell_test_dir
+
 set +e
