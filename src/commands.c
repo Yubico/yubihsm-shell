@@ -1609,6 +1609,7 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
 }
 #endif
 
+#ifdef YKHSMAUTH_ENABLED
 // NOTE: Open a session using a key stored on YubiKey
 // argc = 3
 // arg 0: w:authkey
@@ -1705,6 +1706,7 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
 
   return 0;
 }
+#endif
 
 // NOTE(adma): Send unauthenticated echo
 // argc = 2
