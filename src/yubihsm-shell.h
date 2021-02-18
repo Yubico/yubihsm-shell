@@ -20,8 +20,10 @@
 #include <assert.h>
 
 #include <yubihsm.h>
-#include <ykhsmauth.h>
 #include <cmdline.h>
+#ifdef YKHSMAUTH_ENABLED
+#include <ykhsmauth.h>
+#endif
 
 #define UNUSED(x) (void) (x)
 
@@ -48,7 +50,9 @@ typedef struct {
   char **connector_list;
   yh_connector *connector;
   yh_session *sessions[256];
+#ifdef YKHSMAUTH_ENABLED
   ykhsmauth_state *state;
+#endif
   FILE *out;
   char *cacert;
   char *proxy;

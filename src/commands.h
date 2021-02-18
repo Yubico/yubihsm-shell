@@ -127,8 +127,10 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
                              cmd_format in_fmt, cmd_format fmt);
 #endif
+#ifdef YKHSMAUTH_ENABLED
 int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
                           cmd_format in_fmt, cmd_format fmt);
+#endif
 int yh_com_pecho(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                  cmd_format fmt);
 int yh_com_put_asymmetric(yubihsm_context *ctx, Argument *argv,

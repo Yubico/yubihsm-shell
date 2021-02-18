@@ -44,8 +44,12 @@ include_directories (
   ${CMAKE_CURRENT_SOURCE_DIR}/../lib
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/../common
-  ${CMAKE_CURRENT_SOURCE_DIR}/../ykhsmauth
   )
+if(ENABLE_YKHSM_AUTH)
+  include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../ykhsmauth)
+  set(YKHSMAUTH_LIB ykhsmauth)
+  set(YKHSMAUTH_LIB_STATIC ykhsmauth_static)
+endif()
 
 if(WIN32)
   list(APPEND SOURCE ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
@@ -73,7 +77,7 @@ if (ENABLE_STATIC)
     ${LIBEDIT_LDFLAGS}
     ${GETOPT_LIBS}
     yubihsm_static
-    ykhsmauth_static)
+    ${YKHSMAUTH_LIB_STATIC})
   add_coverage (yubihsm-shell_static)
 endif ()
 
@@ -83,8 +87,7 @@ target_link_libraries (
   ${LIBEDIT_LDFLAGS}
   ${GETOPT_LIBS}
   yubihsm
-  ykhsmauth
-  )
+  ${YKHSMAUTH_LIB})
 
 # Set install RPATH
 set_target_properties(yubihsm-shell PROPERTIES INSTALL_RPATH "${YUBIHSM_INSTALL_LIB_DIR}")
