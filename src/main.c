@@ -2192,12 +2192,12 @@ int main(int argc, char *argv[]) {
             yh_string_to_capabilities(args_info.capabilities_arg, &arg[4].c);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse capabilities: ");
 
-          yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[5].a);
-          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
-
-          memset(&arg[6].c, 0, sizeof(yh_capabilities));
-          yrc = yh_string_to_capabilities(args_info.delegated_arg, &arg[6].c);
+          memset(&arg[5].c, 0, sizeof(yh_capabilities));
+          yrc = yh_string_to_capabilities(args_info.delegated_arg, &arg[5].c);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse capabilities: ");
+
+          yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[6].a);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
 
           comrc = yh_com_generate_wrap(&ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to generate wrap key");
