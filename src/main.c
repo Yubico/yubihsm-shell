@@ -764,11 +764,9 @@ static bool probe_session(yubihsm_context *ctx, size_t index) {
     if (yh_send_secure_msg(ctx->sessions[index], YHC_ECHO, &data, 1,
                            &response_cmd, response,
                            &response_len) != YHR_SUCCESS) {
-      if (response_len == 1 && response_cmd == YHC_ERROR) {
-        yh_destroy_session(&ctx->sessions[index]);
-        ctx->sessions[index] = NULL;
-        return false;
-      }
+      yh_destroy_session(&ctx->sessions[index]);
+      ctx->sessions[index] = NULL;
+      return false;
     }
     return true;
   } else {
@@ -2869,6 +2867,10 @@ int main(int argc, char *argv[]) {
 main_exit:
 
   calling_device = true;
+
+  for (size_t i = 0; i < sizeof(ctx.sessions) / sizeof(ctx.sessions[0]); i++) {
+    probe_session(&ctx, i);
+  }
 
   yh_com_disconnect(&ctx, NULL, fmt_nofmt, fmt_nofmt);
 
