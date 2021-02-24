@@ -584,6 +584,10 @@ int yh_com_disconnect(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   for (size_t i = 0; i < sizeof(ctx->sessions) / sizeof(ctx->sessions[0]);
        i++) {
     if (ctx->sessions[i]) {
+      yrc = yh_util_close_session(ctx->sessions[i]);
+      if (yrc != YHR_SUCCESS) {
+        fprintf(stderr, "Failed to close session: %s\n", yh_strerror(yrc));
+      }
       yrc = yh_destroy_session(&ctx->sessions[i]);
       if (yrc != YHR_SUCCESS) {
         fprintf(stderr, "Failed to destroy session: %s\n", yh_strerror(yrc));
@@ -592,12 +596,14 @@ int yh_com_disconnect(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     }
   }
 
-  yrc = yh_disconnect(ctx->connector);
-  if (yrc != YHR_SUCCESS) {
-    fprintf(stderr, "Unable to disconnect: %s\n", yh_strerror(yrc));
-    return -1;
+  if (ctx->connector) {
+    yrc = yh_disconnect(ctx->connector);
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr, "Unable to disconnect: %s\n", yh_strerror(yrc));
+      return -1;
+    }
+    ctx->connector = NULL;
   }
-  ctx->connector = NULL;
 
   return 0;
 }
@@ -640,12 +646,6 @@ int yh_com_echo(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                            response, &response_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to send ECHO command: %s\n", yh_strerror(yrc));
-    return -1;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    fprintf(stderr, "Unable to get echo data: %s (%x)\n",
-            yh_strerror(response[0]), response[0]);
     return -1;
   }
 
@@ -1749,13 +1749,7 @@ int yh_com_pecho(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   yrc = yh_send_plain_msg(ctx->connector, YHC_ECHO, data, data_len,
                           &response_cmd, response, &response_len);
   if (yrc != YHR_SUCCESS) {
-    fprintf(stderr, "Failed to send ECHO command): %s\n", yh_strerror(yrc));
-    return -1;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    fprintf(stderr, "Unable to get echo data: %s (%x)\n",
-            yh_strerror(response[0]), response[0]);
+    fprintf(stderr, "Failed to send ECHO command: %s\n", yh_strerror(yrc));
     return -1;
   }
 

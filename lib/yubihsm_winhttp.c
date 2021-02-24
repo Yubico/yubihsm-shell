@@ -77,13 +77,15 @@ static void backend_set_verbosity(uint8_t verbosity, FILE *output) {
 }
 
 static yh_rc backend_init(uint8_t verbosity, FILE *output) {
+  DBG_INFO("backend_init");
   backend_set_verbosity(verbosity, output);
   return YHR_SUCCESS;
 }
 
-static void backend_cleanup(void) {}
+static void backend_cleanup(void) { DBG_INFO("backend_cleanup"); }
 
 static yh_backend *backend_create(void) {
+  DBG_INFO("backend_create");
   yh_backend *backend = calloc(1, sizeof(yh_backend));
   if (backend) {
     backend->session =
@@ -94,12 +96,14 @@ static yh_backend *backend_create(void) {
 }
 
 static void backend_disconnect(yh_backend *connection) {
+  DBG_INFO("backend_disconnect");
   WinHttpCloseHandle(connection->connection);
   WinHttpCloseHandle(connection->session);
   free(connection);
 }
 
 static yh_rc backend_connect(yh_connector *connector, int timeout) {
+  DBG_INFO("backend_connect");
   if (timeout == 0) {
     // TODO: what does winhttp do if it gets timeout 0?
     timeout = 300;

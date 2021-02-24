@@ -37,11 +37,13 @@ static void backend_set_verbosity(uint8_t verbosity, FILE *output) {
 }
 
 static yh_rc backend_init(uint8_t verbosity, FILE *output) {
+  DBG_INFO("backend_init");
   backend_set_verbosity(verbosity, output);
   return YHR_SUCCESS;
 }
 
 static yh_rc backend_connect(yh_connector *connector, int timeout) {
+  DBG_INFO("backend_connect");
   unsigned long serial = 0;
 
   yh_rc ret = YHR_CONNECTOR_ERROR;
@@ -68,6 +70,7 @@ out:
 }
 
 static void backend_disconnect(yh_backend *connection) {
+  DBG_INFO("backend_disconnect");
   usb_destroy(&connection);
 }
 
@@ -122,7 +125,7 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
   return YHR_SUCCESS;
 }
 
-static void backend_cleanup(void) {}
+static void backend_cleanup(void) { DBG_INFO("backend_cleanup"); }
 
 static yh_rc backend_option(yh_backend *connection, yh_connector_option opt,
                             const void *val) {

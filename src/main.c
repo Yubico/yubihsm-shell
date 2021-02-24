@@ -769,12 +769,9 @@ static bool probe_session(yubihsm_context *ctx, size_t index) {
     // silently ignore transmit errors..?
     if (yh_send_secure_msg(ctx->sessions[index], YHC_ECHO, &data, 1,
                            &response_cmd, response,
-                           &response_len) == YHR_SUCCESS) {
-      if (response_cmd != YHC_ECHO_R) {
-        yh_destroy_session(&ctx->sessions[index]);
-        ctx->sessions[index] = NULL;
-        return false;
-      }
+                           &response_len) != YHR_SUCCESS) {
+      yh_destroy_session(&ctx->sessions[index]);
+      return false;
     }
     return true;
   } else {
@@ -2806,10 +2803,6 @@ int main(int argc, char *argv[]) {
 
     calling_device = false;
 
-    if (requires_session == true) {
-      yh_util_close_session(arg[0].e);
-    }
-
   } else {
     int num = 0;
 #ifndef __WIN32
@@ -2847,6 +2840,10 @@ int main(int argc, char *argv[]) {
 
     create_command_list(&g_commands);
 
+    if (args_info.pre_connect_flag) {
+      yh_com_connect(&ctx, NULL, fmt_nofmt, fmt_nofmt);
+    }
+
     while (g_running == true) {
 #ifdef __WIN32
       fprintf(stdout, PROMPT);
@@ -2878,6 +2875,17 @@ int main(int argc, char *argv[]) {
   }
 
 main_exit:
+
+  calling_device = true;
+
+  for (size_t i = 0; i < sizeof(ctx.sessions) / sizeof(ctx.sessions[0]); i++) {
+    if (ctx.sessions[i]) {
+      yh_util_close_session(ctx.sessions[i]);
+      yh_destroy_session(&ctx.sessions[i]);
+    }
+  }
+
+  yh_disconnect(ctx.connector);
 
   cmdline_parser_free(&args_info);
 
