@@ -31,6 +31,7 @@
 
 #ifdef __WIN32
 #include <winsock.h>
+#include <openssl/applink.c>
 #else
 #include <arpa/inet.h>
 #include <unistd.h>
