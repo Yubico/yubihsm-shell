@@ -9,6 +9,7 @@
 
       <WixVariable Id="WixUIDialogBmp" Value="..\icons\yubico-msi-background.png" />
       <WixVariable Id="WixUIBannerBmp" Value="..\icons\yubico-msi-y-banner.png" />
+      <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
 
       <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR" />
 
