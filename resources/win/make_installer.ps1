@@ -80,7 +80,7 @@ $env:MERGEDPATH = $MERGE_MODULE
 
 heat.exe dir $RELEASE_DIR -out fragment.wxs -gg -scom -srd -sfrag -sreg -dr INSTALLDIR -cg ApplicationFiles -var env.SRCDIR
 candle.exe fragment.wxs "yubihsm-shell_$ARCH.wxs" -ext WixUtilExtension  -arch $ARCH
-light.exe fragment.wixobj "yubihsm-shell_$ARCH.wixobj" -ext WixUIExtension -dWixUILicenseRtf="license.rtf" -ext WixUtilExtension -o "yubihsm-shell-$ARCH.msi"
+light.exe fragment.wixobj "yubihsm-shell_$ARCH.wixobj" -ext WixUIExtension -ext WixUtilExtension -o "yubihsm-shell-$ARCH.msi"
 
 #cleanup
 rm fragment.wxs
