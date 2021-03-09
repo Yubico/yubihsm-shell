@@ -46,7 +46,9 @@ static const struct {
 };
 
 typedef struct {
+#ifdef USE_ASYMMETRIC_AUTH
   uint8_t **device_pubkey_list;
+#endif
   char **connector_list;
   yh_connector *connector;
   yh_session *sessions[256];
