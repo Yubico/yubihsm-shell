@@ -90,11 +90,7 @@ History *g_hist;
   }
 
 static bool calling_device = false;
-#ifdef YKHSMAUTH_ENABLED
-static yubihsm_context ctx = {0, 0, 0, {0}, 0, 0, 0, 0};
-#else
-static yubihsm_context ctx = {0, 0, 0, {0}, 0, 0, 0};
-#endif
+static yubihsm_context ctx = {0};
 
 int yh_com_help(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                 cmd_format fmt);
