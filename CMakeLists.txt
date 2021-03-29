@@ -198,8 +198,8 @@ endif()
 
 message("LIBCRYPTO_VERSION: ${LIBCRYPTO_VERSION}")
 
-# If enabled, make sure to make the 'ykhsmauth-label' option in src/cmdline.ggo visible again
-option(ENABLE_YKHSM_AUTH "Enable/disable ykhsmauth module" OFF)
+# If disabled, make sure to make the 'ykhsmauth-label' option in src/cmdline.ggo invisible
+option(ENABLE_YKHSM_AUTH "Enable/disable ykhsmauth module" ON)
 if(ENABLE_YKHSM_AUTH)
   add_definitions(-DYKHSMAUTH_ENABLED="1")
 endif()
