@@ -3962,7 +3962,7 @@ static yh_rc load_backend(const char *name, void **backend,
                           struct backend_functions **bf) {
   struct backend_functions *(*backend_functions)(void);
 #ifdef WIN32
-  *backend = LoadLibrary(name);
+  *backend = LoadLibraryEx(name, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
   if (*backend == NULL) {
     DBG_ERR("Failed loading library '%s'", name);
     return YHR_GENERIC_ERROR;
