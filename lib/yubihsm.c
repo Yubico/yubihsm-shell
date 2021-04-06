@@ -3969,12 +3969,12 @@ static yh_rc load_backend(const char *name, void **backend,
   }
   char path[1024];
   if (!GetModuleFileNameA(module, path, sizeof(path))) {
-    DBG_ERR("Failed getting module name");
+    DBG_ERR("Failed getting module path for 'libyubihsm'");
     return YHR_GENERIC_ERROR;
   }
   char *p = strrchr(path, '\\');
   if (!p) {
-    DBG_ERR("Path separator not found in '%s'", path);
+    DBG_ERR("Path separator not found in module path '%s'", path);
     return YHR_GENERIC_ERROR;
   }
   p[1] = 0;
