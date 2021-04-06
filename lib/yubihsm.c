@@ -3962,9 +3962,29 @@ static yh_rc load_backend(const char *name, void **backend,
                           struct backend_functions **bf) {
   struct backend_functions *(*backend_functions)(void);
 #ifdef WIN32
-  *backend = LoadLibraryEx(name, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+  HMODULE module = GetModuleHandleA("libyubihsm");
+  if (!module) {
+    DBG_ERR("Failed getting module handle for 'libyubihsm'");
+    return YHR_GENERIC_ERROR;
+  }
+  char path[1024];
+  if (!GetModuleFileNameA(module, path, sizeof(path))) {
+    DBG_ERR("Failed getting module name");
+    return YHR_GENERIC_ERROR;
+  }
+  char *p = strrchr(path, '\\');
+  if (!p) {
+    DBG_ERR("Path separator not found in '%s'", path);
+    return YHR_GENERIC_ERROR;
+  }
+  p[1] = 0;
+  strcat(path, name);
+  DBG_INFO("Loading backend library '%s'", path);
+
+  *backend = LoadLibraryEx(path, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+
   if (*backend == NULL) {
-    DBG_ERR("Failed loading library '%s'", name);
+    DBG_ERR("Failed loading backend library '%s'", path);
     return YHR_GENERIC_ERROR;
   }
   backend_functions = (struct backend_functions * (*) (void) )(
