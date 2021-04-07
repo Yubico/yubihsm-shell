@@ -3978,7 +3978,7 @@ static yh_rc load_backend(const char *name, void **backend,
     return YHR_GENERIC_ERROR;
   }
   p[1] = 0;
-  strcat(path, name);
+  strcat_s(path, sizeof(path), name);
   DBG_INFO("Loading backend library '%s'", path);
 
   *backend = LoadLibraryEx(path, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
