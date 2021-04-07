@@ -3962,13 +3962,13 @@ static yh_rc load_backend(const char *name, void **backend,
                           struct backend_functions **bf) {
   struct backend_functions *(*backend_functions)(void);
 #ifdef WIN32
-  HMODULE module = GetModuleHandleA("libyubihsm");
+  HMODULE module = GetModuleHandle("libyubihsm");
   if (!module) {
     DBG_ERR("Failed getting module handle for 'libyubihsm'");
     return YHR_GENERIC_ERROR;
   }
   char path[1024];
-  if (!GetModuleFileNameA(module, path, sizeof(path))) {
+  if (!GetModuleFileName(module, path, sizeof(path))) {
     DBG_ERR("Failed getting module path for 'libyubihsm'");
     return YHR_GENERIC_ERROR;
   }
