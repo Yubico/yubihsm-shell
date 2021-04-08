@@ -3987,8 +3987,8 @@ static yh_rc load_backend(const char *name, void **backend,
     DBG_ERR("Failed loading backend library '%s'", path);
     return YHR_GENERIC_ERROR;
   }
-  backend_functions = (struct backend_functions * (*) (void) )(
-    (void (*)(void)) GetProcAddress(*backend, "backend_functions"));
+  backend_functions = (struct backend_functions * (*) (void) )
+    GetProcAddress(*backend, "backend_functions");
 #else
   *backend = dlopen(name, RTLD_NOW);
   if (*backend == NULL) {
