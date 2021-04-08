@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
-  <?define ProductVersion="2.1.2" ?>
+  <?define ProductVersion="2.1.3" ?>
   <?define ProductName="YubiHSM Shell (x64)" ?>
 
    <Product Id="*" UpgradeCode="af3c0c04-a974-4077-a29f-7651b546d770" Name="$(var.ProductName)" Version="$(var.ProductVersion)" Manufacturer="Yubico AB" Language="1033">
@@ -9,6 +9,7 @@
 
       <WixVariable Id="WixUIDialogBmp" Value="..\icons\yubico-msi-background.png" />
       <WixVariable Id="WixUIBannerBmp" Value="..\icons\yubico-msi-y-banner.png" />
+      <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
 
       <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR" />
 
@@ -29,13 +30,18 @@
           <Publish Dialog="WelcomeDlg"
             Control="Next"
             Event="NewDialog"
+            Value="LicenseAgreementDlg"
+            Order="2">1</Publish>
+          <Publish Dialog="LicenseAgreementDlg"
+            Control="Next"
+            Event="NewDialog"
             Value="InstallDirDlg"
             Order="2">1</Publish>
           <Publish Dialog="InstallDirDlg"
             Control="Back"
             Event="NewDialog"
-            Value="WelcomeDlg"
-            Order="2">1</Publish>
+            Value="LicenseAgreementDlg"
+            Order="2">2</Publish>
       </UI>
 
       <Directory Id="TARGETDIR" Name="SourceDir">

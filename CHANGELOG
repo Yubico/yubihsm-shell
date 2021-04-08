@@ -1,3 +1,15 @@
+=== Version 2.1.0
+
+lib: Security update for https://www.yubico.com/support/security-advisories/ysa-2021-01/[YSA-2021-01]
+lib: Add FIPS-mode option
+lib: Add support for rsa-pkcs1-decrypt algorithm
+lib: shell: Add support for OTP AEAD rewrap
+shell: Add support writing attestation certificate to a file
+pkcs11: Add support for CKA_TRUSTED attribute
+all: Fix potential memory leaks
+all: Improve error handling
+doc: Clarify the minimum length of the password used with PKCS11
+
 === Version 2.0.3
 
 all: Move away from archaic offensive terms

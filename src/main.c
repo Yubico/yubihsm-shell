@@ -90,7 +90,7 @@ History *g_hist;
   }
 
 static bool calling_device = false;
-static yubihsm_context ctx = {0, 0, 0, {0}, 0, 0, 0, 0};
+static yubihsm_context ctx = {0};
 
 int yh_com_help(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                 cmd_format fmt);
@@ -514,12 +514,14 @@ void create_command_list(CommandList *c) {
                                     "specific Asymmetric Authentication Key",
                                     NULL, NULL});
 #endif
+#ifdef YKHSMAUTH_ENABLED
   register_subcommand(*c, (Command){"ykopen", yh_com_open_yksession,
                                     "w:authkey,s:label,i:password=-",
                                     fmt_password, fmt_nofmt,
                                     "Open a session with a device using an "
                                     "Authentication in a YubiKey",
                                     NULL, NULL});
+#endif
   *c = register_command(*c, (Command){"sign", yh_com_noop, NULL, fmt_nofmt,
                                       fmt_nofmt, "Sign data", NULL, NULL});
   register_subcommand(
@@ -763,12 +765,9 @@ static bool probe_session(yubihsm_context *ctx, size_t index) {
     // silently ignore transmit errors..?
     if (yh_send_secure_msg(ctx->sessions[index], YHC_ECHO, &data, 1,
                            &response_cmd, response,
-                           &response_len) == YHR_SUCCESS) {
-      if (response_cmd != YHC_ECHO_R) {
-        yh_destroy_session(&ctx->sessions[index]);
-        ctx->sessions[index] = NULL;
-        return false;
-      }
+                           &response_len) != YHR_SUCCESS) {
+      yh_destroy_session(&ctx->sessions[index]);
+      return false;
     }
     return true;
   } else {
@@ -1958,6 +1957,7 @@ int main(int argc, char *argv[]) {
     goto main_exit;
   }
 
+#ifdef YKHSMAUTH_ENABLED
   ykhsmauth_rc ykhsmauthrc;
   ykhsmauthrc =
     ykhsmauth_init(&ctx.state, 1); // TODO(adma): do something about verbosity
@@ -1966,6 +1966,7 @@ int main(int argc, char *argv[]) {
     rc = EXIT_FAILURE;
     goto main_exit;
   }
+#endif
 
   if (ctx.connector_list[0] == NULL) {
     fprintf(stderr, "Using default connector URL: %s\n", LOCAL_CONNECTOR_URL);
@@ -2037,7 +2038,7 @@ int main(int argc, char *argv[]) {
         rc = EXIT_FAILURE;
         goto main_exit;
       }
-
+#ifdef YKHSMAUTH_ENABLED
       if (args_info.ykhsmauth_label_given) {
         arg[1].s = args_info.ykhsmauth_label_arg;
         arg[1].len = strlen(args_info.ykhsmauth_label_arg);
@@ -2045,10 +2046,13 @@ int main(int argc, char *argv[]) {
         arg[2].len = pw_len;
         comrc = yh_com_open_yksession(&ctx, arg, fmt_nofmt, fmt_nofmt);
       } else {
+#endif
         arg[1].x = buf;
         arg[1].len = pw_len;
         comrc = yh_com_open_session(&ctx, arg, fmt_nofmt, fmt_nofmt);
+#ifdef YKHSMAUTH_ENABLED
       }
+#endif
       insecure_memzero(buf, pw_len);
       if (comrc != 0) {
         fprintf(stderr, "Failed to open session\n");
@@ -2181,12 +2185,12 @@ int main(int argc, char *argv[]) {
             yh_string_to_capabilities(args_info.capabilities_arg, &arg[4].c);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse capabilities: ");
 
-          yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[5].a);
-          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
-
-          memset(&arg[6].c, 0, sizeof(yh_capabilities));
-          yrc = yh_string_to_capabilities(args_info.delegated_arg, &arg[6].c);
+          memset(&arg[5].c, 0, sizeof(yh_capabilities));
+          yrc = yh_string_to_capabilities(args_info.delegated_arg, &arg[5].c);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse capabilities: ");
+
+          yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[6].a);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
 
           comrc = yh_com_generate_wrap(&ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to generate wrap key");
@@ -2795,10 +2799,6 @@ int main(int argc, char *argv[]) {
 
     calling_device = false;
 
-    if (requires_session == true) {
-      yh_util_close_session(arg[0].e);
-    }
-
   } else {
     int num = 0;
 #ifndef __WIN32
@@ -2836,6 +2836,10 @@ int main(int argc, char *argv[]) {
 
     create_command_list(&g_commands);
 
+    if (args_info.pre_connect_flag) {
+      yh_com_connect(&ctx, NULL, fmt_nofmt, fmt_nofmt);
+    }
+
     while (g_running == true) {
 #ifdef __WIN32
       fprintf(stdout, PROMPT);
@@ -2868,6 +2872,17 @@ int main(int argc, char *argv[]) {
 
 main_exit:
 
+  calling_device = true;
+
+  for (size_t i = 0; i < sizeof(ctx.sessions) / sizeof(ctx.sessions[0]); i++) {
+    if (ctx.sessions[i]) {
+      yh_util_close_session(ctx.sessions[i]);
+      yh_destroy_session(&ctx.sessions[i]);
+    }
+  }
+
+  yh_disconnect(ctx.connector);
+
   cmdline_parser_free(&args_info);
 
   if (ctx.out != stdout && ctx.out != NULL) {
@@ -2882,9 +2897,10 @@ main_exit:
   }
 
   yh_exit();
-
+#ifdef YKHSMAUTH_ENABLED
   ykhsmauth_done(ctx.state);
   ctx.state = NULL;
+#endif
 
 #ifdef USE_ASYMMETRIC_AUTH
   free_configured_pubkeys(&ctx);

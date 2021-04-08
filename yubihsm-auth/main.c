@@ -71,7 +71,7 @@ static bool parse_pw(const char *prompt, char *pw, uint8_t *parsed,
 
 static bool parse_key(const char *prompt, char *key, uint8_t *parsed,
                       size_t *parsed_len) {
-  char buf[128];
+  char buf[128] = {0};
   size_t buf_size = sizeof(buf);
 
   if (strlen(key) > buf_size) {
@@ -90,6 +90,8 @@ static bool parse_key(const char *prompt, char *key, uint8_t *parsed,
   }
 
   if (hex_decode(buf, parsed, parsed_len) == false) {
+    fprintf(stdout, "Unable to parse key, must be %d characters hexadecimal\n",
+            YKHSMAUTH_YUBICO_AES128_KEY_LEN);
     return false;
   }
 
@@ -104,7 +106,7 @@ static bool parse_key(const char *prompt, char *key, uint8_t *parsed,
 
 static bool parse_context(const char *prompt, char *context, uint8_t *parsed,
                           size_t *parsed_len) {
-  char buf[128];
+  char buf[128] = {0};
   size_t buf_size = sizeof(buf);
 
   if (strlen(context) > buf_size) {
@@ -123,6 +125,9 @@ static bool parse_context(const char *prompt, char *context, uint8_t *parsed,
   }
 
   if (hex_decode(buf, parsed, parsed_len) == false) {
+    fprintf(stdout,
+            "Unable to parse context, must be %d characters hexadecimal\n",
+            YKHSMAUTH_CONTEXT_LEN * 2);
     return false;
   }
 
@@ -155,7 +160,7 @@ static bool parse_touch_policy(enum enum_touch touch_policy,
 static bool delete_credential(ykhsmauth_state *state, char *mgmkey,
                               char *label) {
   ykhsmauth_rc ykhsmauthrc;
-  uint8_t mgmkey_parsed[YKHSMAUTH_PW_LEN];
+  uint8_t mgmkey_parsed[YKHSMAUTH_PW_LEN] = {0};
   size_t mgmkey_parsed_len = sizeof(mgmkey_parsed);
   char label_parsed[YKHSMAUTH_MAX_LABEL_LEN + 2] = {0};
   size_t label_parsed_len = sizeof(label_parsed);
@@ -216,13 +221,13 @@ static bool put_credential(ykhsmauth_state *state, char *mgmkey, char *label,
                            char *key_mac, char *credpassword,
                            enum enum_touch touch_policy) {
   ykhsmauth_rc ykhsmauthrc;
-  uint8_t mgmkey_parsed[YKHSMAUTH_PW_LEN];
+  uint8_t mgmkey_parsed[YKHSMAUTH_PW_LEN] = {0};
   size_t mgmkey_parsed_len = sizeof(mgmkey_parsed);
   char label_parsed[YKHSMAUTH_MAX_LABEL_LEN + 2] = {0};
   size_t label_parsed_len = sizeof(label_parsed);
   uint8_t dpw_parsed[256] = {0};
   size_t dpw_parsed_len = sizeof(dpw_parsed);
-  uint8_t key_parsed[YKHSMAUTH_YUBICO_AES128_KEY_LEN];
+  uint8_t key_parsed[YKHSMAUTH_YUBICO_AES128_KEY_LEN] = {0};
   size_t key_parsed_len = sizeof(key_parsed);
   uint8_t cpw_parsed[YKHSMAUTH_PW_LEN + 2] = {0};
   size_t cpw_parsed_len = sizeof(cpw_parsed);
@@ -314,7 +319,7 @@ bool reset_device(ykhsmauth_state *state) {
     return false;
   }
 
-  fprintf(stdout, "Device successuflly reset\n");
+  fprintf(stdout, "Device successfully reset\n");
 
   return true;
 }
@@ -337,7 +342,7 @@ bool get_mgmkey_retries(ykhsmauth_state *state) {
 
 bool get_version(ykhsmauth_state *state) {
   ykhsmauth_rc ykhsmauthrc;
-  char version[64];
+  char version[64] = {0};
   size_t version_len = sizeof(version);
 
   ykhsmauthrc = ykhsmauth_get_version(state, version, version_len);
@@ -365,13 +370,13 @@ static bool calculate_session_keys(ykhsmauth_state *state, char *label,
   ykhsmauth_rc ykhsmauthrc;
   char label_parsed[YKHSMAUTH_MAX_LABEL_LEN + 2] = {0};
   size_t label_parsed_len = sizeof(label_parsed);
-  uint8_t context_parsed[YKHSMAUTH_CONTEXT_LEN];
+  uint8_t context_parsed[YKHSMAUTH_CONTEXT_LEN] = {0};
   size_t context_parsed_len = sizeof(context_parsed);
   uint8_t cpw_parsed[YKHSMAUTH_PW_LEN + 2] = {0};
   size_t cpw_parsed_len = sizeof(cpw_parsed);
-  uint8_t key_s_enc[YKHSMAUTH_SESSION_KEY_LEN];
-  uint8_t key_s_mac[YKHSMAUTH_SESSION_KEY_LEN];
-  uint8_t key_s_rmac[YKHSMAUTH_SESSION_KEY_LEN];
+  uint8_t key_s_enc[YKHSMAUTH_SESSION_KEY_LEN] = {0};
+  uint8_t key_s_mac[YKHSMAUTH_SESSION_KEY_LEN] = {0};
+  uint8_t key_s_rmac[YKHSMAUTH_SESSION_KEY_LEN] = {0};
   size_t key_s_enc_len = sizeof(key_s_enc);
   size_t key_s_mac_len = sizeof(key_s_mac);
   size_t key_s_rmac_len = sizeof(key_s_rmac);
@@ -414,9 +419,9 @@ static bool calculate_session_keys(ykhsmauth_state *state, char *label,
 
 static bool put_mgmkey(ykhsmauth_state *state, char *mgmkey, char *new_mgmkey) {
   ykhsmauth_rc ykhsmauthrc;
-  uint8_t mgmkey_parsed[YKHSMAUTH_PW_LEN];
+  uint8_t mgmkey_parsed[YKHSMAUTH_PW_LEN] = {0};
   size_t mgmkey_parsed_len = sizeof(mgmkey_parsed);
-  uint8_t new_mgmkey_parsed[YKHSMAUTH_PW_LEN];
+  uint8_t new_mgmkey_parsed[YKHSMAUTH_PW_LEN] = {0};
   size_t new_mgmkey_parsed_len = sizeof(mgmkey_parsed);
   uint8_t retries;
 

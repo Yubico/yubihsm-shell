@@ -37,11 +37,13 @@ static void backend_set_verbosity(uint8_t verbosity, FILE *output) {
 }
 
 static yh_rc backend_init(uint8_t verbosity, FILE *output) {
+  DBG_INFO("backend_init");
   backend_set_verbosity(verbosity, output);
   return YHR_SUCCESS;
 }
 
 static yh_rc backend_connect(yh_connector *connector, int timeout) {
+  DBG_INFO("backend_connect");
   unsigned long serial = 0;
 
   yh_rc ret = YHR_CONNECTOR_ERROR;
@@ -68,15 +70,15 @@ out:
 }
 
 static void backend_disconnect(yh_backend *connection) {
+  DBG_INFO("backend_disconnect");
   usb_destroy(&connection);
 }
 
 static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
                               const char *identifier) {
-  int32_t trf_len = msg->st.len + 3;
+  int32_t trf_len = ntohs(msg->st.len) + 3;
   yh_rc ret = YHR_GENERIC_ERROR;
   unsigned long read_len = 0;
-  msg->st.len = htons(msg->st.len);
 
   (void) identifier;
 
@@ -95,7 +97,7 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
       continue;
     }
 
-    read_len = SCP_MSG_BUF_SIZE;
+    read_len = sizeof(response->raw);
     if (usb_read(connection, response->raw, &read_len) == 0) {
       ret = YHR_CONNECTION_ERROR;
       DBG_ERR("USB read failed");
@@ -114,17 +116,16 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
     return YHR_WRONG_LENGTH;
   }
 
-  response->st.len = ntohs(response->st.len);
-
-  if (response->st.len != read_len - 3) {
-    DBG_ERR("Wrong length received, %d vs %lu", response->st.len, read_len);
+  if (ntohs(response->st.len) != read_len - 3) {
+    DBG_ERR("Wrong length received, %d vs %lu", ntohs(response->st.len),
+            read_len);
     return YHR_WRONG_LENGTH;
   }
 
   return YHR_SUCCESS;
 }
 
-static void backend_cleanup(void) {}
+static void backend_cleanup(void) { DBG_INFO("backend_cleanup"); }
 
 static yh_rc backend_option(yh_backend *connection, yh_connector_option opt,
                             const void *val) {

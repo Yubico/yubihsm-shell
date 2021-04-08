@@ -337,7 +337,10 @@ int aes_cbc_encrypt(uint8_t *in, uint8_t *out, uint16_t len, uint8_t *iv,
   NTSTATUS status = STATUS_SUCCESS;
   ULONG cbResult = 0;
 
-  if (!BCRYPT_SUCCESS(status = BCryptEncrypt(ctx->hKeyCBC, in, len, NULL, iv,
+  UCHAR _iv[AES_BLOCK_SIZE];
+  memcpy(_iv, iv, AES_BLOCK_SIZE);
+
+  if (!BCRYPT_SUCCESS(status = BCryptEncrypt(ctx->hKeyCBC, in, len, NULL, _iv,
                                              AES_BLOCK_SIZE, out, len,
                                              &cbResult, 0))) {
     return -1;
@@ -362,7 +365,10 @@ int aes_cbc_decrypt(uint8_t *in, uint8_t *out, uint16_t len, uint8_t *iv,
   NTSTATUS status = STATUS_SUCCESS;
   ULONG cbResult = 0;
 
-  if (!BCRYPT_SUCCESS(status = BCryptDecrypt(ctx->hKeyCBC, in, len, NULL, iv,
+  UCHAR _iv[AES_BLOCK_SIZE];
+  memcpy(_iv, iv, AES_BLOCK_SIZE);
+
+  if (!BCRYPT_SUCCESS(status = BCryptDecrypt(ctx->hKeyCBC, in, len, NULL, _iv,
                                              AES_BLOCK_SIZE, out, len,
                                              &cbResult, 0))) {
     return -1;
@@ -383,19 +389,26 @@ int aes_cbc_decrypt(uint8_t *in, uint8_t *out, uint16_t len, uint8_t *iv,
 
 void aes_add_padding(uint8_t *in, uint16_t *len) {
 
-  in[(*len)++] = 0x80;
+  if (in) {
+    in[*len] = 0x80;
+  }
+  (*len)++;
   while ((*len) % AES_BLOCK_SIZE != 0) {
-    in[(*len)++] = 0x00;
+    if (in) {
+      in[*len] = 0x00;
+    }
+    (*len)++;
   }
 }
 
 void aes_remove_padding(uint8_t *in, uint16_t *len) {
 
-  while (in[(*len) - 1] == 0) {
+  while ((*len) > 1 && in[(*len) - 1] == 0) {
     (*len)--;
   }
 
-  (*len)--;
+  if (*len > 0)
+    (*len)--;
 }
 
 void aes_destroy(aes_context *ctx) {

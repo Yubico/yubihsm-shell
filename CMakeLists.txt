@@ -95,8 +95,8 @@ else ()
 endif ()
 
 set (yubihsm_shell_VERSION_MAJOR 2)
-set (yubihsm_shell_VERSION_MINOR 0)
-set (yubihsm_shell_VERSION_PATCH 3)
+set (yubihsm_shell_VERSION_MINOR 1)
+set (yubihsm_shell_VERSION_PATCH 0)
 set (VERSION "${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}")
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
@@ -198,6 +198,12 @@ endif()
 
 message("LIBCRYPTO_VERSION: ${LIBCRYPTO_VERSION}")
 
+# If enabled, make sure to make the 'ykhsmauth-label' option in src/cmdline.ggo visible again
+option(ENABLE_YKHSM_AUTH "Enable/disable ykhsmauth module" OFF)
+if(ENABLE_YKHSM_AUTH)
+  add_definitions(-DYKHSMAUTH_ENABLED="1")
+endif()
+
 add_subdirectory (lib)
 
 if(NOT BUILD_ONLY_LIB)
@@ -213,13 +219,14 @@ if(NOT BUILD_ONLY_LIB)
     set(LIBPCSC_LDFLAGS "-Wl,-framework -Wl,PCSC")
   endif()
 
-  add_subdirectory (ykhsmauth)
+  if(ENABLE_YKHSM_AUTH)
+    add_subdirectory (ykhsmauth)
+    add_subdirectory (yubihsm-auth)
+  endif()
 
   add_subdirectory (src)
 
   add_subdirectory (examples)
-
-  add_subdirectory (yubihsm-auth)
 
   add_subdirectory(yhwrap)
 endif()

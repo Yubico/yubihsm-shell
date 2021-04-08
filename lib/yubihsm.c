@@ -108,38 +108,6 @@ static yh_rc send_msg(yh_connector *connector, Msg *msg, Msg *response,
   return yrc;
 }
 
-static yh_rc send_authenticated_msg(yh_session *session, Msg *msg,
-                                    Msg *response) {
-
-  uint8_t mac_buf[SCP_MSG_BUF_SIZE + SCP_MAC_LEN];
-  uint16_t mac_buf_len;
-  uint16_t msg_len;
-  yh_rc yrc;
-
-  msg->st.len += SCP_MAC_LEN;
-  msg_len = msg->st.len;
-
-  if (msg->st.len > SCP_MSG_BUF_SIZE - 3) {
-    return YHR_BUFFER_TOO_SMALL;
-  }
-
-  memcpy(mac_buf, session->s.mac_chaining_value, SCP_PRF_LEN);
-  msg->st.len = htons(msg->st.len);
-  memcpy(mac_buf + SCP_PRF_LEN, msg->raw, msg_len + 3 - SCP_MAC_LEN);
-  msg->st.len = ntohs(msg->st.len);
-  mac_buf_len = SCP_PRF_LEN + msg->st.len + 3 - SCP_MAC_LEN;
-  yrc = compute_full_mac(mac_buf, mac_buf_len, session->s.s_mac, SCP_KEY_LEN,
-                         session->s.mac_chaining_value);
-  if (yrc != YHR_SUCCESS) {
-    DBG_ERR("compute_full_mac %s", yh_strerror(yrc));
-    return yrc;
-  }
-  memcpy(msg->st.data + msg->st.len - SCP_MAC_LEN,
-         session->s.mac_chaining_value, SCP_MAC_LEN);
-
-  return send_msg(session->parent, msg, response, session->s.identifier);
-}
-
 static void increment_ctr(uint8_t *ctr, uint16_t len) {
 
   while (len > 0) {
@@ -147,59 +115,6 @@ static void increment_ctr(uint8_t *ctr, uint16_t len) {
       break;
     }
   }
-}
-
-yh_rc yh_send_plain_msg(yh_connector *connector, yh_cmd cmd,
-                        const uint8_t *data, size_t data_len,
-                        yh_cmd *response_cmd, uint8_t *response,
-                        size_t *response_len) {
-
-  Msg msg;
-  Msg response_msg;
-
-  yh_rc yrc;
-
-  if (connector == NULL || (data_len != 0 && data == NULL) ||
-      response_cmd == NULL || response == NULL || response_len == NULL) {
-    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
-    return YHR_INVALID_PARAMETERS;
-  }
-
-  if (data_len > sizeof(msg.st.data)) {
-    DBG_ERR("Tried to transfer oversized data (%zu > %zu)", data_len,
-            sizeof(msg.st.data));
-    return YHR_INVALID_PARAMETERS;
-  }
-
-  msg.st.cmd = cmd;
-  msg.st.len = data_len;
-  if (data_len > 0) {
-    memcpy(msg.st.data, data, data_len);
-  }
-
-  DBG_DUMPINFO(msg.raw, data_len + 3, "Sending cmd %02x (%3zu Bytes): ", cmd,
-               data_len + 3);
-
-  yrc = send_msg(connector, &msg, &response_msg, NULL);
-  if (yrc != YHR_SUCCESS) {
-    DBG_ERR("%s", yh_strerror(yrc));
-    return yrc;
-  }
-
-  if (*response_len < response_msg.st.len) {
-    DBG_DUMPERR(response_msg.raw, response_msg.st.len + 3,
-                "%s (received %3d Bytes, can fit %3zu Bytes) ",
-                yh_strerror(YHR_BUFFER_TOO_SMALL), response_msg.st.len,
-                *response_len);
-    return YHR_BUFFER_TOO_SMALL;
-  }
-
-  *response_cmd = response_msg.st.cmd;
-
-  memcpy(response, response_msg.st.data, response_msg.st.len);
-  *response_len = response_msg.st.len;
-
-  return YHR_SUCCESS;
 }
 
 static yh_rc translate_device_error(uint8_t device_error) {
@@ -290,175 +205,227 @@ static yh_rc translate_device_error(uint8_t device_error) {
   return YHR_GENERIC_ERROR;
 }
 
-static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
-                              const uint8_t *data, size_t data_len,
-                              yh_cmd *response_cmd, uint8_t *response,
-                              size_t *response_len) {
+yh_rc yh_send_plain_msg(yh_connector *connector, yh_cmd cmd,
+                        const uint8_t *data, size_t data_len,
+                        yh_cmd *response_cmd, uint8_t *response,
+                        size_t *response_len) {
 
-  uint8_t work_buf[SCP_MSG_BUF_SIZE + SCP_PRF_LEN];
-  uint8_t decrypted_data[SCP_MSG_BUF_SIZE]; // NOTE(adma): this exists because
-                                            // OpenSSL encryption doesn't work
-                                            // when using the same buffer for in
-                                            // and out
-  uint8_t encrypted_ctr[SCP_PRF_LEN];
-  uint8_t mac_buf[SCP_PRF_LEN];
-  uint16_t work_buf_len;
-  uint16_t out_len;
-  aes_context aes_ctx;
-  yh_rc yrc;
   Msg msg;
   Msg response_msg;
 
-  if (session == NULL || (data_len != 0 && data == NULL) ||
+  yh_rc yrc;
+
+  if (connector == NULL || (data_len != 0 && data == NULL) ||
       response_cmd == NULL || response == NULL || response_len == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
 
-  // Check length for the worst case
-  if (4 + data_len + SCP_PRF_LEN > SCP_MSG_BUF_SIZE) {
+  if (data_len > sizeof(msg.st.data)) {
+    DBG_ERR("Tried to transfer oversized data (%zu > %zu)", data_len,
+            sizeof(msg.st.data));
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  msg.st.cmd = cmd;
+  msg.st.len = htons(data_len);
+  if (data_len > 0) {
+    memcpy(msg.st.data, data, data_len);
+  }
+
+  yrc = send_msg(connector, &msg, &response_msg, NULL);
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("%s", yh_strerror(yrc));
+    return yrc;
+  }
+
+  uint16_t len = ntohs(response_msg.st.len);
+  *response_cmd = response_msg.st.cmd;
+
+  if (*response_len < len) {
+    DBG_ERR("%s (received %u Bytes, can fit %zu Bytes) ",
+            yh_strerror(YHR_BUFFER_TOO_SMALL), len, *response_len);
+    *response_len = len;
+    return YHR_BUFFER_TOO_SMALL;
+  }
+
+  *response_len = len;
+  memcpy(response, response_msg.st.data, len);
+
+  return (*response_cmd == YHC_ERROR) ? translate_device_error(response[0])
+                                      : YHR_SUCCESS;
+}
+
+static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
+                              const uint8_t *data, size_t data_len,
+                              yh_cmd *response_cmd, uint8_t *response,
+                              size_t *response_len) {
+
+  if (session == NULL || (data_len != 0 && data == NULL) ||
+      data_len > SCP_MSG_BUF_SIZE || response_cmd == NULL || response == NULL ||
+      response_len == NULL) {
+    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  uint16_t len = 3 + data_len;
+  aes_add_padding(NULL, &len);
+
+  // Encrypted message { sid | padded len | mac }
+  if (1 + len + SCP_MAC_LEN > SCP_MSG_BUF_SIZE) {
     DBG_ERR("%s", yh_strerror(YHR_BUFFER_TOO_SMALL));
     return YHR_BUFFER_TOO_SMALL;
   }
 
-  decrypted_data[0] = cmd;
-  decrypted_data[1] = (data_len & 0xff00) >> 8;
-  decrypted_data[2] = data_len & 0x00ff;
-  if (data != NULL) {
-    // NOTE(adma): when data_len is 0, data can be NULL. This is UB for
-    // memcpy. Explicitly check against that
-    memcpy(decrypted_data + 3, data, data_len);
-  }
-  work_buf_len = 3 + data_len;
+#pragma pack(push, 1)
+  struct {
+    uint8_t mac_chaining_value[SCP_PRF_LEN];
+    Msg msg;
+  } msg, enc_msg;
+#pragma pack(pop)
 
-  DBG_DUMPINFO(decrypted_data, data_len + 3,
-               "Sending cmd %02x (%3lu Bytes): ", cmd,
-               (unsigned long) data_len + 3);
+  msg.msg.st.cmd = cmd;
+  msg.msg.st.len = htons(data_len);
+  memcpy(msg.msg.st.data, data, data_len);
 
+  DBG_NET(&msg.msg, dump_msg);
+
+  len = 3 + data_len;
+  aes_add_padding(msg.msg.raw, &len);
+
+  aes_context aes_ctx;
   insecure_memzero(&aes_ctx, sizeof(aes_ctx));
-  if (aes_set_key((uint8_t *) session->s.s_enc, SCP_KEY_LEN, &aes_ctx)) {
+  if (aes_set_key(session->s.s_enc, SCP_KEY_LEN, &aes_ctx)) {
     DBG_ERR("aes_set_key %s", yh_strerror(YHR_GENERIC_ERROR));
     return YHR_GENERIC_ERROR;
   }
 
+  yh_rc yrc = YHR_SUCCESS;
+  uint8_t encrypted_ctr[AES_BLOCK_SIZE];
   if (aes_encrypt(session->s.ctr, encrypted_ctr, &aes_ctx)) {
     DBG_ERR("aes_encrypt %s", yh_strerror(YHR_GENERIC_ERROR));
     yrc = YHR_GENERIC_ERROR;
     goto cleanup;
   }
 
-  aes_add_padding(decrypted_data, &work_buf_len);
+  memcpy(enc_msg.mac_chaining_value, session->s.mac_chaining_value,
+         SCP_PRF_LEN);
+  enc_msg.msg.st.cmd = YHC_SESSION_MESSAGE;
+  enc_msg.msg.st.len = htons(len + SCP_MAC_LEN + 1);
+  enc_msg.msg.st.data[0] = session->s.sid;
 
-  DBG_CRYPTO(decrypted_data, work_buf_len,
-             "CBC encrypting (%3d Bytes): ", work_buf_len);
-  DBG_CRYPTO(encrypted_ctr, SCP_PRF_LEN, "IV: ");
-
-  if (aes_cbc_encrypt(decrypted_data, work_buf + 1, work_buf_len, encrypted_ctr,
-                      &aes_ctx)) { // Make room for sid
+  if (aes_cbc_encrypt(msg.msg.raw, enc_msg.msg.st.data + 1, len, encrypted_ctr,
+                      &aes_ctx)) {
     DBG_ERR("aes_cbc_encrypt %s", yh_strerror(YHR_GENERIC_ERROR));
     yrc = YHR_GENERIC_ERROR;
     goto cleanup;
   }
 
-  DBG_CRYPTO(work_buf + 1, work_buf_len,
-             "Ciphertext (%3d Bytes): ", work_buf_len);
-
-  msg.st.cmd = YHC_SESSION_MESSAGE;
-  msg.st.len = 1 + work_buf_len;
-  work_buf[0] = session->s.sid;
-  memcpy(msg.st.data, work_buf, work_buf_len + 1);
-
-  yrc = send_authenticated_msg(session, &msg, &response_msg);
-  if (yrc != YHR_SUCCESS) {
-    DBG_ERR("%s", yh_strerror(yrc));
-    goto cleanup;
-  }
-
-  if (response_msg.st.cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response_msg.st.data[0]);
-    DBG_ERR("%s", yh_strerror(translated));
-
-    *response_cmd = YHC_ERROR;
-    response[0] = response_msg.st.data[0];
-    *response_len = 1;
-
-    yrc = translated;
-    goto cleanup;
-  }
-
-  // Response is MAC'ed and encrypted. Unwrap it
-  out_len = response_msg.st.len;
-  if (out_len < SCP_MAC_LEN ||
-      (size_t)(3 + out_len - SCP_MAC_LEN) >= sizeof(work_buf)) {
-    DBG_ERR("Received invalid length %u", out_len);
-    yrc = YHR_BUFFER_TOO_SMALL;
-    goto cleanup;
-  }
-
-  memcpy(work_buf, session->s.mac_chaining_value, SCP_PRF_LEN);
-  response_msg.st.len = htons(response_msg.st.len);
-  memcpy(work_buf + SCP_PRF_LEN, response_msg.raw, 3 + out_len - SCP_MAC_LEN);
-  yrc = compute_full_mac(work_buf, SCP_PRF_LEN + 3 + out_len - SCP_MAC_LEN,
-                         session->s.s_rmac, SCP_KEY_LEN, mac_buf);
+  yrc = compute_full_mac(enc_msg.mac_chaining_value, len + SCP_PRF_LEN + 4,
+                         session->s.s_mac, SCP_KEY_LEN,
+                         session->s.mac_chaining_value);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("compute_full_mac %s", yh_strerror(yrc));
     goto cleanup;
   }
-  response_msg.st.len = ntohs(response_msg.st.len);
 
-  if (memcmp(response_msg.st.data + response_msg.st.len - SCP_MAC_LEN, mac_buf,
-             SCP_MAC_LEN) != 0) {
-    DBG_DUMPERR(response_msg.st.data + out_len - SCP_MAC_LEN, SCP_MAC_LEN,
+  memcpy(enc_msg.msg.st.data + len + 1, session->s.mac_chaining_value,
+         SCP_MAC_LEN);
+
+  yrc =
+    send_msg(session->parent, &enc_msg.msg, &msg.msg, session->s.identifier);
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("send_msg %s", yh_strerror(yrc));
+    goto cleanup;
+  }
+
+  if (msg.msg.st.cmd == YHC_ERROR) {
+    yrc = translate_device_error(msg.msg.st.data[0]);
+    DBG_ERR("%s", yh_strerror(yrc));
+
+    *response_cmd = YHC_ERROR;
+    response[0] = msg.msg.st.data[0];
+    *response_len = 1;
+
+    goto cleanup;
+  }
+
+  // The minimum message is { sid | 1 aes block | mac }
+  if (ntohs(msg.msg.st.len) < 1 + AES_BLOCK_SIZE + SCP_MAC_LEN) {
+    DBG_ERR("%s", yh_strerror(YHR_BUFFER_TOO_SMALL));
+    yrc = YHR_BUFFER_TOO_SMALL;
+    goto cleanup;
+  }
+
+  uint8_t mac[SCP_PRF_LEN];
+  memcpy(msg.mac_chaining_value, session->s.mac_chaining_value, SCP_PRF_LEN);
+  yrc =
+    compute_full_mac(msg.mac_chaining_value,
+                     ntohs(msg.msg.st.len) + (SCP_PRF_LEN + 3 - SCP_MAC_LEN),
+                     session->s.s_rmac, SCP_KEY_LEN, mac);
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("compute_full_mac %s", yh_strerror(yrc));
+    goto cleanup;
+  }
+
+  len = ntohs(msg.msg.st.len) - SCP_MAC_LEN;
+
+  if (memcmp(msg.msg.st.data + len, mac, SCP_MAC_LEN)) {
+    DBG_DUMPERR(mac, SCP_MAC_LEN,
                 "%s, expected: ", yh_strerror(YHR_MAC_MISMATCH));
     yrc = YHR_MAC_MISMATCH;
     goto cleanup;
   }
 
-  DBG_INFO("Response MAC successfully verified");
-
-  out_len -= SCP_MAC_LEN;
-
-  if (session->s.sid != response_msg.st.data[0]) {
+  if (session->s.sid != msg.msg.st.data[0]) {
     DBG_ERR("Session ID mismatch, expected %d, got %d", session->s.sid,
-            response_msg.st.data[0]);
-    yrc = YHR_GENERIC_ERROR;
+            msg.msg.st.data[0]);
+    yrc = YHR_DEVICE_INVALID_SESSION;
     goto cleanup;
   }
-  out_len -= 1;
 
-  DBG_CRYPTO(response_msg.st.data + 1, out_len,
-             "CBC decrypting (%3d Bytes): ", out_len);
-  DBG_CRYPTO(encrypted_ctr, SCP_PRF_LEN, "IV: ");
+  len -= 1;
 
-  if (aes_cbc_decrypt(response_msg.st.data + 1, decrypted_data, out_len,
-                      encrypted_ctr, &aes_ctx)) {
+  if (aes_cbc_decrypt(msg.msg.st.data + 1, enc_msg.msg.raw, len, encrypted_ctr,
+                      &aes_ctx)) {
     DBG_ERR("aes_cbc_decrypt %s", yh_strerror(YHR_GENERIC_ERROR));
     yrc = YHR_GENERIC_ERROR;
     goto cleanup;
   }
 
-  aes_remove_padding(decrypted_data, &out_len);
-
-  DBG_CRYPTO(decrypted_data, out_len, "Plaintext (%3d Bytes): ", out_len);
+  aes_remove_padding(enc_msg.msg.raw, &len);
+  if (len < 3 || len - 3 != ntohs(enc_msg.msg.st.len)) {
+    DBG_ERR("aes_remove_padding %s", yh_strerror(YHR_WRONG_LENGTH));
+    yrc = YHR_WRONG_LENGTH;
+    goto cleanup;
+  }
 
   increment_ctr(session->s.ctr, SCP_PRF_LEN);
 
-  out_len -= 3;
-  if (out_len > *response_len) {
+  DBG_NET(&enc_msg.msg, dump_response);
+
+  *response_cmd = enc_msg.msg.st.cmd;
+  len -= 3;
+
+  if (*response_len < len) {
+    DBG_ERR("%s (received %u Bytes, can fit %zu Bytes) ",
+            yh_strerror(YHR_BUFFER_TOO_SMALL), len, *response_len);
+    *response_len = len;
     yrc = YHR_BUFFER_TOO_SMALL;
     goto cleanup;
   }
 
-  *response_len = out_len;
-  *response_cmd = decrypted_data[0];
-  memcpy(response, decrypted_data + 3, *response_len);
+  memcpy(response, enc_msg.msg.st.data, len);
+  *response_len = len;
+
+  if (*response_cmd == YHC_ERROR) {
+    yrc = translate_device_error(response[0]);
+  }
 
 cleanup:
-
-  insecure_memzero(decrypted_data, sizeof(decrypted_data));
-
   aes_destroy(&aes_ctx);
-
+  insecure_memzero(&msg, sizeof(msg));
+  insecure_memzero(&enc_msg, sizeof(enc_msg));
   return yrc;
 }
 
@@ -712,7 +679,7 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
 
   // Send CREATE SESSION command
   msg.st.cmd = YHC_CREATE_SESSION;
-  msg.st.len = SCP_AUTHKEY_ID_LEN + SCP_HOST_CHAL_LEN;
+  msg.st.len = htons(SCP_AUTHKEY_ID_LEN + SCP_HOST_CHAL_LEN);
 
   uint16_t authkey_id_n = htons(authkey_id);
   memcpy(msg.st.data, &authkey_id_n, SCP_AUTHKEY_ID_LEN);
@@ -726,12 +693,12 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
     goto cs_failure;
   }
 
+  response_msg.st.len = ntohs(response_msg.st.len);
+
   // Parse response
   if (response_msg.st.cmd != YHC_CREATE_SESSION_R) {
-    yh_rc translated = translate_device_error(response_msg.st.data[0]);
-    DBG_ERR("Device error %s (%d)", yh_strerror(translated),
-            response_msg.st.data[0]);
-    yrc = translated;
+    yrc = translate_device_error(response_msg.st.data[0]);
+    DBG_ERR("Device error %s (%d)", yh_strerror(yrc), response_msg.st.data[0]);
     goto cs_failure;
   }
 
@@ -845,7 +812,7 @@ yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
 
   // Send CREATE SESSION command
   msg.st.cmd = YHC_CREATE_SESSION;
-  msg.st.len = SCP_AUTHKEY_ID_LEN + SCP_HOST_CHAL_LEN;
+  msg.st.len = htons(SCP_AUTHKEY_ID_LEN + SCP_HOST_CHAL_LEN);
 
   uint16_t authkey_id_n = htons(authkey_id);
   memcpy(msg.st.data, &authkey_id_n, SCP_AUTHKEY_ID_LEN);
@@ -870,14 +837,13 @@ yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
 
   // Parse response
   if (response_msg.st.cmd != YHC_CREATE_SESSION_R) {
-    yh_rc translated = translate_device_error(response_msg.st.data[0]);
-    DBG_ERR("Device error %s (%d)", yh_strerror(translated),
-            response_msg.st.data[0]);
-    yrc = translated;
+    yrc = translate_device_error(response_msg.st.data[0]);
+    DBG_ERR("Device error %s (%d)", yh_strerror(yrc), response_msg.st.data[0]);
     goto bcse_failure;
   }
 
-  if (response_msg.st.len != 1 + SCP_CARD_CHAL_LEN + SCP_CARD_CRYPTO_LEN) {
+  if (ntohs(response_msg.st.len) !=
+      1 + SCP_CARD_CHAL_LEN + SCP_CARD_CRYPTO_LEN) {
     yrc = YHR_WRONG_LENGTH;
     goto bcse_failure;
   }
@@ -1016,13 +982,6 @@ yh_rc yh_util_get_device_pubkey(yh_connector *connector, uint8_t *device_pubkey,
                       device_pubkey, device_pubkey_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send GET DEVICE PUBKEY command: %s", yh_strerror(yrc));
-    return yrc;
-  }
-
-  // Parse response
-  if (response_cmd == YHC_ERROR) {
-    yrc = translate_device_error(device_pubkey[0]);
-    DBG_ERR("Device error %s (%d)", yh_strerror(yrc), device_pubkey[0]);
     return yrc;
   }
 
@@ -1171,7 +1130,7 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
 
   // Send CREATE SESSION command
   msg.st.cmd = YHC_CREATE_SESSION;
-  msg.st.len = sizeof(authkey_id_n) + sizeof(epk_oce);
+  msg.st.len = htons(sizeof(authkey_id_n) + sizeof(epk_oce));
 
   memcpy(msg.st.data, &authkey_id_n, sizeof(authkey_id_n));
   memcpy(msg.st.data + sizeof(authkey_id_n), epk_oce, sizeof(epk_oce));
@@ -1348,13 +1307,6 @@ yh_rc yh_util_get_device_info(yh_connector *connector, uint8_t *major,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response.buf[0]);
-    DBG_ERR("Unable to get data: %s (%x)", yh_strerror(translated),
-            response.buf[0]);
-    return translated;
-  }
-
   if (major != NULL) {
     *major = response.major;
   }
@@ -1476,13 +1428,6 @@ yh_rc yh_util_list_objects(yh_session *session, uint16_t id,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response[0]);
-    DBG_ERR("Unable to list objects: %s (%x)", yh_strerror(translated),
-            response[0]);
-    return translated;
-  }
-
   if ((response_len / 4) > *n_objects) {
     DBG_ERR("Objects buffer too small");
     return YHR_BUFFER_TOO_SMALL;
@@ -1548,13 +1493,6 @@ yh_rc yh_util_get_object_info(yh_session *session, uint16_t id,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response.buf[0]);
-    DBG_ERR("Unable to get object info: %s (%x)", yh_strerror(translated),
-            response.buf[0]);
-    return translated;
-  }
-
   if (response_len == sizeof(response)) {
     if (object) {
       memcpy(object->capabilities.capabilities, response.capabilities,
@@ -1611,13 +1549,6 @@ yh_rc yh_util_get_public_key(yh_session *session, uint16_t id, uint8_t *data,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response[0]);
-    DBG_ERR("Unable to get public key: %s (%x)", yh_strerror(translated),
-            response[0]);
-    return translated;
-  }
-
   if (response_len > *data_len) {
     return YHR_BUFFER_TOO_SMALL;
   }
@@ -1649,13 +1580,6 @@ yh_rc yh_util_close_session(yh_session *session) {
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send CLOSE SESSION command: %s", yh_strerror(yrc));
     return yrc;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response[0]);
-    DBG_ERR("Unable to close session: %s (%x)", yh_strerror(translated),
-            response[0]);
-    return translated;
   }
 
   return YHR_SUCCESS;
@@ -1708,13 +1632,6 @@ yh_rc yh_util_sign_pkcs1v1_5(yh_session *session, uint16_t key_id, bool hashed,
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send SIGN PKCS1 command: %s", yh_strerror(yrc));
     return yrc;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(out[0]);
-    DBG_ERR("Unable to get signature: %s (%x)", yh_strerror(translated),
-            out[0]);
-    return translated;
   }
 
   return YHR_SUCCESS;
@@ -1775,13 +1692,6 @@ yh_rc yh_util_sign_pss(yh_session *session, uint16_t key_id, const uint8_t *in,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(out[0]);
-    DBG_ERR("Unable to get signature: %s (%x)", yh_strerror(translated),
-            out[0]);
-    return translated;
-  }
-
   return YHR_SUCCESS;
 }
 
@@ -1834,13 +1744,6 @@ yh_rc yh_util_sign_ecdsa(yh_session *session, uint16_t key_id,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(out[0]);
-    DBG_ERR("Unable to get signature: %s (%x)", yh_strerror(translated),
-            out[0]);
-    return translated;
-  }
-
   return YHR_SUCCESS;
 }
 
@@ -1884,13 +1787,6 @@ yh_rc yh_util_sign_eddsa(yh_session *session, uint16_t key_id,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(out[0]);
-    DBG_ERR("Unable to get signature: %s (%x)", yh_strerror(translated),
-            out[0]);
-    return translated;
-  }
-
   return YHR_SUCCESS;
 }
 
@@ -1925,12 +1821,6 @@ yh_rc yh_util_sign_hmac(yh_session *session, uint16_t key_id, const uint8_t *in,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(out[0]);
-    DBG_ERR("Unable to get data: %s (%x)", yh_strerror(translated), out[0]);
-    return translated;
-  }
-
   return YHR_SUCCESS;
 }
 
@@ -1955,12 +1845,6 @@ yh_rc yh_util_get_pseudo_random(yh_session *session, size_t len, uint8_t *out,
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send GET PSEUDO RANDOM command: %s", yh_strerror(yrc));
     return yrc;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(out[0]);
-    DBG_ERR("Unable to get data: %s (%x)", yh_strerror(translated), out[0]);
-    return translated;
   }
 
   return yrc;
@@ -2014,13 +1898,6 @@ static yh_rc import_asymmetric(yh_session *session, uint16_t *key_id,
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send PUT ASYMMETRIC KEY command: %s", yh_strerror(yrc));
     return yrc;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response.buf[0]);
-    DBG_ERR("Unable to put key: %s (%x)", yh_strerror(translated),
-            response.buf[0]);
-    return translated;
   }
 
   *key_id = ntohs(response.key_id);
@@ -2193,13 +2070,6 @@ yh_rc yh_util_import_hmac_key(yh_session *session, uint16_t *key_id,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response.buf[0]);
-    DBG_ERR("Unable to put key: %s (%x)", yh_strerror(translated),
-            response.buf[0]);
-    return translated;
-  }
-
   *key_id = ntohs(response.key_id);
   DBG_INFO("Stored HMAC key 0x%04x", *key_id);
 
@@ -2259,13 +2129,6 @@ static yh_rc generate_key(yh_session *session, uint16_t *key_id,
     DBG_ERR("Failed to send GENERATE ASYMMETRIC KEY command: %s",
             yh_strerror(yrc));
     return yrc;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response.buf[0]);
-    DBG_ERR("Unable to generate key: %s (%x)", yh_strerror(translated),
-            response.buf[0]);
-    return translated;
   }
 
   *key_id = ntohs(response.key_id);
@@ -2354,13 +2217,6 @@ yh_rc yh_util_verify_hmac(yh_session *session, uint16_t key_id,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response[0]);
-    DBG_ERR("Unable to verify data: %s (%x)", yh_strerror(translated),
-            response[0]);
-    return translated;
-  }
-
   *verified = response[0];
 
   return YHR_SUCCESS;
@@ -2420,13 +2276,6 @@ yh_rc yh_util_generate_hmac_key(yh_session *session, uint16_t *key_id,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response.buf[0]);
-    DBG_ERR("Unable to generate key: %s (%x)", yh_strerror(translated),
-            response.buf[0]);
-    return translated;
-  }
-
   *key_id = ntohs(response.key_id);
   DBG_INFO("Generated HMAC key 0x%04x", *key_id);
 
@@ -2469,13 +2318,6 @@ yh_rc yh_util_decrypt_pkcs1v1_5(yh_session *session, uint16_t key_id,
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send DECRYPT PKCS1 command: %s", yh_strerror(yrc));
     return yrc;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(out[0]);
-    DBG_ERR("Unable to get decrypted data: %s (%x)", yh_strerror(translated),
-            out[0]);
-    return translated;
   }
 
   return YHR_SUCCESS;
@@ -2538,13 +2380,6 @@ yh_rc yh_util_decrypt_oaep(yh_session *session, uint16_t key_id,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(out[0]);
-    DBG_ERR("Unable to get decrypted data: %s (%x)", yh_strerror(translated),
-            out[0]);
-    return translated;
-  }
-
   return YHR_SUCCESS;
 }
 
@@ -2586,13 +2421,6 @@ yh_rc yh_util_derive_ecdh(yh_session *session, uint16_t key_id,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(out[0]);
-    DBG_ERR("Unable to get decrypted data: %s (%x)", yh_strerror(translated),
-            out[0]);
-    return translated;
-  }
-
   return YHR_SUCCESS;
 }
 
@@ -2627,13 +2455,6 @@ yh_rc yh_util_delete_object(yh_session *session, uint16_t id,
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send DELETE command: %s", yh_strerror(yrc));
     return yrc;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response[0]);
-    DBG_ERR("Unable to delete object: %s (%x)", yh_strerror(translated),
-            response[0]);
-    return translated;
   }
 
   return YHR_SUCCESS;
@@ -2671,13 +2492,6 @@ yh_rc yh_util_export_wrapped(yh_session *session, uint16_t wrapping_key_id,
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send EXPORT WRAPPED command: %s", yh_strerror(yrc));
     return yrc;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(out[0]);
-    DBG_ERR("Unable to get wrapped object: %s (%x)", yh_strerror(translated),
-            out[0]);
-    return translated;
   }
 
   return YHR_SUCCESS;
@@ -2722,13 +2536,6 @@ yh_rc yh_util_import_wrapped(yh_session *session, uint16_t wrapping_key_id,
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send IMPORT WRAPPED command: %s", yh_strerror(yrc));
     return yrc;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response[0]);
-    DBG_ERR("Unable to get data: %s (%x)", yh_strerror(translated),
-            response[0]);
-    return translated;
   }
 
   *target_type = response[0];
@@ -2819,13 +2626,6 @@ yh_rc yh_util_import_wrap_key(yh_session *session, uint16_t *key_id,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response.buf[0]);
-    DBG_ERR("Unable to store wrapping key: %s (%x)", yh_strerror(translated),
-            response.buf[0]);
-    return translated;
-  }
-
   *key_id = ntohs(response.key_id);
   DBG_INFO("Imported Wrap key 0x%04x", *key_id);
 
@@ -2892,13 +2692,6 @@ yh_rc yh_util_generate_wrap_key(yh_session *session, uint16_t *key_id,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response.buf[0]);
-    DBG_ERR("Unable to generate key: %s (%x)", yh_strerror(translated),
-            response.buf[0]);
-    return translated;
-  }
-
   *key_id = ntohs(response.key_id);
   DBG_INFO("Generated Wrap key 0x%04x\n", *key_id);
 
@@ -2933,13 +2726,6 @@ yh_rc yh_util_get_log_entries(yh_session *session, uint16_t *unlogged_boot,
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send GET LOGS command: %s", yh_strerror(yrc));
     return yrc;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response.buf[0]);
-    DBG_ERR("Unable to get logs: %s (%x)", yh_strerror(translated),
-            response.buf[0]);
-    return translated;
   }
 
   if (unlogged_boot) {
@@ -3000,13 +2786,6 @@ yh_rc yh_util_set_log_index(yh_session *session, uint16_t index) {
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response[0]);
-    DBG_ERR("Unable to set log index: %s (%x)", yh_strerror(translated),
-            response[0]);
-    return translated;
-  }
-
   return YHR_SUCCESS;
 }
 
@@ -3029,12 +2808,6 @@ yh_rc yh_util_get_opaque(yh_session *session, uint16_t object_id, uint8_t *out,
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send GET OPAQUE command: %s", yh_strerror(yrc));
     return yrc;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(out[0]);
-    DBG_ERR("Unable to get object: %s (%x)", yh_strerror(translated), out[0]);
-    return translated;
   }
 
   return YHR_SUCCESS;
@@ -3106,13 +2879,6 @@ yh_rc yh_util_import_opaque(yh_session *session, uint16_t *object_id,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response.buf[0]);
-    DBG_ERR("Unable to store opaque object: %s (%x)", yh_strerror(translated),
-            response.buf[0]);
-    return translated;
-  }
-
   *object_id = ntohs(response.object_id);
   DBG_INFO("Stored Opaque Object 0x%04x", *object_id);
 
@@ -3169,13 +2935,6 @@ yh_rc yh_util_sign_ssh_certificate(yh_session *session, uint16_t key_id,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(out[0]);
-    DBG_ERR("Unable to get certificate: %s (%x)", yh_strerror(translated),
-            out[0]);
-    return translated;
-  }
-
   return YHR_SUCCESS;
 }
 
@@ -3197,13 +2956,6 @@ yh_rc yh_util_get_template(yh_session *session, uint16_t object_id,
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send GET TEMPLATE command: %s", yh_strerror(yrc));
     return yrc;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(out[0]);
-    DBG_ERR("Unable to get template object: %s (%x)", yh_strerror(translated),
-            out[0]);
-    return translated;
   }
 
   return YHR_SUCCESS;
@@ -3276,13 +3028,6 @@ yh_rc yh_util_import_template(yh_session *session, uint16_t *object_id,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response.buf[0]);
-    DBG_ERR("Unable to store template object: %s (%x)", yh_strerror(translated),
-            response.buf[0]);
-    return translated;
-  }
-
   *object_id = ntohs(response.object_id);
   DBG_INFO("Stored Opaque Object 0x%04x", *object_id);
 
@@ -3317,7 +3062,7 @@ yh_rc yh_authenticate_session(yh_session *session) {
 
   // Send AUTHENTICATE SESSION command
   msg.st.cmd = YHC_AUTHENTICATE_SESSION;
-  msg.st.len = 1 + SCP_HOST_CRYPTO_LEN + SCP_MAC_LEN;
+  msg.st.len = htons(1 + SCP_HOST_CRYPTO_LEN + SCP_MAC_LEN);
 
   msg.st.data[0] = session->s.sid;
 
@@ -3330,11 +3075,9 @@ yh_rc yh_authenticate_session(yh_session *session) {
 
   DBG_INT(msg.st.data + 1, SCP_HOST_CRYPTO_LEN, "Host cryptogram: ");
 
-  mac_buf_len = SCP_PRF_LEN + msg.st.len + 3 - SCP_MAC_LEN;
+  mac_buf_len = SCP_PRF_LEN + ntohs(msg.st.len) + 3 - SCP_MAC_LEN;
   memset(mac_buf, 0, SCP_PRF_LEN); // Initial mac chaining value
-  msg.st.len = htons(msg.st.len);
   memcpy(mac_buf + SCP_PRF_LEN, msg.raw, mac_buf_len);
-  msg.st.len = ntohs(msg.st.len);
 
   yrc = compute_full_mac(mac_buf, mac_buf_len, session->s.s_mac, SCP_KEY_LEN,
                          session->s.mac_chaining_value);
@@ -3356,8 +3099,9 @@ yh_rc yh_authenticate_session(yh_session *session) {
   }
 
   if (response_msg.st.cmd != YHC_AUTHENTICATE_SESSION_R) {
-    DBG_ERR("%s", yh_strerror(yrc));
-    return YHR_SESSION_AUTHENTICATION_FAILED;
+    yrc = translate_device_error(response_msg.st.data[0]);
+    DBG_ERR("Device error %s (%d)", yh_strerror(yrc), response_msg.st.data[0]);
+    return yrc;
   }
 
   return YHR_SUCCESS;
@@ -3441,13 +3185,6 @@ yh_rc yh_util_import_authentication_key(
     DBG_ERR("Failed to send PUT AUTHENTICATION KEY command: %s\n",
             yh_strerror(yrc));
     return yrc;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response.buf[0]);
-    DBG_ERR("Unable to store authentication key: %s (%x)\n",
-            yh_strerror(translated), response.buf[0]);
-    return translated;
   }
 
   *key_id = ntohs(response.key_id);
@@ -3537,13 +3274,6 @@ yh_rc yh_util_change_authentication_key(yh_session *session, uint16_t *key_id,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response.buf[0]);
-    DBG_ERR("Unable to change authentication key: %s (%x)\n",
-            yh_strerror(translated), response.buf[0]);
-    return translated;
-  }
-
   *key_id = ntohs(response.key_id);
   DBG_INFO("Changed Authentication key 0x%04x", *key_id);
 
@@ -3605,13 +3335,6 @@ yh_rc yh_util_create_otp_aead(yh_session *session, uint16_t key_id,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(out[0]);
-    DBG_ERR("Unable to get OTP AEAD: %s (%x)\n", yh_strerror(translated),
-            out[0]);
-    return translated;
-  }
-
   return YHR_SUCCESS;
 }
 
@@ -3641,13 +3364,6 @@ yh_rc yh_util_randomize_otp_aead(yh_session *session, uint16_t key_id,
     DBG_ERR("Failed to send RANDOMIZE OTP AEAD command: %s\n",
             yh_strerror(yrc));
     return yrc;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(out[0]);
-    DBG_ERR("Unable to get OTP AEAD: %s (%x)\n", yh_strerror(translated),
-            out[0]);
-    return translated;
   }
 
   return YHR_SUCCESS;
@@ -3699,13 +3415,6 @@ yh_rc yh_util_decrypt_otp(yh_session *session, uint16_t key_id,
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send DECRYPT OTP command: %s\n", yh_strerror(yrc));
     return yrc;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response.buf[0]);
-    DBG_ERR("Unable to decrypt OTP: %s (%x)\n", yh_strerror(translated),
-            response.buf[0]);
-    return translated;
   }
 
   if (response_len != sizeof(response)) {
@@ -3763,13 +3472,6 @@ yh_rc yh_util_rewrap_otp_aead(yh_session *session, uint16_t id_from,
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send REWRAP OTP AEAD command: %s\n", yh_strerror(yrc));
     return yrc;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(aead_out[0]);
-    DBG_ERR("Unable to get REWRAPPED OTP AEAD: %s (%x)\n",
-            yh_strerror(translated), aead_out[0]);
-    return translated;
   }
 
   return YHR_SUCCESS;
@@ -3847,13 +3549,6 @@ yh_rc yh_util_import_otp_aead_key(yh_session *session, uint16_t *key_id,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response.buf[0]);
-    DBG_ERR("Unable to store OTP AEAD key: %s (%x)", yh_strerror(translated),
-            response.buf[0]);
-    return translated;
-  }
-
   *key_id = ntohs(response.key_id);
   DBG_INFO("Imported OTP AEAD key 0x%04x", *key_id);
 
@@ -3920,13 +3615,6 @@ yh_rc yh_util_generate_otp_aead_key(yh_session *session, uint16_t *key_id,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response.buf[0]);
-    DBG_ERR("Unable to generate key: %s (%x)", yh_strerror(translated),
-            response.buf[0]);
-    return translated;
-  }
-
   *key_id = ntohs(response.key_id);
   DBG_INFO("Generated OTP AEAD key 0x%04x\n", *key_id);
 
@@ -3963,13 +3651,6 @@ yh_rc yh_util_sign_attestation_certificate(yh_session *session, uint16_t key_id,
     DBG_ERR("Failed to send SIGN ATTESTATION CERTIFICATE command: %s\n",
             yh_strerror(yrc));
     return yrc;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(out[0]);
-    DBG_ERR("Unable to get attestation: %s (%x)\n", yh_strerror(translated),
-            out[0]);
-    return translated;
   }
 
   return YHR_SUCCESS;
@@ -4013,12 +3694,6 @@ yh_rc yh_util_set_option(yh_session *session, yh_option option, size_t len,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(out[0]);
-    DBG_ERR("Unable to put option: %s (%x)\n", yh_strerror(translated), out[0]);
-    return translated;
-  }
-
   return YHR_SUCCESS;
 }
 
@@ -4037,12 +3712,6 @@ yh_rc yh_util_get_option(yh_session *session, yh_option option, uint8_t *out,
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send GET OPTION command: %s\n", yh_strerror(yrc));
     return yrc;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(out[0]);
-    DBG_ERR("Unable to get option: %s (%x)\n", yh_strerror(translated), out[0]);
-    return translated;
   }
 
   return YHR_SUCCESS;
@@ -4077,13 +3746,6 @@ yh_rc yh_util_get_storage_info(yh_session *session, uint16_t *total_records,
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send GET STORAGE INFO command: %s\n", yh_strerror(yrc));
     return yrc;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response.buf[0]);
-    DBG_ERR("Unable to get storage stats: %s (%x)\n", yh_strerror(translated),
-            response.buf[0]);
-    return translated;
   }
 
   if (total_records) {
@@ -4144,13 +3806,6 @@ yh_rc yh_util_wrap_data(yh_session *session, uint16_t key_id, const uint8_t *in,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(out[0]);
-    DBG_ERR("Unable to get wrapped data: %s (%x)", yh_strerror(translated),
-            out[0]);
-    return translated;
-  }
-
   return YHR_SUCCESS;
 }
 
@@ -4194,13 +3849,6 @@ yh_rc yh_util_unwrap_data(yh_session *session, uint16_t key_id,
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(out[0]);
-    DBG_ERR("Unable to get unwrapped data: %s (%x)", yh_strerror(translated),
-            out[0]);
-    return translated;
-  }
-
   return YHR_SUCCESS;
 }
 
@@ -4224,13 +3872,6 @@ yh_rc yh_util_blink_device(yh_session *session, uint8_t seconds) {
     return yrc;
   }
 
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response[0]);
-    DBG_ERR("Unable to blink the device: %s (%x)", yh_strerror(translated),
-            response[0]);
-    return translated;
-  }
-
   return YHR_SUCCESS;
 }
 
@@ -4252,12 +3893,6 @@ yh_rc yh_util_reset_device(yh_session *session) {
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send RESET DEVICE command: %s\n", yh_strerror(yrc));
     return yrc;
-  }
-
-  if (response_cmd == YHC_ERROR) {
-    yh_rc translated = translate_device_error(response[0]);
-    DBG_ERR("Unable to reset: %s (%x)\n", yh_strerror(translated), response[0]);
-    return translated;
   }
 
   return YHR_SUCCESS;

@@ -20,6 +20,10 @@ elseif (NOT MSVC)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE -pie")
 endif ()
 
+if(MSVC)
+  set(ADDITIONAL_LIBRARY ws2_32)
+endif(MSVC)
+
 set (
   SOURCE_PARSING
   test_parsing.c
@@ -70,3 +74,7 @@ target_link_libraries (
   # this doesn't really need libyubihsm, needs openssl/windows whatever
   yubihsm
   )
+
+target_link_libraries (test_usb_url ${ADDITIONAL_LIBRARY})
+
+target_link_libraries (test_util ${ADDITIONAL_LIBRARY})

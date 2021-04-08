@@ -15,7 +15,6 @@ m4/ltversion.m4
 m4/lt~obsolete.m4
 *.c~
 *.h~
-ChangeLog
 build-aux/ar-lib
 build-aux/compile
 build-aux/config.guess
@@ -35,8 +34,6 @@ yubihsm-shell-*.tar.gz
 yubihsm-shell-*.tar.gz.sig
 yubihsm-shell-*-mac.zip
 yubihsm-shell-*-mac.zip.sig
-lib/yubihsm-version.h
-src/yubihsm-shell
 **/.libs/*
 **/*.la
 **/*.lo
@@ -52,9 +49,13 @@ pkcs11/cmdline.c
 pkcs11/cmdline.h
 build*/
 cscope.*
-/yhauth/cmdline.c
-/yhauth/cmdline.h
-/yhwrap/cmdline.c
-/yhwrap/cmdline.h
+yhauth/cmdline.c
+yhauth/cmdline.h
+yhwrap/cmdline.c
+yhwrap/cmdline.h
+yubihsm-auth/cmdline.c
+yubihsm-auth/cmdline.h
+common/platform-config.h
 lib/*doxygen*
 .ci/client-combined.pem
+.DS_Store
