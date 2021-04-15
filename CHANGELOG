@@ -1,3 +1,9 @@
+=== Version 2.2.0
+
+shell: Enable ykhsmauth to be used from commandline
+ykhsmauth: lib: Add support for YubiCrypt authentication
+yubihsm-auth: Add CLI for YubiCrypt authentication
+
 === Version 2.1.0
 
 lib: Security update for https://www.yubico.com/support/security-advisories/ysa-2021-01/[YSA-2021-01]

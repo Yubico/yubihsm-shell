@@ -95,7 +95,7 @@ else ()
 endif ()
 
 set (yubihsm_shell_VERSION_MAJOR 2)
-set (yubihsm_shell_VERSION_MINOR 1)
+set (yubihsm_shell_VERSION_MINOR 2)
 set (yubihsm_shell_VERSION_PATCH 0)
 set (VERSION "${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}")
 
@@ -198,8 +198,8 @@ endif()
 
 message("LIBCRYPTO_VERSION: ${LIBCRYPTO_VERSION}")
 
-# If enabled, make sure to make the 'ykhsmauth-label' option in src/cmdline.ggo visible again
-option(ENABLE_YKHSM_AUTH "Enable/disable ykhsmauth module" OFF)
+# If disabled, make sure to make the 'ykhsmauth-label' option in src/cmdline.ggo invisible
+option(ENABLE_YKHSM_AUTH "Enable/disable ykhsmauth module" ON)
 if(ENABLE_YKHSM_AUTH)
   add_definitions(-DYKHSMAUTH_ENABLED="1")
 endif()
