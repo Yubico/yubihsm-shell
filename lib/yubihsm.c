@@ -3962,13 +3962,33 @@ static yh_rc load_backend(const char *name, void **backend,
                           struct backend_functions **bf) {
   struct backend_functions *(*backend_functions)(void);
 #ifdef WIN32
-  *backend = LoadLibrary(name);
-  if (*backend == NULL) {
-    DBG_ERR("Failed loading library '%s'", name);
+  HMODULE module = GetModuleHandle("libyubihsm");
+  if (!module) {
+    DBG_ERR("Failed getting module handle for 'libyubihsm'");
     return YHR_GENERIC_ERROR;
   }
-  backend_functions = (struct backend_functions * (*) (void) )(
-    (void (*)(void)) GetProcAddress(*backend, "backend_functions"));
+  char path[1024];
+  if (!GetModuleFileName(module, path, sizeof(path))) {
+    DBG_ERR("Failed getting module path for 'libyubihsm'");
+    return YHR_GENERIC_ERROR;
+  }
+  char *p = strrchr(path, '\\');
+  if (!p) {
+    DBG_ERR("Path separator not found in module path '%s'", path);
+    return YHR_GENERIC_ERROR;
+  }
+  p[1] = 0;
+  strcat_s(path, sizeof(path), name);
+  DBG_INFO("Loading backend library '%s'", path);
+
+  *backend = LoadLibraryEx(path, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+
+  if (*backend == NULL) {
+    DBG_ERR("Failed loading backend library '%s'", path);
+    return YHR_GENERIC_ERROR;
+  }
+  backend_functions = (struct backend_functions * (*) (void) )
+    GetProcAddress(*backend, "backend_functions");
 #else
   *backend = dlopen(name, RTLD_NOW);
   if (*backend == NULL) {
