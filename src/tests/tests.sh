@@ -75,3 +75,10 @@ $PROG -a blink-device -p password
 $PROG -a get-device-info
 
 $PROG -a get-storage-info -p password
+
+$PROG -a get-option -p password --opt-name command-audit
+$PROG -a put-option -p password --opt-name command-audit --opt-value 0101
+$PROG -a get-option -p password --opt-name force-audit
+$PROG -a put-option -p password --opt-name force-audit --opt-value 00
+$PROG -a get-option -p password --opt-name algorithm-toggle
+# no test for putting algorithm-toggle as that requires and empty device
