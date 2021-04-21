@@ -2458,8 +2458,8 @@ int main(int argc, char *argv[]) {
           COM_SUCCEED_OR_DIE(comrc, "Unable to store opaque object");
         } break;
 
-        case action_arg_setMINUS_option:
           LIB_SUCCEED_OR_DIE(YHR_GENERIC_ERROR, "Command not implemented: ");
+        case action_arg_putMINUS_option:
 
         case action_arg_putMINUS_hmacMINUS_key:
           LIB_SUCCEED_OR_DIE(YHR_GENERIC_ERROR, "Command not implemented: ");
