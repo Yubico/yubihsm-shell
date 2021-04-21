@@ -77,6 +77,8 @@ option "wrap-id" - "Wrap key ID" int optional
 option "template-id" - "Template ID" int optional
 option "attestation-id" - "Attestation ID" int optional
 option "log-index" - "Log index" int optional
+option "opt-name" - "Device option name" string optional
+option "opt-value" - "Device option value" string optional
 
 option "in" - "Input data (filename)" string optional default="-"
 option "out" - "Output data (filename)" string optional default="-"
