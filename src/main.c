@@ -2458,8 +2458,47 @@ int main(int argc, char *argv[]) {
           COM_SUCCEED_OR_DIE(comrc, "Unable to store opaque object");
         } break;
 
-        case action_arg_setMINUS_option:
-          LIB_SUCCEED_OR_DIE(YHR_GENERIC_ERROR, "Command not implemented: ");
+        case action_arg_putMINUS_option: {
+          if (args_info.opt_name_given == 0) {
+            fprintf(stderr, "Missing argument opt-name\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          if (args_info.opt_value_given == 0) {
+            fprintf(stderr, "Missing argument opt-value\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          yrc = yh_string_to_option(args_info.opt_name_arg, &arg[1].o);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse option name: ");
+
+          arg[2].len = sizeof(buf);
+          if (hex_decode(args_info.opt_value_arg, buf, &arg[2].len) == false) {
+            fprintf(stderr, "Unable to decode option value\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+          arg[2].x = buf;
+
+          comrc = yh_com_put_option(&ctx, arg, fmt_hex, fmt_nofmt);
+          COM_SUCCEED_OR_DIE(comrc, "Unable to put option");
+        } break;
+
+        case action_arg_getMINUS_option: {
+          if (args_info.opt_name_given == 0) {
+            fprintf(stderr, "Missing argument opt-name\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          yrc = yh_string_to_option(args_info.opt_name_arg, &arg[1].o);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse option name: ");
+
+          comrc = yh_com_get_option(&ctx, arg, fmt_nofmt, fmt_nofmt);
+          COM_SUCCEED_OR_DIE(comrc, "Unable to get option");
+        } break;
 
         case action_arg_putMINUS_hmacMINUS_key:
           LIB_SUCCEED_OR_DIE(YHR_GENERIC_ERROR, "Command not implemented: ");
