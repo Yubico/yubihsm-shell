@@ -36,6 +36,7 @@ extern "C" {
 #define YKHSMAUTH_INS_GET_VERSION 0x07
 #define YKHSMAUTH_INS_PUT_MGMKEY 0x08
 #define YKHSMAUTH_INS_GET_MGMKEY_RETRIES 0x09
+#define YKHSMAUTH_INS_GET_PUBKEY 0x0a
 
 // P1 bytes
 #define YKHSMAUTH_P1_RESET 0xde
@@ -55,17 +56,42 @@ extern "C" {
 #define YKHSMAUTH_TAG_VERSION 0x79
 #define YKHSMAUTH_TAG_TOUCH 0x7a
 #define YKHSMAUTH_TAG_MGMKEY 0x7b
+#define YKHSMAUTH_TAG_PRIVKEY 0x7c
 
 // Algos
 #define YKHSMAUTH_YUBICO_AES128_ALGO 38
 #define YKHSMAUTH_YUBICO_ECP256_ALGO 39
 
 #define SW_SUCCESS 0x9000
-#define SW_ERR_AUTHENTICATION_FAILED 0x63c0
-#define SW_FILE_FULL 0x6a84
-#define SW_FILE_NOT_FOUND 0x6a82
-#define SW_MEMORY_ERROR 0x6581
+#define SW_BYTES_REMAINING_00 0x6100
+#define SW_WRONG_LENGTH 0x6700
 #define SW_SECURITY_STATUS_NOT_SATISFIED 0x6982
+#define SW_FILE_INVALID 0x6983
+#define SW_DATA_INVALID 0x6984
+#define SW_CONDITIONS_NOT_SATISFIED 0x6985
+#define SW_COMMAND_NOT_ALLOWED 0x6986
+#define SW_APPLET_SELECT_FAILED 0x6999
+#define SW_WRONG_DATA 0x6A80
+#define SW_FUNC_NOT_SUPPORTED 0x6A81
+#define SW_FILE_NOT_FOUND 0x6A82
+#define SW_RECORD_NOT_FOUND 0x6A83
+#define SW_INCORRECT_P1P2 0x6A86
+#define SW_WRONG_P1P2 0x6B00
+#define SW_CORRECT_LENGTH_00 0x6C00
+#define SW_INS_NOT_SUPPORTED 0x6D00
+#define SW_CLA_NOT_SUPPORTED 0x6E00
+#define SW_UNKNOWN 0x6F00
+#define SW_FILE_FULL 0x6A84
+#define SW_LOGICAL_CHANNEL_NOT_SUPPORTED 0x6881
+#define SW_SECURE_MESSAGING_NOT_SUPPORTED 0x6882
+#define SW_WARNING_STATE_UNCHANGED 0x6200
+#define SW_LAST_COMMAND_EXPECTED 0x6883
+#define SW_COMMAND_CHAINING_NOT_SUPPORTED 0x6884
+
+#define SW_AUTHENTICATION_BLOCKED 0x6983
+#define SW_AUTHENTICATION_FAILED 0x63C0
+
+#define SW_MEMORY_ERROR 0x6581
 
 // Lengths
 #define YKHSMAUTH_MIN_LABEL_LEN 1
@@ -74,7 +100,7 @@ extern "C" {
 #define YKHSMAUTH_YUBICO_AES128_KEY_LEN 32
 #define YKHSMAUTH_PW_LEN 16
 #define YKHSMAUTH_CONTEXT_LEN 16
-
+#define YKHSMAUTH_PUBKEY_LEN 65
 // PBKDF2 derivation parameters
 #define YKHSMAUTH_DEFAULT_SALT "Yubico"
 #define YKHSMAUTH_DEFAULT_ITERS 10000
@@ -132,7 +158,10 @@ ykhsmauth_rc ykhsmauth_reset(ykhsmauth_state *state);
 ykhsmauth_rc ykhsmauth_list_keys(ykhsmauth_state *state,
                                  ykhsmauth_list_entry *list,
                                  size_t *list_items);
-ykhsmauth_rc ykhsmauth_get_challenge(ykhsmauth_state *state);
+ykhsmauth_rc ykhsmauth_get_challenge(ykhsmauth_state *state, const char *label,
+                                     uint8_t *challenge, size_t *challenge_len);
+ykhsmauth_rc ykhsmauth_get_pubkey(ykhsmauth_state *state, const char *label,
+                                  uint8_t *pubkey, size_t *pubkey_len);
 ykhsmauth_rc ykhsmauth_get_mgmkey_retries(ykhsmauth_state *state,
                                           uint8_t *retries);
 ykhsmauth_rc ykhsmauth_put_mgmkey(ykhsmauth_state *state, uint8_t *mgmkey,

@@ -38,15 +38,17 @@ static void dump_hex(const unsigned char *buf, unsigned int len) {
 }
 
 static ykhsmauth_rc translate_error(uint16_t sw, uint8_t *retries) {
-  if ((sw & 0xfff0) == SW_ERR_AUTHENTICATION_FAILED) {
+  if ((sw & 0xfff0) == SW_AUTHENTICATION_FAILED) {
     if (retries != NULL) {
-      *retries = sw & ~SW_ERR_AUTHENTICATION_FAILED;
+      *retries = sw & ~0xfff0;
     }
     return YKHSMAUTHR_WRONG_PW;
   } else if (sw == SW_FILE_FULL) {
     return YKHSMAUTHR_STORAGE_FULL;
   } else if (sw == SW_FILE_NOT_FOUND) {
     return YKHSMAUTHR_ENTRY_NOT_FOUND;
+  } else if (sw == SW_FILE_INVALID) {
+    return YKHSMAUTHR_INVALID_PARAMS;
   } else if (sw == SW_MEMORY_ERROR) {
     return YKHSMAUTHR_MEMORY_ERROR;
   } else if (sw == SW_SECURITY_STATUS_NOT_SATISFIED) {
@@ -344,9 +346,11 @@ ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *mgmkey,
     return YKHSMAUTHR_INVALID_PARAMS;
   }
 
-  if (algo != YKHSMAUTH_YUBICO_AES128_ALGO) {
+  if (algo != YKHSMAUTH_YUBICO_AES128_ALGO &&
+      algo != YKHSMAUTH_YUBICO_ECP256_ALGO) {
     if (state->verbose) {
-      fprintf(stderr, "Only YKHSMAUTH_YUBICO_AES128_ALGO supported\n");
+      fprintf(stderr, "Only YKHSMAUTH_YUBICO_AES128_ALGO and "
+                      "YKHSMAUTH_YUBICO_ECP256_ALGO supported\n");
     }
     return YKHSMAUTHR_INVALID_PARAMS;
   }
@@ -381,22 +385,32 @@ ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *mgmkey,
   *(ptr++) = algo;
   apdu.st.lc++;
 
-  *(ptr++) = YKHSMAUTH_TAG_KEY_ENC;
-  apdu.st.lc++;
-  *(ptr++) = YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
-  apdu.st.lc++;
-  memcpy(ptr, key, YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2);
-  ptr += YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
-  apdu.st.lc += YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
+  if (algo == YKHSMAUTH_YUBICO_AES128_ALGO) {
+    *(ptr++) = YKHSMAUTH_TAG_KEY_ENC;
+    apdu.st.lc++;
+    *(ptr++) = YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
+    apdu.st.lc++;
+    memcpy(ptr, key, YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2);
+    ptr += YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
+    apdu.st.lc += YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
 
-  *(ptr++) = YKHSMAUTH_TAG_KEY_MAC;
-  apdu.st.lc++;
-  *(ptr++) = YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
-  apdu.st.lc++;
-  memcpy(ptr, key + YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2,
-         YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2);
-  ptr += YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
-  apdu.st.lc += YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
+    *(ptr++) = YKHSMAUTH_TAG_KEY_MAC;
+    apdu.st.lc++;
+    *(ptr++) = YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
+    apdu.st.lc++;
+    memcpy(ptr, key + YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2,
+           YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2);
+    ptr += YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
+    apdu.st.lc += YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
+  } else if (algo == YKHSMAUTH_YUBICO_ECP256_ALGO) {
+    *(ptr++) = YKHSMAUTH_TAG_PRIVKEY;
+    apdu.st.lc++;
+    *(ptr++) = YKHSMAUTH_YUBICO_AES128_KEY_LEN;
+    apdu.st.lc++;
+    memcpy(ptr, key, YKHSMAUTH_YUBICO_AES128_KEY_LEN);
+    ptr += YKHSMAUTH_YUBICO_AES128_KEY_LEN;
+    apdu.st.lc += YKHSMAUTH_YUBICO_AES128_KEY_LEN;
+  }
 
   *(ptr++) = YKHSMAUTH_TAG_PW;
   apdu.st.lc++;
@@ -668,9 +682,82 @@ ykhsmauth_rc ykhsmauth_list_keys(ykhsmauth_state *state,
   return YKHSMAUTHR_SUCCESS;
 }
 
-ykhsmauth_rc ykhsmauth_get_challenge(ykhsmauth_state *state) {
+ykhsmauth_rc ykhsmauth_get_challenge(ykhsmauth_state *state, const char *label,
+                                     uint8_t *challenge,
+                                     size_t *challenge_len) {
 
-  (void) state;
+  APDU apdu;
+  unsigned char data[256], *ptr;
+  unsigned long recv_len = sizeof(data);
+  int sw;
+  ykhsmauth_rc rc;
+
+  memset(apdu.raw, 0, sizeof(apdu));
+  apdu.st.ins = YKHSMAUTH_INS_GET_CHALLENGE;
+
+  ptr = apdu.st.data;
+
+  *(ptr++) = YKHSMAUTH_TAG_LABEL;
+  apdu.st.lc++;
+  *(ptr++) = strlen(label);
+  apdu.st.lc++;
+  memcpy(ptr, label, strlen(label));
+  ptr += strlen(label);
+  apdu.st.lc += strlen(label);
+
+  rc = send_data(state, &apdu, data, &recv_len, &sw);
+  if (rc != YKHSMAUTHR_SUCCESS) {
+    return rc;
+  } else if (sw != SW_SUCCESS) {
+    if (state->verbose) {
+      fprintf(stderr, "Unable to get challenge: %04x\n", sw);
+    }
+
+    return translate_error(sw, NULL);
+  }
+
+  *challenge_len = recv_len;
+  memcpy(challenge, data, recv_len);
+
+  return YKHSMAUTHR_SUCCESS;
+}
+
+ykhsmauth_rc ykhsmauth_get_pubkey(ykhsmauth_state *state, const char *label,
+                                  uint8_t *pubkey, size_t *pubkey_len) {
+
+  APDU apdu;
+  unsigned char data[256], *ptr;
+  unsigned long recv_len = sizeof(data);
+  int sw;
+  ykhsmauth_rc rc;
+
+  memset(apdu.raw, 0, sizeof(apdu));
+  apdu.st.ins = YKHSMAUTH_INS_GET_PUBKEY;
+
+  ptr = apdu.st.data;
+
+  *(ptr++) = YKHSMAUTH_TAG_LABEL;
+  apdu.st.lc++;
+  *(ptr++) = strlen(label);
+  apdu.st.lc++;
+  memcpy(ptr, label, strlen(label));
+  ptr += strlen(label);
+  apdu.st.lc += strlen(label);
+
+  rc = send_data(state, &apdu, data, &recv_len, &sw);
+  if (rc != YKHSMAUTHR_SUCCESS) {
+    return rc;
+  } else if (sw != SW_SUCCESS) {
+    if (state->verbose) {
+      fprintf(stderr, "Unable to get pubkey: %04x\n", sw);
+    }
+
+    return translate_error(sw, NULL);
+  }
+
+  *pubkey_len = recv_len;
+  memcpy(pubkey, data, recv_len);
+
   return YKHSMAUTHR_SUCCESS;
 }
 

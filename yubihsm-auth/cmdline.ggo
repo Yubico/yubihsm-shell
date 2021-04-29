@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-option "action" a "Action to perform" values="calculate", "change-mgmkey", "delete", "list", "put", "reset", "retries", "version" enum optional
+option "action" a "Action to perform" values="calculate", "change-mgmkey", "delete", "list", "put", "reset", "retries", "version", "get-challenge", "get-pubkey" enum optional
 option "mgmkey" k "Management key is required to put and delete credentials. Sometimes, this key is also referenced as 'Admin Access Code'" string optional default="00000000000000000000000000000000"
 option "new-mgmkey" K "New management key" string optional default=""
 option "credpwd" p "Credential password is used to access the credential when logging into the YubiHSM2. Sometimes, this password is also referenced as 'User Access Code'" string optional default=""
@@ -23,6 +23,7 @@ option "reader" r "Only use a matching reader" string optional default="Yubikey"
 option "touch" t "Touch required" values="off","on" enum optional default="off"
 option "context" c "Session keys calculation context" string optional default=""
 option "verbose" v "Print more information" int optional default="0" argoptional
+option "auth-algo" A "Authentication algorithm" values="yubico-aes128","yubico-ecp256" enum optional default="yubico-aes128"
 
 defmode "derivation" modedesc="Derive keys from a password using PBKDF2"
 modeoption "derivation-password" d "Derivation password for encryption and MAC keys" string mode="derivation" optional default=""

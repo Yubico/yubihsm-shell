@@ -219,6 +219,7 @@ static bool list_credentials(ykhsmauth_state *state) {
 static bool put_credential(ykhsmauth_state *state, char *mgmkey, char *label,
                            char *derivation_password, char *key_enc,
                            char *key_mac, char *credpassword,
+                           enum enum_auth_algo auth_algorithm,
                            enum enum_touch touch_policy) {
   ykhsmauth_rc ykhsmauthrc;
   uint8_t mgmkey_parsed[YKHSMAUTH_PW_LEN] = {0};
@@ -296,8 +297,11 @@ static bool put_credential(ykhsmauth_state *state, char *mgmkey, char *label,
 
   ykhsmauthrc =
     ykhsmauth_put(state, mgmkey_parsed, mgmkey_parsed_len, label_parsed,
-                  YKHSMAUTH_YUBICO_AES128_ALGO, key_parsed, key_parsed_len,
-                  cpw_parsed, cpw_parsed_len, touch_policy_parsed, &retries);
+                  auth_algorithm == auth_algo_arg_yubicoMINUS_aes128
+                    ? YKHSMAUTH_YUBICO_AES128_ALGO
+                    : YKHSMAUTH_YUBICO_ECP256_ALGO,
+                  key_parsed, key_parsed_len, cpw_parsed, cpw_parsed_len,
+                  touch_policy_parsed, &retries);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Unable to store credential: %s, %d retries left\n",
             ykhsmauth_strerror(ykhsmauthrc), retries);
@@ -340,6 +344,61 @@ bool get_mgmkey_retries(ykhsmauth_state *state) {
   return true;
 }
 
+void print_key(char *prompt, uint8_t *key, size_t len) {
+  fprintf(stdout, "%s: ", prompt);
+  for (size_t i = 0; i < len; i++) {
+    fprintf(stdout, "%02x", key[i]);
+  }
+  fprintf(stdout, "\n");
+}
+
+bool get_challenge(ykhsmauth_state *state, char *label) {
+  ykhsmauth_rc ykhsmauthrc;
+  char label_parsed[YKHSMAUTH_MAX_LABEL_LEN + 2] = {0};
+  size_t label_parsed_len = sizeof(label_parsed);
+  uint8_t challenge[YKHSMAUTH_PUBKEY_LEN] = {0};
+  size_t challenge_len = sizeof(challenge);
+
+  if (parse_label("Label", label, label_parsed, &label_parsed_len) == false) {
+    return false;
+  }
+
+  ykhsmauthrc =
+    ykhsmauth_get_challenge(state, label_parsed, challenge, &challenge_len);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
+    fprintf(stderr, "Unable to get challenge: %s\n",
+            ykhsmauth_strerror(ykhsmauthrc));
+    return false;
+  }
+
+  print_key("Challenge", challenge, challenge_len);
+
+  return true;
+}
+
+bool get_pubkey(ykhsmauth_state *state, char *label) {
+  ykhsmauth_rc ykhsmauthrc;
+  char label_parsed[YKHSMAUTH_MAX_LABEL_LEN + 2] = {0};
+  size_t label_parsed_len = sizeof(label_parsed);
+  uint8_t pubkey[YKHSMAUTH_PUBKEY_LEN] = {0};
+  size_t pubkey_len = sizeof(pubkey);
+
+  if (parse_label("Label", label, label_parsed, &label_parsed_len) == false) {
+    return false;
+  }
+
+  ykhsmauthrc = ykhsmauth_get_pubkey(state, label_parsed, pubkey, &pubkey_len);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
+    fprintf(stderr, "Unable to get pubkey: %s\n",
+            ykhsmauth_strerror(ykhsmauthrc));
+    return false;
+  }
+
+  print_key("Long-term public key", pubkey, pubkey_len);
+
+  return true;
+}
+
 bool get_version(ykhsmauth_state *state) {
   ykhsmauth_rc ykhsmauthrc;
   char version[64] = {0};
@@ -355,14 +414,6 @@ bool get_version(ykhsmauth_state *state) {
   fprintf(stdout, "Version %s\n", version);
 
   return true;
-}
-
-void print_key(char *prompt, uint8_t *key, size_t len) {
-  fprintf(stdout, "%s: ", prompt);
-  for (size_t i = 0; i < len; i++) {
-    fprintf(stdout, "%02x", key[i]);
-  }
-  fprintf(stdout, "\n");
 }
 
 static bool calculate_session_keys(ykhsmauth_state *state, char *label,
@@ -495,10 +546,11 @@ int main(int argc, char *argv[]) {
       break;
 
     case action_arg_put:
-      result = put_credential(state, args_info.mgmkey_arg, args_info.label_arg,
-                              args_info.derivation_password_arg,
-                              args_info.enckey_arg, args_info.mackey_arg,
-                              args_info.credpwd_arg, args_info.touch_arg);
+      result =
+        put_credential(state, args_info.mgmkey_arg, args_info.label_arg,
+                       args_info.derivation_password_arg, args_info.enckey_arg,
+                       args_info.mackey_arg, args_info.credpwd_arg,
+                       args_info.auth_algo_arg, args_info.touch_arg);
       break;
 
     case action_arg_reset:
@@ -507,6 +559,14 @@ int main(int argc, char *argv[]) {
 
     case action_arg_retries:
       result = get_mgmkey_retries(state);
+      break;
+
+    case action_arg_getMINUS_challenge:
+      result = get_challenge(state, args_info.label_arg);
+      break;
+
+    case action_arg_getMINUS_pubkey:
+      result = get_pubkey(state, args_info.label_arg);
       break;
 
     case action_arg_version:
