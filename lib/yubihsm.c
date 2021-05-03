@@ -3983,6 +3983,10 @@ static yh_rc load_backend(const char *name, void **backend,
   }
   *(void **) (&backend_functions) = dlsym(*backend, "backend_functions");
 #endif
+  if (backend_functions == NULL) {
+    DBG_ERR("Symbol 'backend_functions' not found in '%s'", name);
+    return YHR_GENERIC_ERROR;
+  }
   *bf = backend_functions();
   return (*bf)->backend_init(_yh_verbosity, _yh_output);
 }
