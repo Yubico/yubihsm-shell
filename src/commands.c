@@ -792,9 +792,8 @@ int yh_com_get_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   }
 
   if (fmt == fmt_PEM) {
-    X509 *x509;
     const unsigned char *ptr = response;
-    x509 = d2i_X509(NULL, &ptr, response_len);
+    X509 *x509 = d2i_X509(NULL, &ptr, response_len);
     if (!x509) {
       fprintf(stderr, "Failed parsing x509 information\n");
     } else {
@@ -3151,13 +3150,8 @@ int yh_com_sign_attestation_certificate(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
-  X509 *x509 = X509_new();
   const unsigned char *ptr = data;
-  if (!x509) {
-    fprintf(stderr, "Failed allocating x509 structure\n");
-    return -1;
-  }
-  x509 = d2i_X509(NULL, &ptr, data_len);
+  X509 *x509 = d2i_X509(NULL, &ptr, data_len);
   if (!x509) {
     fprintf(stderr, "Failed parsing x509 information\n");
   } else {
