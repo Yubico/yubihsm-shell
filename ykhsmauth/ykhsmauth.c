@@ -47,7 +47,7 @@ static ykhsmauth_rc translate_error(uint16_t sw, uint8_t *retries) {
     return YKHSMAUTHR_STORAGE_FULL;
   } else if (sw == SW_FILE_NOT_FOUND) {
     return YKHSMAUTHR_ENTRY_NOT_FOUND;
-  } else if (sw == SW_FILE_INVALID) {
+  } else if (sw == SW_FILE_INVALID || sw == SW_WRONG_DATA) {
     return YKHSMAUTHR_INVALID_PARAMS;
   } else if (sw == SW_MEMORY_ERROR) {
     return YKHSMAUTHR_MEMORY_ERROR;
