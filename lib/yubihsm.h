@@ -963,7 +963,9 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
  *href="https://developers.yubico.com/YubiHSM2/Concepts/Session.html">Session</a>
  **/
 yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
-                                  uint8_t **context, uint8_t *card_cryptogram,
+                                  uint8_t **context, uint8_t *host_challenge,
+                                  size_t host_challenge_len,
+                                  uint8_t *card_cryptogram,
                                   size_t card_cryptogram_len,
                                   yh_session **session);
 

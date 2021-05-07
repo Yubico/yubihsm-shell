@@ -1630,10 +1630,12 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
 
   uint8_t *yh_context;
 
+  uint8_t host_challenge[YH_CONTEXT_LEN / 2];
   uint8_t card_cryptogram[YH_CONTEXT_LEN / 2];
   uint8_t key_s_enc[YH_KEY_LEN];
   uint8_t key_s_mac[YH_KEY_LEN];
   uint8_t key_s_rmac[YH_KEY_LEN];
+  size_t host_challenge_len = sizeof(host_challenge);
   size_t key_s_enc_len = sizeof(key_s_enc);
   size_t key_s_mac_len = sizeof(key_s_mac);
   size_t key_s_rmac_len = sizeof(key_s_rmac);
@@ -1646,8 +1648,17 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
+  ykhsmauthrc = ykhsmauth_get_challenge(ctx->state, argv[1].s, host_challenge,
+                                        &host_challenge_len);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
+    fprintf(stderr, "Failed to get host challenge from the YubiKey: %s\n",
+            ykhsmauth_strerror(ykhsmauthrc));
+    return -1;
+  }
+
   yh_rc yrc =
     yh_begin_create_session_ext(ctx->connector, argv[0].w, &yh_context,
+                                host_challenge, host_challenge_len,
                                 card_cryptogram, sizeof(card_cryptogram), &ses);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));

@@ -775,7 +775,9 @@ cs_failure:
 }
 
 yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
-                                  uint8_t **context, uint8_t *card_cryptogram,
+                                  uint8_t **context, uint8_t *host_challenge,
+                                  size_t host_challenge_len,
+                                  uint8_t *card_cryptogram,
                                   size_t card_cryptogram_len,
                                   yh_session **session) {
 
@@ -784,19 +786,14 @@ yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
   yh_rc yrc;
   uint8_t *ptr;
   yh_session *new_session;
-  uint8_t host_challenge[YH_HOST_CHAL_LEN];
   uint8_t identifier[8];
 
   if (connector == NULL || context == NULL || card_cryptogram == NULL ||
+      host_challenge == NULL || host_challenge_len != SCP_HOST_CHAL_LEN ||
       card_cryptogram_len != SCP_CARD_CRYPTO_LEN || session == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
-
-  if (!rand_generate(host_challenge, sizeof(host_challenge))) {
-    return YHR_GENERIC_ERROR;
-  } // TODO(adma): take this as an input so that it can be generated from the
-  // YubiKey
 
   /**********/
   // TODO(adma): replace with func
