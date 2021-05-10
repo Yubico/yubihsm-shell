@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-include(${CMAKE_SOURCE_DIR}/cmake/openssl.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/openssl.cmake)
 find_libcrypto()
 
 if(MSVC)
@@ -146,7 +146,7 @@ if(ENABLE_STATIC)
 endif(ENABLE_STATIC)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/yubihsm.pc.in ${CMAKE_CURRENT_BINARY_DIR}/yubihsm.pc @ONLY)
-configure_file(${CMAKE_SOURCE_DIR}/common/platform-config.h.in ${CMAKE_SOURCE_DIR}/common/platform-config.h @ONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../common/platform-config.h.in ${CMAKE_CURRENT_SOURCE_DIR}/../common/platform-config.h @ONLY)
 
 if(WIN32)
   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc @ONLY)
