@@ -761,12 +761,15 @@ static bool probe_session(yubihsm_context *ctx, size_t index) {
     uint8_t response[YH_MSG_BUF_SIZE];
     size_t response_len = sizeof(response);
     yh_cmd response_cmd;
+    yh_rc yrc;
 
     // silently ignore transmit errors..?
-    if (yh_send_secure_msg(ctx->sessions[index], YHC_ECHO, &data, 1,
-                           &response_cmd, response,
-                           &response_len) != YHR_SUCCESS) {
+    if ((yrc = yh_send_secure_msg(ctx->sessions[index], YHC_ECHO, &data, 1,
+                                  &response_cmd, response, &response_len)) !=
+        YHR_SUCCESS) {
       yh_destroy_session(&ctx->sessions[index]);
+      fprintf(stderr, "Failed to probe session %zu: %s\n", index,
+              yh_strerror(yrc));
       return false;
     }
     return true;
