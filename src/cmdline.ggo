@@ -32,6 +32,7 @@ option "action" a "Action to perform" values="benchmark",
                                              "get-logs",
                                              "get-object-info",
                                              "get-opaque",
+                                             "get-option",
                                              "get-pseudo-random",
                                              "get-public-key",
                                              "get-storage-info",
@@ -43,6 +44,7 @@ option "action" a "Action to perform" values="benchmark",
                                              "put-authentication-key",
                                              "put-hmac-key",
                                              "put-opaque",
+                                             "put-option",
                                              "put-otp-aead-key",
                                              "put-template",
                                              "put-wrap-key",
@@ -50,7 +52,6 @@ option "action" a "Action to perform" values="benchmark",
                                              "randomize-otp-aead",
                                              "reset",
                                              "set-log-index",
-                                             "set-option",
                                              "sign-attestation-certificate",
                                              "sign-ecdsa",
                                              "sign-eddsa",
@@ -65,7 +66,7 @@ option "label" l "Object label" string optional default=""
 option "domains" d "Object domains" string optional default="1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16"
 option "capabilities" c "Capabilities for an object" string optional default="0"
 option "object-type" t "Object type" string optional
-option "ykhsmauth-label" - "Credential label on YubiKey (implicitly enables ykhsmauth)" string optional hidden
+option "ykhsmauth-label" - "Credential label on YubiKey (implicitly enables ykhsmauth)" string optional
 
 option "delegated" - "Delegated capabilities" string optional default="0"
 option "new-password" - "New authentication password" string optional
@@ -77,6 +78,8 @@ option "wrap-id" - "Wrap key ID" int optional
 option "template-id" - "Template ID" int optional
 option "attestation-id" - "Attestation ID" int optional
 option "log-index" - "Log index" int optional
+option "opt-name" - "Device option name" string optional
+option "opt-value" - "Device option value" string optional
 
 option "in" - "Input data (filename)" string optional default="-"
 option "out" - "Output data (filename)" string optional default="-"
