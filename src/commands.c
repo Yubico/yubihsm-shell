@@ -1656,7 +1656,7 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
 
   yh_rc yrc =
     yh_begin_create_session_ext(ctx->connector, argv[0].w, &yh_context,
-                                host_challenge, host_challenge_len,
+                                host_challenge, &host_challenge_len,
                                 card_cryptogram, &card_cryptogram_len, &ses);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));

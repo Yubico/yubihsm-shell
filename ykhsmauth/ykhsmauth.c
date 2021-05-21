@@ -527,7 +527,7 @@ ykhsmauth_rc ykhsmauth_calculate(ykhsmauth_state *state, const char *label,
   memcpy(ptr, context, context_len);
   ptr += context_len;
 
-  if (card_crypto_len > 0) {
+  if (card_crypto_len > YKHSMAUTH_CARD_CRYPTO_LEN) {
     *(ptr++) = YKHSMAUTH_TAG_RESPONSE;
     ptr += encode_len(ptr, card_crypto_len);
     memcpy(ptr, card_crypto, card_crypto_len);

@@ -776,7 +776,7 @@ cs_failure:
 
 yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
                                   uint8_t **context, uint8_t *host_challenge,
-                                  size_t host_challenge_len,
+                                  size_t *host_challenge_len,
                                   uint8_t *card_cryptogram,
                                   size_t *card_cryptogram_len,
                                   yh_session **session) {
@@ -795,14 +795,14 @@ yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  if (host_challenge_len == 0) {
+  if (*host_challenge_len == 0) {
     if (!rand_generate(host_challenge, SCP_HOST_CHAL_LEN)) {
       return YHR_GENERIC_ERROR;
     }
-    host_challenge_len = SCP_HOST_CHAL_LEN;
+    *host_challenge_len = SCP_HOST_CHAL_LEN;
   }
 
-  switch (host_challenge_len) {
+  switch (*host_challenge_len) {
     case SCP_HOST_CHAL_LEN:
       *card_cryptogram_len = SCP_CARD_CRYPTO_LEN;
       break;
@@ -827,12 +827,12 @@ yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
 
   // Send CREATE SESSION command
   msg.st.cmd = YHC_CREATE_SESSION;
-  msg.st.len = htons(SCP_AUTHKEY_ID_LEN + host_challenge_len);
+  msg.st.len = htons(SCP_AUTHKEY_ID_LEN + *host_challenge_len);
 
   uint16_t authkey_id_n = htons(authkey_id);
   memcpy(msg.st.data, &authkey_id_n, SCP_AUTHKEY_ID_LEN);
-  memcpy(msg.st.data + SCP_AUTHKEY_ID_LEN, host_challenge, host_challenge_len);
-  memcpy(new_session->context, host_challenge, host_challenge_len);
+  memcpy(msg.st.data + SCP_AUTHKEY_ID_LEN, host_challenge, *host_challenge_len);
+  memcpy(new_session->context, host_challenge, *host_challenge_len);
 
   if (!rand_generate(identifier, sizeof(identifier))) {
     DBG_ERR("Failed getting randomness");
@@ -843,7 +843,7 @@ yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
            identifier[0], identifier[1], identifier[2], identifier[3],
            identifier[4], identifier[5], identifier[6], identifier[7]);
 
-  DBG_INT(host_challenge, host_challenge_len, "Host challenge: ");
+  DBG_INT(host_challenge, *host_challenge_len, "Host challenge: ");
 
   yrc = send_msg(connector, &msg, &response_msg, new_session->s.identifier);
   if (yrc != YHR_SUCCESS) {
@@ -858,7 +858,7 @@ yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
   }
 
   if (ntohs(response_msg.st.len) !=
-      1 + host_challenge_len + *card_cryptogram_len) {
+      1 + *host_challenge_len + *card_cryptogram_len) {
     yrc = YHR_WRONG_LENGTH;
     goto bcse_failure;
   }
@@ -869,15 +869,15 @@ yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
   new_session->s.sid = (*ptr++);
 
   // Save card challenge
-  memcpy(new_session->context + host_challenge_len, ptr, host_challenge_len);
-  ptr += host_challenge_len;
+  memcpy(new_session->context + *host_challenge_len, ptr, *host_challenge_len);
+  ptr += *host_challenge_len;
 
   memcpy(card_cryptogram, ptr, *card_cryptogram_len);
   ptr += *card_cryptogram_len;
 
   DBG_INFO("Received Session ID: %d", new_session->s.sid);
 
-  DBG_INT(new_session->context + host_challenge_len, host_challenge_len,
+  DBG_INT(new_session->context + *host_challenge_len, *host_challenge_len,
           "Card challenge: ");
   DBG_INT(card_cryptogram, *card_cryptogram_len, "Card cryptogram: ");
 
