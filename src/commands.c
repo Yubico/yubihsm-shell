@@ -1630,15 +1630,13 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
 
   uint8_t *yh_context;
 
-  uint8_t host_challenge[YH_CONTEXT_LEN / 2];
-  uint8_t card_cryptogram[YH_CONTEXT_LEN / 2];
+  uint8_t host_challenge[YH_EC_P256_PUBKEY_LEN];
+  uint8_t card_cryptogram[YH_KEY_LEN];
   uint8_t key_s_enc[YH_KEY_LEN];
   uint8_t key_s_mac[YH_KEY_LEN];
   uint8_t key_s_rmac[YH_KEY_LEN];
   size_t host_challenge_len = sizeof(host_challenge);
-  size_t key_s_enc_len = sizeof(key_s_enc);
-  size_t key_s_mac_len = sizeof(key_s_mac);
-  size_t key_s_rmac_len = sizeof(key_s_rmac);
+  size_t card_cryptogram_len = sizeof(card_cryptogram);
   uint8_t retries;
 
   ykhsmauth_rc ykhsmauthrc = ykhsmauth_connect(ctx->state, NULL);
@@ -1659,17 +1657,18 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
   yh_rc yrc =
     yh_begin_create_session_ext(ctx->connector, argv[0].w, &yh_context,
                                 host_challenge, host_challenge_len,
-                                card_cryptogram, sizeof(card_cryptogram), &ses);
+                                card_cryptogram, &card_cryptogram_len, &ses);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
     return -1;
   }
 
   ykhsmauthrc =
-    ykhsmauth_calculate(ctx->state, argv[1].s, yh_context, YH_CONTEXT_LEN,
-                        argv[2].x, argv[2].len, key_s_enc, sizeof(key_s_enc),
-                        key_s_mac, sizeof(key_s_mac), key_s_rmac,
-                        sizeof(key_s_rmac), &retries);
+    ykhsmauth_calculate(ctx->state, argv[1].s, yh_context,
+                        2 * host_challenge_len, card_cryptogram,
+                        card_cryptogram_len, argv[2].x, argv[2].len, key_s_enc,
+                        sizeof(key_s_enc), key_s_mac, sizeof(key_s_mac),
+                        key_s_rmac, sizeof(key_s_rmac), &retries);
   insecure_memzero(argv[2].x, argv[2].len);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Failed to get session keys from the YubiKey: %s",
@@ -1683,18 +1682,21 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
   }
 
   yrc = yh_finish_create_session_ext(ctx->connector, ses, key_s_enc,
-                                     key_s_enc_len, key_s_mac, key_s_mac_len,
-                                     key_s_rmac, key_s_rmac_len,
-                                     card_cryptogram, sizeof(card_cryptogram));
+                                     sizeof(key_s_enc), key_s_mac,
+                                     sizeof(key_s_mac), key_s_rmac,
+                                     sizeof(key_s_rmac), card_cryptogram,
+                                     card_cryptogram_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
     return -1;
   }
 
-  yrc = yh_authenticate_session(ses);
-  if (yrc != YHR_SUCCESS) {
-    fprintf(stderr, "Failed to authenticate session: %s\n", yh_strerror(yrc));
-    return -1;
+  if (card_cryptogram_len == YKHSMAUTH_CARD_CRYPTO_LEN) {
+    yrc = yh_authenticate_session(ses);
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr, "Failed to authenticate session: %s\n", yh_strerror(yrc));
+      return -1;
+    }
   }
 
   yrc = yh_get_session_id(ses, &session_id);

@@ -56,7 +56,7 @@ extern "C" {
 #define YKHSMAUTH_TAG_VERSION 0x79
 #define YKHSMAUTH_TAG_TOUCH 0x7a
 #define YKHSMAUTH_TAG_MGMKEY 0x7b
-#define YKHSMAUTH_TAG_PRIVKEY 0x7c
+#define YKHSMAUTH_TAG_PUBKEY 0x7c
 
 // Algos
 #define YKHSMAUTH_YUBICO_AES128_ALGO 38
@@ -97,10 +97,12 @@ extern "C" {
 #define YKHSMAUTH_MIN_LABEL_LEN 1
 #define YKHSMAUTH_MAX_LABEL_LEN 64
 #define YKHSMAUTH_SESSION_KEY_LEN 16
+#define YKHSMAUTH_CARD_CRYPTO_LEN 8
+#define YKHSMAUTH_HOST_CRYPTO_LEN 8
 #define YKHSMAUTH_YUBICO_AES128_KEY_LEN 32
 #define YKHSMAUTH_PW_LEN 16
 #define YKHSMAUTH_CONTEXT_LEN 16
-#define YKHSMAUTH_PUBKEY_LEN 65
+#define YKHSMAUTH_YUBICO_ECP256_KEY_LEN 65
 // PBKDF2 derivation parameters
 #define YKHSMAUTH_DEFAULT_SALT "Yubico"
 #define YKHSMAUTH_DEFAULT_ITERS 10000
@@ -149,6 +151,7 @@ ykhsmauth_rc ykhsmauth_delete(ykhsmauth_state *state, uint8_t *mgmkey,
                               size_t mgmkey_len, char *label, uint8_t *retries);
 ykhsmauth_rc ykhsmauth_calculate(ykhsmauth_state *state, const char *label,
                                  uint8_t *context, size_t context_len,
+                                 uint8_t *card_crypto, size_t card_crypto_len,
                                  const uint8_t *pw, size_t pw_len,
                                  uint8_t *key_s_enc, size_t key_s_enc_len,
                                  uint8_t *key_s_mac, size_t key_s_mac_len,

@@ -23,7 +23,6 @@ option "reader" r "Only use a matching reader" string optional default="Yubikey"
 option "touch" t "Touch required" values="off","on" enum optional default="off"
 option "context" c "Session keys calculation context" string optional default=""
 option "verbose" v "Print more information" int optional default="0" argoptional
-option "auth-algo" A "Authentication algorithm" values="yubico-aes128","yubico-ecp256" enum optional default="yubico-aes128"
 
 defmode "derivation" modedesc="Derive keys from a password using PBKDF2"
 modeoption "derivation-password" d "Derivation password for encryption and MAC keys" string mode="derivation" optional default=""
@@ -31,3 +30,6 @@ modeoption "derivation-password" d "Derivation password for encryption and MAC k
 defmode "explicit" modedesc="Explicit encryption and MAC keys"
 modeoption "enckey" e "Encryption key" string optional default="" mode="explicit"
 modeoption "mackey" m "MAC key" string optional default="" mode="explicit"
+
+defmode "asymmetric" modedesc="Explicit ec-p256 public key"
+modeoption "pubkey" q "Public key" string optional default="" mode="asymmetric"
