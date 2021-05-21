@@ -381,45 +381,45 @@ ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *mgmkey,
   apdu.st.ins = YKHSMAUTH_INS_PUT;
 
   *(ptr++) = YKHSMAUTH_TAG_MGMKEY;
-  *(ptr++) = 16;
+  ptr += encode_len(ptr, 16);
   memcpy(ptr, mgmkey, 16);
   ptr += 16;
 
   *(ptr++) = YKHSMAUTH_TAG_LABEL;
-  *(ptr++) = strlen(label);
+  ptr += encode_len(ptr, strlen(label));
   memcpy(ptr, label, strlen(label));
   ptr += strlen(label);
 
   *(ptr++) = YKHSMAUTH_TAG_ALGO;
-  *(ptr++) = 1;
+  ptr += encode_len(ptr, 1);
   *(ptr++) = algo;
 
   if (algo == YKHSMAUTH_YUBICO_AES128_ALGO) {
     *(ptr++) = YKHSMAUTH_TAG_KEY_ENC;
-    *(ptr++) = YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
+    ptr += encode_len(ptr, YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2);
     memcpy(ptr, key, YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2);
     ptr += YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
 
     *(ptr++) = YKHSMAUTH_TAG_KEY_MAC;
-    *(ptr++) = YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
+    ptr += encode_len(ptr, YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2);
     memcpy(ptr, key + YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2,
            YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2);
     ptr += YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
   } else if (algo == YKHSMAUTH_YUBICO_ECP256_ALGO) {
     *(ptr++) = YKHSMAUTH_TAG_PUBKEY;
-    *(ptr++) = YKHSMAUTH_YUBICO_ECP256_KEY_LEN;
+    ptr += encode_len(ptr, YKHSMAUTH_YUBICO_ECP256_KEY_LEN);
     memcpy(ptr, key, YKHSMAUTH_YUBICO_ECP256_KEY_LEN);
     ptr += YKHSMAUTH_YUBICO_ECP256_KEY_LEN;
   }
 
   *(ptr++) = YKHSMAUTH_TAG_PW;
-  *(ptr++) = YKHSMAUTH_PW_LEN;
+  ptr += encode_len(ptr, YKHSMAUTH_PW_LEN);
   memcpy(ptr, cpw, cpw_len);
   memset(ptr + cpw_len, 0, YKHSMAUTH_PW_LEN - cpw_len);
   ptr += YKHSMAUTH_PW_LEN;
 
   *(ptr++) = YKHSMAUTH_TAG_TOUCH;
-  *(ptr++) = 1;
+  ptr += encode_len(ptr, 1);
   *(ptr++) = touch_policy ? 1 : 0;
 
   apdu.st.lc = ptr - apdu.st.data;
@@ -460,12 +460,12 @@ ykhsmauth_rc ykhsmauth_delete(ykhsmauth_state *state, uint8_t *mgmkey,
   ptr = apdu.st.data;
 
   *(ptr++) = YKHSMAUTH_TAG_MGMKEY;
-  *(ptr++) = 16;
+  ptr += encode_len(ptr, 16);
   memcpy(ptr, mgmkey, 16);
   ptr += 16;
 
   *(ptr++) = YKHSMAUTH_TAG_LABEL;
-  *(ptr++) = strlen(label);
+  ptr += encode_len(ptr, strlen(label));
   memcpy(ptr, label, strlen(label));
   ptr += strlen(label);
 
@@ -806,12 +806,12 @@ ykhsmauth_rc ykhsmauth_put_mgmkey(ykhsmauth_state *state, uint8_t *mgmkey,
   apdu.st.ins = YKHSMAUTH_INS_PUT_MGMKEY;
 
   *(ptr++) = YKHSMAUTH_TAG_MGMKEY;
-  *(ptr++) = 16;
+  ptr += encode_len(ptr, 16);
   memcpy(ptr, mgmkey, 16);
   ptr += 16;
 
   *(ptr++) = YKHSMAUTH_TAG_MGMKEY;
-  *(ptr++) = 16;
+  ptr += encode_len(ptr, 16);
   memcpy(ptr, new_mgmkey, 16);
   ptr += 16;
 
