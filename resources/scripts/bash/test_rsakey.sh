@@ -12,7 +12,7 @@ fi
 mkdir yubihsm-shell_test_dir; cd yubihsm-shell_test_dir
 echo test signing and decryption data > data.txt
 set -e
-#set -x
+set -x
 
 echo "---------------------- RSA keys --------------------- "
 echo "**********************************"
@@ -282,4 +282,4 @@ cd ..
 rm -rf yubihsm-shell_test_dir
 
 set +e
-#set +x
+set +x

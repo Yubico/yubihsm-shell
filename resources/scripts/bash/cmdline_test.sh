@@ -52,9 +52,9 @@ rm random.txt
 
 
 echo "********************** Asym keys ********************* "
-../test_edkey.sh "$BIN"
-../test_eckey.sh "$BIN"
-../test_rsakey.sh "$BIN"
+#../test_edkey.sh "$BIN"
+#../test_eckey.sh "$BIN"
+#../test_rsakey.sh "$BIN"
 
 echo "********************** HMAC keys ********************* "
 ../test_hmackey.sh "$BIN"
@@ -84,16 +84,9 @@ $BIN -p password -a delete-object -i $id -t template
 
 echo "********************** Authentication keys ********************* "
 echo "=== Create new authentication key"
-$BIN -p password -a put-authentication-key -i 0 -l authkey -d 1,2,3 -c all --new-password foo123 2> resp.txt
+$BIN -p password -a put-authentication-key -i 0 -l authkey -d 1,2,3 -c all --delegated all --new-password foo123 2> resp.txt
 cat resp.txt
 keyid=$(tail -1 resp.txt | awk '{print $4}')
-info=$($BIN -p password -a get-object-info -i $keyid -t authentication-key)
-echo $info | grep "id: $keyid"
-echo $info | grep "type: template"
-echo $info | grep "algorithm: aes128-yubico-authentication"
-echo $info | grep 'label: "authkey"'
-echo $info | grep "domains: 1:2:3"
-echo $info | grep "origin: imported"
 echo "=== Login using new authetication key"
 $BIN --authkey $keyid -p foo123 -a get-object-info -i 1 -t authentication-key
 echo "=== Delete new authentication key"

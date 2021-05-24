@@ -34,7 +34,7 @@ echo $info | grep "capabilities: derive-ecdh:sign-attestation-certificate:sign-e
 $BIN -p password -a get-public-key -i $keyid --outformat=PEM
 #-- Import
 openssl ecparam -genkey -name secp224r1 -noout -out secp224r1-keypair.pem
-$BIN -p password -a put-asymmetric-key -i 0 -l "ecKeyImport" -d "2,6,7" -c "sign-ecdsa" --in=secp224r1-keypair.pem 2> resp.txt
+$BIN -p password -a put-asymmetric-key -i 0 -l "ecKeyImport" -d "2,6,7" -c "sign-ecdsa,sign-attestation-certificate" --in=secp224r1-keypair.pem 2> resp.txt
 import_keyid=$(tail -1 resp.txt | awk '{print $4}')
 info=$($BIN -p password -a get-object-info -i $import_keyid -t asymmetric-key)
 echo $info | grep "id: $import_keyid"
@@ -43,7 +43,7 @@ echo $info | grep "algorithm: ecp224"
 echo $info | grep 'label: "ecKeyImport"'
 echo $info | grep "domains: 2:6:7"
 echo $info | grep "origin: imported"
-echo $info | grep "capabilities: sign-ecdsa"
+echo $info | grep "capabilities: sign-attestation-certificate:sign-ecdsa"
 $BIN -p password -a get-public-key -i $import_keyid --outformat=PEM
 #-- Sign
 $BIN -p password -a sign-ecdsa -i $keyid -A ecdsa-sha1 --in data.txt > data.ecp224sha1.sig
@@ -63,8 +63,10 @@ $BIN -p password -a delete-object -i $keyid -t opaque
 $BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
 rm selfsigned_cert.pem
 #-- Sign attestation certificate
-#$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
-#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
+$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
+$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
+rm cert.der
+rm selfsigned_cert.der
 #-- Derive ECDH
 openssl ec -in secp224r1-keypair.pem -pubout -out secp224r1-pubkey.pem
 $BIN -p password -a derive-ecdh -i $keyid --in secp224r1-pubkey.pem
@@ -85,7 +87,7 @@ keyid=$(tail -1 resp.txt | awk '{print $4}')
 $BIN -p password -a get-public-key -i $keyid --outformat=PEM
 #-- Import
 openssl ecparam -genkey -name secp256r1 -noout -out secp256r1-keypair.pem
-$BIN -p password -a put-asymmetric-key -i 0 -l "ecKeyImport" -d "1,2,3,4,5" -c "sign-ecdsa" --in=secp256r1-keypair.pem 2> resp.txt
+$BIN -p password -a put-asymmetric-key -i 0 -l "ecKeyImport" -d "1,2,3,4,5" -c "sign-ecdsa,sign-attestation-certificate" --in=secp256r1-keypair.pem 2> resp.txt
 import_keyid=$(tail -1 resp.txt | awk '{print $4}')
 $BIN -p password -a get-public-key -i $import_keyid --outformat=PEM
 #-- Sign
@@ -106,8 +108,8 @@ $BIN -p password -a delete-object -i $keyid -t opaque
 $BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
 rm selfsigned_cert.pem
 #-- Sign attestation certificate
-#$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
-#$BIN -p password -a sign-attestation-certificate -i $import_keyid --attestation-id=$keyid --out selfsigned_cert.der
+$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
+$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
 #-- Derive ECDH
 openssl ec -in secp256r1-keypair.pem -pubout -out secp256r1-pubkey.pem
 $BIN -p password -a derive-ecdh -i $keyid --in secp256r1-pubkey.pem
@@ -126,7 +128,7 @@ keyid=$(tail -1 resp.txt | awk '{print $4}')
 $BIN -p password -a get-public-key -i $keyid --outformat=PEM
 #-- Import
 openssl ecparam -genkey -name secp384r1 -noout -out secp384r1-keypair.pem
-$BIN -p password -a put-asymmetric-key -i 0 -l "ecKeyImport" -d "1,2,3,4,5" -c "sign-ecdsa" --in=secp384r1-keypair.pem 2> resp.txt
+$BIN -p password -a put-asymmetric-key -i 0 -l "ecKeyImport" -d "1,2,3,4,5" -c "sign-ecdsa,sign-attestation-certificate" --in=secp384r1-keypair.pem 2> resp.txt
 import_keyid=$(tail -1 resp.txt | awk '{print $4}')
 $BIN -p password -a get-public-key -i $import_keyid --outformat=PEM
 #-- Sign
@@ -147,8 +149,8 @@ $BIN -p password -a delete-object -i $keyid -t opaque
 $BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
 rm selfsigned_cert.pem
 #-- Sign attestation certificate
-#$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
-#$BIN -p password -a sign-attestation-certificate -i $import_keyid --attestation-id=$keyid --out selfsigned_cert.der
+$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
+$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
 #-- Derive ECDH
 openssl ec -in secp384r1-keypair.pem -pubout -out secp384r1-pubkey.pem
 $BIN -p password -a derive-ecdh -i $keyid --in secp384r1-pubkey.pem
@@ -167,7 +169,7 @@ keyid=$(tail -1 resp.txt | awk '{print $4}')
 $BIN -p password -a get-public-key -i $keyid --outformat=PEM
 #-- Import
 openssl ecparam -genkey -name secp521r1 -noout -out secp521r1-keypair.pem
-$BIN -p password -a put-asymmetric-key -i 0 -l "ecKeyImport" -d "1,2,3,4,5" -c "sign-ecdsa" --in=secp521r1-keypair.pem 2> resp.txt
+$BIN -p password -a put-asymmetric-key -i 0 -l "ecKeyImport" -d "1,2,3,4,5" -c "sign-ecdsa,sign-attestation-certificate" --in=secp521r1-keypair.pem 2> resp.txt
 import_keyid=$(tail -1 resp.txt | awk '{print $4}')
 $BIN -p password -a get-public-key -i $import_keyid --outformat=PEM
 #-- Sign
@@ -188,8 +190,8 @@ $BIN -p password -a delete-object -i $keyid -t opaque
 $BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
 rm selfsigned_cert.pem
 #-- Sign attestation certificate
-#$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
-#$BIN -p password -a sign-attestation-certificate -i $import_keyid --attestation-id=$keyid --out selfsigned_cert.der
+$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
+$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
 #-- Derive ECDH
 openssl ec -in secp521r1-keypair.pem -pubout -out secp521r1-pubkey.pem
 $BIN -p password -a derive-ecdh -i $keyid --in secp521r1-pubkey.pem
@@ -208,7 +210,7 @@ keyid=$(tail -1 resp.txt | awk '{print $4}')
 $BIN -p password -a get-public-key -i $keyid --outformat=PEM
 #-- Import
 openssl ecparam -genkey -name secp256k1 -noout -out secp256k1-keypair.pem
-$BIN -p password -a put-asymmetric-key -i 0 -l "ecKeyImport" -d "1,2,3,4,5" -c "sign-ecdsa" --in=secp256k1-keypair.pem 2> resp.txt
+$BIN -p password -a put-asymmetric-key -i 0 -l "ecKeyImport" -d "1,2,3,4,5" -c "sign-ecdsa,sign-attestation-certificate" --in=secp256k1-keypair.pem 2> resp.txt
 import_keyid=$(tail -1 resp.txt | awk '{print $4}')
 $BIN -p password -a get-public-key -i $import_keyid --outformat=PEM
 #-- Sign
@@ -229,8 +231,8 @@ $BIN -p password -a delete-object -i $keyid -t opaque
 $BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
 rm selfsigned_cert.pem
 #-- Sign attestation certificate
-#$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
-#$BIN -p password -a sign-attestation-certificate -i $import_keyid --attestation-id=$keyid --out selfsigned_cert.der
+$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
+$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
 #-- Derive ECDH
 openssl ec -in secp256k1-keypair.pem -pubout -out secp256k1-pubkey.pem
 $BIN -p password -a derive-ecdh -i $keyid --in secp256k1-pubkey.pem
@@ -249,7 +251,7 @@ keyid=$(tail -1 resp.txt | awk '{print $4}')
 $BIN -p password -a get-public-key -i $keyid --outformat=PEM
 #-- Import
 openssl ecparam -genkey -name brainpoolP256r1 -noout -out brainpool256r1-keypair.pem
-$BIN -p password -a put-asymmetric-key -i 0 -l "ecKeyImport" -d "1,2,3,4,5" -c "sign-ecdsa" --in=brainpool256r1-keypair.pem 2> resp.txt
+$BIN -p password -a put-asymmetric-key -i 0 -l "ecKeyImport" -d "1,2,3,4,5" -c "sign-ecdsa,sign-attestation-certificate" --in=brainpool256r1-keypair.pem 2> resp.txt
 import_keyid=$(tail -1 resp.txt | awk '{print $4}')
 $BIN -p password -a get-public-key -i $import_keyid --outformat=PEM
 #-- Sign
@@ -270,8 +272,8 @@ $BIN -p password -a delete-object -i $keyid -t opaque
 $BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
 rm selfsigned_cert.pem
 #-- Sign attestation certificate
-#$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
-#$BIN -p password -a sign-attestation-certificate -i $import_keyid --attestation-id=$keyid --out selfsigned_cert.der
+$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
+$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
 #-- Derive ECDH
 openssl ec -in brainpool256r1-keypair.pem -pubout -out brainpool256r1-pubkey.pem
 $BIN -p password -a derive-ecdh -i $keyid --in brainpool256r1-pubkey.pem
@@ -290,7 +292,7 @@ keyid=$(tail -1 resp.txt | awk '{print $4}')
 $BIN -p password -a get-public-key -i $keyid --outformat=PEM
 #-- Import
 openssl ecparam -genkey -name brainpoolP384r1 -noout -out brainpool384r1-keypair.pem
-$BIN -p password -a put-asymmetric-key -i 0 -l "ecKeyImport" -d "1,2,3,4,5" -c "sign-ecdsa" --in=brainpool384r1-keypair.pem 2> resp.txt
+$BIN -p password -a put-asymmetric-key -i 0 -l "ecKeyImport" -d "1,2,3,4,5" -c "sign-ecdsa,sign-attestation-certificate" --in=brainpool384r1-keypair.pem 2> resp.txt
 import_keyid=$(tail -1 resp.txt | awk '{print $4}')
 $BIN -p password -a get-public-key -i $import_keyid --outformat=PEM
 #-- Sign
@@ -311,8 +313,8 @@ $BIN -p password -a delete-object -i $keyid -t opaque
 $BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
 rm selfsigned_cert.pem
 #-- Sign attestation certificate
-#$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
-#$BIN -p password -a sign-attestation-certificate -i $import_keyid --attestation-id=$keyid --out selfsigned_cert.der
+$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
+$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
 #-- Derive ECDH
 openssl ec -in brainpool384r1-keypair.pem -pubout -out brainpool384r1-pubkey.pem
 $BIN -p password -a derive-ecdh -i $keyid --in brainpool384r1-pubkey.pem
@@ -331,7 +333,7 @@ keyid=$(tail -1 resp.txt | awk '{print $4}')
 $BIN -p password -a get-public-key -i $keyid --outformat=PEM
 #-- Import
 openssl ecparam -genkey -name brainpoolP512r1 -noout -out brainpool512r1-keypair.pem
-$BIN -p password -a put-asymmetric-key -i 0 -l "ecKeyImport" -d "1,2,3,4,5" -c "sign-ecdsa" --in=brainpool512r1-keypair.pem 2> resp.txt
+$BIN -p password -a put-asymmetric-key -i 0 -l "ecKeyImport" -d "1,2,3,4,5" -c "sign-ecdsa,sign-attestation-certificate" --in=brainpool512r1-keypair.pem 2> resp.txt
 import_keyid=$(tail -1 resp.txt | awk '{print $4}')
 $BIN -p password -a get-public-key -i $import_keyid --outformat=PEM
 #-- Sign
@@ -352,8 +354,8 @@ $BIN -p password -a delete-object -i $keyid -t opaque
 $BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
 rm selfsigned_cert.pem
 #-- Sign attestation certificate
-#$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
-#$BIN -p password -a sign-attestation-certificate -i $import_keyid --attestation-id=$keyid --out selfsigned_cert.der
+$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
+$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
 #-- Derive ECDH
 openssl ec -in brainpool512r1-keypair.pem -pubout -out brainpool512r1-pubkey.pem
 $BIN -p password -a derive-ecdh -i $keyid --in brainpool512r1-pubkey.pem
