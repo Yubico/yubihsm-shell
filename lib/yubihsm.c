@@ -928,10 +928,10 @@ yh_rc yh_finish_create_session_ext(
     // Reset counter to 1
     memset(session->s.ctr, 0, SCP_PRF_LEN);
     increment_ctr(session->s.ctr, SCP_PRF_LEN);
-    memcpy(session->s.mac_chaining_value, card_cryptogram, SCP_KEY_LEN);
+    memcpy(session->s.mac_chaining_value, card_cryptogram, SCP_PRF_LEN);
 
-    DBG_INT(session->s.ctr, SCP_KEY_LEN, "S-CTR: ");
-    DBG_INT(session->s.mac_chaining_value, SCP_KEY_LEN, "MAC-CHAINING: ");
+    DBG_INT(session->s.ctr, SCP_PRF_LEN, "S-CTR: ");
+    DBG_INT(session->s.mac_chaining_value, SCP_PRF_LEN, "MAC-CHAINING: ");
   } else {
     // Verify card cryptogram
     yh_rc yrc =
