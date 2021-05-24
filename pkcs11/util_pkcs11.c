@@ -343,7 +343,7 @@ bool get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
       find_minmax_rsa_key_length_in_bits(slot->algorithms, slot->n_algorithms,
                                          &pInfo->ulMinKeySize,
                                          &pInfo->ulMaxKeySize);
-      pInfo->flags |= CKF_HW | CKF_SIGN;
+      pInfo->flags |= CKF_HW | CKF_SIGN | CKF_VERIFY;
       break;
 
     case CKM_RSA_PKCS_PSS:
@@ -354,7 +354,7 @@ bool get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
       find_minmax_rsa_key_length_in_bits(slot->algorithms, slot->n_algorithms,
                                          &pInfo->ulMinKeySize,
                                          &pInfo->ulMaxKeySize);
-      pInfo->flags = CKF_HW | CKF_SIGN;
+      pInfo->flags = CKF_HW | CKF_SIGN | CKF_VERIFY;
       break;
 
     case CKM_RSA_PKCS_OAEP:
@@ -376,7 +376,7 @@ bool get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
                                         &pInfo->ulMinKeySize,
                                         &pInfo->ulMaxKeySize);
       pInfo->flags = CKF_HW | CKF_GENERATE_KEY_PAIR | CKF_EC_F_P |
-                     CKF_EC_ECPARAMETERS | CKF_EC_UNCOMPRESS;
+                     CKF_EC_NAMEDCURVE | CKF_EC_UNCOMPRESS;
       break;
 
     case CKM_SHA_1_HMAC:
@@ -413,15 +413,15 @@ bool get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
       find_minmax_ec_key_length_in_bits(slot->algorithms, slot->n_algorithms,
                                         &pInfo->ulMinKeySize,
                                         &pInfo->ulMaxKeySize);
-      pInfo->flags = CKF_HW | CKF_SIGN | CKF_EC_F_P | CKF_EC_ECPARAMETERS |
-                     CKF_EC_UNCOMPRESS;
+      pInfo->flags = CKF_HW | CKF_SIGN | CKF_VERIFY | CKF_EC_F_P |
+                     CKF_EC_NAMEDCURVE | CKF_EC_UNCOMPRESS;
       break;
 
     case CKM_ECDH1_DERIVE:
       find_minmax_ec_key_length_in_bits(slot->algorithms, slot->n_algorithms,
                                         &pInfo->ulMinKeySize,
                                         &pInfo->ulMaxKeySize);
-      pInfo->flags = CKF_HW | CKF_DERIVE | CKF_EC_F_P | CKF_EC_ECPARAMETERS |
+      pInfo->flags = CKF_HW | CKF_DERIVE | CKF_EC_F_P | CKF_EC_NAMEDCURVE |
                      CKF_EC_UNCOMPRESS;
       break;
 
