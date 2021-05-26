@@ -76,7 +76,7 @@ static bool parse_key(const char *prompt, char *key, uint8_t *parsed,
   size_t initial_len = *parsed_len;
 
   if (strlen(key) > buf_size) {
-    fprintf(stdout, "Unable to read key, buffer too small\n");
+    fprintf(stdout, "Unable to read %s, buffer too small\n", prompt);
     return false;
   }
 
@@ -84,20 +84,20 @@ static bool parse_key(const char *prompt, char *key, uint8_t *parsed,
     if (read_string(prompt, buf, buf_size, true) == false) {
       return false;
     }
-    buf_size = strlen(buf);
   } else {
-    memcpy(buf, key, strlen(key));
-    buf_size = strlen(key);
+    strcpy(buf, key);
   }
 
+  buf_size = strlen(buf);
+
   if (hex_decode(buf, parsed, parsed_len) == false) {
-    fprintf(stdout, "Unable to parse key, must be %d characters hexadecimal\n",
-            YKHSMAUTH_YUBICO_AES128_KEY_LEN);
+    fprintf(stdout, "Unable to parse %s, must be %d characters hexadecimal\n",
+            prompt, YKHSMAUTH_YUBICO_AES128_KEY_LEN);
     return false;
   }
 
   if (*parsed_len != initial_len) {
-    fprintf(stdout, "Unable to read key, wrong length (must be %zu)\n",
+    fprintf(stdout, "Unable to read %s, wrong length (must be %zu)\n", prompt,
             initial_len);
     return false;
   }
@@ -220,7 +220,7 @@ static bool list_credentials(ykhsmauth_state *state) {
 
 static bool put_credential(ykhsmauth_state *state, char *mgmkey, char *label,
                            char *derivation_password, char *key_enc,
-                           char *key_mac, char *key_pub, int asymmetric_mode,
+                           char *key_mac, char *key_pub, char *key_priv,
                            char *credpassword, enum enum_touch touch_policy) {
   ykhsmauth_rc ykhsmauthrc;
   uint8_t mgmkey_parsed[YKHSMAUTH_PW_LEN] = {0};
@@ -229,7 +229,7 @@ static bool put_credential(ykhsmauth_state *state, char *mgmkey, char *label,
   size_t label_parsed_len = sizeof(label_parsed);
   uint8_t dpw_parsed[256] = {0};
   size_t dpw_parsed_len = sizeof(dpw_parsed);
-  uint8_t key_parsed[YKHSMAUTH_YUBICO_ECP256_KEY_LEN] = {0};
+  uint8_t key_parsed[YKHSMAUTH_YUBICO_ECP256_PUBKEY_LEN] = {0};
   size_t key_parsed_len = sizeof(key_parsed);
   uint8_t cpw_parsed[YKHSMAUTH_PW_LEN + 2] = {0};
   size_t cpw_parsed_len = sizeof(cpw_parsed);
@@ -239,6 +239,26 @@ static bool put_credential(ykhsmauth_state *state, char *mgmkey, char *label,
   if (parse_key("Management key", mgmkey, mgmkey_parsed, &mgmkey_parsed_len) ==
       false) {
     return false;
+  }
+
+  if (strlen(key_priv)) {
+    key_parsed_len = YKHSMAUTH_YUBICO_ECP256_PRIVKEY_LEN;
+    if (parse_key("Private key", key_priv, key_parsed, &key_parsed_len) ==
+        false) {
+      return false;
+    }
+    ykhsmauthrc =
+      ykhsmauth_put_devicekey(state, mgmkey_parsed, mgmkey_parsed_len,
+                              key_parsed, key_parsed_len);
+    if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
+      fprintf(stderr, "Unable to store device key: %s\n",
+              ykhsmauth_strerror(ykhsmauthrc));
+      return false;
+    }
+
+    fprintf(stdout, "Device key successfully stored\n");
+
+    return true;
   }
 
   if (parse_label("Label", label, label_parsed, &label_parsed_len) == false) {
@@ -255,9 +275,9 @@ static bool put_credential(ykhsmauth_state *state, char *mgmkey, char *label,
   }
 
   if (dpw_parsed_len == 0) {
-    if (asymmetric_mode) {
-      key_parsed_len = YKHSMAUTH_YUBICO_ECP256_KEY_LEN;
-      if (parse_key("Asymmetric key", key_pub, key_parsed, &key_parsed_len) ==
+    if (strlen(key_pub)) {
+      key_parsed_len = YKHSMAUTH_YUBICO_ECP256_PUBKEY_LEN;
+      if (parse_key("Public key", key_pub, key_parsed, &key_parsed_len) ==
           false) {
         return false;
       }
@@ -306,7 +326,7 @@ static bool put_credential(ykhsmauth_state *state, char *mgmkey, char *label,
 
   ykhsmauthrc =
     ykhsmauth_put(state, mgmkey_parsed, mgmkey_parsed_len, label_parsed,
-                  asymmetric_mode ? YKHSMAUTH_YUBICO_ECP256_ALGO
+                  strlen(key_pub) ? YKHSMAUTH_YUBICO_ECP256_ALGO
                                   : YKHSMAUTH_YUBICO_AES128_ALGO,
                   key_parsed, key_parsed_len, cpw_parsed, cpw_parsed_len,
                   touch_policy_parsed, &retries);
@@ -364,7 +384,7 @@ bool get_challenge(ykhsmauth_state *state, char *label) {
   ykhsmauth_rc ykhsmauthrc;
   char label_parsed[YKHSMAUTH_MAX_LABEL_LEN + 2] = {0};
   size_t label_parsed_len = sizeof(label_parsed);
-  uint8_t challenge[YKHSMAUTH_YUBICO_ECP256_KEY_LEN] = {0};
+  uint8_t challenge[YKHSMAUTH_YUBICO_ECP256_PUBKEY_LEN] = {0};
   size_t challenge_len = sizeof(challenge);
 
   if (parse_label("Label", label, label_parsed, &label_parsed_len) == false) {
@@ -388,7 +408,7 @@ bool get_pubkey(ykhsmauth_state *state, char *label) {
   ykhsmauth_rc ykhsmauthrc;
   char label_parsed[YKHSMAUTH_MAX_LABEL_LEN + 2] = {0};
   size_t label_parsed_len = sizeof(label_parsed);
-  uint8_t pubkey[YKHSMAUTH_YUBICO_ECP256_KEY_LEN] = {0};
+  uint8_t pubkey[YKHSMAUTH_YUBICO_ECP256_PUBKEY_LEN] = {0};
   size_t pubkey_len = sizeof(pubkey);
 
   if (parse_label("Label", label, label_parsed, &label_parsed_len) == false) {
@@ -556,12 +576,11 @@ int main(int argc, char *argv[]) {
       break;
 
     case action_arg_put:
-      result =
-        put_credential(state, args_info.mgmkey_arg, args_info.label_arg,
-                       args_info.derivation_password_arg, args_info.enckey_arg,
-                       args_info.mackey_arg, args_info.pubkey_arg,
-                       args_info.asymmetric_mode_counter, args_info.credpwd_arg,
-                       args_info.touch_arg);
+      result = put_credential(state, args_info.mgmkey_arg, args_info.label_arg,
+                              args_info.derivation_password_arg,
+                              args_info.enckey_arg, args_info.mackey_arg,
+                              args_info.pubkey_arg, args_info.privkey_arg,
+                              args_info.credpwd_arg, args_info.touch_arg);
       break;
 
     case action_arg_reset:

@@ -373,7 +373,7 @@ ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *mgmkey,
   }
 
   if (algo == YKHSMAUTH_YUBICO_ECP256_ALGO &&
-      key_len != YKHSMAUTH_YUBICO_ECP256_KEY_LEN) {
+      key_len != YKHSMAUTH_YUBICO_ECP256_PUBKEY_LEN) {
     return YKHSMAUTHR_INVALID_PARAMS;
   }
 
@@ -407,9 +407,9 @@ ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *mgmkey,
     ptr += YKHSMAUTH_YUBICO_AES128_KEY_LEN / 2;
   } else if (algo == YKHSMAUTH_YUBICO_ECP256_ALGO) {
     *(ptr++) = YKHSMAUTH_TAG_PUBKEY;
-    ptr += encode_len(ptr, YKHSMAUTH_YUBICO_ECP256_KEY_LEN);
-    memcpy(ptr, key, YKHSMAUTH_YUBICO_ECP256_KEY_LEN);
-    ptr += YKHSMAUTH_YUBICO_ECP256_KEY_LEN;
+    ptr += encode_len(ptr, YKHSMAUTH_YUBICO_ECP256_PUBKEY_LEN);
+    memcpy(ptr, key, YKHSMAUTH_YUBICO_ECP256_PUBKEY_LEN);
+    ptr += YKHSMAUTH_YUBICO_ECP256_PUBKEY_LEN;
   }
 
   *(ptr++) = YKHSMAUTH_TAG_PW;
@@ -433,6 +433,49 @@ ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *mgmkey,
     }
 
     return translate_error(sw, retries);
+  }
+
+  return YKHSMAUTHR_SUCCESS;
+}
+
+ykhsmauth_rc ykhsmauth_put_devicekey(ykhsmauth_state *state,
+                                     const uint8_t *mgmkey, size_t mgmkey_len,
+                                     const uint8_t *key, size_t key_len) {
+  APDU apdu;
+  uint8_t *ptr = apdu.st.data;
+  unsigned char data[261];
+  unsigned long recv_len = sizeof(data);
+  int sw;
+
+  if (state == NULL || mgmkey == NULL || mgmkey_len != YKHSMAUTH_PW_LEN ||
+      key == NULL || key_len != YKHSMAUTH_YUBICO_ECP256_PRIVKEY_LEN) {
+    return YKHSMAUTHR_INVALID_PARAMS;
+  }
+
+  memset(apdu.raw, 0, sizeof(apdu));
+  apdu.st.ins = YKHSMAUTH_INS_PUT_MGMKEY;
+
+  *(ptr++) = YKHSMAUTH_TAG_MGMKEY;
+  ptr += encode_len(ptr, 16);
+  memcpy(ptr, mgmkey, 16);
+  ptr += 16;
+
+  *(ptr++) = YKHSMAUTH_TAG_PRIVKEY;
+  ptr += encode_len(ptr, YKHSMAUTH_YUBICO_ECP256_PRIVKEY_LEN);
+  memcpy(ptr, key, YKHSMAUTH_YUBICO_ECP256_PRIVKEY_LEN);
+  ptr += YKHSMAUTH_YUBICO_ECP256_PRIVKEY_LEN;
+
+  apdu.st.lc = ptr - apdu.st.data;
+
+  ykhsmauth_rc rc = send_data(state, &apdu, data, &recv_len, &sw);
+  if (rc != YKHSMAUTHR_SUCCESS) {
+    return rc;
+  } else if (sw != SW_SUCCESS) {
+    if (state->verbose) {
+      fprintf(stderr, "Unable to store device key: %04x\n", sw);
+    }
+
+    return translate_error(sw, NULL);
   }
 
   return YKHSMAUTHR_SUCCESS;
@@ -504,7 +547,7 @@ ykhsmauth_rc ykhsmauth_calculate(ykhsmauth_state *state, const char *label,
   if (state == NULL || label == NULL ||
       strlen(label) < YKHSMAUTH_MIN_LABEL_LEN ||
       strlen(label) > YKHSMAUTH_MAX_LABEL_LEN || context == NULL ||
-      context_len > 2 * YKHSMAUTH_YUBICO_ECP256_KEY_LEN || pw == NULL ||
+      context_len > 2 * YKHSMAUTH_YUBICO_ECP256_PUBKEY_LEN || pw == NULL ||
       pw_len > YKHSMAUTH_PW_LEN || key_s_enc == NULL ||
       key_s_enc_len != YKHSMAUTH_SESSION_KEY_LEN || key_s_mac == NULL ||
       key_s_mac_len != YKHSMAUTH_SESSION_KEY_LEN || key_s_rmac == NULL ||

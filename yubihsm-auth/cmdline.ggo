@@ -33,3 +33,6 @@ modeoption "mackey" m "MAC key" string optional default="" mode="explicit"
 
 defmode "asymmetric" modedesc="Explicit ec-p256 public key"
 modeoption "pubkey" q "Public key" string optional default="" mode="asymmetric"
+
+defmode "devicekey" modedesc="Explicit ec-p256 device private key"
+modeoption "privkey" s "Private key" string optional default="" mode="devicekey"

@@ -57,6 +57,7 @@ extern "C" {
 #define YKHSMAUTH_TAG_TOUCH 0x7a
 #define YKHSMAUTH_TAG_MGMKEY 0x7b
 #define YKHSMAUTH_TAG_PUBKEY 0x7c
+#define YKHSMAUTH_TAG_PRIVKEY 0x7d
 
 // Algos
 #define YKHSMAUTH_YUBICO_AES128_ALGO 38
@@ -102,7 +103,8 @@ extern "C" {
 #define YKHSMAUTH_YUBICO_AES128_KEY_LEN 32
 #define YKHSMAUTH_PW_LEN 16
 #define YKHSMAUTH_CONTEXT_LEN 16
-#define YKHSMAUTH_YUBICO_ECP256_KEY_LEN 65
+#define YKHSMAUTH_YUBICO_ECP256_PUBKEY_LEN 65
+#define YKHSMAUTH_YUBICO_ECP256_PRIVKEY_LEN 32
 // PBKDF2 derivation parameters
 #define YKHSMAUTH_DEFAULT_SALT "Yubico"
 #define YKHSMAUTH_DEFAULT_ITERS 10000
@@ -170,6 +172,9 @@ ykhsmauth_rc ykhsmauth_get_mgmkey_retries(ykhsmauth_state *state,
 ykhsmauth_rc ykhsmauth_put_mgmkey(ykhsmauth_state *state, uint8_t *mgmkey,
                                   size_t mgmkey_len, uint8_t *new_mgmkey,
                                   size_t new_mgmkey_len, uint8_t *retries);
+ykhsmauth_rc ykhsmauth_put_devicekey(ykhsmauth_state *state,
+                                     const uint8_t *mgmkey, size_t mgmkey_len,
+                                     const uint8_t *key, size_t key_len);
 
 #ifdef __cplusplus
 }
