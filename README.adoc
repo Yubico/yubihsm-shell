@@ -30,7 +30,7 @@ The available components are:
 - libcurl
 - libedit
 - libusb
-- libpcsclite
+- libpcsclite-dev
 - llvm/clang and friends
 - pkg-config
 - pre-commit
