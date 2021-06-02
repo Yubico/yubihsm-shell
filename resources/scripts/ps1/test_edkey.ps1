@@ -34,23 +34,32 @@ echo "test signing data" > data.txt
 Set-PSDebug -Trace 1
 $ErrorActionPreference = "Stop"
 
+function CheckExitStatus {
+    param (
+        $ECode
+    )
+    if(!$ECode) {
+        echo "Fail!"
+        exit
+    }
+}
 
 echo "---------------------- ED keys --------------------- "
 # Generate
-yubihsm-shell.exe -p password -a generate-asymmetric-key -i 100 -l "edKey" -d "1,2,3" -c "sign-eddsa" -A "ed25519"
-yubihsm-shell.exe -p password -a get-object-info -i 100 -t asymmetric-key
+yubihsm-shell.exe -p password -a generate-asymmetric-key -i 100 -l "edKey" -d "1,2,3" -c "sign-eddsa" -A "ed25519"; CheckExitStatus -ECode $?
+yubihsm-shell.exe -p password -a get-object-info -i 100 -t asymmetric-key; CheckExitStatus -ECode $?
 
 
 # Get public key
-yubihsm-shell.exe -p password -a get-public-key -i 100 > edkey1.pub
-yubihsm-shell.exe -p password -a get-public-key -i 100 --out edkey2.pub
+yubihsm-shell.exe -p password -a get-public-key -i 100 > edkey1.pub; CheckExitStatus -ECode $?
+yubihsm-shell.exe -p password -a get-public-key -i 100 --out edkey2.pub; CheckExitStatus -ECode $?
 
 # Signing
-yubihsm-shell.exe -p password -a sign-eddsa -i 100 -A ed25519 --in data.txt > data.ed1.sig
-yubihsm-shell.exe -p password -a sign-eddsa -i 100 -A ed25519 --in data.txt --out data.ed2.sig
+yubihsm-shell.exe -p password -a sign-eddsa -i 100 -A ed25519 --in data.txt > data.ed1.sig; CheckExitStatus -ECode $?
+yubihsm-shell.exe -p password -a sign-eddsa -i 100 -A ed25519 --in data.txt --out data.ed2.sig; CheckExitStatus -ECode $?
 
 # Delete
-yubihsm-shell.exe -p password -a delete-object -i 100 -t asymmetric-key
+yubihsm-shell.exe -p password -a delete-object -i 100 -t asymmetric-key; CheckExitStatus -ECode $?
 
 cd ..
 Remove-Item -Path "$TEST_DIR" -Recurse -ErrorAction SilentlyContinue

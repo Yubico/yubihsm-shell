@@ -35,26 +35,35 @@ echo "test signing data" > $TEST_DIR/data.txt
 Set-PSDebug -Trace 1
 $ErrorActionPreference = "Stop"
 
+function CheckExitStatus {
+    param (
+        $ECode
+    )
+    if(!$ECode) {
+        echo "Fail!"
+        exit
+    }
+}
 
-yubihsm-shell.exe --version
-yubihsm-shell.exe --help
-yubihsm-shell.exe -a get-device-info
+yubihsm-shell.exe --version; CheckExitStatus -ECode $?
+yubihsm-shell.exe --help; CheckExitStatus -ECode $?
+yubihsm-shell.exe -a get-device-info; CheckExitStatus -ECode $?
 
 echo "********************** Reset YubiHSM ********************* "
-yubihsm-shell.exe -p password -a reset
+yubihsm-shell.exe -p password -a reset; CheckExitStatus -ECode $?
 Start-Sleep -s 10
 
 echo "********************** Blink ********************* "
-yubihsm-shell.exe -p password -a blink
-yubihsm-shell.exe -p password -a blink --duration=5
+yubihsm-shell.exe -p password -a blink; CheckExitStatus -ECode $?
+yubihsm-shell.exe -p password -a blink --duration=5; CheckExitStatus -ECode $?
 
-yubihsm-shell.exe -p password -a blink-device
-yubihsm-shell.exe -p password -a blink-device --duration=5
+yubihsm-shell.exe -p password -a blink-device; CheckExitStatus -ECode $?
+yubihsm-shell.exe -p password -a blink-device --duration=5; CheckExitStatus -ECode $?
 
 echo "********************** Get Pseudo-random ********************* "
-yubihsm-shell.exe -p password -a get-pseudo-random
-yubihsm-shell.exe -p password -a get-pseudo-random --count=10
-yubihsm-shell.exe -p password -a get-pseudo-random --count=10 --out=random.txt
+yubihsm-shell.exe -p password -a get-pseudo-random; CheckExitStatus -ECode $?
+yubihsm-shell.exe -p password -a get-pseudo-random --count=10; CheckExitStatus -ECode $?
+yubihsm-shell.exe -p password -a get-pseudo-random --count=10 --out=random.txt; CheckExitStatus -ECode $?
 rm random.txt
 
 echo "********************** Asym keys ********************* "
@@ -71,25 +80,25 @@ echo "********************** AEAD keys ********************* "
 echo "********************** Template ********************* "
 echo "=== Import template"
 $id=100
-yubihsm-shell.exe -p password -a get-pseudo-random --count=512 --out=$TEST_DIR/template.txt
-yubihsm-shell.exe -p password -a put-template -i $id -l template -d 1 -A template-ssh --in $TEST_DIR/template.txt
-yubihsm-shell.exe -p password -a get-object-info -i $id -t template
+yubihsm-shell.exe -p password -a get-pseudo-random --count=512 --out=$TEST_DIR/template.txt; CheckExitStatus -ECode $?
+yubihsm-shell.exe -p password -a put-template -i $id -l template -d 1 -A template-ssh --in $TEST_DIR/template.txt; CheckExitStatus -ECode $?
+yubihsm-shell.exe -p password -a get-object-info -i $id -t template; CheckExitStatus -ECode $?
 echo "=== Get template"
-yubihsm-shell.exe -p password -a get-template -i $id
+yubihsm-shell.exe -p password -a get-template -i $id; CheckExitStatus -ECode $?
 echo "=== Delete template"
-yubihsm-shell.exe -p password -a delete-object -i $id -t template
+yubihsm-shell.exe -p password -a delete-object -i $id -t template; CheckExitStatus -ECode $?
 
 #echo "********************** Wrap keys ********************* "
 
 echo "********************** Authentication keys ********************* "
 echo "=== Create new authentication key"
 $id=200
-yubihsm-shell.exe -p password -a put-authentication-key -i $id -l authkey -d 1,2,3 -c all --new-password foo123
-yubihsm-shell.exe -p password -a get-object-info -i $id -t authentication-key
+yubihsm-shell.exe -p password -a put-authentication-key -i $id -l authkey -d 1,2,3 -c all --new-password foo123; CheckExitStatus -ECode $?
+yubihsm-shell.exe -p password -a get-object-info -i $id -t authentication-key; CheckExitStatus -ECode $?
 echo "=== Login using new authetication key"
-yubihsm-shell.exe --authkey $id -p foo123 -a get-object-info -i 1 -t authentication-key
+yubihsm-shell.exe --authkey $id -p foo123 -a get-object-info -i 1 -t authentication-key; CheckExitStatus -ECode $?
 echo "=== Delete new authentication key"
-yubihsm-shell.exe -p password -a delete-object -i $id -t authentication-key
+yubihsm-shell.exe -p password -a delete-object -i $id -t authentication-key; CheckExitStatus -ECode $?
 
 Remove-Item -Path "$TEST_DIR" -Recurse -ErrorAction SilentlyContinue
 

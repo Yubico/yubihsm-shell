@@ -34,6 +34,16 @@ echo "test signing data" > data.txt
 Set-PSDebug -Trace 1
 $ErrorActionPreference = "Stop"
 
+function CheckExitStatus {
+    param (
+        $ECode
+    )
+    if(!$ECode) {
+        echo "Fail!"
+        exit
+    }
+}
+
 $keyid=100
 
 echo "---------------------- HAMC keys --------------------- "
@@ -41,55 +51,55 @@ echo "**********************************"
 echo "            AEAD Key 128"
 echo "**********************************"
 echo "=== Generate on YubiHSM"
-yubihsm-shell.exe -p password -a generate-otp-aead-key -i $keyid -l "aeadkey" -d "1,2,3" -c "randomize-otp-aead" -A "aes128-yubico-otp" --nonce 0x01020304
-yubihsm-shell.exe -p password -a get-object-info -i $keyid -t hmac-key > info.txt
-Select-String -Path "info.txt" -Pattern "id: 0x0064"
-Select-String -Path "info.txt" -Pattern "type: otp-aead-key"
-Select-String -Path "info.txt" -Pattern "algorithm: aes128-yubico-otp"
-Select-String -Path "info.txt" -Pattern 'label: "aeadkey"'
-Select-String -Path "info.txt" -Pattern "domains: 1:2:3"
-Select-String -Path "info.txt" -Pattern "origin: generated"
-Select-String -Path "info.txt" -Pattern "capabilities: randomize-otp-aead"
+yubihsm-shell.exe -p password -a generate-otp-aead-key -i $keyid -l "aeadkey" -d "1,2,3" -c "randomize-otp-aead" -A "aes128-yubico-otp" --nonce 0x01020304; CheckExitStatus -ECode $?
+yubihsm-shell.exe -p password -a get-object-info -i $keyid -t hmac-key > info.txt; CheckExitStatus -ECode $?
+Select-String -Path "info.txt" -Pattern "id: 0x0064"; CheckExitStatus -ECode $?
+Select-String -Path "info.txt" -Pattern "type: otp-aead-key"; CheckExitStatus -ECode $?
+Select-String -Path "info.txt" -Pattern "algorithm: aes128-yubico-otp"; CheckExitStatus -ECode $?
+Select-String -Path "info.txt" -Pattern 'label: "aeadkey"'; CheckExitStatus -ECode $?
+Select-String -Path "info.txt" -Pattern "domains: 1:2:3"; CheckExitStatus -ECode $?
+Select-String -Path "info.txt" -Pattern "origin: generated"; CheckExitStatus -ECode $?
+Select-String -Path "info.txt" -Pattern "capabilities: randomize-otp-aead"; CheckExitStatus -ECode $?
 echo "=== Randomize OTP AEAD"
-yubihsm-shell.exe -p password -a randomize-otp-aead -i $keyid
+yubihsm-shell.exe -p password -a randomize-otp-aead -i $keyid; CheckExitStatus -ECode $?
 echo "=== Delete keys"
-yubihsm-shell.exe -p password -a delete-object -i $keyid -t otp-aead-key
+yubihsm-shell.exe -p password -a delete-object -i $keyid -t otp-aead-key; CheckExitStatus -ECode $?
 
 echo "**********************************"
 echo "            AEAD Key 192"
 echo "**********************************"
 echo "=== Generate on YubiHSM"
-yubihsm-shell.exe -p password -a generate-otp-aead-key -i $keyid -l "aeadkey" -d "1,2,3" -c "randomize-otp-aead" -A "aes192-yubico-otp" --nonce 0x01020304
-yubihsm-shell.exe -p password -a get-object-info -i $keyid -t hmac-key > info.txt
-Select-String -Path "info.txt" -Pattern "id: 0x0064"
-Select-String -Path "info.txt" -Pattern "type: otp-aead-key"
-Select-String -Path "info.txt" -Pattern "algorithm: aes192-yubico-otp"
-Select-String -Path "info.txt" -Pattern 'label: "aeadkey"'
-Select-String -Path "info.txt" -Pattern "domains: 1:2:3"
-Select-String -Path "info.txt" -Pattern "origin: generated"
-Select-String -Path "info.txt" -Pattern "capabilities: randomize-otp-aead"
+yubihsm-shell.exe -p password -a generate-otp-aead-key -i $keyid -l "aeadkey" -d "1,2,3" -c "randomize-otp-aead" -A "aes192-yubico-otp" --nonce 0x01020304; CheckExitStatus -ECode $?
+yubihsm-shell.exe -p password -a get-object-info -i $keyid -t hmac-key > info.txt; CheckExitStatus -ECode $?
+Select-String -Path "info.txt" -Pattern "id: 0x0064"; CheckExitStatus -ECode $?
+Select-String -Path "info.txt" -Pattern "type: otp-aead-key"; CheckExitStatus -ECode $?
+Select-String -Path "info.txt" -Pattern "algorithm: aes192-yubico-otp"; CheckExitStatus -ECode $?
+Select-String -Path "info.txt" -Pattern 'label: "aeadkey"'; CheckExitStatus -ECode $?
+Select-String -Path "info.txt" -Pattern "domains: 1:2:3"; CheckExitStatus -ECode $?
+Select-String -Path "info.txt" -Pattern "origin: generated"; CheckExitStatus -ECode $?
+Select-String -Path "info.txt" -Pattern "capabilities: randomize-otp-aead"; CheckExitStatus -ECode $?
 echo "=== Randomize OTP AEAD"
-yubihsm-shell.exe -p password -a randomize-otp-aead -i $keyid
+yubihsm-shell.exe -p password -a randomize-otp-aead -i $keyid; CheckExitStatus -ECode $?
 echo "=== Delete keys"
-yubihsm-shell.exe -p password -a delete-object -i $keyid -t otp-aead-key
+yubihsm-shell.exe -p password -a delete-object -i $keyid -t otp-aead-key; CheckExitStatus -ECode $?
 
 echo "**********************************"
 echo "            AEAD Key 256"
 echo "**********************************"
 echo "=== Generate on YubiHSM"
-yubihsm-shell.exe -p password -a generate-otp-aead-key -i $keyid -l "aeadkey" -d "1,2,3" -c "randomize-otp-aead" -A "aes256-yubico-otp" --nonce 0x01020304
-yubihsm-shell.exe -p password -a get-object-info -i $keyid -t hmac-key > info.txt
-Select-String -Path "info.txt" -Pattern "id: 0x0064"
-Select-String -Path "info.txt" -Pattern "type: otp-aead-key"
-Select-String -Path "info.txt" -Pattern "algorithm: aes256-yubico-otp"
-Select-String -Path "info.txt" -Pattern 'label: "aeadkey"'
-Select-String -Path "info.txt" -Pattern "domains: 1:2:3"
-Select-String -Path "info.txt" -Pattern "origin: generated"
-Select-String -Path "info.txt" -Pattern "capabilities: randomize-otp-aead"
+yubihsm-shell.exe -p password -a generate-otp-aead-key -i $keyid -l "aeadkey" -d "1,2,3" -c "randomize-otp-aead" -A "aes256-yubico-otp" --nonce 0x01020304; CheckExitStatus -ECode $?
+yubihsm-shell.exe -p password -a get-object-info -i $keyid -t hmac-key > info.txt; CheckExitStatus -ECode $?
+Select-String -Path "info.txt" -Pattern "id: 0x0064"; CheckExitStatus -ECode $?
+Select-String -Path "info.txt" -Pattern "type: otp-aead-key"; CheckExitStatus -ECode $?
+Select-String -Path "info.txt" -Pattern "algorithm: aes256-yubico-otp"; CheckExitStatus -ECode $?
+Select-String -Path "info.txt" -Pattern 'label: "aeadkey"'; CheckExitStatus -ECode $?
+Select-String -Path "info.txt" -Pattern "domains: 1:2:3"; CheckExitStatus -ECode $?
+Select-String -Path "info.txt" -Pattern "origin: generated"; CheckExitStatus -ECode $?
+Select-String -Path "info.txt" -Pattern "capabilities: randomize-otp-aead"; CheckExitStatus -ECode $?
 echo "=== Randomize OTP AEAD"
-yubihsm-shell.exe -p password -a randomize-otp-aead -i $keyid
+yubihsm-shell.exe -p password -a randomize-otp-aead -i $keyid; CheckExitStatus -ECode $?
 echo "=== Delete keys"
-yubihsm-shell.exe -p password -a delete-object -i $keyid -t otp-aead-key
+yubihsm-shell.exe -p password -a delete-object -i $keyid -t otp-aead-key; CheckExitStatus -ECode $?
 
 cd ..
 Remove-Item -Path "$TEST_DIR" -Recurse -ErrorAction SilentlyContinue
