@@ -475,8 +475,6 @@ static bool calculate_session_keys(ykhsmauth_state *state, char *label,
     return false;
   }
 
-  // ykhsmauth_get_challenge(state, label_parsed, 0, 0);
-
   ykhsmauthrc =
     ykhsmauth_calculate(state, label_parsed, context_parsed, context_parsed_len,
                         NULL, 0, cpw_parsed, cpw_parsed_len, key_s_enc,
