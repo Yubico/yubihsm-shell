@@ -17,8 +17,48 @@
 #ifndef PKCS11Y_H
 #define PKCS11Y_H
 
+#include <stdbool.h>
+
+#ifdef CRYPTOKI_EXPORTS
+#ifdef _WIN32
+#define CK_SPEC __declspec(dllexport)
+#else
+#define CK_SPEC __attribute__((visibility("default")))
+#endif
+#else
+#define CK_SPEC
+#endif
+
+#ifndef NULL_PTR
+#define NULL_PTR 0
+#endif
+
+#define CK_PTR *
+#define CK_BOOL bool
+#define CK_HANDLE void *
+#define CK_DECLARE_FUNCTION(returnType, name) returnType CK_SPEC name
+#define CK_DECLARE_FUNCTION_POINTER(returnType, name) returnType(*name)
+#define CK_CALLBACK_FUNCTION(returnType, name) returnType(*name)
+
+#define CK_DEFINE_FUNCTION(returnType, name) returnType CK_SPEC name
+
+#ifdef _WIN32
+#pragma pack(push, cryptoki, 1)
+#endif
+
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 #include "pkcs11.h"
-#include "yubihsm.h"
+
+#if defined(__cplusplus)
+}
+#endif
+
+#ifdef _WIN32
+#pragma pack(pop, cryptoki)
+#endif
 
 /* This is an offset for the vendor definitions to avoid clashes */
 #define YUBICO_BASE_VENDOR 0x59554200
