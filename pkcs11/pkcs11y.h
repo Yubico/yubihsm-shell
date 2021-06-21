@@ -33,6 +33,9 @@
 #define NULL_PTR 0
 #endif
 
+#define CRYPTOKI_LEGACY_VERSION_MAJOR 2
+#define CRYPTOKI_LEGACY_VERSION_MINOR 40
+
 #define CK_PTR *
 #define CK_BOOL bool
 #define CK_HANDLE void *
@@ -46,13 +49,13 @@
 #pragma pack(push, cryptoki, 1)
 #endif
 
-#if defined(__cplusplus)
+#ifdef __cplusplus
 extern "C" {
 #endif
 
 #include "pkcs11.h"
 
-#if defined(__cplusplus)
+#ifdef __cplusplus
 }
 #endif
 
