@@ -72,8 +72,8 @@
     }                                                                          \
   } while (0)
 
-extern CK_FUNCTION_LIST function_list;
-extern CK_FUNCTION_LIST_3_0 function_list_3;
+static CK_FUNCTION_LIST function_list;
+static CK_FUNCTION_LIST_3_0 function_list_3;
 
 static bool g_yh_initialized = false;
 
@@ -6273,7 +6273,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_MessageVerifyFinal)
   return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
-CK_FUNCTION_LIST function_list = {
+static CK_FUNCTION_LIST function_list = {
   {CRYPTOKI_LEGACY_VERSION_MAJOR, CRYPTOKI_LEGACY_VERSION_MINOR},
   C_Initialize,
   C_Finalize,
@@ -6345,7 +6345,7 @@ CK_FUNCTION_LIST function_list = {
   C_WaitForSlotEvent,
 };
 
-CK_FUNCTION_LIST_3_0 function_list_3 = {
+static CK_FUNCTION_LIST_3_0 function_list_3 = {
   {CRYPTOKI_VERSION_MAJOR, CRYPTOKI_VERSION_MINOR},
   C_Initialize,
   C_Finalize,
