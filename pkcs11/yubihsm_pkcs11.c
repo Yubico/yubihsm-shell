@@ -71,8 +71,8 @@
     }                                                                          \
   } while (0)
 
-static CK_FUNCTION_LIST function_list;
-static CK_FUNCTION_LIST_3_0 function_list_3;
+static const CK_FUNCTION_LIST function_list;
+static const CK_FUNCTION_LIST_3_0 function_list_3;
 
 static bool g_yh_initialized = false;
 
@@ -451,7 +451,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetFunctionList)
     return CKR_ARGUMENTS_BAD;
   }
 
-  *ppFunctionList = &function_list;
+  *ppFunctionList = (CK_FUNCTION_LIST_PTR) &function_list;
 
   DOUT;
   return CKR_OK;
@@ -5233,10 +5233,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_CancelFunction)(CK_SESSION_HANDLE hSession) {
   return CKR_FUNCTION_NOT_PARALLEL;
 }
 
-static const CK_INTERFACE interfaces_list[] = {{(CK_CHAR_PTR) "PKCS 11",
-                                                &function_list_3, 0},
-                                               {(CK_CHAR_PTR) "PKCS 11",
-                                                &function_list, 0}};
+static const CK_INTERFACE interfaces_list[] =
+  {{(CK_CHAR_PTR) "PKCS 11", (CK_VOID_PTR) &function_list_3, 0},
+   {(CK_CHAR_PTR) "PKCS 11", (CK_VOID_PTR) &function_list, 0}};
 
 /* C_GetInterfaceList returns all the interfaces supported by the module*/
 CK_DEFINE_FUNCTION(CK_RV, C_GetInterfaceList)
@@ -5682,7 +5681,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_MessageVerifyFinal)
   return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
-static CK_FUNCTION_LIST function_list = {
+static const CK_FUNCTION_LIST function_list = {
   {CRYPTOKI_LEGACY_VERSION_MAJOR, CRYPTOKI_LEGACY_VERSION_MINOR},
   C_Initialize,
   C_Finalize,
@@ -5754,7 +5753,7 @@ static CK_FUNCTION_LIST function_list = {
   C_WaitForSlotEvent,
 };
 
-static CK_FUNCTION_LIST_3_0 function_list_3 = {
+static const CK_FUNCTION_LIST_3_0 function_list_3 = {
   {CRYPTOKI_VERSION_MAJOR, CRYPTOKI_VERSION_MINOR},
   C_Initialize,
   C_Finalize,
