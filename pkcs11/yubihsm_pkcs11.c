@@ -45,8 +45,8 @@
 
 #define YUBIHSM_PKCS11_MANUFACTURER "Yubico (www.yubico.com)"
 #define YUBIHSM_PKCS11_LIBDESC "YubiHSM PKCS#11 Library"
-#define YUBIHSM_PKCS11_MIN_PIN_LEN 12 // key_id (4) + password (8)
-#define YUBIHSM_PKCS11_MAX_PIN_LEN 68 // key_id (4) + password (64)
+#define YUBIHSM_PKCS11_MIN_PIN_LEN 8
+#define YUBIHSM_PKCS11_MAX_PIN_LEN 64
 
 #define UNUSED(x) (void) (x) // TODO(adma): also in yubihsm-shell.h
 
@@ -1137,142 +1137,21 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
 
   DIN;
 
-  if (g_yh_initialized == false) {
-    DBG_ERR("libyubihsm is not initialized or already finalized");
-    return CKR_CRYPTOKI_NOT_INITIALIZED;
-  }
-
-  if (userType != CKU_USER) {
-    DBG_ERR("Invalid user type, only regular user allowed");
-    return CKR_USER_TYPE_INVALID;
-  }
-
-  CK_UTF8CHAR prefix = *pPin;
-  if (prefix == '@') {
-    pPin++;
-    ulPinLen--;
-  }
-
-  if (ulPinLen < YUBIHSM_PKCS11_MIN_PIN_LEN ||
-      ulPinLen > YUBIHSM_PKCS11_MAX_PIN_LEN) {
-    DBG_ERR("Wrong PIN length, must be [%d, %d] got %lu",
-            YUBIHSM_PKCS11_MIN_PIN_LEN, YUBIHSM_PKCS11_MAX_PIN_LEN, ulPinLen);
+  if (pPin == NULL) {
+    DBG_ERR("Wrong/Missing parameter");
     return CKR_ARGUMENTS_BAD;
   }
 
-  uint16_t key_id = 0;
-  size_t key_id_len = sizeof(key_id);
-  char tmpPin[5] = {0};
-  memcpy(tmpPin, pPin, 4);
+  CK_ULONG ulUsernameLen = *pPin == '@' ? 5 : 4;
 
-  if (hex_decode((const char *) tmpPin, (uint8_t *) &key_id, &key_id_len) ==
-        false ||
-      key_id_len != sizeof(key_id)) {
-    DBG_ERR(
-      "PIN contains invalid characters, first four digits must be [0-9A-Fa-f]");
-    return CKR_PIN_INCORRECT;
+  if (ulUsernameLen > ulPinLen) {
+    ulUsernameLen = ulPinLen;
   }
 
-  key_id = ntohs(key_id);
-
-  pPin += 4;
-  ulPinLen -= 4;
-
-  yubihsm_pkcs11_session *session = 0;
-  CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_NOT_AUTHENTICATED);
-  if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID: %lu", hSession);
-    return rv;
-  }
-
-  yh_rc yrc = YHR_SUCCESS;
-
-  if (prefix == '@') { // Asymmetric authentication
-
-    uint8_t sk_oce[YH_EC_P256_PRIVKEY_LEN] = {0},
-            pk_oce[YH_EC_P256_PUBKEY_LEN] = {0},
-            pk_sd[YH_EC_P256_PUBKEY_LEN] = {0};
-    size_t pk_sd_len = sizeof(pk_sd);
-    yrc = yh_util_derive_ec_p256_key(pPin, ulPinLen, sk_oce, sizeof(sk_oce),
-                                     pk_oce, sizeof(pk_oce));
-    if (yrc != YHR_SUCCESS) {
-      DBG_ERR("Failed to derive asymmetric key: %s", yh_strerror(yrc));
-      rv = yrc_to_rv(yrc);
-      goto c_l_out;
-    }
-
-    yrc = yh_util_get_device_pubkey(session->slot->connector, pk_sd, &pk_sd_len,
-                                    NULL);
-    if (yrc != YHR_SUCCESS) {
-      DBG_ERR("Failed to get device public key: %s", yh_strerror(yrc));
-      rv = yrc_to_rv(yrc);
-      goto c_l_out;
-    }
-
-    if (pk_sd_len != YH_EC_P256_PUBKEY_LEN) {
-      DBG_ERR("Invalid device public key");
-      rv = CKR_DATA_LEN_RANGE;
-      goto c_l_out;
-    }
-
-    int hits = 0;
-    for (ListItem *item = g_ctx.device_pubkeys.head; item != NULL;
-         item = item->next) {
-      if (!memcmp(item->data, pk_sd, YH_EC_P256_PUBKEY_LEN)) {
-        hits++;
-      }
-    }
-
-    if (g_ctx.device_pubkeys.length > 0 && hits == 0) {
-      DBG_ERR("Failed to validate device public key");
-      rv = CKR_FUNCTION_REJECTED;
-      goto c_l_out;
-    }
-
-    yrc = yh_create_session_asym(session->slot->connector, key_id, sk_oce,
-                                 sizeof(sk_oce), pk_sd, pk_sd_len,
-                                 &session->slot->device_session);
-    if (yrc != YHR_SUCCESS) {
-      DBG_ERR("Failed to create asymmetric session: %s", yh_strerror(yrc));
-      if (yrc == YHR_SESSION_AUTHENTICATION_FAILED) {
-        rv = CKR_PIN_INCORRECT;
-      } else {
-        rv = yrc_to_rv(yrc);
-      }
-      goto c_l_out;
-    }
-  } else { // Symmetric authentication
-    yrc =
-      yh_create_session_derived(session->slot->connector, key_id, pPin,
-                                ulPinLen, true, &session->slot->device_session);
-    if (yrc != YHR_SUCCESS) {
-      DBG_ERR("Failed to create session: %s", yh_strerror(yrc));
-      if (yrc == YHR_CRYPTOGRAM_MISMATCH ||
-          yrc == YHR_DEVICE_AUTHENTICATION_FAILED) {
-        rv = CKR_PIN_INCORRECT;
-      } else {
-        rv = yrc_to_rv(yrc);
-      }
-      goto c_l_out;
-    }
-  }
-
-  list_iterate(&session->slot->pkcs11_sessions, login_sessions);
-  populate_cache_with_data_opaques(session->slot);
-
-  yubihsm_pkcs11_object_desc *authkey_desc =
-    _get_object_desc(session->slot, key_id, YH_AUTHENTICATION_KEY, 0xffff);
-  if (authkey_desc == NULL) {
-    DBG_ERR("Failed to read authentication key info.");
-    goto c_l_out;
-  }
-  session->slot->authkey_domains = authkey_desc->object.domains;
+  CK_RV rv = C_LoginUser(hSession, userType, pPin + ulUsernameLen,
+                         ulPinLen - ulUsernameLen, pPin, ulUsernameLen);
 
   DOUT;
-
-c_l_out:
-
-  release_session(&g_ctx, session);
 
   return rv;
 }
@@ -5923,14 +5802,158 @@ CK_DEFINE_FUNCTION(CK_RV, C_LoginUser)
  CK_ULONG ulUsernameLen      /*the length of the user's name */
 ) {
   DIN;
-  UNUSED(hSession);
-  UNUSED(userType);
-  UNUSED(pPin);
-  UNUSED(ulPinLen);
-  UNUSED(pUsername);
-  UNUSED(ulUsernameLen);
+
+  if (g_yh_initialized == false) {
+    DBG_ERR("libyubihsm is not initialized or already finalized");
+    return CKR_CRYPTOKI_NOT_INITIALIZED;
+  }
+
+  if (userType != CKU_USER) {
+    DBG_ERR("Inalid user type, only regular user allowed");
+    return CKR_USER_TYPE_INVALID;
+  }
+
+  if (pPin == NULL) {
+    DBG_ERR("Invalid argument pPin");
+    return CKR_ARGUMENTS_BAD;
+  }
+
+  if (pUsername == NULL) {
+    DBG_ERR("Invalid argument pUsername");
+    return CKR_ARGUMENTS_BAD;
+  }
+
+  if (ulPinLen < YUBIHSM_PKCS11_MIN_PIN_LEN ||
+      ulPinLen > YUBIHSM_PKCS11_MAX_PIN_LEN) {
+    DBG_ERR("Wrong PIN length, must be [%u, %u] got %lu",
+            YUBIHSM_PKCS11_MIN_PIN_LEN, YUBIHSM_PKCS11_MAX_PIN_LEN, ulPinLen);
+    return CKR_ARGUMENTS_BAD;
+  }
+
+  CK_UTF8CHAR prefix = *pUsername;
+  if (prefix == '@') {
+    pUsername++;
+    ulUsernameLen--;
+  }
+
+  if (ulUsernameLen != 4) {
+    DBG_ERR("Wrong username length, must be 4 got %lu", ulUsernameLen);
+    return CKR_ARGUMENTS_BAD;
+  }
+
+  uint16_t key_id = 0;
+  size_t key_id_len = sizeof(key_id);
+  char tmpUser[5] = {0};
+  memcpy(tmpUser, pUsername, 4);
+
+  if (hex_decode((const char *) tmpUser, (uint8_t *) &key_id, &key_id_len) ==
+        false ||
+      key_id_len != sizeof(key_id)) {
+    DBG_ERR(
+      "PIN contains invalid characters, first four digits must be [0-9A-Fa-f]");
+    return CKR_PIN_INCORRECT;
+  }
+
+  key_id = ntohs(key_id);
+
+  yubihsm_pkcs11_session *session = 0;
+  CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_NOT_AUTHENTICATED);
+  if (rv != CKR_OK) {
+    DBG_ERR("Invalid session ID: %lu", hSession);
+    return rv;
+  }
+
+  yh_rc yrc = YHR_SUCCESS;
+
+  if (prefix == '@') { // Asymmetric authentication
+
+    uint8_t sk_oce[YH_EC_P256_PRIVKEY_LEN], pk_oce[YH_EC_P256_PUBKEY_LEN],
+      pk_sd[YH_EC_P256_PUBKEY_LEN];
+    size_t pk_sd_len = sizeof(pk_sd);
+    yrc = yh_util_derive_ec_p256_key(pPin, ulPinLen, sk_oce, sizeof(sk_oce),
+                                     pk_oce, sizeof(pk_oce));
+    if (yrc != YHR_SUCCESS) {
+      DBG_ERR("Failed to derive asymmetric key: %s", yh_strerror(yrc));
+      rv = yrc_to_rv(yrc);
+      goto c_l_out;
+    }
+
+    yrc = yh_util_get_device_pubkey(session->slot->connector, pk_sd, &pk_sd_len,
+                                    NULL);
+    if (yrc != YHR_SUCCESS) {
+      DBG_ERR("Failed to get device public key: %s", yh_strerror(yrc));
+      rv = yrc_to_rv(yrc);
+      goto c_l_out;
+    }
+
+    if (pk_sd_len != YH_EC_P256_PUBKEY_LEN) {
+      DBG_ERR("Invalid device public key");
+      rv = CKR_DATA_LEN_RANGE;
+      goto c_l_out;
+    }
+
+    int hits = 0;
+
+    for (ListItem *item = g_ctx.device_pubkeys.head; item != NULL;
+         item = item->next) {
+      if (!memcmp(item->data, pk_sd, YH_EC_P256_PUBKEY_LEN)) {
+        hits++;
+      }
+    }
+
+    if (g_ctx.device_pubkeys.length > 0 && hits == 0) {
+      DBG_ERR("Failed to validate device public key");
+      rv = CKR_DATA_LEN_RANGE;
+      goto c_l_out;
+    }
+
+    yrc = yh_create_session_asym(session->slot->connector, key_id, sk_oce,
+                                 sizeof(sk_oce), pk_sd, pk_sd_len,
+                                 &session->slot->device_session);
+    if (yrc != YHR_SUCCESS) {
+      DBG_ERR("Failed to create asymmetric session: %s", yh_strerror(yrc));
+      if (yrc == YHR_SESSION_AUTHENTICATION_FAILED) {
+        rv = CKR_PIN_INCORRECT;
+      } else {
+        rv = yrc_to_rv(yrc);
+      }
+      goto c_l_out;
+    }
+  } else { // Symmetric authentication
+    yrc =
+      yh_create_session_derived(session->slot->connector, key_id, pPin,
+                                ulPinLen, true, &session->slot->device_session);
+    if (yrc != YHR_SUCCESS) {
+      DBG_ERR("Failed to create session: %s", yh_strerror(yrc));
+      if (yrc == YHR_CRYPTOGRAM_MISMATCH) {
+        rv = CKR_PIN_INCORRECT;
+      } else {
+        rv = yrc_to_rv(yrc);
+      }
+      goto c_l_out;
+    }
+
+    yrc = yh_authenticate_session(session->slot->device_session);
+    if (yrc != YHR_SUCCESS) {
+      DBG_ERR("Failed to authenticate session: %s", yh_strerror(yrc));
+      if (yrc == YHR_CRYPTOGRAM_MISMATCH) {
+        rv = CKR_PIN_INCORRECT;
+      } else {
+        rv = yrc_to_rv(yrc);
+      }
+      goto c_l_out;
+    }
+  }
+
+  list_iterate(&session->slot->pkcs11_sessions, login_sessions);
+
   DOUT;
-  return CKR_FUNCTION_NOT_SUPPORTED;
+
+c_l_out:
+
+  release_session(&g_ctx, session);
+
+  return rv;
 }
 
 CK_DEFINE_FUNCTION(CK_RV, C_SessionCancel)
