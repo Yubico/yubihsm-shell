@@ -27,7 +27,7 @@
 #include <openssl/ec.h>
 #include <openssl/x509.h>
 
-#include "../pkcs11.h"
+#include "../pkcs11y.h"
 
 #ifndef DEFAULT_CONNECTOR_URL
 #define DEFAULT_CONNECTOR_URL "http://127.0.0.1:12345"
@@ -58,7 +58,7 @@ static void get_function_list(char *argv[]) {
   *(void **) (&fn) = dlsym(handle, "C_GetFunctionList");
   assert(fn != NULL);
 
-  CK_RV rv = ((CK_C_GetFunctionList) fn)(&p11);
+  CK_RV rv = ((CK_C_GetFunctionList) fn) (&p11);
   assert(rv == CKR_OK);
 }
 
