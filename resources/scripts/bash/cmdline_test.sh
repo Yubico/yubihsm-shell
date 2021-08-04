@@ -52,9 +52,9 @@ rm random.txt
 
 
 echo "********************** Asym keys ********************* "
-#../test_edkey.sh "$BIN"
-#../test_eckey.sh "$BIN"
-#../test_rsakey.sh "$BIN"
+../test_edkey.sh "$BIN"
+../test_eckey.sh "$BIN"
+../test_rsakey.sh "$BIN"
 
 echo "********************** HMAC keys ********************* "
 ../test_hmackey.sh "$BIN"
