@@ -50,7 +50,7 @@ jobs:
         # the github actions ubuntu 16.04 comes with a broken ppa that we need to get rid of everything from
           if [ "$OS" = "ubuntu-16.04" ]; then
             sudo apt-add-repository --remove ppa:ondrej/php
-            sudo apt -q update
+            sudo apt -q --fix-missing --fix-broken update
             for pkg in `dpkg -l | grep sury | cut -d " " -f 3`; do
               ver=`apt show $pkg -a | grep ^Version | grep -v sury | head -1 | cut -d " " -f 2`
               if [ -n "$ver" ]; then
