@@ -25,13 +25,6 @@ jobs:
             cc: clang-10
             libext: so
             test: true
-          - os: ubuntu-16.04
-            cc: gcc-5
-            libext: so
-            test: true
-          - os: ubuntu-16.04
-            cc: clang-8
-            libext: so
           - os: macos-latest
             cc: clang
             libext: dylib
@@ -47,21 +40,6 @@ jobs:
         # no update - no upgrade
           brew install cmake gengetopt help2man libedit libusb openssl@1.1 pkg-config swig truncate
         else
-        # the github actions ubuntu 16.04 comes with a broken ppa that we need to get rid of everything from
-          if [ "$OS" = "ubuntu-16.04" ]; then
-            sudo apt-add-repository --remove ppa:ondrej/php
-            sudo apt -q update
-            for pkg in `dpkg -l | grep sury | cut -d " " -f 3`; do
-              ver=`apt show $pkg -a | grep ^Version | grep -v sury | head -1 | cut -d " " -f 2`
-              if [ -n "$ver" ]; then
-                downgrade="$downgrade $pkg=$ver"
-              else
-                blast="$blast $ver"
-              fi
-            done
-            sudo apt remove -q -y $blast
-            sudo apt install -q -y --allow-downgrades $downgrade
-          fi
           sudo apt -q update
           sudo apt install -q -y cmake gengetopt help2man lcov libcurl4-openssl-dev libedit-dev libengine-pkcs11-openssl libpcsclite-dev libusb-1.0-0-dev opensc python3-pip python3-setuptools pkg-config swig libssl-dev libffi-dev
           if [ "${CC%-*}" == "clang" ]; then
@@ -128,8 +106,6 @@ jobs:
         echo "connector=$DEFAULT_CONNECTOR_URL" >yubihsm_pkcs11.conf
         if [ "$OS" = "macos-latest" ]; then
           export PATH="$(brew --prefix python3)/bin:$PATH"
-        elif [ "$OS" = "ubuntu-16.04" ]; then
-          export CRYPTOGRAPHY_ALLOW_OPENSSL_102="1"
         fi
         pip3 install --upgrade pip==20.3.4
         python3 -m pip install 'pykcs11' 'cryptography>=1.4.0'

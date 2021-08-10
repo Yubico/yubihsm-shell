@@ -95,9 +95,8 @@ bool hex_decode(const char *in, uint8_t *out, size_t *len) {
 
     buf[0] = in[pos];
     buf[1] = in[pos + 1];
-    num = strtol((const char *) buf, &endptr, 16);
-    if ((errno == ERANGE && (num < 0 || num > UCHAR_MAX)) ||
-        (errno != 0 && num == 0) || *endptr != '\0') {
+    num = strtol(buf, &endptr, 16);
+    if (errno != 0 || num < 0 || num > UCHAR_MAX || *endptr != '\0') {
       return false;
     }
     out[i] = (uint8_t) num;
