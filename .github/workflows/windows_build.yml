@@ -48,7 +48,7 @@ jobs:
       - name: install prerequisites for x86 architecture
         run: |
           Set-PSDebug -Trace 1
-          choco install visualstudio2019community --package-parameters "--add Microsoft.VisualStudio.Component.VC.Redist.MSM"
+#          choco install visualstudio2019community --package-parameters "--add Microsoft.VisualStudio.Component.VC.Redist.MSM"
 
       - name: Build and make MSI installer
         run: |
