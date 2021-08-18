@@ -49,8 +49,6 @@ jobs:
         run: |
           Set-PSDebug -Trace 1
           $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-"
-
-          Get-Childitem –Path 'C:\Program Files (x86)' -Include Microsoft_VC142_CRT_x86.msm -Recurse -ErrorAction SilentlyContinue
           $MERGEDPATH = Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC142_CRT_x86.msm"
 
           cd $YHSHELL_SRC_DIR/resources/win
