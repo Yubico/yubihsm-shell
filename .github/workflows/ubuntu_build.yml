@@ -1,0 +1,30 @@
+name: Ubuntu Build
+# This workflow is triggered on pushes to the repository.
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    env:
+      LIBEXT: "so"
+
+    steps:
+      # This action checks-out the repository under $GITHUB_WORKSPACE, so the workflow can access it.
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: Install prerequisites
+        run: |
+          set -x
+          sudo apt install cmake gengetopt help2man lcov libcurl4-openssl-dev libedit-dev libengine-pkcs11-openssl \
+          libpcsclite-dev libssl-dev libusb-1.0-0-dev opensc python3-pip python3-setuptools pkg-config swig
+
+      - name: Build and install
+        run: |
+          set -x
+
+          mkdir build
+          pushd "build" &>/dev/null
+            cmake .. -DRELEASE_BUILD=1 -DWITHOUT_YKYH=1 -DWITHOUT_MANPAGES=1
+            make
+          popd &>/dev/null

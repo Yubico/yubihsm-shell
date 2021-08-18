@@ -1,0 +1,29 @@
+name: MacOS Build
+# This workflow is triggered on pushes to the repository.
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: macos-latest
+    env:
+      LIBEXT: "dylib"
+
+    steps:
+      # This action checks-out the repository under $GITHUB_WORKSPACE, so the workflow can access it.
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: Install prerequisites
+        run: |
+          set -x
+          brew install cmake gengetopt help2man libedit libusb openssl@1.1 pcsc-lite pkg-config swig truncate
+
+      - name: Build and install
+        run: |
+          set -x
+
+          mkdir build
+          pushd "build" &>/dev/null
+            cmake .. -DRELEASE_BUILD=1 -DWITHOUT_MANPAGES=1
+            make VERBOSE=1
+          popd &>/dev/null
