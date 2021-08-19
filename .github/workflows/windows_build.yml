@@ -45,16 +45,11 @@ jobs:
           cd yubihsm-shell-src
           tar xf yubihsm-shell-.tar.gz
 
-      - name: install prerequisites for x86 architecture
-        run: |
-          Set-PSDebug -Trace 1
-          choco install visualstudio2019community --package-parameters "--add Microsoft.VisualStudio.Component.VC.Redist.MSM"
-
       - name: Build and make MSI installer
         run: |
           Set-PSDebug -Trace 1
           $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-"
-          $MERGEDPATH = Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC142_CRT_x86.msm"
+          $MERGEDPATH = Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC142_CRT_x86.msm"
 
           cd $YHSHELL_SRC_DIR/resources/win
           ./make_installer.ps1 Win32 C:/vcpkg $env:WIX\bin "$MERGEDPATH"
@@ -96,16 +91,11 @@ jobs:
           cd yubihsm-shell-src
           tar xf yubihsm-shell-.tar.gz
 
-      - name: install prerequisites for x64 architecture
-        run: |
-          Set-PSDebug -Trace 1
-          choco install visualstudio2019community --package-parameters "--add Microsoft.VisualStudio.Component.VC.Redist.MSM"
-
       - name: Build and make MSI installer
         run: |
           Set-PSDebug -Trace 1
           $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-"
-          $MERGEDPATH = Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC142_CRT_x64.msm"
+          $MERGEDPATH = Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC142_CRT_x64.msm"
 
           cd $YHSHELL_SRC_DIR/resources/win
           ./make_installer.ps1 x64 C:/vcpkg $env:WIX\bin "$MERGEDPATH"
