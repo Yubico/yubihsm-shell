@@ -864,10 +864,6 @@ int yh_com_set_informat(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  if (strcasecmp(argv[0].s, "default") == 0) {
-    g_in_fmt = fmt_nofmt;
-    return 0;
-  }
   for (size_t i = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
     if (strcasecmp(argv[0].s, formats[i].name) == 0) {
       g_in_fmt = formats[i].format;
@@ -884,10 +880,6 @@ int yh_com_set_outformat(yubihsm_context *ctx, Argument *argv,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  if (strcasecmp(argv[0].s, "default") == 0) {
-    g_out_fmt = fmt_nofmt;
-    return 0;
-  }
   for (size_t i = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
     if (strcasecmp(argv[0].s, formats[i].name) == 0) {
       if (formats[i].format == fmt_password) {

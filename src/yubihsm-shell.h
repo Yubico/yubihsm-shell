@@ -41,8 +41,9 @@ static const struct {
   const char *name;
   cmd_format format;
 } formats[] = {
-  {"base64", fmt_base64}, {"binary", fmt_binary},     {"hex", fmt_hex},
-  {"PEM", fmt_PEM},       {"password", fmt_password}, {"ASCII", fmt_ASCII},
+  {"default", fmt_nofmt}, {"base64", fmt_base64}, {"binary", fmt_binary},
+  {"hex", fmt_hex},       {"PEM", fmt_PEM},       {"password", fmt_password},
+  {"ASCII", fmt_ASCII},
 };
 
 typedef struct {
