@@ -1483,10 +1483,10 @@ static bool get_input_data(const char *name, uint8_t *out, size_t *len,
       break;
     case fmt_password:
       // If the password was read from a file, strip off \r\n
-      if (out[data_len - 1] == '\n') {
+      if (data_len > 0 && out[data_len - 1] == '\n') {
         data_len--;
       }
-      if (out[data_len - 1] == '\r') {
+      if (data_len > 0 && out[data_len - 1] == '\r') {
         data_len--;
       }
       out[data_len] = '\0';
