@@ -1478,12 +1478,6 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     return -1;
   }
 
-  yrc = yh_authenticate_session(ses);
-  if (yrc != YHR_SUCCESS) {
-    fprintf(stderr, "Failed to authenticate session: %s\n", yh_strerror(yrc));
-    return -1;
-  }
-
   yrc = yh_get_session_id(ses, &session_id);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
@@ -1630,14 +1624,17 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
 
   uint8_t *yh_context;
 
-  uint8_t card_cryptogram[YH_CONTEXT_LEN / 2];
+  uint8_t host_challenge[YH_EC_P256_PUBKEY_LEN];
+  uint8_t card_pubkey[YH_EC_P256_PUBKEY_LEN];
+  uint8_t card_cryptogram[YH_KEY_LEN];
   uint8_t key_s_enc[YH_KEY_LEN];
   uint8_t key_s_mac[YH_KEY_LEN];
   uint8_t key_s_rmac[YH_KEY_LEN];
-  size_t key_s_enc_len = sizeof(key_s_enc);
-  size_t key_s_mac_len = sizeof(key_s_mac);
-  size_t key_s_rmac_len = sizeof(key_s_rmac);
+  size_t host_challenge_len = sizeof(host_challenge);
+  size_t card_pubkey_len = 0;
+  size_t card_cryptogram_len = sizeof(card_cryptogram);
   uint8_t retries;
+  yh_rc yrc;
 
   ykhsmauth_rc ykhsmauthrc = ykhsmauth_connect(ctx->state, NULL);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
@@ -1646,19 +1643,67 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
-  yh_rc yrc =
-    yh_begin_create_session_ext(ctx->connector, argv[0].w, &yh_context,
-                                card_cryptogram, sizeof(card_cryptogram), &ses);
+  ykhsmauthrc = ykhsmauth_get_challenge(ctx->state, argv[1].s, host_challenge,
+                                        &host_challenge_len);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
+    fprintf(stderr, "Failed to get host challenge from the YubiKey: %s\n",
+            ykhsmauth_strerror(ykhsmauthrc));
+    return -1;
+  }
+
+  if (host_challenge_len == YH_EC_P256_PUBKEY_LEN) {
+
+    card_pubkey_len = sizeof(card_pubkey);
+    yrc = yh_util_get_device_pubkey(ctx->connector, card_pubkey,
+                                    &card_pubkey_len, NULL);
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr, "Failed to retrieve device pubkey: %s\n",
+              yh_strerror(yrc));
+      return -1;
+    }
+
+    if (card_pubkey_len != YH_EC_P256_PUBKEY_LEN) {
+      fprintf(stderr, "Invalid device pubkey\n");
+      return -1;
+    }
+
+#ifdef USE_ASYMMETRIC_AUTH
+
+    int matched = 0;
+    for (uint8_t **pubkey = ctx->device_pubkey_list; *pubkey; pubkey++) {
+      if (!memcmp(*pubkey, card_pubkey, card_pubkey_len)) {
+        matched++;
+      }
+    }
+
+    if (ctx->device_pubkey_list[0] == NULL) {
+      fprintf(stderr, "CAUTION: Device public key (PK.SD) not validated\n");
+      for (size_t i = 0; i < card_pubkey_len; i++)
+        fprintf(stderr, "%02x", card_pubkey[i]);
+      fprintf(stderr, "\n");
+    } else if (matched == 0) {
+      fprintf(stderr, "Failed to validate device pubkey\n");
+      return -1;
+    }
+
+#endif
+  }
+
+  yrc = yh_begin_create_session(ctx->connector, argv[0].w, &yh_context,
+                                host_challenge, &host_challenge_len,
+                                card_cryptogram, &card_cryptogram_len, &ses);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
     return -1;
   }
 
   ykhsmauthrc =
-    ykhsmauth_calculate(ctx->state, argv[1].s, yh_context, YH_CONTEXT_LEN,
-                        argv[2].x, argv[2].len, key_s_enc, sizeof(key_s_enc),
-                        key_s_mac, sizeof(key_s_mac), key_s_rmac,
-                        sizeof(key_s_rmac), &retries);
+    ykhsmauth_calculate_ex(ctx->state, argv[1].s, yh_context,
+                           2 * host_challenge_len, card_pubkey, card_pubkey_len,
+                           card_cryptogram, card_cryptogram_len, argv[2].x,
+                           argv[2].len, key_s_enc, sizeof(key_s_enc), key_s_mac,
+                           sizeof(key_s_mac), key_s_rmac, sizeof(key_s_rmac),
+                           &retries);
   insecure_memzero(argv[2].x, argv[2].len);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Failed to get session keys from the YubiKey: %s",
@@ -1671,18 +1716,12 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
-  yrc = yh_finish_create_session_ext(ctx->connector, ses, key_s_enc,
-                                     key_s_enc_len, key_s_mac, key_s_mac_len,
-                                     key_s_rmac, key_s_rmac_len,
-                                     card_cryptogram, sizeof(card_cryptogram));
+  yrc =
+    yh_finish_create_session(ses, key_s_enc, sizeof(key_s_enc), key_s_mac,
+                             sizeof(key_s_mac), key_s_rmac, sizeof(key_s_rmac),
+                             card_cryptogram, card_cryptogram_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
-    return -1;
-  }
-
-  yrc = yh_authenticate_session(ses);
-  if (yrc != YHR_SUCCESS) {
-    fprintf(stderr, "Failed to authenticate session: %s\n", yh_strerror(yrc));
     return -1;
   }
 
@@ -2906,9 +2945,6 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
         yh_session *ses = NULL;
         yrc = yh_create_session_derived(ctx->connector, id, password,
                                         sizeof(password) - 1, false, &ses);
-        if (yrc == YHR_SUCCESS) {
-          yrc = yh_authenticate_session(ses);
-        }
         if (yrc == YHR_SUCCESS) {
           yrc = yh_util_close_session(ses);
         }

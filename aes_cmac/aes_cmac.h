@@ -17,7 +17,7 @@
 #include "aes.h"
 
 typedef struct {
-  aes_context aes_ctx;
+  aes_context *aes_ctx;
   uint8_t k1[AES_BLOCK_SIZE];
   uint8_t k2[AES_BLOCK_SIZE];
   uint8_t mac[AES_BLOCK_SIZE];
@@ -29,8 +29,7 @@ typedef struct {
 #define YH_INTERNAL
 #endif
 
-int YH_INTERNAL aes_cmac_init(uint8_t *key, uint16_t key_len,
-                              aes_cmac_context_t *ctx);
+int YH_INTERNAL aes_cmac_init(aes_context *aes_ctx, aes_cmac_context_t *ctx);
 int YH_INTERNAL aes_cmac_encrypt(aes_cmac_context_t *ctx,
                                  const uint8_t *message,
                                  const uint16_t message_len, uint8_t *mac);

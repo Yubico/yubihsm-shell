@@ -25,21 +25,7 @@
 #include "aes_cmac.h"
 #include "../common/insecure_memzero.h"
 
-static uint8_t zero[AES_BLOCK_SIZE];
-
-/*#include <stdio.h>
-static void dump_hex(char *msg, const unsigned char *buf, unsigned int len) {
-  unsigned int i;
-  if (strcmp(msg, "") != 0)
-    fprintf(stderr, "%s\n", msg);
-
-  for (i = 0; i < len; i++) {
-    fprintf(stderr, "%02x ", buf[i]);
-  }
-
-  fprintf(stderr, "\n");
-}
-*/
+static const uint8_t zero[AES_BLOCK_SIZE];
 
 static void do_pad(uint8_t *data, uint8_t len) {
 
@@ -105,7 +91,7 @@ int aes_cmac_encrypt(aes_cmac_context_t *ctx, const uint8_t *message,
 
   for (i = 0; i < n_blocks; i++) {
     do_xor(ptr, mac);
-    rc = aes_encrypt(mac, mac, &ctx->aes_ctx);
+    rc = aes_encrypt(mac, mac, ctx->aes_ctx);
     if (rc) {
       return rc;
     }
@@ -128,22 +114,16 @@ int aes_cmac_encrypt(aes_cmac_context_t *ctx, const uint8_t *message,
 
   do_xor(M, mac);
 
-  return aes_encrypt(mac, mac, &ctx->aes_ctx);
+  return aes_encrypt(mac, mac, ctx->aes_ctx);
 }
 
-int aes_cmac_init(uint8_t *key, uint16_t key_len, aes_cmac_context_t *ctx) {
+int aes_cmac_init(aes_context *aes_ctx, aes_cmac_context_t *ctx) {
 
   uint8_t L[AES_BLOCK_SIZE];
-  int rc;
 
-  insecure_memzero(zero, AES_BLOCK_SIZE);
+  ctx->aes_ctx = aes_ctx;
 
-  rc = aes_set_key(key, key_len, &ctx->aes_ctx);
-  if (rc) {
-    return rc;
-  }
-
-  rc = aes_encrypt(zero, L, &ctx->aes_ctx);
+  int rc = aes_encrypt(zero, L, ctx->aes_ctx);
   if (rc) {
     return rc;
   }
@@ -156,7 +136,6 @@ int aes_cmac_init(uint8_t *key, uint16_t key_len, aes_cmac_context_t *ctx) {
 
 void aes_cmac_destroy(aes_cmac_context_t *ctx) {
   if (ctx) {
-    aes_destroy(&(ctx->aes_ctx));
     insecure_memzero(ctx, sizeof(aes_cmac_context_t));
   }
 }

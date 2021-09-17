@@ -49,6 +49,4 @@ union u_APDU {
 
 typedef union u_APDU APDU;
 
-unsigned const char aid[] = {0xa0, 0x00, 0x00, 0x05, 0x27, 0x21, 0x07};
-
 #endif

@@ -29,14 +29,17 @@ typedef struct {
 
 static const err_t errors[] = {
   ERR(YKHSMAUTHR_SUCCESS, "Successful return"),
-  ERR(YKHSMAUTHR_MEMORY_ERROR, "Error allocating memory"),
+  ERR(YKHSMAUTHR_MEMORY_ERROR, "Device memory error"),
   ERR(YKHSMAUTHR_PCSC_ERROR, "Error in PCSC call"),
-  ERR(YKHSMAUTHR_GENERIC_ERROR, "Something went wrong"),
+  ERR(YKHSMAUTHR_GENERIC_ERROR, "General device error"),
   ERR(YKHSMAUTHR_WRONG_PW, "Wrong Password/Authentication key"),
-  ERR(YKHSMAUTHR_INVALID_PARAMS, "Invalid argument to a function"),
+  ERR(YKHSMAUTHR_INVALID_PARAMS, "Invalid argument to a device command"),
   ERR(YKHSMAUTHR_ENTRY_NOT_FOUND, "Entry not found"),
   ERR(YKHSMAUTHR_STORAGE_FULL, "Device storage full"),
   ERR(YKHSMAUTHR_TOUCH_ERROR, "Device not touched"),
+  ERR(YKHSMAUTHR_ENTRY_INVALID, "Entry invalid"),
+  ERR(YKHSMAUTHR_DATA_INVALID, "Invalid authentication data"),
+  ERR(YKHSMAUTHR_NOT_SUPPORTED, "Device command not supported"),
 };
 
 const char *ykhsmauth_strerror(ykhsmauth_rc err) {

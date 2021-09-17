@@ -967,6 +967,12 @@ yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
                                   size_t card_cryptogram_len,
                                   yh_session **session);
 
+yh_rc yh_begin_create_session(yh_connector *connector, uint16_t authkey_id,
+                              uint8_t **context, uint8_t *host_challenge,
+                              size_t *host_challenge_len,
+                              uint8_t *card_cryptogram,
+                              size_t *card_cryptogram_len,
+                              yh_session **session);
 /**
  * Finish creating external session. The session's encryption key and MAC key
  *are not stored in the device.
@@ -1002,6 +1008,12 @@ yh_rc yh_finish_create_session_ext(yh_connector *connector, yh_session *session,
                                    size_t key_srmac_len,
                                    uint8_t *card_cryptogram,
                                    size_t card_cryptogram_len);
+
+yh_rc yh_finish_create_session(yh_session *session, const uint8_t *key_senc,
+                               size_t key_senc_len, const uint8_t *key_smac,
+                               size_t key_smac_len, const uint8_t *key_srmac,
+                               size_t key_srmac_len, uint8_t *card_cryptogram,
+                               size_t card_cryptogram_len);
 
 /**
  * Utility function that gets the value and algorithm of the device public key

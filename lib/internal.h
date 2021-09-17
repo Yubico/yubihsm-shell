@@ -26,11 +26,10 @@
 struct yh_session {
   struct yh_connector *parent;
   uint16_t authkey_id;
-  bool recreate;
   uint8_t key_enc[SCP_KEY_LEN];
   uint8_t key_mac[SCP_KEY_LEN];
   Scp_ctx s;
-  uint8_t context[SCP_CONTEXT_LEN];
+  uint8_t context[2 * YH_EC_P256_PUBKEY_LEN];
 };
 
 typedef struct state yh_backend;

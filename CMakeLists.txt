@@ -196,6 +196,8 @@ if(ENABLE_YKHSM_AUTH)
   add_definitions(-DYKHSMAUTH_ENABLED="1")
 endif()
 
+option(ENABLE_EXPERIMENTAL_ASYMMETRIC_AUTH "Enable support for experimental asymmetric authentication" OFF)
+
 add_subdirectory (lib)
 
 if(NOT BUILD_ONLY_LIB)

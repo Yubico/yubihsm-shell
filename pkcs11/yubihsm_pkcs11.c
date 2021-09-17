@@ -286,7 +286,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
       if (yh_set_connector_option(connector_list[i], YH_CONNECTOR_HTTPS_KEY,
                                   args_info.key_arg) != YHR_SUCCESS) {
         DBG_ERR("Failed to set HTTPS key option");
-	goto c_i_failure;
+        goto c_i_failure;
       }
     }
     if (args_info.proxy_given) {
@@ -300,7 +300,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
       if (yh_set_connector_option(connector_list[i], YH_CONNECTOR_NOPROXY,
                                   args_info.noproxy_arg) != YHR_SUCCESS) {
         DBG_ERR("Failed to set noproxy option");
-	goto c_i_failure;
+        goto c_i_failure;
       }
     }
 
@@ -1240,17 +1240,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
       }
       goto c_l_out;
     }
-
-    yrc = yh_authenticate_session(session->slot->device_session);
-    if (yrc != YHR_SUCCESS) {
-      DBG_ERR("Failed to authenticate session: %s", yh_strerror(yrc));
-      if (yrc == YHR_CRYPTOGRAM_MISMATCH) {
-        rv = CKR_PIN_INCORRECT;
-      } else {
-        rv = CKR_FUNCTION_FAILED;
-      }
-      goto c_l_out;
-    }
   }
 
   list_iterate(&session->slot->pkcs11_sessions, login_sessions);
@@ -1722,7 +1711,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
       DBG_INFO("No ECDH session key with ID %08lx was found", hObject);
     }
   } else {
-    if (((uint8_t)(hObject >> 16)) == YH_PUBLIC_KEY) {
+    if (((uint8_t) (hObject >> 16)) == YH_PUBLIC_KEY) {
       DBG_INFO("Trying to delete public key, returning success with noop");
       goto c_do_out;
     }
@@ -2053,7 +2042,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           break;
 
         case CKA_CLASS: {
-          uint32_t value = *((CK_ULONG_PTR)(pTemplate[i].pValue));
+          uint32_t value = *((CK_ULONG_PTR) (pTemplate[i].pValue));
           switch (value) {
             case CKO_CERTIFICATE:
               DBG_INFO("Filtering for certificate");

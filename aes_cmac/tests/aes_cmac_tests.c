@@ -35,7 +35,8 @@ static void _asrt(int line, int check, int expected, unsigned char *msg) {
 }
 
 int main() {
-  aes_cmac_context_t ctx;
+  aes_context aes = {0};
+  aes_cmac_context_t ctx = {0};
 
   uint8_t mac[AES_BLOCK_SIZE];
 
@@ -84,7 +85,8 @@ int main() {
   uint8_t mac12[] = {0xe1, 0x99, 0x21, 0x90, 0x54, 0x9f, 0x6e, 0xd5,
                      0x69, 0x6a, 0x2c, 0x05, 0x6c, 0x31, 0x54, 0x10};
 
-  aes_cmac_init(k_128, sizeof(k_128), &ctx);
+  aes_set_key(k_128, sizeof(k_128), &aes);
+  aes_cmac_init(&aes, &ctx);
   aes_cmac_encrypt(&ctx, m, 0, mac);
   asrt(memcmp(mac, mac1, 16), 0, (unsigned char *) "MAC1");
   aes_cmac_encrypt(&ctx, m, 16, mac);
@@ -93,8 +95,11 @@ int main() {
   asrt(memcmp(mac, mac3, 16), 0, (unsigned char *) "MAC3");
   aes_cmac_encrypt(&ctx, m, 64, mac);
   asrt(memcmp(mac, mac4, 16), 0, (unsigned char *) "MAC4");
+  aes_cmac_destroy(&ctx);
+  aes_destroy(&aes);
 
-  aes_cmac_init(k_192, sizeof(k_192), &ctx);
+  aes_set_key(k_192, sizeof(k_192), &aes);
+  aes_cmac_init(&aes, &ctx);
   aes_cmac_encrypt(&ctx, m, 0, mac);
   asrt(memcmp(mac, mac5, 16), 0, (unsigned char *) "MAC5");
   aes_cmac_encrypt(&ctx, m, 16, mac);
@@ -103,8 +108,11 @@ int main() {
   asrt(memcmp(mac, mac7, 16), 0, (unsigned char *) "MAC7");
   aes_cmac_encrypt(&ctx, m, 64, mac);
   asrt(memcmp(mac, mac8, 16), 0, (unsigned char *) "MAC8");
+  aes_cmac_destroy(&ctx);
+  aes_destroy(&aes);
 
-  aes_cmac_init(k_256, sizeof(k_256), &ctx);
+  aes_set_key(k_256, sizeof(k_256), &aes);
+  aes_cmac_init(&aes, &ctx);
   aes_cmac_encrypt(&ctx, m, 0, mac);
   asrt(memcmp(mac, mac9, 16), 0, (unsigned char *) "MAC9");
   aes_cmac_encrypt(&ctx, m, 16, mac);
@@ -113,6 +121,8 @@ int main() {
   asrt(memcmp(mac, mac11, 16), 0, (unsigned char *) "MAC11");
   aes_cmac_encrypt(&ctx, m, 64, mac);
   asrt(memcmp(mac, mac12, 16), 0, (unsigned char *) "MAC12");
+  aes_cmac_destroy(&ctx);
+  aes_destroy(&aes);
 
   // Padding tests
 

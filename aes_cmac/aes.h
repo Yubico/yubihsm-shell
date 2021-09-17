@@ -63,15 +63,16 @@ typedef struct {
 #define YH_INTERNAL
 #endif
 
-int YH_INTERNAL aes_set_key(uint8_t *key, uint16_t key_len, aes_context *ctx);
+int YH_INTERNAL aes_set_key(const uint8_t *key, uint16_t key_len,
+                            aes_context *ctx);
 
-int YH_INTERNAL aes_encrypt(uint8_t *in, uint8_t *out, aes_context *ctx);
-int YH_INTERNAL aes_decrypt(uint8_t *in, uint8_t *out, aes_context *ctx);
+int YH_INTERNAL aes_encrypt(const uint8_t *in, uint8_t *out, aes_context *ctx);
+int YH_INTERNAL aes_decrypt(const uint8_t *in, uint8_t *out, aes_context *ctx);
 
-int YH_INTERNAL aes_cbc_encrypt(uint8_t *in, uint8_t *out, uint16_t len,
-                                uint8_t *iv, aes_context *ctx);
-int YH_INTERNAL aes_cbc_decrypt(uint8_t *in, uint8_t *out, uint16_t len,
-                                uint8_t *iv, aes_context *ctx);
+int YH_INTERNAL aes_cbc_encrypt(const uint8_t *in, uint8_t *out, uint16_t len,
+                                const uint8_t *iv, aes_context *ctx);
+int YH_INTERNAL aes_cbc_decrypt(const uint8_t *in, uint8_t *out, uint16_t len,
+                                const uint8_t *iv, aes_context *ctx);
 
 void YH_INTERNAL aes_add_padding(uint8_t *in, uint16_t *len);
 void YH_INTERNAL aes_remove_padding(uint8_t *in, uint16_t *len);

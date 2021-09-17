@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-option "action" a "Action to perform" values="calculate", "change-mgmkey", "delete", "list", "put", "reset", "retries", "version" enum optional
+option "action" a "Action to perform" values="calculate", "change-mgmkey", "delete", "list", "put", "reset", "retries", "version", "get-challenge", "get-pubkey" enum optional
 option "mgmkey" k "Management key is required to put and delete credentials. Sometimes, this key is also referenced as 'Admin Access Code'" string optional default="00000000000000000000000000000000"
 option "new-mgmkey" K "New management key" string optional default=""
 option "credpwd" p "Credential password is used to access the credential when logging into the YubiHSM2. Sometimes, this password is also referenced as 'User Access Code'" string optional default=""
@@ -30,3 +30,6 @@ modeoption "derivation-password" d "Derivation password for encryption and MAC k
 defmode "explicit" modedesc="Explicit encryption and MAC keys"
 modeoption "enckey" e "Encryption key" string optional default="" mode="explicit"
 modeoption "mackey" m "MAC key" string optional default="" mode="explicit"
+
+defmode "asymmetric" modedesc="Explicit ec-p256 private key"
+modeoption "privkey" s "Private key" string optional default="" mode="asymmetric"
