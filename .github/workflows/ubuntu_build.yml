@@ -16,8 +16,8 @@ jobs:
       - name: Install prerequisites
         run: |
           set -x
-          sudo apt install cmake gengetopt help2man lcov libcurl4-openssl-dev libedit-dev libengine-pkcs11-openssl \
-          libpcsclite-dev libssl-dev libusb-1.0-0-dev opensc python3-pip python3-setuptools pkg-config swig
+          sudo apt -q update
+          sudo apt install -q -y cmake gengetopt help2man lcov libcurl4-openssl-dev libedit-dev libengine-pkcs11-openssl libpcsclite-dev libusb-1.0-0-dev opensc python3-pip python3-setuptools pkg-config swig libssl-dev libffi-dev
 
       - name: Build and install
         run: |
