@@ -1648,6 +1648,7 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Failed to get host challenge from the YubiKey: %s\n",
             ykhsmauth_strerror(ykhsmauthrc));
+    ykhsmauth_disconnect(ctx->state);
     return -1;
   }
 
@@ -1659,11 +1660,13 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
     if (yrc != YHR_SUCCESS) {
       fprintf(stderr, "Failed to retrieve device pubkey: %s\n",
               yh_strerror(yrc));
+      ykhsmauth_disconnect(ctx->state);
       return -1;
     }
 
     if (card_pubkey_len != YH_EC_P256_PUBKEY_LEN) {
       fprintf(stderr, "Invalid device pubkey\n");
+      ykhsmauth_disconnect(ctx->state);
       return -1;
     }
 
@@ -1683,6 +1686,7 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
       fprintf(stderr, "\n");
     } else if (matched == 0) {
       fprintf(stderr, "Failed to validate device pubkey\n");
+      ykhsmauth_disconnect(ctx->state);
       return -1;
     }
 
@@ -1694,6 +1698,7 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
                                 card_cryptogram, &card_cryptogram_len, &ses);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
+    ykhsmauth_disconnect(ctx->state);
     return -1;
   }
 
@@ -1705,6 +1710,7 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
                            sizeof(key_s_mac), key_s_rmac, sizeof(key_s_rmac),
                            &retries);
   insecure_memzero(argv[2].x, argv[2].len);
+  ykhsmauth_disconnect(ctx->state);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Failed to get session keys from the YubiKey: %s",
             ykhsmauth_strerror(ykhsmauthrc));

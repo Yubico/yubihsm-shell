@@ -98,7 +98,7 @@ ykhsmauth_rc ykhsmauth_init(ykhsmauth_state **state, int verbose) {
     return YKHSMAUTHR_INVALID_PARAMS;
   }
 
-  ykhsmauth_state *s = malloc(sizeof(ykhsmauth_state));
+  ykhsmauth_state *s = calloc(1, sizeof(ykhsmauth_state));
 
   if (s == NULL) {
     if (verbose) {
@@ -109,9 +109,8 @@ ykhsmauth_rc ykhsmauth_init(ykhsmauth_state **state, int verbose) {
     return YKHSMAUTHR_MEMORY_ERROR;
   }
 
-  memset(s, 0, sizeof(ykhsmauth_state));
   s->verbose = verbose;
-  s->context = SCARD_E_INVALID_HANDLE;
+  s->context = 0;
   *state = s;
 
   return YKHSMAUTHR_SUCCESS;
@@ -120,9 +119,13 @@ ykhsmauth_rc ykhsmauth_init(ykhsmauth_state **state, int verbose) {
 ykhsmauth_rc ykhsmauth_done(ykhsmauth_state *state) {
   ykhsmauth_disconnect(state);
 
-  if (state != NULL) {
-    free(state);
+  if (state == NULL) {
+    return YKHSMAUTHR_INVALID_PARAMS;
   }
+
+  SCardReleaseContext(state->context);
+  state->context = 0;
+  free(state);
 
   return YKHSMAUTHR_SUCCESS;
 }
@@ -135,11 +138,6 @@ ykhsmauth_rc ykhsmauth_disconnect(ykhsmauth_state *state) {
   if (state->card) {
     SCardDisconnect(state->card, SCARD_RESET_CARD);
     state->card = 0;
-  }
-
-  if (SCardIsValidContext(state->context) == SCARD_S_SUCCESS) {
-    SCardReleaseContext(state->context);
-    state->context = SCARD_E_INVALID_HANDLE;
   }
 
   return YKHSMAUTHR_SUCCESS;
@@ -269,8 +267,6 @@ ykhsmauth_rc ykhsmauth_connect(ykhsmauth_state *state, const char *wanted) {
   if (state->verbose) {
     fprintf(stderr, "No usable reader found\n");
   }
-  SCardReleaseContext(state->context);
-  state->context = SCARD_E_INVALID_HANDLE;
 
   return YKHSMAUTHR_GENERIC_ERROR;
 }
@@ -285,6 +281,7 @@ ykhsmauth_rc ykhsmauth_list_readers(ykhsmauth_state *state, char *readers,
   }
 
   if (SCardIsValidContext(state->context) != SCARD_S_SUCCESS) {
+    state->card = 0;
     rc = SCardEstablishContext(SCARD_SCOPE_SYSTEM, NULL, NULL, &state->context);
     if (rc != SCARD_S_SUCCESS) {
       if (state->verbose) {
@@ -299,8 +296,6 @@ ykhsmauth_rc ykhsmauth_list_readers(ykhsmauth_state *state, char *readers,
     if (state->verbose) {
       fprintf(stderr, "SCardListReaders failed, rc=%08x\n", rc);
     }
-    SCardReleaseContext(state->context);
-    state->context = SCARD_E_INVALID_HANDLE;
     return YKHSMAUTHR_PCSC_ERROR;
   }
 
@@ -313,8 +308,6 @@ ykhsmauth_rc ykhsmauth_list_readers(ykhsmauth_state *state, char *readers,
     if (state->verbose) {
       fprintf(stderr, "SCardListReaders failed, rc=%08x\n", rc);
     }
-    SCardReleaseContext(state->context);
-    state->context = SCARD_E_INVALID_HANDLE;
     return YKHSMAUTHR_PCSC_ERROR;
   }
 
