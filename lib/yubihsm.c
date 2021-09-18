@@ -636,8 +636,10 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
 
   if (recreate) {
     new_session->authkey_id = authkey_id;
-    memcpy(new_session->key_enc, key_enc, SCP_KEY_LEN);
-    memcpy(new_session->key_mac, key_mac, SCP_KEY_LEN);
+    if (new_session->key_enc != key_enc)
+      memcpy(new_session->key_enc, key_enc, SCP_KEY_LEN);
+    if (new_session->key_mac != key_mac)
+      memcpy(new_session->key_mac, key_mac, SCP_KEY_LEN);
   } else {
     new_session->authkey_id = 0;
     memset(new_session->key_enc, 0, SCP_KEY_LEN);
