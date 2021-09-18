@@ -329,7 +329,7 @@ yh_rc yh_send_plain_msg(yh_connector *connector, yh_cmd cmd,
 
   yrc = send_msg(connector, &msg, &response_msg, NULL);
   if (yrc != YHR_SUCCESS) {
-    DBG_ERR("%s", yh_strerror(yrc));
+    DBG_ERR("send_msg %s", yh_strerror(yrc));
     return yrc;
   }
 
@@ -756,6 +756,7 @@ yh_rc yh_begin_create_session(yh_connector *connector, uint16_t authkey_id,
 
   yrc = send_msg(connector, &msg, &response_msg, new_session->s.identifier);
   if (yrc != YHR_SUCCESS) {
+    DBG_ERR("send_msg %s", yh_strerror(yrc));
     goto bcse_failure;
   }
 
@@ -913,7 +914,7 @@ yh_rc yh_finish_create_session(yh_session *session, const uint8_t *key_senc,
 
     yrc = send_msg(session->parent, &msg, &response_msg, session->s.identifier);
     if (yrc != YHR_SUCCESS) {
-      DBG_ERR("%s", yh_strerror(yrc));
+      DBG_ERR("send_msg %s", yh_strerror(yrc));
       return yrc;
     }
 
