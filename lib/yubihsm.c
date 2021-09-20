@@ -628,9 +628,10 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
   if (yrc != YHR_SUCCESS)
     goto cs_failure;
 
-  yrc = yh_finish_create_session(new_session, NULL, YH_KEY_LEN, NULL,
-                                 YH_KEY_LEN, NULL, YH_KEY_LEN, card_cryptogram,
-                                 card_cryptogram_len);
+  yrc = yh_finish_create_session(new_session, new_session->s.s_enc, YH_KEY_LEN,
+                                 new_session->s.s_mac, YH_KEY_LEN,
+                                 new_session->s.s_rmac, YH_KEY_LEN,
+                                 card_cryptogram, card_cryptogram_len);
   if (yrc != YHR_SUCCESS)
     goto cs_failure;
 
@@ -836,18 +837,18 @@ yh_rc yh_finish_create_session(yh_session *session, const uint8_t *key_senc,
                                size_t key_srmac_len, uint8_t *card_cryptogram,
                                size_t card_cryptogram_len) {
 
-  if (session == NULL || key_senc_len != SCP_KEY_LEN ||
-      key_smac_len != SCP_KEY_LEN || key_srmac_len != SCP_KEY_LEN ||
-      card_cryptogram == NULL) {
+  if (session == NULL || key_senc == NULL || key_senc_len != SCP_KEY_LEN ||
+      key_smac == NULL || key_smac_len != SCP_KEY_LEN || key_srmac == NULL ||
+      key_srmac_len != SCP_KEY_LEN || card_cryptogram == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
 
-  if (key_senc)
+  if (session->s.s_enc != key_senc)
     memcpy(session->s.s_enc, key_senc, SCP_KEY_LEN);
-  if (key_smac)
+  if (session->s.s_mac != key_smac)
     memcpy(session->s.s_mac, key_smac, SCP_KEY_LEN);
-  if (key_srmac)
+  if (session->s.s_rmac != key_srmac)
     memcpy(session->s.s_rmac, key_srmac, SCP_KEY_LEN);
 
   DBG_INT(session->s.s_enc, SCP_KEY_LEN, "S-ENC: ");
