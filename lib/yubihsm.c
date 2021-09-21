@@ -70,9 +70,8 @@ FILE *_yh_output YH_INTERNAL = NULL;
 static yh_rc compute_full_mac_ex(const uint8_t *data, uint16_t data_len,
                                  aes_context *aes_ctx, uint8_t *mac) {
 
-  aes_cmac_context_t ctx;
+  aes_cmac_context_t ctx = {0};
 
-  insecure_memzero(&ctx, sizeof(ctx));
   if (aes_cmac_init(aes_ctx, &ctx)) {
     DBG_ERR("aes_cmac_init failed");
     return YHR_GENERIC_ERROR;
@@ -92,9 +91,8 @@ static yh_rc compute_full_mac(const uint8_t *data, uint16_t data_len,
                               const uint8_t *key, uint16_t key_len,
                               uint8_t *mac) {
 
-  aes_context aes_ctx;
+  aes_context aes_ctx = {0};
 
-  insecure_memzero(&aes_ctx, sizeof(aes_ctx));
   if (aes_set_key(key, key_len, &aes_ctx)) {
     DBG_ERR("aes_set_key failed");
     return YHR_GENERIC_ERROR;
@@ -110,12 +108,8 @@ static yh_rc compute_cryptogram_ex(aes_context *aes_ctx, uint8_t type,
                                    uint16_t L, uint8_t *key_out) {
 
   uint8_t n_iterations;
-  uint8_t i;
-  uint8_t result[SCP_KEY_LEN];
-  uint8_t input[16 + SCP_CONTEXT_LEN];
+  uint8_t input[16 + SCP_CONTEXT_LEN] = {0};
   uint8_t *ptr = input;
-
-  aes_cmac_context_t ctx;
 
   if (L == 0x40 || L == 0x80)
     n_iterations = 1;
@@ -143,13 +137,16 @@ static yh_rc compute_cryptogram_ex(aes_context *aes_ctx, uint8_t type,
   memcpy(ptr, context, SCP_CONTEXT_LEN);
   ptr += SCP_CONTEXT_LEN;
 
-  insecure_memzero(&ctx, sizeof(ctx));
+  aes_cmac_context_t ctx = {0};
+
   if (aes_cmac_init(aes_ctx, &ctx)) {
     DBG_ERR("aes_cmac_init failed");
     return YHR_GENERIC_ERROR;
   }
 
-  for (i = 0; i < n_iterations; i++) {
+  uint8_t result[2 * SCP_PRF_LEN] = {0};
+
+  for (uint8_t i = 0; i < n_iterations; i++) {
     if (aes_cmac_encrypt(&ctx, input, ptr - input,
                          result + (i * SCP_PRF_LEN))) {
       DBG_ERR("aes_cmac_encrypt failed");
@@ -172,9 +169,8 @@ static yh_rc compute_cryptogram(const uint8_t *key, uint16_t key_len,
                                 uint8_t type,
                                 const uint8_t context[SCP_CONTEXT_LEN],
                                 uint16_t L, uint8_t *key_out) {
-  aes_context aes_ctx;
+  aes_context aes_ctx = {0};
 
-  insecure_memzero(&aes_ctx, sizeof(aes_ctx));
   if (aes_set_key(key, key_len, &aes_ctx)) {
     DBG_ERR("aes_set_key failed");
     return YHR_GENERIC_ERROR;
@@ -285,14 +281,13 @@ static yh_rc translate_device_error(uint8_t device_error) {
 static yh_rc send_msg(yh_connector *connector, Msg *msg, Msg *response,
                       const char *identifier) {
 
-  yh_rc yrc;
   if (connector == NULL || connector->bf == NULL) {
     DBG_ERR("No backend loaded");
     return YHR_INVALID_PARAMETERS;
   }
   DBG_NET(msg, dump_msg);
-  yrc = connector->bf->backend_send_msg(connector->connection, msg, response,
-                                        identifier);
+  yh_rc yrc = connector->bf->backend_send_msg(connector->connection, msg,
+                                              response, identifier);
   if (yrc == YHR_SUCCESS) {
     DBG_NET(response, dump_response);
   }
@@ -304,16 +299,14 @@ yh_rc yh_send_plain_msg(yh_connector *connector, yh_cmd cmd,
                         yh_cmd *response_cmd, uint8_t *response,
                         size_t *response_len) {
 
-  Msg msg;
-  Msg response_msg;
-
-  yh_rc yrc;
-
   if (connector == NULL || (data_len != 0 && data == NULL) ||
       response_cmd == NULL || response == NULL || response_len == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
+
+  Msg msg = {0};
+  Msg response_msg = {0};
 
   if (data_len > sizeof(msg.st.data)) {
     DBG_ERR("Tried to transfer oversized data (%zu > %zu)", data_len,
@@ -327,7 +320,7 @@ yh_rc yh_send_plain_msg(yh_connector *connector, yh_cmd cmd,
     memcpy(msg.st.data, data, data_len);
   }
 
-  yrc = send_msg(connector, &msg, &response_msg, NULL);
+  yh_rc yrc = send_msg(connector, &msg, &response_msg, NULL);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("send_msg %s", yh_strerror(yrc));
     return yrc;
@@ -375,7 +368,7 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
   struct {
     uint8_t mac_chaining_value[SCP_PRF_LEN];
     Msg msg;
-  } msg, enc_msg;
+  } msg = {0}, enc_msg = {0};
 #pragma pack(pop)
 
   msg.msg.st.cmd = cmd;
@@ -387,8 +380,7 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
   len = 3 + data_len;
   aes_add_padding(msg.msg.raw, &len);
 
-  aes_context aes_ctx;
-  insecure_memzero(&aes_ctx, sizeof(aes_ctx));
+  aes_context aes_ctx = {0};
   if (aes_set_key(session->s.s_enc, SCP_KEY_LEN, &aes_ctx)) {
     DBG_ERR("aes_set_key %s", yh_strerror(YHR_GENERIC_ERROR));
     return YHR_GENERIC_ERROR;
@@ -571,7 +563,7 @@ yh_rc yh_create_session_derived(yh_connector *connector, uint16_t authkey_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  uint8_t key[2 * SCP_KEY_LEN];
+  uint8_t key[2 * SCP_KEY_LEN] = {0};
   yh_rc yrc = derive_key(password, password_len, key, sizeof(key));
 
   if (yrc == YHR_SUCCESS) {
@@ -587,24 +579,23 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
                         const uint8_t *key_mac, size_t key_mac_len,
                         bool recreate, yh_session **session) {
 
-  uint8_t host_challenge[SCP_HOST_CHAL_LEN];
-  size_t host_challenge_len = 0;
-  uint8_t card_cryptogram[SCP_CARD_CRYPTO_LEN];
-  size_t card_cryptogram_len = sizeof(card_cryptogram);
-  yh_session *new_session;
-  yh_rc yrc;
-
   if (connector == NULL || key_enc == NULL || key_enc_len != SCP_KEY_LEN ||
       key_mac == NULL || key_mac_len != SCP_KEY_LEN || session == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
 
-  new_session = *session;
+  yh_session *new_session = *session;
 
-  yrc = yh_begin_create_session(connector, authkey_id, NULL, host_challenge,
-                                &host_challenge_len, card_cryptogram,
-                                &card_cryptogram_len, &new_session);
+  uint8_t host_challenge[SCP_HOST_CHAL_LEN] = {0};
+  size_t host_challenge_len = 0;
+  uint8_t card_cryptogram[SCP_CARD_CRYPTO_LEN] = {0};
+  size_t card_cryptogram_len = sizeof(card_cryptogram);
+
+  yh_rc yrc =
+    yh_begin_create_session(connector, authkey_id, NULL, host_challenge,
+                            &host_challenge_len, card_cryptogram,
+                            &card_cryptogram_len, &new_session);
   if (yrc != YHR_SUCCESS)
     goto cs_failure;
 
@@ -668,7 +659,7 @@ yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
                                   uint8_t **context, uint8_t *card_cryptogram,
                                   size_t card_cryptogram_len,
                                   yh_session **session) {
-  uint8_t host_challenge[SCP_HOST_CHAL_LEN];
+  uint8_t host_challenge[SCP_HOST_CHAL_LEN] = {0};
   size_t host_challenge_len = 0;
   return yh_begin_create_session(connector, authkey_id, context, host_challenge,
                                  &host_challenge_len, card_cryptogram,
@@ -681,13 +672,6 @@ yh_rc yh_begin_create_session(yh_connector *connector, uint16_t authkey_id,
                               uint8_t *card_cryptogram,
                               size_t *card_cryptogram_len,
                               yh_session **session) {
-
-  Msg msg;
-  Msg response_msg;
-  yh_rc yrc;
-  uint8_t *ptr;
-  yh_session *new_session;
-  uint8_t identifier[8];
 
   if (connector == NULL || host_challenge == NULL ||
       host_challenge_len == NULL || card_cryptogram == NULL ||
@@ -725,6 +709,8 @@ yh_rc yh_begin_create_session(yh_connector *connector, uint16_t authkey_id,
       return YHR_INVALID_PARAMETERS;
   }
 
+  yh_session *new_session;
+
   if (!*session) {
     new_session = calloc(1, sizeof(yh_session));
     if (new_session == NULL) {
@@ -740,6 +726,9 @@ yh_rc yh_begin_create_session(yh_connector *connector, uint16_t authkey_id,
 
   memcpy(new_session->context, host_challenge, *host_challenge_len);
 
+  yh_rc yrc = YHR_SUCCESS;
+  uint8_t identifier[8] = {0};
+
   if (!rand_generate(identifier, sizeof(identifier))) {
     DBG_ERR("Failed getting randomness");
     yrc = YHR_GENERIC_ERROR;
@@ -748,6 +737,9 @@ yh_rc yh_begin_create_session(yh_connector *connector, uint16_t authkey_id,
   snprintf(new_session->s.identifier, 17, "%02x%02x%02x%02x%02x%02x%02x%02x",
            identifier[0], identifier[1], identifier[2], identifier[3],
            identifier[4], identifier[5], identifier[6], identifier[7]);
+
+  Msg msg = {0};
+  Msg response_msg = {0};
 
   // Send CREATE SESSION command
   msg.st.cmd = YHC_CREATE_SESSION;
@@ -776,7 +768,7 @@ yh_rc yh_begin_create_session(yh_connector *connector, uint16_t authkey_id,
     goto bcse_failure;
   }
 
-  ptr = response_msg.st.data;
+  uint8_t *ptr = response_msg.st.data;
 
   // Save sid
   new_session->s.sid = (*ptr++);
@@ -882,8 +874,8 @@ yh_rc yh_finish_create_session(yh_session *session, const uint8_t *key_senc,
 
     DBG_INFO("Card cryptogram successfully verified");
 
-    Msg msg;
-    Msg response_msg;
+    Msg msg = {0};
+    Msg response_msg = {0};
 
     msg.st.cmd = YHC_AUTHENTICATE_SESSION;
     msg.st.len = htons(1 + SCP_HOST_CRYPTO_LEN + SCP_MAC_LEN);
@@ -958,14 +950,14 @@ static bool x9_63_sha256_kdf(const uint8_t *shsee, size_t shsee_len,
                              const uint8_t *shsss, size_t shsss_len,
                              const uint8_t *shared, size_t shared_len,
                              uint8_t *dst, size_t dst_len) {
-  uint8_t *end, cnt[4] = {0};
-  size_t hash_len;
   hash_ctx hashctx = NULL;
-  bool ok = false;
   if (!hash_create(&hashctx, _SHA256)) {
     return false;
   }
-  for (end = dst + dst_len; dst < end; dst += hash_len) {
+  bool ok = false;
+  uint8_t cnt[4] = {0};
+  size_t hash_len = 0;
+  for (uint8_t *end = dst + dst_len; dst < end; dst += hash_len) {
     increment_ctr(cnt, sizeof(cnt));
     if (!hash_init(hashctx)) {
       goto err_out;
@@ -997,7 +989,7 @@ err_out:
 yh_rc yh_util_get_device_pubkey(yh_connector *connector, uint8_t *device_pubkey,
                                 size_t *device_pubkey_len,
                                 yh_algorithm *algorithm) {
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
   yh_rc yrc =
     yh_send_plain_msg(connector, YHC_GET_DEVICE_PUBKEY, NULL, 0, &response_cmd,
                       device_pubkey, device_pubkey_len);
@@ -1268,10 +1260,10 @@ yh_rc yh_util_get_device_info(yh_connector *connector, uint8_t *major,
       uint8_t algorithms[YH_MAX_ALGORITHM_COUNT];
     };
     uint8_t buf[1];
-  } response;
+  } response = {0};
 #pragma pack(pop)
   size_t response_len = sizeof(response);
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   yrc = yh_send_plain_msg(connector, YHC_GET_DEVICE_INFO, NULL, 0,
                           &response_cmd, response.buf, &response_len);
@@ -1341,14 +1333,8 @@ yh_rc yh_util_list_objects(yh_session *session, uint16_t id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  uint8_t data[YH_MSG_BUF_SIZE];
+  uint8_t data[YH_MSG_BUF_SIZE] = {0};
   uint8_t *dataptr = data;
-
-  uint8_t response[YH_MSG_BUF_SIZE];
-  size_t response_len = sizeof(response);
-
-  yh_rc yrc;
-  yh_cmd response_cmd;
 
   if (id) {
     *dataptr++ = LIST_ID;
@@ -1394,8 +1380,13 @@ yh_rc yh_util_list_objects(yh_session *session, uint16_t id,
     }
   }
 
-  yrc = yh_send_secure_msg(session, YHC_LIST_OBJECTS, data, dataptr - data,
-                           &response_cmd, response, &response_len);
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
+  size_t response_len = sizeof(response);
+  yh_cmd response_cmd = 0;
+
+  yh_rc yrc =
+    yh_send_secure_msg(session, YHC_LIST_OBJECTS, data, dataptr - data,
+                       &response_cmd, response, &response_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send LIST OBJECTS command: %s", yh_strerror(yrc));
     return yrc;
@@ -1429,7 +1420,7 @@ yh_rc yh_util_get_object_info(yh_session *session, uint16_t id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  uint8_t data[3];
+  uint8_t data[3] = {0};
   uint8_t *dataptr = data;
 
 #pragma pack(push, 1)
@@ -1447,20 +1438,20 @@ yh_rc yh_util_get_object_info(yh_session *session, uint16_t id,
       uint8_t delegated_capabilities[YH_CAPABILITIES_LEN];
     };
     uint8_t buf[1];
-  } response;
+  } response = {0};
   size_t response_len = sizeof(response);
 #pragma pack(pop)
 
-  yh_rc yrc;
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   *dataptr++ = id >> 8 & 0xff;
   *dataptr++ = id & 0xff;
 
   *dataptr++ = (uint16_t) type;
 
-  yrc = yh_send_secure_msg(session, YHC_GET_OBJECT_INFO, data, sizeof(data),
-                           &response_cmd, response.buf, &response_len);
+  yh_rc yrc =
+    yh_send_secure_msg(session, YHC_GET_OBJECT_INFO, data, sizeof(data),
+                       &response_cmd, response.buf, &response_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send GET OBJECT INFO command: %s", yh_strerror(yrc));
     return yrc;
@@ -1510,8 +1501,8 @@ yh_rc yh_util_get_public_key(yh_session *session, uint16_t id, uint8_t *data,
   }
 
   uint8_t cmd[2] = {id >> 8, id & 0xff};
-  yh_cmd response_cmd;
-  uint8_t response[YH_MSG_BUF_SIZE];
+  yh_cmd response_cmd = 0;
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
 
   yh_rc yrc = yh_send_secure_msg(session, YHC_GET_PUBLIC_KEY, cmd, sizeof(cmd),
@@ -1542,14 +1533,12 @@ yh_rc yh_util_close_session(yh_session *session) {
     return YHR_INVALID_PARAMETERS;
   }
 
-  yh_rc yrc;
-
-  uint8_t response[5];
+  uint8_t response[5] = {0};
   size_t response_len = sizeof(response);
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
-  yrc = yh_send_secure_msg(session, YHC_CLOSE_SESSION, NULL, 0, &response_cmd,
-                           response, &response_len);
+  yh_rc yrc = yh_send_secure_msg(session, YHC_CLOSE_SESSION, NULL, 0,
+                                 &response_cmd, response, &response_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send CLOSE SESSION command: %s", yh_strerror(yrc));
     return yrc;
@@ -1589,11 +1578,11 @@ yh_rc yh_util_sign_pkcs1v1_5(yh_session *session, uint16_t key_id, bool hashed,
       uint8_t bytes[YH_MSG_BUF_SIZE];
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
 #pragma pack(pop)
   uint16_t data_len;
 
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   data.key_id = htons(key_id);
 
@@ -1631,8 +1620,6 @@ yh_rc yh_util_sign_pss(yh_session *session, uint16_t key_id, const uint8_t *in,
       return YHR_INVALID_PARAMETERS;
   }
 
-  yh_rc yrc;
-
 #pragma pack(push, 1)
   union {
     struct {
@@ -1642,11 +1629,11 @@ yh_rc yh_util_sign_pss(yh_session *session, uint16_t key_id, const uint8_t *in,
       uint8_t bytes[YH_MSG_BUF_SIZE];
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
 #pragma pack(pop)
   uint16_t data_len = in_len;
 
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   data.key_id = htons(key_id);
 
@@ -1658,8 +1645,8 @@ yh_rc yh_util_sign_pss(yh_session *session, uint16_t key_id, const uint8_t *in,
 
   memcpy(data.bytes, in, in_len);
 
-  yrc = yh_send_secure_msg(session, YHC_SIGN_PSS, data.buf, data_len + 5,
-                           &response_cmd, out, out_len);
+  yh_rc yrc = yh_send_secure_msg(session, YHC_SIGN_PSS, data.buf, data_len + 5,
+                                 &response_cmd, out, out_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send SIGN PSS command: %s", yh_strerror(yrc));
     return yrc;
@@ -1691,8 +1678,6 @@ yh_rc yh_util_sign_ecdsa(yh_session *session, uint16_t key_id,
       return YHR_INVALID_PARAMETERS;
   }
 
-  yh_rc yrc;
-
 #pragma pack(push, 1)
   union {
     struct {
@@ -1700,18 +1685,18 @@ yh_rc yh_util_sign_ecdsa(yh_session *session, uint16_t key_id,
       uint8_t bytes[YH_MSG_BUF_SIZE];
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
 #pragma pack(pop)
   uint16_t data_len = in_len;
 
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   data.key_id = htons(key_id);
 
   memcpy(data.bytes, in, in_len);
 
-  yrc = yh_send_secure_msg(session, YHC_SIGN_ECDSA, data.buf, data_len + 2,
-                           &response_cmd, out, out_len);
+  yh_rc yrc = yh_send_secure_msg(session, YHC_SIGN_ECDSA, data.buf,
+                                 data_len + 2, &response_cmd, out, out_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send SIGN ECDSA command: %s", yh_strerror(yrc));
     return yrc;
@@ -1734,8 +1719,6 @@ yh_rc yh_util_sign_eddsa(yh_session *session, uint16_t key_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  yh_rc yrc;
-
 #pragma pack(push, 1)
   union {
     struct {
@@ -1743,18 +1726,18 @@ yh_rc yh_util_sign_eddsa(yh_session *session, uint16_t key_id,
       uint8_t bytes[YH_MSG_BUF_SIZE];
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
 #pragma pack(pop)
   uint16_t data_len = in_len;
 
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   data.key_id = htons(key_id);
 
   memcpy(data.bytes, in, in_len);
 
-  yrc = yh_send_secure_msg(session, YHC_SIGN_EDDSA, data.buf, data_len + 2,
-                           &response_cmd, out, out_len);
+  yh_rc yrc = yh_send_secure_msg(session, YHC_SIGN_EDDSA, data.buf,
+                                 data_len + 2, &response_cmd, out, out_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send SIGN EDDSA command: %s", yh_strerror(yrc));
     return yrc;
@@ -1776,10 +1759,10 @@ yh_rc yh_util_sign_hmac(yh_session *session, uint16_t key_id, const uint8_t *in,
     return YHR_INVALID_PARAMETERS;
   }
 
-  uint8_t data[YH_MSG_BUF_SIZE];
+  uint8_t data[YH_MSG_BUF_SIZE] = {0};
   uint16_t data_len = 2;
 
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   data[0] = htons(key_id) & 0xff;
   data[1] = htons(key_id) >> 8;
@@ -1799,9 +1782,6 @@ yh_rc yh_util_sign_hmac(yh_session *session, uint16_t key_id, const uint8_t *in,
 
 yh_rc yh_util_get_pseudo_random(yh_session *session, size_t len, uint8_t *out,
                                 size_t *out_len) {
-  yh_rc yrc;
-  yh_cmd response_cmd;
-
   if (session == NULL || out == NULL || out_len == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
@@ -1810,11 +1790,13 @@ yh_rc yh_util_get_pseudo_random(yh_session *session, size_t len, uint8_t *out,
   union {
     uint16_t len;
     uint8_t buf[2];
-  } data;
+  } data = {0};
   data.len = htons(len);
 
-  yrc = yh_send_secure_msg(session, YHC_GET_PSEUDO_RANDOM, data.buf,
-                           sizeof(data), &response_cmd, out, out_len);
+  yh_cmd response_cmd = 0;
+
+  yh_rc yrc = yh_send_secure_msg(session, YHC_GET_PSEUDO_RANDOM, data.buf,
+                                 sizeof(data), &response_cmd, out, out_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send GET PSEUDO RANDOM command: %s", yh_strerror(yrc));
     return yrc;
@@ -1839,16 +1821,16 @@ static yh_rc import_asymmetric(yh_session *session, uint16_t *key_id,
       uint8_t bytes[512];
     };
     uint8_t buf[1];
-  } k;
+  } k = {0};
   union {
     struct {
       uint16_t key_id;
     };
     uint8_t buf[1];
-  } response;
+  } response = {0};
 #pragma pack(pop)
   size_t response_len = sizeof(response);
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   k.key_id = htons(*key_id);
 
@@ -1891,7 +1873,7 @@ yh_rc yh_util_import_rsa_key(yh_session *session, uint16_t *key_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  uint8_t keybuf[256 * 2];
+  uint8_t keybuf[256 * 2] = {0};
   uint16_t component_len;
 
   if (algorithm == YH_ALGO_RSA_2048) {
@@ -1997,17 +1979,16 @@ yh_rc yh_util_import_hmac_key(yh_session *session, uint16_t *key_id,
       uint8_t key[128];
     };
     uint8_t buf[1];
-  } k;
+  } k = {0};
   union {
     struct {
       uint16_t key_id;
     };
     uint8_t buf[1];
-  } response;
+  } response = {0};
 #pragma pack(pop)
-  yh_rc yrc;
   size_t response_len = sizeof(response);
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
   size_t max_len = 64;
   int len = sizeof(k) - sizeof(k.key);
 
@@ -2035,8 +2016,8 @@ yh_rc yh_util_import_hmac_key(yh_session *session, uint16_t *key_id,
   memcpy(k.key, key, key_len);
   len += key_len;
 
-  yrc = yh_send_secure_msg(session, YHC_PUT_HMAC_KEY, k.buf, len, &response_cmd,
-                           response.buf, &response_len);
+  yh_rc yrc = yh_send_secure_msg(session, YHC_PUT_HMAC_KEY, k.buf, len,
+                                 &response_cmd, response.buf, &response_len);
   insecure_memzero(k.buf, len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send PUT HMAC KEY command: %s", yh_strerror(yrc));
@@ -2060,8 +2041,6 @@ static yh_rc generate_key(yh_session *session, uint16_t *key_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  yh_rc yrc;
-
 #pragma pack(push, 1)
   union {
     struct {
@@ -2072,17 +2051,17 @@ static yh_rc generate_key(yh_session *session, uint16_t *key_id,
       uint8_t algo;
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
   int data_len = sizeof(data);
   union {
     struct {
       uint16_t key_id;
     };
     uint8_t buf[1];
-  } response;
+  } response = {0};
 #pragma pack(pop)
   size_t response_len = sizeof(response);
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   data.key_id = htons(*key_id);
 
@@ -2095,7 +2074,7 @@ static yh_rc generate_key(yh_session *session, uint16_t *key_id,
 
   memcpy(data.capabilities, capabilities, YH_CAPABILITIES_LEN);
 
-  yrc =
+  yh_rc yrc =
     yh_send_secure_msg(session, YHC_GENERATE_ASYMMETRIC_KEY, data.buf, data_len,
                        &response_cmd, response.buf, &response_len);
   if (yrc != YHR_SUCCESS) {
@@ -2165,14 +2144,12 @@ yh_rc yh_util_verify_hmac(yh_session *session, uint16_t key_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  yh_rc yrc;
-
-  uint8_t cmd_data[YH_MSG_BUF_SIZE];
+  uint8_t cmd_data[YH_MSG_BUF_SIZE] = {0};
   int cmd_data_len;
 
-  uint8_t response[3];
+  uint8_t response[3] = {0};
   size_t response_len = sizeof(response);
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   key_id = htons(key_id);
 
@@ -2183,8 +2160,9 @@ yh_rc yh_util_verify_hmac(yh_session *session, uint16_t key_id,
   memcpy(cmd_data + cmd_data_len, data, data_len);
   cmd_data_len += data_len;
 
-  yrc = yh_send_secure_msg(session, YHC_VERIFY_HMAC, cmd_data, cmd_data_len,
-                           &response_cmd, response, &response_len);
+  yh_rc yrc =
+    yh_send_secure_msg(session, YHC_VERIFY_HMAC, cmd_data, cmd_data_len,
+                       &response_cmd, response, &response_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send HMAC VERIFY command: %s", yh_strerror(yrc));
     return yrc;
@@ -2206,8 +2184,6 @@ yh_rc yh_util_generate_hmac_key(yh_session *session, uint16_t *key_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  yh_rc yrc;
-
 #pragma pack(push, 1)
   union {
     struct {
@@ -2218,17 +2194,17 @@ yh_rc yh_util_generate_hmac_key(yh_session *session, uint16_t *key_id,
       uint8_t algorithm;
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
   union {
     struct {
       uint16_t key_id;
     };
     uint8_t buf[1];
-  } response;
+  } response = {0};
 #pragma pack(pop)
 
   size_t response_len = sizeof(response);
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   data.key_id = htons(*key_id);
 
@@ -2241,7 +2217,7 @@ yh_rc yh_util_generate_hmac_key(yh_session *session, uint16_t *key_id,
 
   data.algorithm = algorithm;
 
-  yrc =
+  yh_rc yrc =
     yh_send_secure_msg(session, YHC_GENERATE_HMAC_KEY, data.buf, sizeof(data),
                        &response_cmd, response.buf, &response_len);
   if (yrc != YHR_SUCCESS) {
@@ -2276,18 +2252,17 @@ yh_rc yh_util_decrypt_pkcs1v1_5(yh_session *session, uint16_t key_id,
       uint8_t bytes[YH_MSG_BUF_SIZE];
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
 #pragma pack(pop)
 
-  yh_cmd response_cmd;
-  yh_rc yrc;
+  yh_cmd response_cmd = 0;
 
   data.key_id = htons(key_id);
 
   memcpy(data.bytes, in, in_len);
 
-  yrc = yh_send_secure_msg(session, YHC_DECRYPT_PKCS1, data.buf, in_len + 2,
-                           &response_cmd, out, out_len);
+  yh_rc yrc = yh_send_secure_msg(session, YHC_DECRYPT_PKCS1, data.buf,
+                                 in_len + 2, &response_cmd, out, out_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send DECRYPT PKCS1 command: %s", yh_strerror(yrc));
     return yrc;
@@ -2315,11 +2290,10 @@ yh_rc yh_util_decrypt_oaep(yh_session *session, uint16_t key_id,
       uint8_t bytes[YH_MSG_BUF_SIZE];
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
 #pragma pack(pop)
 
-  yh_cmd response_cmd;
-  yh_rc yrc;
+  yh_cmd response_cmd = 0;
   uint16_t len = 0;
 
   data.key_id = htons(key_id);
@@ -2346,8 +2320,8 @@ yh_rc yh_util_decrypt_oaep(yh_session *session, uint16_t key_id,
   memcpy(data.bytes + in_len, label, label_len);
   len += label_len;
 
-  yrc = yh_send_secure_msg(session, YHC_DECRYPT_OAEP, data.buf, len,
-                           &response_cmd, out, out_len);
+  yh_rc yrc = yh_send_secure_msg(session, YHC_DECRYPT_OAEP, data.buf, len,
+                                 &response_cmd, out, out_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send DECRYPT OAEP command: %s", yh_strerror(yrc));
     return yrc;
@@ -2377,18 +2351,17 @@ yh_rc yh_util_derive_ecdh(yh_session *session, uint16_t key_id,
       uint8_t bytes[YH_MSG_BUF_SIZE];
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
 #pragma pack(pop)
 
-  yh_cmd response_cmd;
-  yh_rc yrc;
+  yh_cmd response_cmd = 0;
 
   data.key_id = htons(key_id);
 
   memcpy(data.bytes, in, in_len);
 
-  yrc = yh_send_secure_msg(session, YHC_DERIVE_ECDH, data.buf, in_len + 2,
-                           &response_cmd, out, out_len);
+  yh_rc yrc = yh_send_secure_msg(session, YHC_DERIVE_ECDH, data.buf, in_len + 2,
+                                 &response_cmd, out, out_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send DERIVE ECDH command: %s", yh_strerror(yrc));
     return yrc;
@@ -2412,19 +2385,19 @@ yh_rc yh_util_delete_object(yh_session *session, uint16_t id,
       uint8_t type;
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
 #pragma pack(pop)
 
-  yh_rc yrc;
-  yh_cmd response_cmd;
-  uint8_t response[YH_MSG_BUF_SIZE];
+  yh_cmd response_cmd = 0;
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
 
   data.type = type;
   data.id = htons(id);
 
-  yrc = yh_send_secure_msg(session, YHC_DELETE_OBJECT, data.buf, sizeof(data),
-                           &response_cmd, response, &response_len);
+  yh_rc yrc =
+    yh_send_secure_msg(session, YHC_DELETE_OBJECT, data.buf, sizeof(data),
+                       &response_cmd, response, &response_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send DELETE command: %s", yh_strerror(yrc));
     return yrc;
@@ -2450,18 +2423,17 @@ yh_rc yh_util_export_wrapped(yh_session *session, uint16_t wrapping_key_id,
       uint16_t tgt_id;
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
 #pragma pack(pop)
 
-  yh_cmd response_cmd;
-  yh_rc yrc;
+  yh_cmd response_cmd = 0;
 
   data.key_id = htons(wrapping_key_id);
   data.type = (uint8_t) target_type;
   data.tgt_id = htons(target_id);
 
-  yrc = yh_send_secure_msg(session, YHC_EXPORT_WRAPPED, data.buf, sizeof(data),
-                           &response_cmd, out, out_len);
+  yh_rc yrc = yh_send_secure_msg(session, YHC_EXPORT_WRAPPED, data.buf,
+                                 sizeof(data), &response_cmd, out, out_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send EXPORT WRAPPED command: %s", yh_strerror(yrc));
     return yrc;
@@ -2492,20 +2464,20 @@ yh_rc yh_util_import_wrapped(yh_session *session, uint16_t wrapping_key_id,
       uint8_t bytes[YH_MSG_BUF_SIZE - 2];
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
 #pragma pack(pop)
   uint16_t data_len = 2 + in_len;
 
-  uint8_t response[YH_MSG_BUF_SIZE];
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
-  yh_cmd response_cmd;
-  yh_rc yrc;
+  yh_cmd response_cmd = 0;
 
   data.key_id = htons(wrapping_key_id);
   memcpy(data.bytes, in, in_len);
 
-  yrc = yh_send_secure_msg(session, YHC_IMPORT_WRAPPED, data.buf, data_len,
-                           &response_cmd, response, &response_len);
+  yh_rc yrc =
+    yh_send_secure_msg(session, YHC_IMPORT_WRAPPED, data.buf, data_len,
+                       &response_cmd, response, &response_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send IMPORT WRAPPED command: %s", yh_strerror(yrc));
     return yrc;
@@ -2543,21 +2515,19 @@ yh_rc yh_util_import_wrap_key(yh_session *session, uint16_t *key_id,
       uint8_t key[32];
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
   uint16_t data_len = sizeof(data);
   union {
     struct {
       uint16_t key_id;
     };
     uint8_t buf[1];
-  } response;
+  } response = {0};
 #pragma pack(pop)
 
   size_t response_len = sizeof(response);
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
   uint16_t key_len;
-
-  yh_rc yrc;
 
   switch (algorithm) {
     case YH_ALGO_AES128_CCM_WRAP:
@@ -2591,8 +2561,8 @@ yh_rc yh_util_import_wrap_key(yh_session *session, uint16_t *key_id,
          YH_CAPABILITIES_LEN);
   memcpy(data.key, in, key_len);
 
-  yrc = yh_send_secure_msg(session, YHC_PUT_WRAP_KEY, data.buf, data_len,
-                           &response_cmd, response.buf, &response_len);
+  yh_rc yrc = yh_send_secure_msg(session, YHC_PUT_WRAP_KEY, data.buf, data_len,
+                                 &response_cmd, response.buf, &response_len);
   insecure_memzero(data.buf, data_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send PUT WRAP KEY command: %s", yh_strerror(yrc));
@@ -2618,8 +2588,6 @@ yh_rc yh_util_generate_wrap_key(yh_session *session, uint16_t *key_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  yh_rc yrc;
-
 #pragma pack(push, 1)
   union {
     struct {
@@ -2631,18 +2599,18 @@ yh_rc yh_util_generate_wrap_key(yh_session *session, uint16_t *key_id,
       uint8_t delegated_capabilities[YH_CAPABILITIES_LEN];
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
   uint16_t data_len = sizeof(data);
   union {
     struct {
       uint16_t key_id;
     };
     uint8_t buf[1];
-  } response;
+  } response = {0};
 #pragma pack(pop)
 
   size_t response_len = sizeof(response);
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   data.key_id = htons(*key_id);
 
@@ -2658,8 +2626,9 @@ yh_rc yh_util_generate_wrap_key(yh_session *session, uint16_t *key_id,
   memcpy(data.delegated_capabilities, delegated_capabilities,
          YH_CAPABILITIES_LEN);
 
-  yrc = yh_send_secure_msg(session, YHC_GENERATE_WRAP_KEY, data.buf, data_len,
-                           &response_cmd, response.buf, &response_len);
+  yh_rc yrc =
+    yh_send_secure_msg(session, YHC_GENERATE_WRAP_KEY, data.buf, data_len,
+                       &response_cmd, response.buf, &response_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send GENERATE WRAP KEY command: %s", yh_strerror(yrc));
     return yrc;
@@ -2680,8 +2649,6 @@ yh_rc yh_util_get_log_entries(yh_session *session, uint16_t *unlogged_boot,
     return YHR_INVALID_PARAMETERS;
   }
 
-  yh_rc yrc;
-
   union {
     struct {
       uint16_t log_overflow_boot;
@@ -2690,12 +2657,12 @@ yh_rc yh_util_get_log_entries(yh_session *session, uint16_t *unlogged_boot,
       uint8_t data[1];
     };
     uint8_t buf[YH_MSG_BUF_SIZE];
-  } response;
+  } response = {0};
   size_t response_len = sizeof(response);
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
-  yrc = yh_send_secure_msg(session, YHC_GET_LOG_ENTRIES, NULL, 0, &response_cmd,
-                           response.buf, &response_len);
+  yh_rc yrc = yh_send_secure_msg(session, YHC_GET_LOG_ENTRIES, NULL, 0,
+                                 &response_cmd, response.buf, &response_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send GET LOGS command: %s", yh_strerror(yrc));
     return yrc;
@@ -2744,16 +2711,15 @@ yh_rc yh_util_set_log_index(yh_session *session, uint16_t index) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
-  uint8_t data[2];
-  yh_cmd response_cmd;
-  yh_rc yrc;
-  uint8_t response[YH_MSG_BUF_SIZE];
+  uint8_t data[2] = {0};
+  yh_cmd response_cmd = 0;
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
 
   uint16_t index_h = htons(index);
   memcpy(data, &index_h, sizeof(index_h));
-  yrc = yh_send_secure_msg(session, YHC_SET_LOG_INDEX, data, sizeof(data),
-                           &response_cmd, response, &response_len);
+  yh_rc yrc = yh_send_secure_msg(session, YHC_SET_LOG_INDEX, data, sizeof(data),
+                                 &response_cmd, response, &response_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send SET LOG INDEX command: %s", yh_strerror(yrc));
     return yrc;
@@ -2770,14 +2736,13 @@ yh_rc yh_util_get_opaque(yh_session *session, uint16_t object_id, uint8_t *out,
     return YHR_INVALID_PARAMETERS;
   }
 
-  uint8_t data[2];
-  yh_cmd response_cmd;
-  yh_rc yrc;
+  uint8_t data[2] = {0};
+  yh_cmd response_cmd = 0;
 
   uint16_t object_id_h = htons(object_id);
   memcpy(data, &object_id_h, sizeof(object_id_h));
-  yrc = yh_send_secure_msg(session, YHC_GET_OPAQUE, data, sizeof(data),
-                           &response_cmd, out, out_len);
+  yh_rc yrc = yh_send_secure_msg(session, YHC_GET_OPAQUE, data, sizeof(data),
+                                 &response_cmd, out, out_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send GET OPAQUE command: %s", yh_strerror(yrc));
     return yrc;
@@ -2798,8 +2763,6 @@ yh_rc yh_util_import_opaque(yh_session *session, uint16_t *object_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  yh_rc yrc;
-
 #pragma pack(push, 1)
   union {
     struct {
@@ -2812,17 +2775,17 @@ yh_rc yh_util_import_opaque(yh_session *session, uint16_t *object_id,
                     YH_CAPABILITIES_LEN - 2];
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
   uint16_t data_len;
   union {
     struct {
       uint16_t object_id;
     };
     uint8_t buf[1];
-  } response;
+  } response = {0};
 #pragma pack(pop)
   size_t response_len = sizeof(response);
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   data.object_id = htons(*object_id);
 
@@ -2844,8 +2807,8 @@ yh_rc yh_util_import_opaque(yh_session *session, uint16_t *object_id,
   data_len = in_len + sizeof(data) - sizeof(data.bytes);
   memcpy(data.bytes, in, in_len);
 
-  yrc = yh_send_secure_msg(session, YHC_PUT_OPAQUE, data.buf, data_len,
-                           &response_cmd, response.buf, &response_len);
+  yh_rc yrc = yh_send_secure_msg(session, YHC_PUT_OPAQUE, data.buf, data_len,
+                                 &response_cmd, response.buf, &response_len);
   insecure_memzero(data.buf, data_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send PUT OPAQUE command: %s", yh_strerror(yrc));
@@ -2868,8 +2831,6 @@ yh_rc yh_util_sign_ssh_certificate(yh_session *session, uint16_t key_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  yh_rc yrc;
-
 #pragma pack(push, 1)
   union {
     struct {
@@ -2879,11 +2840,11 @@ yh_rc yh_util_sign_ssh_certificate(yh_session *session, uint16_t key_id,
       uint8_t bytes[YH_MSG_BUF_SIZE - sizeof(key_id) - sizeof(template_id) - 2];
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
   uint16_t data_len;
 #pragma pack(pop)
 
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   data.key_id = htons(key_id);
 
@@ -2900,8 +2861,8 @@ yh_rc yh_util_sign_ssh_certificate(yh_session *session, uint16_t key_id,
   data_len = in_len + 5;
   memcpy(data.bytes, in, in_len);
 
-  yrc = yh_send_secure_msg(session, YHC_SIGN_SSH_CERTIFICATE, data.buf,
-                           data_len, &response_cmd, out, out_len);
+  yh_rc yrc = yh_send_secure_msg(session, YHC_SIGN_SSH_CERTIFICATE, data.buf,
+                                 data_len, &response_cmd, out, out_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send SIGN SSH CERTIFICATE command: %s",
             yh_strerror(yrc));
@@ -2918,14 +2879,13 @@ yh_rc yh_util_get_template(yh_session *session, uint16_t object_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  uint8_t data[2];
-  yh_cmd response_cmd;
-  yh_rc yrc;
+  uint8_t data[2] = {0};
+  yh_cmd response_cmd = 0;
 
   uint16_t object_id_h = htons(object_id);
   memcpy(data, &object_id_h, sizeof(object_id_h));
-  yrc = yh_send_secure_msg(session, YHC_GET_TEMPLATE, data, sizeof(data),
-                           &response_cmd, out, out_len);
+  yh_rc yrc = yh_send_secure_msg(session, YHC_GET_TEMPLATE, data, sizeof(data),
+                                 &response_cmd, out, out_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send GET TEMPLATE command: %s", yh_strerror(yrc));
     return yrc;
@@ -2946,8 +2906,6 @@ yh_rc yh_util_import_template(yh_session *session, uint16_t *object_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  yh_rc yrc;
-
 #pragma pack(push, 1)
   union {
     struct {
@@ -2960,18 +2918,18 @@ yh_rc yh_util_import_template(yh_session *session, uint16_t *object_id,
                     YH_OBJ_LABEL_LEN - YH_CAPABILITIES_LEN - 2];
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
   uint16_t data_len;
   union {
     struct {
       uint16_t object_id;
     };
     uint8_t buf[1];
-  } response;
+  } response = {0};
 #pragma pack(pop)
 
   size_t response_len = sizeof(response);
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   data.object_id = htons(*object_id);
 
@@ -2994,8 +2952,8 @@ yh_rc yh_util_import_template(yh_session *session, uint16_t *object_id,
              YH_CAPABILITIES_LEN + YH_OBJ_LABEL_LEN + sizeof(data.algorithm);
   memcpy(data.bytes, in, in_len);
 
-  yrc = yh_send_secure_msg(session, YHC_PUT_TEMPLATE, data.buf, data_len,
-                           &response_cmd, response.buf, &response_len);
+  yh_rc yrc = yh_send_secure_msg(session, YHC_PUT_TEMPLATE, data.buf, data_len,
+                                 &response_cmd, response.buf, &response_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send PUT TEMPLATE command: %s", yh_strerror(yrc));
     return yrc;
@@ -3060,16 +3018,16 @@ yh_rc yh_util_import_authentication_key(
       uint8_t key[64];
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
   union {
     struct {
       uint16_t key_id;
     };
     uint8_t buf[1];
-  } response;
+  } response = {0};
 #pragma pack(pop)
   size_t response_len = sizeof(response);
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   memcpy(data.key, key_enc, key_enc_len);
   memcpy(data.key + key_enc_len, key_mac, key_mac_len);
@@ -3118,7 +3076,7 @@ yh_rc yh_util_import_authentication_key_derived(
     return YHR_INVALID_PARAMETERS;
   }
 
-  uint8_t key[2 * SCP_KEY_LEN];
+  uint8_t key[2 * SCP_KEY_LEN] = {0};
 
   yh_rc yrc = derive_key(password, password_len, key, sizeof(key));
 
@@ -3158,16 +3116,16 @@ yh_rc yh_util_change_authentication_key(yh_session *session, uint16_t *key_id,
       uint8_t key[64];
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
   union {
     struct {
       uint16_t key_id;
     };
     uint8_t buf[1];
-  } response;
+  } response = {0};
 #pragma pack(pop)
   size_t response_len = sizeof(response);
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   data.key_id = htons(*key_id);
   data.algorithm = algorithm;
@@ -3201,7 +3159,7 @@ yh_rc yh_util_change_authentication_key_derived(yh_session *session,
     return YHR_INVALID_PARAMETERS;
   }
 
-  uint8_t key[2 * SCP_KEY_LEN];
+  uint8_t key[2 * SCP_KEY_LEN] = {0};
 
   yh_rc yrc = derive_key(password, password_len, key, sizeof(key));
 
@@ -3230,10 +3188,10 @@ yh_rc yh_util_create_otp_aead(yh_session *session, uint16_t key_id,
       uint8_t private_id[6];
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
 #pragma pack(pop)
 
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   data.key_id = htons(key_id);
   memcpy(data.key, key, sizeof(data.key));
@@ -3263,10 +3221,10 @@ yh_rc yh_util_randomize_otp_aead(yh_session *session, uint16_t key_id,
       uint16_t key_id;
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
 #pragma pack(pop)
 
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   data.key_id = htons(key_id);
 
@@ -3295,7 +3253,7 @@ yh_rc yh_util_decrypt_otp(yh_session *session, uint16_t key_id,
       uint8_t otp[16];
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
   union {
     struct {
       uint16_t useCtr;
@@ -3304,7 +3262,7 @@ yh_rc yh_util_decrypt_otp(yh_session *session, uint16_t key_id,
       uint16_t tstpl;
     };
     uint8_t buf[1];
-  } response;
+  } response = {0};
 #pragma pack(pop)
 
   if (session == NULL || aead == NULL || otp == NULL ||
@@ -3313,7 +3271,7 @@ yh_rc yh_util_decrypt_otp(yh_session *session, uint16_t key_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
   size_t response_len = sizeof(response);
 
   data.key_id = htons(key_id);
@@ -3363,7 +3321,7 @@ yh_rc yh_util_rewrap_otp_aead(yh_session *session, uint16_t id_from,
       uint8_t aead[6 + 16 + 6 + 8]; // FIXME: magic numbers!
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
 #pragma pack(pop)
 
   if (session == NULL || aead_in == NULL || aead_out == NULL ||
@@ -3377,7 +3335,7 @@ yh_rc yh_util_rewrap_otp_aead(yh_session *session, uint16_t id_from,
   data.to_key = htons(id_to);
   memcpy(data.aead, aead_in, sizeof(data.aead));
 
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
   yh_rc yrc =
     yh_send_secure_msg(session, YHC_REWRAP_OTP_AEAD, data.buf, sizeof(data),
                        &response_cmd, aead_out, out_len);
@@ -3412,20 +3370,18 @@ yh_rc yh_util_import_otp_aead_key(yh_session *session, uint16_t *key_id,
       uint8_t key[32];
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
   union {
     struct {
       uint16_t key_id;
     };
     uint8_t buf[1];
-  } response;
+  } response = {0};
 #pragma pack(pop)
 
   uint16_t data_len = sizeof(data);
   size_t response_len = sizeof(response);
-  yh_cmd response_cmd;
-
-  yh_rc yrc;
+  yh_cmd response_cmd = 0;
 
   if (in_len == 16) {
     data.algorithm = YH_ALGO_AES128_YUBICO_OTP;
@@ -3453,8 +3409,9 @@ yh_rc yh_util_import_otp_aead_key(yh_session *session, uint16_t *key_id,
 
   memcpy(data.key, in, in_len);
 
-  yrc = yh_send_secure_msg(session, YHC_PUT_OTP_AEAD_KEY, data.buf, data_len,
-                           &response_cmd, response.buf, &response_len);
+  yh_rc yrc =
+    yh_send_secure_msg(session, YHC_PUT_OTP_AEAD_KEY, data.buf, data_len,
+                       &response_cmd, response.buf, &response_len);
   insecure_memzero(data.buf, data_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send PUT OTP AEAD KEY command: %s", yh_strerror(yrc));
@@ -3478,8 +3435,6 @@ yh_rc yh_util_generate_otp_aead_key(yh_session *session, uint16_t *key_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  yh_rc yrc;
-
 #pragma pack(push, 1)
   union {
     struct {
@@ -3491,18 +3446,18 @@ yh_rc yh_util_generate_otp_aead_key(yh_session *session, uint16_t *key_id,
       uint32_t nonce_id;
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
   uint16_t data_len = sizeof(data);
   union {
     struct {
       uint16_t key_id;
     };
     uint8_t buf[1];
-  } response;
+  } response = {0};
 #pragma pack(pop)
 
   size_t response_len = sizeof(response);
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   data.key_id = htons(*key_id);
 
@@ -3517,7 +3472,7 @@ yh_rc yh_util_generate_otp_aead_key(yh_session *session, uint16_t *key_id,
 
   data.nonce_id = nonce_id;
 
-  yrc =
+  yh_rc yrc =
     yh_send_secure_msg(session, YHC_GENERATE_OTP_AEAD_KEY, data.buf, data_len,
                        &response_cmd, response.buf, &response_len);
   insecure_memzero(data.buf, data_len);
@@ -3548,10 +3503,10 @@ yh_rc yh_util_sign_attestation_certificate(yh_session *session, uint16_t key_id,
       uint16_t attest_id;
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
 #pragma pack(pop)
 
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   data.key_id = htons(key_id);
   data.attest_id = htons(attest_id);
@@ -3589,11 +3544,11 @@ yh_rc yh_util_set_option(yh_session *session, yh_option option, size_t len,
       uint8_t bytes[1];
     };
     uint8_t buf[YH_MSG_BUF_SIZE];
-  } data;
+  } data = {0};
 #pragma pack(pop)
-  uint8_t out[YH_MSG_BUF_SIZE];
+  uint8_t out[YH_MSG_BUF_SIZE] = {0};
   size_t outlen = sizeof(out);
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   data.option = option;
   data.len = htons(len);
@@ -3617,7 +3572,7 @@ yh_rc yh_util_get_option(yh_session *session, yh_option option, uint8_t *out,
     return YHR_INVALID_PARAMETERS;
   }
   uint8_t buf[1] = {option};
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   yh_rc yrc = yh_send_secure_msg(session, YHC_GET_OPTION, buf, sizeof(buf),
                                  &response_cmd, out, out_len);
@@ -3638,7 +3593,7 @@ yh_rc yh_util_get_storage_info(yh_session *session, uint16_t *total_records,
     return YHR_INVALID_PARAMETERS;
   }
 
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 #pragma pack(push, 1)
   union {
     struct {
@@ -3649,7 +3604,7 @@ yh_rc yh_util_get_storage_info(yh_session *session, uint16_t *total_records,
       uint16_t page_size;
     };
     uint8_t buf[1];
-  } response;
+  } response = {0};
 #pragma pack(pop)
   size_t response_len = sizeof(response);
 
@@ -3692,8 +3647,6 @@ yh_rc yh_util_wrap_data(yh_session *session, uint16_t key_id, const uint8_t *in,
     return YHR_INVALID_PARAMETERS;
   }
 
-  yh_rc yrc;
-
 #pragma pack(push, 1)
   union {
     struct {
@@ -3701,17 +3654,17 @@ yh_rc yh_util_wrap_data(yh_session *session, uint16_t key_id, const uint8_t *in,
       uint8_t bytes[YH_MSG_BUF_SIZE];
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
 #pragma pack(pop)
   uint16_t data_len = in_len + 2;
 
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   data.key_id = htons(key_id);
   memcpy(data.bytes, in, in_len);
 
-  yrc = yh_send_secure_msg(session, YHC_WRAP_DATA, data.buf, data_len,
-                           &response_cmd, out, out_len);
+  yh_rc yrc = yh_send_secure_msg(session, YHC_WRAP_DATA, data.buf, data_len,
+                                 &response_cmd, out, out_len);
   insecure_memzero(data.buf, data_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send WRAP DATA command: %s", yh_strerror(yrc));
@@ -3735,8 +3688,6 @@ yh_rc yh_util_unwrap_data(yh_session *session, uint16_t key_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  yh_rc yrc;
-
 #pragma pack(push, 1)
   union {
     struct {
@@ -3744,17 +3695,17 @@ yh_rc yh_util_unwrap_data(yh_session *session, uint16_t key_id,
       uint8_t bytes[YH_MSG_BUF_SIZE];
     };
     uint8_t buf[1];
-  } data;
+  } data = {0};
 #pragma pack(pop)
   uint16_t data_len = in_len + 2;
 
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
   data.key_id = htons(key_id);
   memcpy(data.bytes, in, in_len);
 
-  yrc = yh_send_secure_msg(session, YHC_UNWRAP_DATA, data.buf, data_len,
-                           &response_cmd, out, out_len);
+  yh_rc yrc = yh_send_secure_msg(session, YHC_UNWRAP_DATA, data.buf, data_len,
+                                 &response_cmd, out, out_len);
   insecure_memzero(data.buf, data_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send UNWRAP DATA command: %s", yh_strerror(yrc));
@@ -3771,14 +3722,13 @@ yh_rc yh_util_blink_device(yh_session *session, uint8_t seconds) {
     return YHR_INVALID_PARAMETERS;
   }
 
-  yh_rc yrc;
-
-  uint8_t response[5];
+  uint8_t response[5] = {0};
   size_t response_len = sizeof(response);
-  yh_cmd response_cmd;
+  yh_cmd response_cmd = 0;
 
-  yrc = yh_send_secure_msg(session, YHC_BLINK_DEVICE, &seconds, sizeof(seconds),
-                           &response_cmd, response, &response_len);
+  yh_rc yrc =
+    yh_send_secure_msg(session, YHC_BLINK_DEVICE, &seconds, sizeof(seconds),
+                       &response_cmd, response, &response_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send BLINK DEVICE command: %s", yh_strerror(yrc));
     return yrc;
@@ -3794,14 +3744,12 @@ yh_rc yh_util_reset_device(yh_session *session) {
     return YHR_INVALID_PARAMETERS;
   }
 
-  yh_rc yrc;
-
-  yh_cmd response_cmd;
-  uint8_t response[1];
+  yh_cmd response_cmd = 0;
+  uint8_t response[1] = {0};
   size_t response_len = sizeof(response);
 
-  yrc = yh_send_secure_msg(session, YHC_RESET_DEVICE, NULL, 0, &response_cmd,
-                           response, &response_len);
+  yh_rc yrc = yh_send_secure_msg(session, YHC_RESET_DEVICE, NULL, 0,
+                                 &response_cmd, response, &response_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send RESET DEVICE command: %s\n", yh_strerror(yrc));
     return yrc;
@@ -3926,8 +3874,6 @@ yh_rc yh_exit(void) { return YHR_SUCCESS; }
 static yh_rc create_connector(yh_connector **connector, const char *url,
                               void *backend, struct backend_functions *bf) {
 
-  yh_rc rc;
-
   if (connector == NULL) {
     return YHR_INVALID_PARAMETERS;
   }
@@ -3936,6 +3882,8 @@ static yh_rc create_connector(yh_connector **connector, const char *url,
   if (*connector == NULL) {
     return YHR_MEMORY_ERROR;
   }
+
+  yh_rc rc = YHR_SUCCESS;
 
   if (strncmp(url, YH_USB_URL_SCHEME, strlen(YH_USB_URL_SCHEME)) == 0) {
     (*connector)->status_url = strdup(url);
@@ -4094,9 +4042,7 @@ yh_rc yh_connect(yh_connector *connector, int timeout) {
     return YHR_INVALID_PARAMETERS;
   }
 
-  yh_rc rc;
-
-  rc = connector->bf->backend_connect(connector, timeout);
+  yh_rc rc = connector->bf->backend_connect(connector, timeout);
 
   if (rc != YHR_SUCCESS) {
     DBG_ERR("Failed when connecting: %s", yh_strerror(rc));
@@ -4126,11 +4072,10 @@ yh_rc yh_disconnect(yh_connector *connector) {
 yh_rc yh_string_to_capabilities(const char *capability,
                                 yh_capabilities *result) {
 
-  char *endptr;
+  char *endptr = NULL;
   char *saveptr = NULL;
   char *str = NULL;
   char tmp[2048] = {0};
-  uint64_t value;
 
   if (capability == NULL || result == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
@@ -4138,7 +4083,7 @@ yh_rc yh_string_to_capabilities(const char *capability,
   }
 
   errno = 0;
-  value = strtoull(capability, &endptr, 0);
+  uint64_t value = strtoull(capability, &endptr, 0);
 
   if (capability != endptr && errno != ERANGE) {
     uint64_t actual = htonll(value);
@@ -4495,8 +4440,8 @@ bool yh_verify_logs(yh_log_entry *logs, size_t n_items,
   }
 
   hash_ctx hashctx = NULL;
-  uint8_t previous_hash[32];
-  size_t previous_hash_len = 32;
+  uint8_t previous_hash[32] = {0};
+  size_t previous_hash_len = sizeof(previous_hash);
   int start;
   bool ret = false;
 
@@ -4544,7 +4489,7 @@ out:
 }
 
 yh_rc yh_string_to_domains(const char *domains, uint16_t *result) {
-  char *endptr;
+  char *endptr = NULL;
   char *saveptr = NULL;
   char *str = NULL;
   char tmp[64] = {0};

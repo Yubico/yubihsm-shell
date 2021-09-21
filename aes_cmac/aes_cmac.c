@@ -29,9 +29,7 @@ static const uint8_t zero[AES_BLOCK_SIZE];
 
 static void do_pad(uint8_t *data, uint8_t len) {
 
-  uint8_t i;
-
-  for (i = len; i < AES_BLOCK_SIZE; i++)
+  for (uint8_t i = len; i < AES_BLOCK_SIZE; i++)
     if (i == len)
       data[i] = 0x80;
     else
@@ -40,9 +38,7 @@ static void do_pad(uint8_t *data, uint8_t len) {
 
 static void do_xor(const uint8_t *a, uint8_t *b) {
 
-  uint8_t i = 0;
-
-  for (i = 0; i < AES_BLOCK_SIZE; i++) {
+  for (uint8_t i = 0; i < AES_BLOCK_SIZE; i++) {
     b[i] ^= a[i];
   }
 }
@@ -50,9 +46,7 @@ static void do_xor(const uint8_t *a, uint8_t *b) {
 static void do_shift_one_bit_left(const uint8_t *a, uint8_t *b,
                                   uint8_t *carry) {
 
-  int8_t i;
-
-  for (i = AES_BLOCK_SIZE - 1; i >= 0; i--) {
+  for (int8_t i = AES_BLOCK_SIZE - 1; i >= 0; i--) {
     b[i] = (a[i] << 1) | *carry;
 
     *carry = a[i] >> 7;
@@ -71,27 +65,22 @@ static void cmac_generate_subkey(const uint8_t *key, uint8_t *subkey) {
 int aes_cmac_encrypt(aes_cmac_context_t *ctx, const uint8_t *message,
                      const uint16_t message_len, uint8_t *mac) {
 
-  uint8_t n_blocks;
-  uint8_t i;
-  uint8_t remaining_bytes;
-
-  uint8_t M[AES_BLOCK_SIZE];
+  uint8_t M[AES_BLOCK_SIZE] = {0};
   uint8_t *ptr = (uint8_t *) message;
-  int rc;
 
   memcpy(mac, zero, AES_BLOCK_SIZE);
-  insecure_memzero(M, AES_BLOCK_SIZE);
 
+  uint8_t n_blocks;
   if (message_len == 0)
     n_blocks = 0;
   else
     n_blocks = (message_len + (AES_BLOCK_SIZE - 1)) / AES_BLOCK_SIZE - 1;
 
-  remaining_bytes = (message_len % AES_BLOCK_SIZE);
+  uint8_t remaining_bytes = (message_len % AES_BLOCK_SIZE);
 
-  for (i = 0; i < n_blocks; i++) {
+  for (uint8_t i = 0; i < n_blocks; i++) {
     do_xor(ptr, mac);
-    rc = aes_encrypt(mac, mac, ctx->aes_ctx);
+    int rc = aes_encrypt(mac, mac, ctx->aes_ctx);
     if (rc) {
       return rc;
     }
@@ -119,7 +108,7 @@ int aes_cmac_encrypt(aes_cmac_context_t *ctx, const uint8_t *message,
 
 int aes_cmac_init(aes_context *aes_ctx, aes_cmac_context_t *ctx) {
 
-  uint8_t L[AES_BLOCK_SIZE];
+  uint8_t L[AES_BLOCK_SIZE] = {0};
 
   ctx->aes_ctx = aes_ctx;
 
