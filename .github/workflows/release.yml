@@ -53,11 +53,9 @@ jobs:
 
           cd $YHSHELL_SRC_DIR/resources/win
           ./make_release_binaries.ps1 Win32 C:/vcpkg
-          cd $YHSHELL_SRC_DIR/resources/win
-          ./make_installer.ps1 Win32 $YHSHELL_SRC_DIR/resources/win/yubihsm-shell-x86 $env:WIX\bin "$MERGEDPATH"
 
           mkdir $env:GITHUB_WORKSPACE/artifact
-          cp -r $YHSHELL_SRC_DIR/resources/win/yubihsm-shell-x86.msi $env:GITHUB_WORKSPACE/artifact/
+          cp -r $YHSHELL_SRC_DIR/resources/win/yubihsm-shell-x86 $env:GITHUB_WORKSPACE/artifact/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
