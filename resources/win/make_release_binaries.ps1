@@ -35,7 +35,7 @@ cd $VCPKG_PATH
 
 $env:OPENSSL_ROOT_DIR ="$VCPKG_PATH/packages/openssl-windows_$ARCH-windows"
 ls $VCPKG_PATH
-ls $VCPKG_PATH/packages
+ls $VCPKG_PATH/packages/openssl_x86-windows
 
 # Build binaries
 mkdir $BUILD_DIR; cd $BUILD_DIR
