@@ -54,7 +54,7 @@ jobs:
           cd $YHSHELL_SRC_DIR/resources/win
           ./make_release_binaries.ps1 Win32 C:/vcpkg
           cd $YHSHELL_SRC_DIR/resources/win
-          ./repack_installer.ps1 x64 $env:WIX\bin "$MERGEDPATH"
+          ./repack_installer.ps1 Win32 $env:WIX\bin "$MERGEDPATH"
 
           mkdir $env:GITHUB_WORKSPACE/artifact
           cp -r $YHSHELL_SRC_DIR/resources/win/yubihsm-shell-x86 $env:GITHUB_WORKSPACE/artifact/
