@@ -30,6 +30,7 @@ Set-PSDebug -Trace 1
 
 # Install prerequisites
 cd $VCPKG_PATH
+.\vcpkg.exe update
 .\vcpkg.exe install openssl:$ARCH-windows
 .\vcpkg.exe install getopt:$ARCH-windows
 
