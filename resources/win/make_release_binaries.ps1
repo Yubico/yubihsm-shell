@@ -70,9 +70,9 @@ cp $license $LICENSES_DIR\openssl.txt
 $license=(Get-ChildItem -Path $VCPKG_PATH\buildtrees\getopt-win32\src\ -Filter LICENSE -Recurse -ErrorAction SilentlyContinue -Force | %{$_.FullName})
 cp $license $LICENSES_DIR\getopt.txt
 
-cd $WIN_DIR
-Compress-Archive -LiteralPath "$WIN_DIR/yubihsm-shell-$ARCH" -DestinationPath "$WIN_DIR/yubihsm-shell-$ARCH.zip"
-rm -r $BUILD_DIR
+#cd $WIN_DIR
+#Compress-Archive -LiteralPath "$WIN_DIR/yubihsm-shell-$ARCH" -DestinationPath "$WIN_DIR/yubihsm-shell-$ARCH.zip"
+#rm -r $BUILD_DIR
 rm -r $RELEASE_DIR
 
 Set-PSDebug -Trace 0
