@@ -34,9 +34,9 @@ cd $VCPKG_PATH
 .\vcpkg.exe install openssl:$ARCH-windows
 .\vcpkg.exe install getopt:$ARCH-windows
 
-$env:OPENSSL_ROOT_DIR ="$VCPKG_PATH/packages/openssl-windows_$ARCH-windows"
+$env:OPENSSL_ROOT_DIR ="$VCPKG_PATH/packages/openssl_$ARCH-windows"
 ls $VCPKG_PATH
-ls $VCPKG_PATH/packages/openssl_x86-windows
+ls $VCPKG_PATH/packages/openssl_$ARCH-windows
 
 # Build binaries
 mkdir $BUILD_DIR; cd $BUILD_DIR
