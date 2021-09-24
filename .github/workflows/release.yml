@@ -120,8 +120,10 @@ jobs:
 
       - name: Extract source
         run: |
+          set -x
           cd yubihsm-shell-src
           tar xf yubihsm-shell-.tar.gz
+          ls
 
       - name: Build and make MSI installer
         run: |
