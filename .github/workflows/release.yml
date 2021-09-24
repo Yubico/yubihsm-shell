@@ -123,7 +123,8 @@ jobs:
           set -x
           cd yubihsm-shell-src
           tar xf yubihsm-shell-.tar.gz
-          ls
+          pwd
+          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
 
       - name: Build and make MSI installer
         run: |
