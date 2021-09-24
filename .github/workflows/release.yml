@@ -105,3 +105,39 @@ jobs:
           name: yubihsm-shell-win64
           path: artifact
 
+  macos_amd64:
+    name: Build MacOS amd64 release
+    needs: source
+    runs-on: macos-10.15
+    env:
+      VERSION: 2.2.0
+      SO_VERSION: 2
+    steps:
+      - name: Download source from source job
+        uses: actions/download-artifact@v1
+        with:
+          name: yubihsm-shell-src
+
+      - name: Extract source
+        run: |
+          cd yubihsm-shell-src
+          tar xf yubihsm-shell-.tar.gz
+
+      - name: Build and make MSI installer
+        run: |
+          set -e -o pipefail
+          set -x
+
+          YHSHELL_SRC_DIR="$GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-"
+
+          cd $YHSHELL_SRC_DIR
+          ./make_release_binaries.sh amd $VERSION $SO_VERSION
+
+          mkdir $GITHUB_WORKSPACE/artifact
+          cp -r $YHSHELL_SRC_DIR/resources/macos/yubihsm-shell-darwin-amd-$VERSION $GITHUB_WORKSPACE/artifact/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: yubihsm-shell-darwin-amd
+          path: artifact
