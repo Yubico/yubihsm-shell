@@ -22,7 +22,7 @@ brew install cmake pkg-config gengetopt help2man openssl
 export PKG_CONFIG_PATH=$BREW_LIB/openssl/lib/pkgconfig
 
 SOURCE_DIR=$PWD
-MAC_DIR=$SOURCE_DIR/resources/macos
+MAC_DIR=$SOURCE_DIR/resources/release/macos
 OUTPUT=$MAC_DIR/yubihsm-shell-darwin-$ARCH-$VERSION/usr/local
 LICENSE_DIR=$OUTPUT/licenses
 
@@ -36,43 +36,28 @@ cp "$BREW_LIB/openssl/lib/libcrypto.1.1.dylib" "$OUTPUT/lib"
 chmod +w "$OUTPUT/lib/libcrypto.1.1.dylib"
 cp -r $BREW_CELLAR/openssl@1.1/1.1.1*/include/openssl "$OUTPUT/include"
 
-otool -L "$OUTPUT/lib/libyubihsm.$SO_VERSION.dylib"
+install_name_tool -id "@loader_path/../lib/libcrypto.1.1.dylib" "$OUTPUT/lib/libcrypto.1.1.dylib"
+
+install_name_tool -change "$BREW_LIB/openssl@1.1/lib/libcrypto.1.1.dylib" "@loader_path/../lib/libcrypto.1.1.dylib" "$OUTPUT/lib/libyubihsm.dylib"
+install_name_tool -change "$BREW_LIB/openssl@1.1/lib/libcrypto.1.1.dylib" "@loader_path/../lib/libcrypto.1.1.dylib" "$OUTPUT/lib/libyubihsm.$VERSION.dylib"
 install_name_tool -change "$BREW_LIB/openssl@1.1/lib/libcrypto.1.1.dylib" "@loader_path/../lib/libcrypto.1.1.dylib" "$OUTPUT/lib/libyubihsm.$SO_VERSION.dylib"
-otool -L "$OUTPUT/lib/libyubihsm.$SO_VERSION.dylib"
 
-sleep 2
-
-otool -L "$OUTPUT/lib/libyubihsm_usb.dylib"
 install_name_tool -change "$BREW_LIB/libusb/lib/libusb-1.0.0.dylib"  "@loader_path/../lib/libusb-1.0.0.dylib" "$OUTPUT/lib/libyubihsm_usb.dylib"
-otool -L "$OUTPUT/lib/libyubihsm_usb.dylib"
-
-sleep 2
+install_name_tool -change "$BREW_LIB/libusb/lib/libusb-1.0.0.dylib"  "@loader_path/../lib/libusb-1.0.0.dylib" "$OUTPUT/lib/libyubihsm_usb.$VERSION.dylib"
+install_name_tool -change "$BREW_LIB/libusb/lib/libusb-1.0.0.dylib"  "@loader_path/../lib/libusb-1.0.0.dylib" "$OUTPUT/lib/libyubihsm_usb.$SO_VERSION.dylib"
 
 #otool -L "$OUTPUT/lib/libyubihsm_http.dylib"
 #otool -L "$OUTPUT/lib/libykhsmauth.dylib"
-otool -L "$OUTPUT/lib/pkcs11/yubihsm_pkcs11.dylib"
-install_name_tool -change "$BREW_LIB/openssl@1.1/lib/libcrypto.1.1.dylib" "@loader_path/../lib/libcrypto.1.1.dylib" "$OUTPUT/lib/pkcs11/yubihsm_pkcs11.dylib"
-otool -L "$OUTPUT/lib/pkcs11/yubihsm_pkcs11.dylib"
 
-sleep 2
+install_name_tool -change "$BREW_LIB/openssl@1.1/lib/libcrypto.1.1.dylib" "@loader_path/../lib/libcrypto.1.1.dylib" "$OUTPUT/lib/pkcs11/yubihsm_pkcs11.dylib"
+
+install_name_tool -change "$BREW_LIB/openssl@1.1/lib/libcrypto.1.1.dylib" "@loader_path/../lib/libcrypto.1.1.dylib" "$OUTPUT/bin/yubihsm-wrap"
+install_name_tool -change "$BREW_LIB/openssl@1.1/lib/libcrypto.1.1.dylib" "@loader_path/../lib/libcrypto.1.1.dylib" "$OUTPUT/bin/yubihsm-auth"
 
 otool -L "$OUTPUT/bin/yubihsm-shell"
 install_name_tool -change "$BREW_LIB/openssl@1.1/lib/libcrypto.1.1.dylib" "@loader_path/../lib/libcrypto.1.1.dylib" "$OUTPUT/bin/yubihsm-shell"
 otool -L "$OUTPUT/bin/yubihsm-shell"
 
-sleep 2
-
-otool -L "$OUTPUT/bin/yubihsm-wrap"
-install_name_tool -change "$BREW_LIB/openssl@1.1/lib/libcrypto.1.1.dylib" "@loader_path/../lib/libcrypto.1.1.dylib" "$OUTPUT/bin/yubihsm-wrap"
-otool -L "$OUTPUT/bin/yubihsm-wrap"
-
-sleep 2
-
-otool -L "$OUTPUT/bin/yubihsm-auth"
-install_name_tool -change "$BREW_LIB/openssl@1.1/lib/libcrypto.1.1.dylib" "@loader_path/../lib/libcrypto.1.1.dylib" "$OUTPUT/bin/yubihsm-auth"
-otool -L "$OUTPUT/bin/yubihsm-auth"
-
-sleep 2
 
 #install_name_tool -id "@loader_path/../lib/libyubihsm.$SO_VERSION.dylib" "$OUTPUT/lib/libyubihsm.$SO_VERSION.dylib"
 #install_name_tool -id "@loader_path/../lib/libyubihsm_usb.$SO_VERSION.dylib" "$OUTPUT/lib/libyubihsm_usb.$SO_VERSION.dylib"
