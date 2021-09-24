@@ -47,7 +47,7 @@ install_name_tool -add_rpath "@loader_path/../lib" "$OUTPUT/lib/libyubihsm.2.dyl
 install_name_tool -add_rpath "@loader_path/../lib" "$OUTPUT/lib/libyubihsm_usb.2.dylib"
 install_name_tool -add_rpath "@loader_path/../lib" "$OUTPUT/lib/libyubihsm_http.2.dylib"
 install_name_tool -add_rpath "@loader_path/../lib" "$OUTPUT/lib/libykhsmauth.2.dylib"
-install_name_tool -add_rpath "@loader_path/../lib" "$OUTPUT/lib/pkcs11/yubihsm_pkcs11.2.dylib"
+install_name_tool -add_rpath "@loader_path/../lib" "$OUTPUT/lib/pkcs11/yubihsm_pkcs11.dylib"
 install_name_tool -add_rpath "@loader_path/../lib" "$OUTPUT/bin/yubihsm-shell"
 install_name_tool -add_rpath "@loader_path/../lib" "$OUTPUT/bin/yubihsm-wrap"
 install_name_tool -add_rpath "@loader_path/../lib" "$OUTPUT/bin/yubihsm-auth"
