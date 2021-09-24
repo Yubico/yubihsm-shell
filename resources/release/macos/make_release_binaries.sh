@@ -46,51 +46,11 @@ install_name_tool -change "$BREW_LIB/libusb/lib/libusb-1.0.0.dylib"  "@loader_pa
 install_name_tool -change "$BREW_LIB/libusb/lib/libusb-1.0.0.dylib"  "@loader_path/../lib/libusb-1.0.0.dylib" "$OUTPUT/lib/libyubihsm_usb.$VERSION.dylib"
 install_name_tool -change "$BREW_LIB/libusb/lib/libusb-1.0.0.dylib"  "@loader_path/../lib/libusb-1.0.0.dylib" "$OUTPUT/lib/libyubihsm_usb.$SO_VERSION.dylib"
 
-#otool -L "$OUTPUT/lib/libyubihsm_http.dylib"
-#otool -L "$OUTPUT/lib/libykhsmauth.dylib"
-
 install_name_tool -change "$BREW_LIB/openssl@1.1/lib/libcrypto.1.1.dylib" "@loader_path/../lib/libcrypto.1.1.dylib" "$OUTPUT/lib/pkcs11/yubihsm_pkcs11.dylib"
 
+install_name_tool -change "$BREW_LIB/openssl@1.1/lib/libcrypto.1.1.dylib" "@loader_path/../lib/libcrypto.1.1.dylib" "$OUTPUT/bin/yubihsm-shell"
 install_name_tool -change "$BREW_LIB/openssl@1.1/lib/libcrypto.1.1.dylib" "@loader_path/../lib/libcrypto.1.1.dylib" "$OUTPUT/bin/yubihsm-wrap"
 install_name_tool -change "$BREW_LIB/openssl@1.1/lib/libcrypto.1.1.dylib" "@loader_path/../lib/libcrypto.1.1.dylib" "$OUTPUT/bin/yubihsm-auth"
-
-otool -L "$OUTPUT/bin/yubihsm-shell"
-install_name_tool -change "$BREW_LIB/openssl@1.1/lib/libcrypto.1.1.dylib" "@loader_path/../lib/libcrypto.1.1.dylib" "$OUTPUT/bin/yubihsm-shell"
-otool -L "$OUTPUT/bin/yubihsm-shell"
-
-
-#install_name_tool -id "@loader_path/../lib/libyubihsm.$SO_VERSION.dylib" "$OUTPUT/lib/libyubihsm.$SO_VERSION.dylib"
-#install_name_tool -id "@loader_path/../lib/libyubihsm_usb.$SO_VERSION.dylib" "$OUTPUT/lib/libyubihsm_usb.$SO_VERSION.dylib"
-#install_name_tool -id "@loader_path/../lib/libyubihsm_http.$SO_VERSION.dylib" "$OUTPUT/lib/libyubihsm_http.$SO_VERSION.dylib"
-#install_name_tool -id "@loader_path/../lib/libykhsmauth.$SO_VERSION.dylib" "$OUTPUT/lib/libykhsmauth.$SO_VERSION.dylib"
-#install_name_tool -id "@loader_path/../lib/pkcs11/yubihsm_pkcs11.dylib" "$OUTPUT/lib/pkcs11/yubihsm_pkcs11.dylib"
-#install_name_tool -id "@loader_path/../lib/libcrypto.1.1.dylib" "$OUTPUT/lib/libcrypto.1.1.dylib"
-#
-#install_name_tool -add_rpath "@loader_path/../lib" "$OUTPUT/lib/libyubihsm.$SO_VERSION.dylib"
-#install_name_tool -add_rpath "@loader_path/../lib" "$OUTPUT/lib/libyubihsm_usb.$SO_VERSION.dylib"
-#install_name_tool -add_rpath "@loader_path/../lib" "$OUTPUT/lib/libyubihsm_http.$SO_VERSION.dylib"
-#install_name_tool -add_rpath "@loader_path/../lib" "$OUTPUT/lib/libykhsmauth.$SO_VERSION.dylib"
-#install_name_tool -add_rpath "@loader_path/../lib" "$OUTPUT/lib/pkcs11/yubihsm_pkcs11.dylib"
-#install_name_tool -add_rpath "@loader_path/../lib" "$OUTPUT/bin/yubihsm-shell"
-#install_name_tool -add_rpath "@loader_path/../lib" "$OUTPUT/bin/yubihsm-wrap"
-#install_name_tool -add_rpath "@loader_path/../lib" "$OUTPUT/bin/yubihsm-auth"
-#
-#install_name_tool -change "$BREW_LIB/openssl@1.1/lib/libcrypto.1.1.dylib" "@loader_path/../lib/libcrypto.1.1.dylib" "$OUTPUT/lib/libyubihsm.$SO_VERSION.dylib"
-#
-#install_name_tool -change "$OUTPUT/lib/libyubihsm.$SO_VERSION.dylib" "@loader_path/../lib/libyubihsm.$SO_VERSION.dylib" "$OUTPUT/lib/pkcs11/yubihsm_pkcs11.dylib"
-#install_name_tool -change "$BREW_LIB/openssl@1.1/lib/libcrypto.1.1.dylib" "@loader_path/../lib/libcrypto.1.1.dylib" "$OUTPUT/lib/pkcs11/yubihsm_pkcs11.dylib"
-#
-#install_name_tool -change "$BREW_LIB/openssl@1.1/lib/libcrypto.1.1.dylib" "@loader_path/../lib/libcrypto.1.1.dylib" "$OUTPUT/bin/yubihsm-wrap"
-#install_name_tool -change "$OUTPUT/lib/libyubihsm.$SO_VERSION.dylib" "@loader_path/../lib/libyubihsm.$SO_VERSION.dylib" "$OUTPUT/bin/yubihsm-wrap"
-#
-#install_name_tool -change "$BREW_LIB/openssl@1.1/lib/libcrypto.1.1.dylib" "@loader_path/../lib/libcrypto.1.1.dylib" "$OUTPUT/bin/yubihsm-shell"
-#install_name_tool -change "$OUTPUT/lib/libyubihsm.$SO_VERSION.dylib" "@loader_path/../lib/libyubihsm.2.dylib" "$OUTPUT/bin/yubihsm-shell"
-##install_name_tool -delete_rpath "$OUTPUT/lib/" "$OUTPUT/bin/yubihsm-shell"
-#
-#install_name_tool -change "$BREW_LIB/openssl@1.1/lib/libcrypto.1.1.dylib" "@loader_path/../lib/libcrypto.1.1.dylib" "$OUTPUT/bin/yubihsm-auth"
-#install_name_tool -change "$OUTPUT/lib/libykhsmauth.$SO_VERSION.dylib" "@loader_path/../lib/libykhsmauth.2.dylib" "$OUTPUT/bin/yubihsm-auth"
-##install_name_tool -delete_rpath "$OUTPUT/lib/" "$OUTPUT/bin/yubihsm-auth"rkblvvfevvkdltdnhfjtfujlvncjeivu
-
 
 for file in `find $OUTPUT/lib $OUTPUT/bin -type f`; do
   if otool -L $file | grep -q '$OUTPUT'; then

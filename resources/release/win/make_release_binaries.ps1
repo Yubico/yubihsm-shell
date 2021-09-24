@@ -21,7 +21,7 @@ if($CMAKE_ARCH -eq "Win32") {
 }
 
 $WIN_DIR = "$PSScriptRoot"
-$SOURCE_DIR="$PSScriptRoot/../.."
+$SOURCE_DIR="$PSScriptRoot/../../.."
 $BUILD_DIR="$WIN_DIR/build_release"
 $RELEASE_DIR="$WIN_DIR/yubihsm-shell-$ARCH"
 $LICENSES_DIR="$RELEASE_DIR/licenses"
@@ -35,8 +35,6 @@ cd $VCPKG_PATH
 .\vcpkg.exe install getopt:$ARCH-windows
 
 $env:OPENSSL_ROOT_DIR ="$VCPKG_PATH/packages/openssl_$ARCH-windows"
-ls $VCPKG_PATH
-ls $VCPKG_PATH/packages/openssl_$ARCH-windows
 
 # Build binaries
 mkdir $BUILD_DIR; cd $BUILD_DIR
@@ -73,6 +71,5 @@ cp $license $LICENSES_DIR\getopt.txt
 #cd $WIN_DIR
 #Compress-Archive -LiteralPath "$WIN_DIR/yubihsm-shell-$ARCH" -DestinationPath "$WIN_DIR/yubihsm-shell-$ARCH.zip"
 rm -r $BUILD_DIR
-#rm -r $RELEASE_DIR
 
 Set-PSDebug -Trace 0

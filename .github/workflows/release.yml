@@ -54,7 +54,7 @@ jobs:
           cd $YHSHELL_SRC_DIR/resources/win
           ./make_release_binaries.ps1 Win32 C:/vcpkg
           cd $YHSHELL_SRC_DIR/resources/win
-          ./repack_installer.ps1 Win32 $env:WIX\bin "$MERGEDPATH"
+          ./repack_installer.ps1 x86 $env:WIX\bin "$MERGEDPATH"
 
           mkdir $env:GITHUB_WORKSPACE/artifact
           cp -r $YHSHELL_SRC_DIR/resources/win/yubihsm-shell-x86 $env:GITHUB_WORKSPACE/artifact/
@@ -133,9 +133,11 @@ jobs:
 
           cd $YHSHELL_SRC_DIR
           ./resources/release/macos/make_release_binaries.sh amd $VERSION $SO_VERSION
+          cd $YHSHELL_SRC_DIR/resources/release/macos/make_installer.sh amd64 $YHSHELL_SRC_DIR/resources/release/macos/yubihsm-shell-darwin-amd-$VERSION
 
           mkdir $GITHUB_WORKSPACE/artifact
           cp -r $YHSHELL_SRC_DIR/resources/release/macos/yubihsm-shell-darwin-amd-$VERSION $GITHUB_WORKSPACE/artifact/
+          cp -r $YHSHELL_SRC_DIR/resources/release/macos/yubihsm2-sdk-darwin-amd64.pkg $GITHUB_WORKSPACE/artifact/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
