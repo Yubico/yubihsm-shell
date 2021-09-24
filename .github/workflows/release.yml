@@ -124,14 +124,14 @@ jobs:
           cd yubihsm-shell-src
           tar xf yubihsm-shell-.tar.gz
           pwd
-          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+          ls
 
       - name: Build and make MSI installer
         run: |
           set -e -o pipefail
           set -x
 
-          YHSHELL_SRC_DIR="$GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-"
+          YHSHELL_SRC_DIR="$GITHUB_WORKSPACE/yubihsm-shell-src/yubihsm-shell-"
 
           cd $YHSHELL_SRC_DIR
           ./make_release_binaries.sh amd $VERSION $SO_VERSION
