@@ -1,6 +1,6 @@
 if($args.length -lt 3)
 {
-    echo "Usage: ./repack_installer.ps1 <x86|x64> <WIX_PATH> <MERGE_MODULE_PATH>"
+    echo "Usage: ./repack_installer.ps1 <x86|x64> <WIX_PATH> <MERGE_MODULE_PATH> [<SIGNED_BINARIES_PATH>]"
     echo ""
     echo "This is a script to build an MSI installer for yubihsm"
     echo ""
@@ -9,6 +9,7 @@ if($args.length -lt 3)
     echo ""
     echo "   WIX_PATH               Absolute path to the directory where WIX Tools binaries (heat.exe, candle.exe and light.exe) are located"
     echo "   MERGE_MODULE_PATH      Absolute path to the redistribution module (tex Microsoft_VC142_CRT_x86.msm or Microsoft_VC142_CRT_x64.msm)"
+    echo "   SIGNED_BINARIES_PATH   (Optional) Absolute path to signed binaries. If not spacified, YUBIHSM-SHELL/resources/release/win/yubihsm-shell-[x86|x64] is assumed"
     exit
 }
 
@@ -18,7 +19,15 @@ $MERGE_MODULE=$args[2] # Absolute path containing Microsoft_VC142_CRT_x86.msm or
 
 $WIN_DIR = "$PSScriptRoot"
 $SOURCE_DIR="$PSScriptRoot/../../.."
-$RELEASE_DIR="$WIN_DIR/yubihsm-shell-$ARCH"
+
+if($args.length -eq 4)
+{
+    $RELEASE_DIR=$args[3]
+}
+else
+{
+    $RELEASE_DIR="$WIN_DIR/yubihsm-shell-$ARCH"
+}
 
 Set-PSDebug -Trace 1
 
