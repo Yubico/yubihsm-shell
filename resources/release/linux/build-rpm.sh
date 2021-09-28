@@ -64,16 +64,16 @@ fi
 
 
 export INPUT=/shared
-export OUTPUT=/shared/resources/release/build/$PLATFORM/yubihsm-shell
-rm -rf "${OUTPUT}"
-mkdir -p "${OUTPUT}"
+export OUTPUT=/shared/resources/release/linux/build/$PLATFORM/yubihsm-shell
+rm -rf $OUTPUT
+mkdir -p $OUTPUT
 
 # These 2 lines can be replaced by the command "rpmdev-setuptree", but this command seems to add macros that force check paths that do not exist
 mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 echo '%_topdir %(echo $HOME)/rpmbuild' > ~/.rpmmacros
 
 export RPM_DIR=~/rpmbuild
-cp /shared/resources/release/yubihsm-shell.spec $RPM_DIR/SPECS/
+cp /shared/resources/release/linux/yubihsm-shell.spec $RPM_DIR/SPECS/
 
 QA_SKIP_BUILD_ROOT=1 rpmbuild -bb $RPM_DIR/SPECS/yubihsm-shell.spec
 cp $RPM_DIR/RPMS/x86_64/*.rpm $OUTPUT
@@ -81,7 +81,7 @@ cp $RPM_DIR/RPMS/x86_64/*.rpm $OUTPUT
 LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
 mkdir -p $LICENSE_DIR
 pushd "/shared" &>/dev/null
-  cp -r resources/release/licenses $LICENSE_DIR/
+  cp -r resources/release/linux/licenses $LICENSE_DIR/
   for lf in $LICENSE_DIR/licenses/*; do
 	  chmod 644 $lf
   done

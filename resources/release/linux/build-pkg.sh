@@ -37,16 +37,14 @@ mkdir -p $OUTPUT
 pushd "/tmp" &>/dev/null
   rm -rf yubihsm-shell
   git clone "$INPUT" yubihsm-shell
-  #cp -r "$INPUT" yubihsm-shell
   pushd "yubihsm-shell" &>/dev/null
-    #gbp buildpackage -us -uc
     dpkg-buildpackage
   popd &>/dev/null
   cp *.deb $OUTPUT
 popd &>/dev/null
 
 LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
-mkdir -p LICENSE_DIR
+mkdir -p $LICENSE_DIR
 pushd "/shared" &>/dev/null
   cp -r resources/release/linux/licenses $LICENSE_DIR/
   for lf in $LICENSE_DIR/licenses/*; do
