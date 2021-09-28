@@ -107,7 +107,7 @@ static yh_rc compute_cryptogram_ex(aes_context *aes_ctx, uint8_t type,
                                    const uint8_t context[SCP_CONTEXT_LEN],
                                    uint16_t L, uint8_t *key_out) {
 
-  uint8_t n_iterations;
+  uint8_t n_iterations = 0;
   uint8_t input[16 + SCP_CONTEXT_LEN] = {0};
   uint8_t *ptr = input;
 
@@ -1569,8 +1569,6 @@ yh_rc yh_util_sign_pkcs1v1_5(yh_session *session, uint16_t key_id, bool hashed,
         return YHR_INVALID_PARAMETERS;
     }
 
-  yh_rc yrc;
-
 #pragma pack(push, 1)
   union {
     struct {
@@ -1589,8 +1587,8 @@ yh_rc yh_util_sign_pkcs1v1_5(yh_session *session, uint16_t key_id, bool hashed,
   memcpy(data.bytes, in, in_len);
   data_len = in_len;
 
-  yrc = yh_send_secure_msg(session, YHC_SIGN_PKCS1, data.buf, data_len + 2,
-                           &response_cmd, out, out_len);
+  yh_rc yrc = yh_send_secure_msg(session, YHC_SIGN_PKCS1, data.buf,
+                                 data_len + 2, &response_cmd, out, out_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send SIGN PKCS1 command: %s", yh_strerror(yrc));
     return yrc;
