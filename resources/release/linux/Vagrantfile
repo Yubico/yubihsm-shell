@@ -69,7 +69,7 @@ Vagrant.configure("2") do |config|
 
   config.vm.define "focal" do |focal|
     focal.vm.box = "generic/ubuntu2004"
-    focal.vm.synced_folder "../..", "/shared", type: "rsync",
+    focal.vm.synced_folder "../../..", "/shared", type: "rsync",
       rsync__args: ["--verbose", "--archive", "-z", "--copy-links"]
     focal.vm.provision "shell", :path => "build-pkg.sh", :args => "ubuntu2004", :privileged => false
   end

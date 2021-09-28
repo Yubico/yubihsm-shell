@@ -30,24 +30,25 @@ sudo apt-get install -y build-essential      \
 
 
 export INPUT=/shared/
-export OUTPUT=/shared/resources/release/build/$PLATFORM/yubihsm-shell
+export OUTPUT=/shared/resources/release/linux/build/$PLATFORM/yubihsm-shell
 rm -rf $OUTPUT
 mkdir -p $OUTPUT
 
 pushd "/tmp" &>/dev/null
   rm -rf yubihsm-shell
   git clone "$INPUT" yubihsm-shell
+  #cp -r "$INPUT" yubihsm-shell
   pushd "yubihsm-shell" &>/dev/null
-
-    gbp buildpackage -us -uc
+    #gbp buildpackage -us -uc
+    dpkg-buildpackage
   popd &>/dev/null
-  cp *.deb "${OUTPUT}"
+  cp *.deb $OUTPUT
 popd &>/dev/null
 
 LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
-mkdir -p $LICESE_DIR
+mkdir -p LICENSE_DIR
 pushd "/shared" &>/dev/null
-  cp -r resources/release/licenses $LICENSE_DIR/
+  cp -r resources/release/linux/licenses $LICENSE_DIR/
   for lf in $LICENSE_DIR/licenses/*; do
 	  chmod 644 $lf
   done
