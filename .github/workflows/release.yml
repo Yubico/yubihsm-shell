@@ -150,9 +150,6 @@ jobs:
     name: Build Ubuntu 18.04 release
     needs: source
     runs-on: ubuntu-18.04
-    env:
-      VERSION: 2.2.0
-      SO_VERSION: 2
     steps:
       - name: checkout
         uses: actions/checkout@v2
@@ -181,6 +178,40 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: yubihsm-shell-ubuntu1804-amd64
+          path: artifact
+
+  ubuntu2004:
+    name: Build Ubuntu 20.04 release
+    needs: source
+    runs-on: ubuntu-20.04
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: Install prerequisites
+        run: |
+          set -x
+          sudo apt -q update
+          sudo apt install libpcsclite-dev gengetopt help2man libedit-dev libcurl4-openssl-dev libssl-dev libusb-1.0-0-dev debhelper dh-exec cmake
+
+      - name: Build release package
+        run: |
+          set -e -o pipefail
+          set -x
+          mkdir $GITHUB_WORKSPACE/artifact
+          dpkg-buildpackage -b --no-sign
+          cp ../*.deb $GITHUB_WORKSPACE/artifact/
+
+          LICENSE_DIR="$GITHUB_WORKSPACE/artifact/share/yubihsm-shell"
+          mkdir -p $LICENSE_DIR
+          cp -r resources/release/linux/licenses $LICENSE_DIR/
+          for lf in $LICENSE_DIR/licenses/*; do
+            chmod 644 $lf
+          done
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: yubihsm-shell-ubuntu2004-amd64
           path: artifact
 
 

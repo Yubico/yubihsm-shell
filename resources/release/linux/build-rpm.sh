@@ -49,6 +49,7 @@ sudo yum -y install chrpath              \
 elif [ "${PLATFORM:0:6}" == "fedora" ]; then
   sudo dnf -y update
   sudo dnf -y install binutils         \
+                      git              \
                       chrpath          \
                       cmake            \
                       gengetopt        \
