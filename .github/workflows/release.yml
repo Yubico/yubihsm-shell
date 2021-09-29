@@ -145,3 +145,31 @@ jobs:
         with:
           name: yubihsm-shell-darwin-amd
           path: artifact
+
+  ubuntu1804:
+    name: Build Ubuntu 18.04 release
+    needs: source
+    runs-on: ubuntu-18.04
+    env:
+      VERSION: 2.2.0
+      SO_VERSION: 2
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: Install prerequisites
+        run: |
+          set -x
+          sudo apt -q update
+          sudo apt install libpcsclite-dev gengetopt help2man libedit-dev libcurl4-openssl-dev libssl-dev libusb-1.0-0-dev
+
+      - name: Build and make MSI installer
+        run: |
+          set -e -o pipefail
+          set -x
+
+          dpkg-buildpackage -b --no-sign
+
+          pwd
+          ls
+          ls ..
+
