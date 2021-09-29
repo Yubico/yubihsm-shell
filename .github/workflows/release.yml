@@ -175,6 +175,7 @@ jobs:
           cp -r resources/release/linux/licenses $LICENSE_DIR/
           for lf in $LICENSE_DIR/licenses/*; do
             chmod 644 $lf
+          done
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
