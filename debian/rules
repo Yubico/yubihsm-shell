@@ -13,7 +13,7 @@ override_dh_install:
 	dh_install --fail-missing
 
 override_dh_auto_configure:
-	dh_auto_configure -- -DWITHOUT_YKYH=1 -DRELEASE_BUILD=1 -DENABLE_YKHSM_AUTH=OFF
+	dh_auto_configure -- -DWITHOUT_YKYH=1 -DRELEASE_BUILD=1
 
 override_dh_auto_test:
 	true
