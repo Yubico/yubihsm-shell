@@ -148,7 +148,6 @@ jobs:
 
   ubuntu1804:
     name: Build Ubuntu 18.04 release
-    needs: source
     runs-on: ubuntu-18.04
     steps:
       - name: checkout
@@ -182,7 +181,6 @@ jobs:
 
   ubuntu2004:
     name: Build Ubuntu 20.04 release
-    needs: source
     runs-on: ubuntu-20.04
     steps:
       - name: checkout
