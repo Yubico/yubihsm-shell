@@ -1429,6 +1429,7 @@ yh_rc yh_util_list_objects(yh_session *session, uint16_t id,
                            yh_object_descriptor *objects, size_t *n_objects) {
 
   if (session == NULL || objects == NULL || n_objects == NULL ||
+      capabilities == NULL ||
       (label != NULL && strlen(label) > YH_OBJ_LABEL_LEN)) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
@@ -1657,6 +1658,11 @@ yh_rc yh_util_sign_pkcs1v1_5(yh_session *session, uint16_t key_id, bool hashed,
     return YHR_INVALID_PARAMETERS;
   }
 
+  if (in_len > YH_MSG_BUF_SIZE - 2) {
+    DBG_ERR("Too much data, must be < %d", YH_MSG_BUF_SIZE - 2);
+    return YHR_INVALID_PARAMETERS;
+  }
+
   if (hashed)
     switch (in_len) {
       case 20:
@@ -1674,7 +1680,7 @@ yh_rc yh_util_sign_pkcs1v1_5(yh_session *session, uint16_t key_id, bool hashed,
   union {
     struct {
       uint16_t key_id;
-      uint8_t bytes[YH_MSG_BUF_SIZE];
+      uint8_t bytes[YH_MSG_BUF_SIZE - 2];
     };
     uint8_t buf[1];
   } data = {0};
@@ -1967,7 +1973,8 @@ yh_rc yh_util_import_rsa_key(yh_session *session, uint16_t *key_id,
                              const uint8_t *q) {
 
   if (session == NULL || key_id == NULL || label == NULL ||
-      strlen(label) > YH_OBJ_LABEL_LEN || p == NULL || q == NULL) {
+      capabilities == NULL || strlen(label) > YH_OBJ_LABEL_LEN || p == NULL ||
+      q == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
@@ -2000,7 +2007,7 @@ yh_rc yh_util_import_ec_key(yh_session *session, uint16_t *key_id,
                             yh_algorithm algorithm, const uint8_t *s) {
 
   if (session == NULL || key_id == NULL || label == NULL ||
-      strlen(label) > YH_OBJ_LABEL_LEN || s == NULL) {
+      capabilities == NULL || strlen(label) > YH_OBJ_LABEL_LEN || s == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
@@ -2038,7 +2045,7 @@ yh_rc yh_util_import_ed_key(yh_session *session, uint16_t *key_id,
                             yh_algorithm algorithm, const uint8_t *k) {
 
   if (session == NULL || key_id == NULL || label == NULL ||
-      strlen(label) > YH_OBJ_LABEL_LEN || k == NULL) {
+      capabilities == NULL || strlen(label) > YH_OBJ_LABEL_LEN || k == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
@@ -2062,7 +2069,7 @@ yh_rc yh_util_import_hmac_key(yh_session *session, uint16_t *key_id,
                               size_t key_len) {
 
   if (session == NULL || key_id == NULL || label == NULL ||
-      strlen(label) > YH_OBJ_LABEL_LEN || key == NULL) {
+      capabilities == NULL || strlen(label) > YH_OBJ_LABEL_LEN || key == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
@@ -2135,7 +2142,7 @@ static yh_rc generate_key(yh_session *session, uint16_t *key_id,
                           yh_algorithm algorithm) {
 
   if (session == NULL || key_id == NULL || label == NULL ||
-      strlen(label) > YH_OBJ_LABEL_LEN) {
+      capabilities == NULL || strlen(label) > YH_OBJ_LABEL_LEN) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
@@ -2278,7 +2285,7 @@ yh_rc yh_util_generate_hmac_key(yh_session *session, uint16_t *key_id,
                                 yh_algorithm algorithm) {
 
   if (session == NULL || label == NULL || strlen(label) > YH_OBJ_LABEL_LEN ||
-      key_id == NULL) {
+      key_id == NULL || capabilities == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
@@ -2857,7 +2864,7 @@ yh_rc yh_util_import_opaque(yh_session *session, uint16_t *object_id,
                             size_t in_len) {
 
   if (session == NULL || object_id == NULL || label == NULL ||
-      strlen(label) > YH_OBJ_LABEL_LEN || in == NULL) {
+      capabilities == NULL || strlen(label) > YH_OBJ_LABEL_LEN || in == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
@@ -3000,7 +3007,8 @@ yh_rc yh_util_import_template(yh_session *session, uint16_t *object_id,
                               size_t in_len) {
 
   if (session == NULL || object_id == NULL || label == NULL ||
-      strlen(label) > YH_OBJ_LABEL_LEN || in == NULL || in_len == 0) {
+      capabilities == NULL || strlen(label) > YH_OBJ_LABEL_LEN || in == NULL ||
+      in_len == 0) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
@@ -3100,7 +3108,8 @@ yh_rc yh_util_import_authentication_key(
   if (session == NULL || key_id == NULL || label == NULL ||
       strlen(label) > YH_OBJ_LABEL_LEN || capabilities == NULL ||
       delegated_capabilities == NULL || (key_enc == NULL && key_enc_len > 0) ||
-      (key_mac == NULL && key_mac_len > 0) || algorithm == 0) {
+      (key_mac == NULL && key_mac_len > 0) || key_enc_len + key_mac_len > 64 ||
+      algorithm == 0) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
@@ -3202,7 +3211,7 @@ yh_rc yh_util_change_authentication_key(yh_session *session, uint16_t *key_id,
 
   if (session == NULL || key_id == NULL || algorithm == 0 ||
       (key_enc == NULL && key_enc_len > 0) ||
-      (key_mac == NULL && key_mac_len > 0)) {
+      (key_mac == NULL && key_mac_len > 0) || key_enc_len + key_mac_len > 64) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
@@ -4198,7 +4207,7 @@ yh_rc yh_string_to_capabilities(const char *capability,
     return YHR_SUCCESS;
   }
 
-  if (strlen(capability) > sizeof(tmp)) {
+  if (strlen(capability) > sizeof(tmp) - 1) {
     return YHR_BUFFER_TOO_SMALL;
   }
   strncpy(tmp, capability, sizeof(tmp) - 1);
