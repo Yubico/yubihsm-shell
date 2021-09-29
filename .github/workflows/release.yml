@@ -143,7 +143,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
-          name: yubihsm-shell-darwin-amd
+          name: yubihsm-shell-darwin-amd64
           path: artifact
 
   ubuntu1804:
@@ -162,14 +162,24 @@ jobs:
           sudo apt -q update
           sudo apt install libpcsclite-dev gengetopt help2man libedit-dev libcurl4-openssl-dev libssl-dev libusb-1.0-0-dev debhelper dh-exec cmake
 
-      - name: Build and make MSI installer
+      - name: Build release package
         run: |
           set -e -o pipefail
           set -x
-
+          mkdir $GITHUB_WORKSPACE/artifact
           dpkg-buildpackage -b --no-sign
+          cp ../*.deb $GITHUB_WORKSPACE/artifact/
 
-          pwd
-          ls
-          ls ..
+          LICENSE_DIR="$GITHUB_WORKSPACE/artifact/share/yubihsm-shell"
+          mkdir -p $LICENSE_DIR
+          cp -r resources/release/linux/licenses $LICENSE_DIR/
+          for lf in $LICENSE_DIR/licenses/*; do
+            chmod 644 $lf
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: yubihsm-shell-ubuntu1804-amd64
+          path: artifact
+
 
