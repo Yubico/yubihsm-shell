@@ -24,7 +24,6 @@
 #include <stdbool.h>
 
 struct yh_session {
-  struct yh_connector *parent;
   uint16_t authkey_id;
   uint8_t key_enc[SCP_KEY_LEN];
   uint8_t key_mac[SCP_KEY_LEN];

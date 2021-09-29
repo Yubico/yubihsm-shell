@@ -343,10 +343,9 @@ yh_rc yh_send_plain_msg(yh_connector *connector, yh_cmd cmd,
                                       : YHR_SUCCESS;
 }
 
-static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
-                              const uint8_t *data, size_t data_len,
-                              yh_cmd *response_cmd, uint8_t *response,
-                              size_t *response_len) {
+static yh_rc _send_secure_msg(Scp_ctx *session, yh_cmd cmd, const uint8_t *data,
+                              size_t data_len, yh_cmd *response_cmd,
+                              uint8_t *response, size_t *response_len) {
 
   if (session == NULL || (data_len != 0 && data == NULL) ||
       data_len > SCP_MSG_BUF_SIZE || response_cmd == NULL || response == NULL ||
@@ -381,24 +380,23 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
   aes_add_padding(msg.msg.raw, &len);
 
   aes_context aes_ctx = {0};
-  if (aes_set_key(session->s.s_enc, SCP_KEY_LEN, &aes_ctx)) {
+  if (aes_set_key(session->s_enc, SCP_KEY_LEN, &aes_ctx)) {
     DBG_ERR("aes_set_key %s", yh_strerror(YHR_GENERIC_ERROR));
     return YHR_GENERIC_ERROR;
   }
 
   yh_rc yrc = YHR_SUCCESS;
   uint8_t encrypted_ctr[AES_BLOCK_SIZE];
-  if (aes_encrypt(session->s.ctr, encrypted_ctr, &aes_ctx)) {
+  if (aes_encrypt(session->ctr, encrypted_ctr, &aes_ctx)) {
     DBG_ERR("aes_encrypt %s", yh_strerror(YHR_GENERIC_ERROR));
     yrc = YHR_GENERIC_ERROR;
     goto cleanup;
   }
 
-  memcpy(enc_msg.mac_chaining_value, session->s.mac_chaining_value,
-         SCP_PRF_LEN);
+  memcpy(enc_msg.mac_chaining_value, session->mac_chaining_value, SCP_PRF_LEN);
   enc_msg.msg.st.cmd = YHC_SESSION_MESSAGE;
   enc_msg.msg.st.len = htons(len + SCP_MAC_LEN + 1);
-  enc_msg.msg.st.data[0] = session->s.sid;
+  enc_msg.msg.st.data[0] = session->sid;
 
   if (aes_cbc_encrypt(msg.msg.raw, enc_msg.msg.st.data + 1, len, encrypted_ctr,
                       &aes_ctx)) {
@@ -407,19 +405,18 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
     goto cleanup;
   }
 
-  yrc = compute_full_mac(enc_msg.mac_chaining_value, len + SCP_PRF_LEN + 4,
-                         session->s.s_mac, SCP_KEY_LEN,
-                         session->s.mac_chaining_value);
+  yrc =
+    compute_full_mac(enc_msg.mac_chaining_value, len + SCP_PRF_LEN + 4,
+                     session->s_mac, SCP_KEY_LEN, session->mac_chaining_value);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("compute_full_mac %s", yh_strerror(yrc));
     goto cleanup;
   }
 
-  memcpy(enc_msg.msg.st.data + len + 1, session->s.mac_chaining_value,
+  memcpy(enc_msg.msg.st.data + len + 1, session->mac_chaining_value,
          SCP_MAC_LEN);
 
-  yrc =
-    send_msg(session->parent, &enc_msg.msg, &msg.msg, session->s.identifier);
+  yrc = send_msg(session->parent, &enc_msg.msg, &msg.msg, session->identifier);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("send_msg %s", yh_strerror(yrc));
     goto cleanup;
@@ -444,11 +441,11 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
   }
 
   uint8_t mac[SCP_PRF_LEN];
-  memcpy(msg.mac_chaining_value, session->s.mac_chaining_value, SCP_PRF_LEN);
+  memcpy(msg.mac_chaining_value, session->mac_chaining_value, SCP_PRF_LEN);
   yrc =
     compute_full_mac(msg.mac_chaining_value,
                      ntohs(msg.msg.st.len) + (SCP_PRF_LEN + 3 - SCP_MAC_LEN),
-                     session->s.s_rmac, SCP_KEY_LEN, mac);
+                     session->s_rmac, SCP_KEY_LEN, mac);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("compute_full_mac %s", yh_strerror(yrc));
     goto cleanup;
@@ -463,8 +460,8 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
     goto cleanup;
   }
 
-  if (session->s.sid != msg.msg.st.data[0]) {
-    DBG_ERR("Session ID mismatch, expected %d, got %d", session->s.sid,
+  if (session->sid != msg.msg.st.data[0]) {
+    DBG_ERR("Session ID mismatch, expected %d, got %d", session->sid,
             msg.msg.st.data[0]);
     yrc = YHR_DEVICE_INVALID_SESSION;
     goto cleanup;
@@ -486,7 +483,7 @@ static yh_rc _send_secure_msg(yh_session *session, yh_cmd cmd,
     goto cleanup;
   }
 
-  increment_ctr(session->s.ctr, SCP_PRF_LEN);
+  increment_ctr(session->ctr, SCP_PRF_LEN);
 
   DBG_NET(&enc_msg.msg, dump_response);
 
@@ -521,13 +518,13 @@ yh_rc yh_send_secure_msg(yh_session *session, yh_cmd cmd, const uint8_t *data,
 
   size_t saved_len = *response_len;
 
-  yh_rc yrc = _send_secure_msg(session, cmd, data, data_len, response_cmd,
+  yh_rc yrc = _send_secure_msg(&session->s, cmd, data, data_len, response_cmd,
                                response, response_len);
   if ((yrc == YHR_DEVICE_INVALID_SESSION ||
        yrc == YHR_DEVICE_AUTHENTICATION_FAILED) &&
       session->authkey_id) {
     DBG_INFO("Recreating session");
-    yrc = yh_create_session(session->parent, session->authkey_id,
+    yrc = yh_create_session(session->s.parent, session->authkey_id,
                             session->key_enc, SCP_KEY_LEN, session->key_mac,
                             SCP_KEY_LEN, true, &session);
     if (yrc != YHR_SUCCESS) {
@@ -535,8 +532,8 @@ yh_rc yh_send_secure_msg(yh_session *session, yh_cmd cmd, const uint8_t *data,
     }
 
     *response_len = saved_len;
-    yrc = _send_secure_msg(session, cmd, data, data_len, response_cmd, response,
-                           response_len);
+    yrc = _send_secure_msg(&session->s, cmd, data, data_len, response_cmd,
+                           response, response_len);
   }
   return yrc;
 }
@@ -722,7 +719,7 @@ yh_rc yh_begin_create_session(yh_connector *connector, uint16_t authkey_id,
   }
 
   // Save link back to connector
-  new_session->parent = connector;
+  new_session->s.parent = connector;
 
   memcpy(new_session->context, host_challenge, *host_challenge_len);
 
@@ -813,7 +810,7 @@ yh_rc yh_finish_create_session_ext(yh_connector *connector, yh_session *session,
                                    uint8_t *card_cryptogram,
                                    size_t card_cryptogram_len) {
 
-  if (connector != session->parent) {
+  if (connector != session->s.parent) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
@@ -907,7 +904,8 @@ yh_rc yh_finish_create_session(yh_session *session, const uint8_t *key_senc,
     memcpy(msg.st.data + 1 + SCP_HOST_CRYPTO_LEN, session->s.mac_chaining_value,
            SCP_MAC_LEN);
 
-    yrc = send_msg(session->parent, &msg, &response_msg, session->s.identifier);
+    yrc =
+      send_msg(session->s.parent, &msg, &response_msg, session->s.identifier);
     if (yrc != YHR_SUCCESS) {
       DBG_ERR("send_msg %s", yh_strerror(yrc));
       return yrc;
