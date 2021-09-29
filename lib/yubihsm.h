@@ -914,10 +914,10 @@ yh_rc yh_create_session_derived(yh_connector *connector, uint16_t authkey_id,
  * @param connector Connector to the device
  * @param authkey_id Object ID of the Authentication Key used to authenticate
  *the session
- * @param key_enc Encryption key used to derive the session encryption key
- * @param key_enc_len Length of the encryption key.
- * @param key_mac MAC key used to derive the session MAC key
- * @param key_mac_len Length of the MAC key.
+ * @param key_enc Key used to derive the session encryption key
+ * @param key_enc_len Length of key_enc
+ * @param key_mac Key used to derive the session MAC keys
+ * @param key_mac_len Length of key_mac
  * @param recreate_session If true, the session will be recreated if expired.
  *This caches the password in memory
  * @param session created session
@@ -936,6 +936,31 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
                         const uint8_t *key_enc, size_t key_enc_len,
                         const uint8_t *key_mac, size_t key_mac_len,
                         bool recreate_session, yh_session **session);
+
+/**
+ * Create a session that uses named encryption keys from a platform-specific key
+ *store to derive session-specific keys
+ *
+ * @param connector Connector to the device
+ * @param authkey_id Object ID of the Authentication Key used to authenticate
+ *the session
+ * @param key_enc_name Name of key used to derive the session encryption key
+ * @param key_mac_name Name of key used to derive the session MAC keys
+ * @param session created session
+ *
+ * @return #YHR_SUCCESS if successful.
+ *         #YHR_INVALID_PARAMETERS if input parameters are NULL or incorrect.
+ *         See #yh_rc for other possible errors
+ *
+ * @see <a
+ *href="https://developers.yubico.com/YubiHSM2/Concepts/Session.html">Session</a>,
+ * <a
+ *href="https://developers.yubico.com/YubiHSM2/Concepts/Object.html">Authentication
+ *Key</a>
+ **/
+yh_rc yh_create_session_ex(yh_connector *connector, uint16_t authkey_id,
+                           const char *key_enc_name, const char *key_mac_name,
+                           yh_session **session);
 
 /**
  * Begin creating a session where the session keys are calculated outside the

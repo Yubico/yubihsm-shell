@@ -652,6 +652,98 @@ cs_failure:
   return yrc;
 }
 
+yh_rc yh_create_session_ex(yh_connector *connector, uint16_t authkey_id,
+                           const char *key_enc_name, const char *key_mac_name,
+                           yh_session **session) {
+
+  if (connector == NULL || key_enc_name == NULL || key_mac_name == NULL ||
+      session == NULL) {
+    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  yh_session *new_session = *session;
+
+  uint8_t host_challenge[SCP_HOST_CHAL_LEN] = {0};
+  size_t host_challenge_len = 0;
+  uint8_t card_cryptogram[SCP_CARD_CRYPTO_LEN] = {0};
+  size_t card_cryptogram_len = sizeof(card_cryptogram);
+  aes_context enc_ctx = {0};
+  aes_context mac_ctx = {0};
+
+  yh_rc yrc =
+    yh_begin_create_session(connector, authkey_id, NULL, host_challenge,
+                            &host_challenge_len, card_cryptogram,
+                            &card_cryptogram_len, &new_session);
+  if (yrc != YHR_SUCCESS)
+    goto cs_failure;
+
+  // Derive session keys
+
+  if (aes_load_key(key_enc_name, &enc_ctx)) {
+    DBG_ERR("aes_load_key %s failed", key_enc_name);
+    yrc = YHR_GENERIC_ERROR;
+    goto cs_failure;
+  }
+
+  yrc =
+    compute_cryptogram_ex(&enc_ctx, SCP_S_ENC_DERIVATION, new_session->context,
+                          SCP_KEY_LEN * 8, new_session->s.s_enc);
+  if (yrc != YHR_SUCCESS)
+    goto cs_failure;
+
+  if (aes_load_key(key_mac_name, &mac_ctx)) {
+    DBG_ERR("aes_load_key %s failed", key_mac_name);
+    yrc = YHR_GENERIC_ERROR;
+    goto cs_failure;
+  }
+
+  yrc =
+    compute_cryptogram_ex(&mac_ctx, SCP_S_MAC_DERIVATION, new_session->context,
+                          SCP_KEY_LEN * 8, new_session->s.s_mac);
+  if (yrc != YHR_SUCCESS)
+    goto cs_failure;
+
+  yrc =
+    compute_cryptogram_ex(&mac_ctx, SCP_S_RMAC_DERIVATION, new_session->context,
+                          SCP_KEY_LEN * 8, new_session->s.s_rmac);
+  if (yrc != YHR_SUCCESS)
+    goto cs_failure;
+
+  yrc = yh_finish_create_session(new_session, new_session->s.s_enc, YH_KEY_LEN,
+                                 new_session->s.s_mac, YH_KEY_LEN,
+                                 new_session->s.s_rmac, YH_KEY_LEN,
+                                 card_cryptogram, card_cryptogram_len);
+  if (yrc != YHR_SUCCESS)
+    goto cs_failure;
+
+  aes_destroy(&enc_ctx);
+  aes_destroy(&mac_ctx);
+
+  new_session->authkey_id = 0;
+  memset(new_session->key_enc, 0, SCP_KEY_LEN);
+  memset(new_session->key_mac, 0, SCP_KEY_LEN);
+
+  *session = new_session;
+
+  return YHR_SUCCESS;
+
+cs_failure:
+  aes_destroy(&enc_ctx);
+  aes_destroy(&mac_ctx);
+
+  // Only clear and free if we didn't reuse the session
+  if (new_session != *session) {
+    insecure_memzero(new_session, sizeof(yh_session));
+    free(new_session);
+    new_session = NULL;
+  }
+
+  DBG_ERR("%s", yh_strerror(yrc));
+
+  return yrc;
+}
+
 yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
                                   uint8_t **context, uint8_t *card_cryptogram,
                                   size_t card_cryptogram_len,

@@ -285,8 +285,12 @@ int aes_set_key(const uint8_t *key, uint16_t key_len, aes_context *ctx) {
 
 int aes_load_key(const char *key, aes_context *ctx) {
 #ifdef _WIN32_BCRYPT
+  (void) key;
+  (void) ctx;
   return -1;
 #else
+  (void) key;
+  (void) ctx;
   return -1;
 #endif
 }
