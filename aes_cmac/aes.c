@@ -283,6 +283,14 @@ int aes_set_key(const uint8_t *key, uint16_t key_len, aes_context *ctx) {
   return 0;
 }
 
+int aes_load_key(const char *key, aes_context *ctx) {
+#ifdef _WIN32_BCRYPT
+  return -1;
+#else
+  return -1;
+#endif
+}
+
 int aes_encrypt(const uint8_t *in, uint8_t *out, aes_context *ctx) {
 #ifdef _WIN32_BCRYPT
   NTSTATUS status = STATUS_SUCCESS;
