@@ -38,7 +38,8 @@ pushd "/tmp" &>/dev/null
   rm -rf yubihsm-shell
   git clone "$INPUT" yubihsm-shell
   pushd "yubihsm-shell" &>/dev/null
-    dpkg-buildpackage
+    #dpkg-buildpackage
+    dpkg-buildpackage -b --no-sign
   popd &>/dev/null
   cp *.deb $OUTPUT
 popd &>/dev/null
