@@ -11,6 +11,7 @@ if [ "$PLATFORM" == "centos7" ]; then
                       devtoolset-7-gcc-c++ \
                       devtoolset-7-make    \
                       chrpath              \
+                      git                  \
                       cmake                \
                       openssl-devel        \
                       libedit-devel        \
@@ -36,6 +37,7 @@ elif [ "$PLATFORM" == "centos8" ]; then
   sudo dnf config-manager -y --set-enabled powertools
 
 sudo yum -y install chrpath              \
+                    git                  \
                     cmake3               \
                     gengetopt            \
                     libedit-devel        \

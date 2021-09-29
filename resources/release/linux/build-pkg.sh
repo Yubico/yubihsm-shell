@@ -7,7 +7,6 @@ PLATFORM=$1
 export DEBIAN_FRONTEND=noninteractive
 
 sudo apt-get update && sudo  apt-get dist-upgrade -y
-#sudo apt-get install -y build-essential libusb-1.0.0-dev pkg-config chrpath git
 sudo apt-get install -y build-essential      \
                         chrpath              \
                         git                  \
@@ -38,8 +37,12 @@ pushd "/tmp" &>/dev/null
   rm -rf yubihsm-shell
   git clone "$INPUT" yubihsm-shell
   pushd "yubihsm-shell" &>/dev/null
-    #dpkg-buildpackage
-    dpkg-buildpackage -b --no-sign
+    if [ "${PLATFORM:0:6}" == "debian" ] || [ "$PLATFORM" == "ubuntu1804" ]; then
+      dpkg-buildpackage -b --no-sign
+    else
+      dpkg-buildpackage
+    fi
+
   popd &>/dev/null
   cp *.deb $OUTPUT
 popd &>/dev/null
