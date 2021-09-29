@@ -27,7 +27,7 @@ cp -r $INPUT/* .
 %build
 rm -rf build
 mkdir build && cd build
-$CMAKE -DRELEASE_BUILD=1 -DWITHOUT_YKYH=1 -DWITHOUT_MANPAGES=1 -DYUBIHSM_INSTALL_LIB_DIR="%{buildroot}/%{_prefix}/lib64/" -DYUBIHSM_INSTALL_INC_DIR="%{buildroot}/%{_prefix}/include/" -DYUBIHSM_INSTALL_BIN_DIR="%{buildroot}/%{_prefix}/bin/" -DYUBIHSM_INSTALL_MAN_DIR="%{buildroot}/%{_prefix}/man/" -DYUBIHSM_INSTALL_PKGCONFIG_DIR="%{buildroot}/%{_prefix}/lib64/pkgconfig/" ..
+$CMAKE -DRELEASE_BUILD=1 -DWITHOUT_YKYH=1 -DWITHOUT_MANPAGES=1 -DENABLE_YKHSM_AUTH=OFF -DYUBIHSM_INSTALL_LIB_DIR="%{buildroot}/%{_prefix}/lib64/" -DYUBIHSM_INSTALL_INC_DIR="%{buildroot}/%{_prefix}/include/" -DYUBIHSM_INSTALL_BIN_DIR="%{buildroot}/%{_prefix}/bin/" -DYUBIHSM_INSTALL_MAN_DIR="%{buildroot}/%{_prefix}/man/" -DYUBIHSM_INSTALL_PKGCONFIG_DIR="%{buildroot}/%{_prefix}/lib64/pkgconfig/" ..
 make
 
 #Would be nice to use %license, but that macro does not seem to work on Centos, so the license needs to be installed manually
@@ -75,5 +75,5 @@ install -m 0644 ../LICENSE %{buildroot}/%{_prefix}/share/licenses/%{name}
 
 
 %changelog
-* Fri Apr 14 2021 Aveen Ismail <aveen.ismail@yubico.com> - 2.2.0
+* Wed Sep 29 2021 Aveen Ismail <aveen.ismail@yubico.com> - 2.2.0
 - Releasing version 2.2.0
