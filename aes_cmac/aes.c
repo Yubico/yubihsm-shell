@@ -289,9 +289,29 @@ int aes_load_key(const char *key, aes_context *ctx) {
   (void) ctx;
   return -1;
 #else
-  (void) key;
-  (void) ctx;
-  return -1;
+  const uint8_t default_enc[] = {0x09, 0x0b, 0x47, 0xdb, 0xed, 0x59,
+                                 0x56, 0x54, 0x90, 0x1d, 0xee, 0x1c,
+                                 0xc6, 0x55, 0xe4, 0x20};
+  const uint8_t default_mac[] = {0x59, 0x2f, 0xd4, 0x83, 0xf7, 0x59,
+                                 0xe2, 0x99, 0x09, 0xa0, 0x4c, 0x45,
+                                 0x05, 0xd2, 0xce, 0x0a};
+  ctx->key_len = sizeof(default_enc);
+  if (key == NULL || aes_ecb(ctx->key_len) == NULL) {
+    return -1;
+  }
+  if (!ctx->ctx) {
+    ctx->ctx = EVP_CIPHER_CTX_new();
+    if (!ctx->ctx) {
+      return -2;
+    }
+  }
+  if (!strcmp(key, "default_enc"))
+    memcpy(ctx->key, default_enc, ctx->key_len);
+  else if (!strcmp(key, "default_mac"))
+    memcpy(ctx->key, default_mac, ctx->key_len);
+  else
+    memset(ctx->key, 0, ctx->key_len);
+  return 0;
 #endif
 }
 
