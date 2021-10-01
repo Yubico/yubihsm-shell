@@ -32,7 +32,7 @@ cmake -DRELEASE_BUILD=1 -DWITHOUT_YKYH=1 -DWITHOUT_MANPAGES=1 -DCMAKE_INSTALL_PR
 make install
 cd $OUTPUT/lib
 ln -s "libcrypto.1.1.dylib" "libcrypto.dylib"
-cp "$BREW_LIB/openssl/lib/libcrypto.1.1.dylib" "$OUTPUT/lib"
+cp "$BREW_LIB/openssl@1.1/lib/libcrypto.1.1.dylib" "$OUTPUT/lib"
 chmod +w "$OUTPUT/lib/libcrypto.1.1.dylib"
 cp -r $BREW_CELLAR/openssl@1.1/1.1.1*/include/openssl "$OUTPUT/include"
 
