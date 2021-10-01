@@ -17,9 +17,9 @@ else
   exit
 fi
 
-brew install cmake pkg-config gengetopt help2man openssl
+brew install cmake pkg-config gengetopt help2man openssl@1.1
 
-export PKG_CONFIG_PATH=$BREW_LIB/openssl/lib/pkgconfig
+export PKG_CONFIG_PATH=$BREW_LIB/openssl@1.1/lib/pkgconfig
 
 SOURCE_DIR=$PWD
 MAC_DIR=$SOURCE_DIR/resources/release/macos

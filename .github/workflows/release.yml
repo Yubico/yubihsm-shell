@@ -129,6 +129,12 @@ jobs:
           set -e -o pipefail
           set -x
 
+          brew install openssl@1.1
+          ls /usr/local/opt
+          ls /usr/local/opt/openssl@1.1
+          ls /usr/local/opt/openssl@1.1/lib
+
+
           YHSHELL_SRC_DIR="$GITHUB_WORKSPACE/yubihsm-shell-src/yubihsm-shell-"
 
           cd $YHSHELL_SRC_DIR
