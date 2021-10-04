@@ -14,14 +14,12 @@
 # limitations under the License.
 #
 
-cmake_minimum_required (VERSION 2.8)
-if (CMAKE_VERSION VERSION_GREATER 3.0.0)
-  # policy CMP0025 is to get AppleClang identifier rather than Clang for both
-  # this matters since the apple compiler accepts different flags.
-  cmake_policy(SET CMP0025 NEW)
-  cmake_policy(SET CMP0042 NEW)
-  cmake_policy(SET CMP0054 NEW)
-endif ()
+cmake_minimum_required (VERSION 3.5)
+# policy CMP0025 is to get AppleClang identifier rather than Clang for both
+# this matters since the apple compiler accepts different flags.
+cmake_policy(SET CMP0025 NEW)
+cmake_policy(SET CMP0042 NEW)
+cmake_policy(SET CMP0054 NEW)
 
 project (yubihsm-shell)
 
@@ -86,13 +84,7 @@ else()
   set (CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -Wl,--strip-all -fPIE -pie")
 endif ()
 
-
-# cmake 3.1 or greater can do this automatically; assume gcc otherwise.
-if ((${CMAKE_MAJOR_VERSION} GREATER 2) AND (${CMAKE_MINOR_VERSION} GREATER 0))
-  set (CMAKE_C_STANDARD 11)
-else ()
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu1x")
-endif ()
+set (CMAKE_C_STANDARD 11)
 
 set (yubihsm_shell_VERSION_MAJOR 2)
 set (yubihsm_shell_VERSION_MINOR 2)
@@ -100,7 +92,7 @@ set (yubihsm_shell_VERSION_PATCH 0)
 set (VERSION "${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}")
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-  set(ENV{PKG_CONFIG_PATH} "/usr/local/opt/openssl/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}")
+  set(ENV{PKG_CONFIG_PATH} "/usr/local/opt/openssl@1.1/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}")
   set(ENV{PKG_CONFIG_PATH} "/usr/local/opt/libedit/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}")
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
   set(ENV{PKG_CONFIG_PATH} "/usr/libdata/pkgconfig:$ENV{PKG_CONFIG_PATH}")
@@ -213,9 +205,7 @@ if(NOT BUILD_ONLY_LIB)
     pkg_search_module (LIBPCSC REQUIRED libpcsclite)
   elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
     set (LIBPCSC_LDFLAGS "winscard.lib")
-  endif()
-
-  if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     set(LIBPCSC_LDFLAGS "-Wl,-framework -Wl,PCSC")
   endif()
 
