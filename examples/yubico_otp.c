@@ -67,7 +67,7 @@ static const struct {
     "\x33\xc6\x9e\x7f\x24\x9e", 0x0001, 0x13a7, 0x24, 0x00, 0xc63c, 0x1c86,
     "\x7e\x0f\xc9\x87\x35\x16\x72\xc0\x70\xfa\x5c\x05\x95\xec\x68\xb8"}};
 
-uint16_t yubikey_crc16(const uint8_t *buf, size_t buf_size) {
+static uint16_t yubikey_crc16(const uint8_t *buf, size_t buf_size) {
   uint16_t m_crc = 0xffff;
 
   while (buf_size--) {

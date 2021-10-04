@@ -325,7 +325,7 @@ static bool put_credential(ykhsmauth_state *state, char *mgmkey, char *label,
   return true;
 }
 
-bool reset_device(ykhsmauth_state *state) {
+static bool reset_device(ykhsmauth_state *state) {
   ykhsmauth_rc ykhsmauthrc;
 
   ykhsmauthrc = ykhsmauth_reset(state);
@@ -340,7 +340,7 @@ bool reset_device(ykhsmauth_state *state) {
   return true;
 }
 
-bool get_mgmkey_retries(ykhsmauth_state *state) {
+static bool get_mgmkey_retries(ykhsmauth_state *state) {
   ykhsmauth_rc ykhsmauthrc;
   uint8_t retries;
 
@@ -356,7 +356,7 @@ bool get_mgmkey_retries(ykhsmauth_state *state) {
   return true;
 }
 
-void print_key(char *prompt, uint8_t *key, size_t len) {
+static void print_key(char *prompt, uint8_t *key, size_t len) {
   fprintf(stdout, "%s: ", prompt);
   for (size_t i = 0; i < len; i++) {
     fprintf(stdout, "%02x", key[i]);
@@ -364,7 +364,7 @@ void print_key(char *prompt, uint8_t *key, size_t len) {
   fprintf(stdout, "\n");
 }
 
-bool get_challenge(ykhsmauth_state *state, char *label) {
+static bool get_challenge(ykhsmauth_state *state, char *label) {
   ykhsmauth_rc ykhsmauthrc;
   char label_parsed[YKHSMAUTH_MAX_LABEL_LEN + 2] = {0};
   size_t label_parsed_len = sizeof(label_parsed);
@@ -388,7 +388,7 @@ bool get_challenge(ykhsmauth_state *state, char *label) {
   return true;
 }
 
-bool get_pubkey(ykhsmauth_state *state, char *label) {
+static bool get_pubkey(ykhsmauth_state *state, char *label) {
   ykhsmauth_rc ykhsmauthrc;
   char label_parsed[YKHSMAUTH_MAX_LABEL_LEN + 2] = {0};
   size_t label_parsed_len = sizeof(label_parsed);
@@ -411,7 +411,7 @@ bool get_pubkey(ykhsmauth_state *state, char *label) {
   return true;
 }
 
-bool get_version(ykhsmauth_state *state) {
+static bool get_version(ykhsmauth_state *state) {
   ykhsmauth_rc ykhsmauthrc;
   char version[64] = {0};
   size_t version_len = sizeof(version);
