@@ -161,12 +161,11 @@ static bool parse_touch_policy(enum enum_touch touch_policy,
 
 static bool delete_credential(ykhsmauth_state *state, char *mgmkey,
                               char *label) {
-  ykhsmauth_rc ykhsmauthrc;
   uint8_t mgmkey_parsed[YKHSMAUTH_PW_LEN] = {0};
   size_t mgmkey_parsed_len = sizeof(mgmkey_parsed);
   char label_parsed[YKHSMAUTH_MAX_LABEL_LEN + 2] = {0};
   size_t label_parsed_len = sizeof(label_parsed);
-  uint8_t retries;
+  uint8_t retries = 0;
 
   if (parse_key("Management key", mgmkey, mgmkey_parsed, &mgmkey_parsed_len) ==
       false) {
@@ -177,8 +176,9 @@ static bool delete_credential(ykhsmauth_state *state, char *mgmkey,
     return false;
   }
 
-  ykhsmauthrc = ykhsmauth_delete(state, mgmkey_parsed, mgmkey_parsed_len,
-                                 label_parsed, &retries);
+  ykhsmauth_rc ykhsmauthrc =
+    ykhsmauth_delete(state, mgmkey_parsed, mgmkey_parsed_len, label_parsed,
+                     &retries);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Unable to delete credential: %s, %d retries left\n",
             ykhsmauth_strerror(ykhsmauthrc), retries);
@@ -191,11 +191,10 @@ static bool delete_credential(ykhsmauth_state *state, char *mgmkey,
 }
 
 static bool list_credentials(ykhsmauth_state *state) {
-  ykhsmauth_rc ykhsmauthrc;
-  ykhsmauth_list_entry list[32];
+  ykhsmauth_list_entry list[32] = {0};
   size_t list_items = sizeof(list) / sizeof(list[0]);
 
-  ykhsmauthrc = ykhsmauth_list_keys(state, list, &list_items);
+  ykhsmauth_rc ykhsmauthrc = ykhsmauth_list_keys(state, list, &list_items);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Unable to list credentials: %s\n",
             ykhsmauth_strerror(ykhsmauthrc));
@@ -222,7 +221,6 @@ static bool put_credential(ykhsmauth_state *state, char *mgmkey, char *label,
                            char *derivation_password, char *key_enc,
                            char *key_mac, char *key_priv, char *credpassword,
                            enum enum_touch touch_policy) {
-  ykhsmauth_rc ykhsmauthrc;
   uint8_t mgmkey_parsed[YKHSMAUTH_PW_LEN] = {0};
   size_t mgmkey_parsed_len = sizeof(mgmkey_parsed);
   char label_parsed[YKHSMAUTH_MAX_LABEL_LEN + 2] = {0};
@@ -234,7 +232,7 @@ static bool put_credential(ykhsmauth_state *state, char *mgmkey, char *label,
   uint8_t cpw_parsed[YKHSMAUTH_PW_LEN + 2] = {0};
   size_t cpw_parsed_len = sizeof(cpw_parsed);
   uint8_t touch_policy_parsed = 0;
-  uint8_t retries;
+  uint8_t retries = 0;
 
   if (parse_key("Management key", mgmkey, mgmkey_parsed, &mgmkey_parsed_len) ==
       false) {
@@ -308,7 +306,7 @@ static bool put_credential(ykhsmauth_state *state, char *mgmkey, char *label,
     return false;
   }
 
-  ykhsmauthrc =
+  ykhsmauth_rc ykhsmauthrc =
     ykhsmauth_put(state, mgmkey_parsed, mgmkey_parsed_len, label_parsed,
                   strlen(key_priv) ? YKHSMAUTH_YUBICO_ECP256_ALGO
                                    : YKHSMAUTH_YUBICO_AES128_ALGO,
@@ -326,9 +324,7 @@ static bool put_credential(ykhsmauth_state *state, char *mgmkey, char *label,
 }
 
 static bool reset_device(ykhsmauth_state *state) {
-  ykhsmauth_rc ykhsmauthrc;
-
-  ykhsmauthrc = ykhsmauth_reset(state);
+  ykhsmauth_rc ykhsmauthrc = ykhsmauth_reset(state);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Unable to reset device: %s\n",
             ykhsmauth_strerror(ykhsmauthrc));
@@ -341,10 +337,8 @@ static bool reset_device(ykhsmauth_state *state) {
 }
 
 static bool get_mgmkey_retries(ykhsmauth_state *state) {
-  ykhsmauth_rc ykhsmauthrc;
-  uint8_t retries;
-
-  ykhsmauthrc = ykhsmauth_get_mgmkey_retries(state, &retries);
+  uint8_t retries = 0;
+  ykhsmauth_rc ykhsmauthrc = ykhsmauth_get_mgmkey_retries(state, &retries);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Unable to get mgmkey retries: %s\n",
             ykhsmauth_strerror(ykhsmauthrc));
@@ -365,7 +359,6 @@ static void print_key(char *prompt, uint8_t *key, size_t len) {
 }
 
 static bool get_challenge(ykhsmauth_state *state, char *label) {
-  ykhsmauth_rc ykhsmauthrc;
   char label_parsed[YKHSMAUTH_MAX_LABEL_LEN + 2] = {0};
   size_t label_parsed_len = sizeof(label_parsed);
   uint8_t challenge[YKHSMAUTH_YUBICO_ECP256_PUBKEY_LEN] = {0};
@@ -375,7 +368,7 @@ static bool get_challenge(ykhsmauth_state *state, char *label) {
     return false;
   }
 
-  ykhsmauthrc =
+  ykhsmauth_rc ykhsmauthrc =
     ykhsmauth_get_challenge(state, label_parsed, challenge, &challenge_len);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Unable to get challenge: %s\n",
@@ -389,7 +382,6 @@ static bool get_challenge(ykhsmauth_state *state, char *label) {
 }
 
 static bool get_pubkey(ykhsmauth_state *state, char *label) {
-  ykhsmauth_rc ykhsmauthrc;
   char label_parsed[YKHSMAUTH_MAX_LABEL_LEN + 2] = {0};
   size_t label_parsed_len = sizeof(label_parsed);
   uint8_t pubkey[YKHSMAUTH_YUBICO_ECP256_PUBKEY_LEN] = {0};
@@ -399,7 +391,8 @@ static bool get_pubkey(ykhsmauth_state *state, char *label) {
     return false;
   }
 
-  ykhsmauthrc = ykhsmauth_get_pubkey(state, label_parsed, pubkey, &pubkey_len);
+  ykhsmauth_rc ykhsmauthrc =
+    ykhsmauth_get_pubkey(state, label_parsed, pubkey, &pubkey_len);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Unable to get pubkey: %s\n",
             ykhsmauth_strerror(ykhsmauthrc));
@@ -412,11 +405,10 @@ static bool get_pubkey(ykhsmauth_state *state, char *label) {
 }
 
 static bool get_version(ykhsmauth_state *state) {
-  ykhsmauth_rc ykhsmauthrc;
   char version[64] = {0};
   size_t version_len = sizeof(version);
 
-  ykhsmauthrc = ykhsmauth_get_version(state, version, version_len);
+  ykhsmauth_rc ykhsmauthrc = ykhsmauth_get_version(state, version, version_len);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Unable to get version: %s\n",
             ykhsmauth_strerror(ykhsmauthrc));
@@ -430,7 +422,6 @@ static bool get_version(ykhsmauth_state *state) {
 
 static bool calculate_session_keys(ykhsmauth_state *state, char *label,
                                    char *credpassword, char *context) {
-  ykhsmauth_rc ykhsmauthrc;
   char label_parsed[YKHSMAUTH_MAX_LABEL_LEN + 2] = {0};
   size_t label_parsed_len = sizeof(label_parsed);
   uint8_t context_parsed[YKHSMAUTH_CONTEXT_LEN] = {0};
@@ -443,7 +434,7 @@ static bool calculate_session_keys(ykhsmauth_state *state, char *label,
   size_t key_s_enc_len = sizeof(key_s_enc);
   size_t key_s_mac_len = sizeof(key_s_mac);
   size_t key_s_rmac_len = sizeof(key_s_rmac);
-  uint8_t retries;
+  uint8_t retries = 0;
 
   if (parse_label("Label", label, label_parsed, &label_parsed_len) == false) {
     return false;
@@ -459,7 +450,7 @@ static bool calculate_session_keys(ykhsmauth_state *state, char *label,
     return false;
   }
 
-  ykhsmauthrc =
+  ykhsmauth_rc ykhsmauthrc =
     ykhsmauth_calculate(state, label_parsed, context_parsed, context_parsed_len,
                         cpw_parsed, cpw_parsed_len, key_s_enc, key_s_enc_len,
                         key_s_mac, key_s_mac_len, key_s_rmac, key_s_rmac_len,
@@ -481,12 +472,11 @@ static bool calculate_session_keys(ykhsmauth_state *state, char *label,
 }
 
 static bool put_mgmkey(ykhsmauth_state *state, char *mgmkey, char *new_mgmkey) {
-  ykhsmauth_rc ykhsmauthrc;
   uint8_t mgmkey_parsed[YKHSMAUTH_PW_LEN] = {0};
   size_t mgmkey_parsed_len = sizeof(mgmkey_parsed);
   uint8_t new_mgmkey_parsed[YKHSMAUTH_PW_LEN] = {0};
   size_t new_mgmkey_parsed_len = sizeof(mgmkey_parsed);
-  uint8_t retries;
+  uint8_t retries = 0;
 
   if (parse_key("Management key", mgmkey, mgmkey_parsed, &mgmkey_parsed_len) ==
       false) {
@@ -498,7 +488,7 @@ static bool put_mgmkey(ykhsmauth_state *state, char *mgmkey, char *new_mgmkey) {
     return false;
   }
 
-  ykhsmauthrc =
+  ykhsmauth_rc ykhsmauthrc =
     ykhsmauth_put_mgmkey(state, mgmkey_parsed, mgmkey_parsed_len,
                          new_mgmkey_parsed, new_mgmkey_parsed_len, &retries);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
@@ -513,9 +503,8 @@ static bool put_mgmkey(ykhsmauth_state *state, char *mgmkey, char *new_mgmkey) {
 }
 
 int main(int argc, char *argv[]) {
-  struct gengetopt_args_info args_info;
+  struct gengetopt_args_info args_info = {0};
   ykhsmauth_state *state = NULL;
-  ykhsmauth_rc ykhsmauthrc;
 
   int rc = EXIT_FAILURE;
 
@@ -523,7 +512,7 @@ int main(int argc, char *argv[]) {
     goto main_exit;
   }
 
-  ykhsmauthrc = ykhsmauth_init(&state, args_info.verbose_arg);
+  ykhsmauth_rc ykhsmauthrc = ykhsmauth_init(&state, args_info.verbose_arg);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Failed to initialize libykhsmauth\n");
     goto main_exit;
