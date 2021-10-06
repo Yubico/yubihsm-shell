@@ -102,9 +102,6 @@ int main(void) {
                                   sizeof(password) - 1, false, &session);
   assert(yrc == YHR_SUCCESS);
 
-  yrc = yh_authenticate_session(session);
-  assert(yrc == YHR_SUCCESS);
-
   authkey = 2;
 
   yh_util_delete_object(session, authkey, YH_AUTHENTICATION_KEY);

@@ -163,9 +163,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     g_ctx.mutex = NULL;
   }
 
-  struct cmdline_parser_params params;
+  struct cmdline_parser_params params = {0};
 
-  struct gengetopt_args_info args_info;
+  struct gengetopt_args_info args_info = {0};
 
   cmdline_parser_params_init(&params);
 
@@ -226,7 +226,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
 
   // NOTE(thorduri): #TOCTOU
   char *config_file = args_info.config_file_arg;
-  struct stat sb;
+  struct stat sb = {0};
   if (stat(config_file, &sb) == -1) {
     config_file = getenv("YUBIHSM_PKCS11_CONF");
   }
@@ -286,7 +286,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
       if (yh_set_connector_option(connector_list[i], YH_CONNECTOR_HTTPS_KEY,
                                   args_info.key_arg) != YHR_SUCCESS) {
         DBG_ERR("Failed to set HTTPS key option");
-	goto c_i_failure;
+        goto c_i_failure;
       }
     }
     if (args_info.proxy_given) {
@@ -300,7 +300,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
       if (yh_set_connector_option(connector_list[i], YH_CONNECTOR_NOPROXY,
                                   args_info.noproxy_arg) != YHR_SUCCESS) {
         DBG_ERR("Failed to set noproxy option");
-	goto c_i_failure;
+        goto c_i_failure;
       }
     }
 
@@ -320,7 +320,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
 
   list_create(&g_ctx.device_pubkeys, YH_EC_P256_PUBKEY_LEN, NULL);
   for (unsigned int i = 0; i < args_info.device_pubkey_given; i++) {
-    uint8_t pk[80];
+    uint8_t pk[80] = {0};
     size_t pk_len = sizeof(pk);
     if (hex_decode(args_info.device_pubkey_arg[i], pk, &pk_len) == false ||
         pk_len != YH_EC_P256_PUBKEY_LEN) {
@@ -560,11 +560,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetSlotInfo)
     return CKR_SLOT_ID_INVALID;
   }
 
-  char *s;
-  int l;
-
-  s = "YubiHSM Connector ";
-  l = strlen(s);
+  char *s = "YubiHSM Connector ";
+  size_t l = strlen(s);
   memset(pInfo->slotDescription, ' ', 64);
   memcpy((char *) pInfo->slotDescription, s, l);
 
@@ -582,9 +579,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetSlotInfo)
     pInfo->flags |= CKF_TOKEN_PRESENT;
   }
 
-  uint8_t major;
-  uint8_t minor;
-  uint8_t patch;
+  uint8_t major = 0;
+  uint8_t minor = 0;
+  uint8_t patch = 0;
 
   yh_get_connector_version(slot->connector, &major, &minor, &patch);
 
@@ -605,8 +602,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetTokenInfo)
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -623,17 +618,16 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetTokenInfo)
     return CKR_SLOT_ID_INVALID;
   }
 
+  CK_RV rv = CKR_OK;
+
   if (yh_connector_has_device(slot->connector) == false) {
     DBG_ERR("Slot %lu has no token inserted", slotID);
     rv = CKR_TOKEN_NOT_PRESENT;
     goto c_gt_out;
   }
 
-  char *s;
-  int l;
-
-  s = "YubiHSM";
-  l = strlen(s);
+  char *s = "YubiHSM";
+  size_t l = strlen(s);
   memset(pInfo->label, ' ', 32);
   memcpy((char *) pInfo->label, s, l);
 
@@ -642,15 +636,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetTokenInfo)
   memset(pInfo->manufacturerID, ' ', 32);
   memcpy((char *) pInfo->manufacturerID, s, l);
 
-  yh_rc yrc;
+  uint8_t major = 0;
+  uint8_t minor = 0;
+  uint8_t patch = 0;
+  uint32_t serial = 0;
 
-  uint8_t major;
-  uint8_t minor;
-  uint8_t patch;
-  uint32_t serial;
-
-  yrc = yh_util_get_device_info(slot->connector, &major, &minor, &patch,
-                                &serial, NULL, NULL, NULL, NULL);
+  yh_rc yrc = yh_util_get_device_info(slot->connector, &major, &minor, &patch,
+                                      &serial, NULL, NULL, NULL, NULL);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Unable to get device version and serial number: %s",
             yh_strerror(yrc));
@@ -727,8 +719,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetMechanismList)
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -745,7 +735,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetMechanismList)
     return CKR_SLOT_ID_INVALID;
   }
 
-  rv = get_mechanism_list(slot, pMechanismList, pulCount);
+  CK_RV rv = get_mechanism_list(slot, pMechanismList, pulCount);
   if (rv == CKR_BUFFER_TOO_SMALL) {
     DBG_ERR("Mechanism buffer too small");
     goto c_gml_out;
@@ -770,8 +760,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetMechanismInfo)
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -787,6 +775,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetMechanismInfo)
     DBG_ERR("Invalid slot ID %lu", slotID);
     return CKR_SLOT_ID_INVALID;
   }
+
+  CK_RV rv = CKR_OK;
 
   if (get_mechanism_info(slot, type, pInfo) == false) {
     DBG_ERR("Invalid mechanism %lu", type);
@@ -850,8 +840,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_OpenSession)
 
   DIN; // TODO(adma): check pApplication and Notify
 
-  CK_RV rv = CKR_OK;
-
   UNUSED(Notify);
   UNUSED(pApplication);
 
@@ -876,6 +864,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_OpenSession)
     DBG_ERR("Invalid slot ID %lu", slotID);
     return CKR_SLOT_ID_INVALID;
   }
+
+  CK_RV rv = CKR_OK;
 
   if (yh_connector_has_device(slot->connector) == false) {
     DBG_ERR("Slot %lu has no token inserted", slotID);
@@ -913,7 +903,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CloseSession)(CK_SESSION_HANDLE hSession) {
     return CKR_CRYPTOKI_NOT_INITIALIZED;
   }
 
-  yubihsm_pkcs11_session *session;
+  yubihsm_pkcs11_session *session = 0;
   CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv == CKR_OK) {
     if (session->slot->pkcs11_sessions.length == 1) {
@@ -956,8 +946,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_CloseAllSessions)(CK_SLOT_ID slotID) {
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -988,15 +976,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_CloseAllSessions)(CK_SLOT_ID slotID) {
   release_slot(&g_ctx, slot);
 
   DOUT;
-  return rv;
+  return CKR_OK;
 }
 
 CK_DEFINE_FUNCTION(CK_RV, C_GetSessionInfo)
 (CK_SESSION_HANDLE hSession, CK_SESSION_INFO_PTR pInfo) {
 
   DIN;
-
-  CK_RV rv = CKR_OK;
 
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
@@ -1008,7 +994,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetSessionInfo)
     return CKR_ARGUMENTS_BAD;
   }
 
-  yubihsm_pkcs11_session *session;
+  yubihsm_pkcs11_session *session = 0;
   CK_RV ret = get_session(&g_ctx, hSession, &session, 0);
   if (ret != CKR_OK) {
     DBG_ERR("Session handle invalid");
@@ -1016,8 +1002,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetSessionInfo)
   }
 
   pInfo->slotID = session->slot->id;
-
   pInfo->flags = 0;
+
+  CK_RV rv = CKR_OK;
+
   switch (session->session_state) {
     case SESSION_RESERVED_RO:
       pInfo->state = CKS_RO_PUBLIC_SESSION;
@@ -1121,8 +1109,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -1146,7 +1132,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
     return CKR_ARGUMENTS_BAD;
   }
 
-  uint16_t key_id;
+  uint16_t key_id = 0;
   size_t key_id_len = sizeof(key_id);
   char tmpPin[5] = {0};
   memcpy(tmpPin, pPin, 4);
@@ -1164,19 +1150,20 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
   pPin += 4;
   ulPinLen -= 4;
 
-  yubihsm_pkcs11_session *session;
-  rv = get_session(&g_ctx, hSession, &session, SESSION_NOT_AUTHENTICATED);
+  yubihsm_pkcs11_session *session = 0;
+  CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_NOT_AUTHENTICATED);
   if (rv != CKR_OK) {
     DBG_ERR("Invalid session ID: %lu", hSession);
     return rv;
   }
 
-  yh_rc yrc;
+  yh_rc yrc = YHR_SUCCESS;
 
   if (prefix == '@') { // Asymmetric authentication
 
-    uint8_t sk_oce[YH_EC_P256_PRIVKEY_LEN], pk_oce[YH_EC_P256_PUBKEY_LEN],
-      pk_sd[YH_EC_P256_PUBKEY_LEN];
+    uint8_t sk_oce[YH_EC_P256_PRIVKEY_LEN] = {0},
+            pk_oce[YH_EC_P256_PUBKEY_LEN] = {0},
+            pk_sd[YH_EC_P256_PUBKEY_LEN] = {0};
     size_t pk_sd_len = sizeof(pk_sd);
     yrc = yh_util_derive_ec_p256_key(pPin, ulPinLen, sk_oce, sizeof(sk_oce),
                                      pk_oce, sizeof(pk_oce));
@@ -1240,17 +1227,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
       }
       goto c_l_out;
     }
-
-    yrc = yh_authenticate_session(session->slot->device_session);
-    if (yrc != YHR_SUCCESS) {
-      DBG_ERR("Failed to authenticate session: %s", yh_strerror(yrc));
-      if (yrc == YHR_CRYPTOGRAM_MISMATCH) {
-        rv = CKR_PIN_INCORRECT;
-      } else {
-        rv = CKR_FUNCTION_FAILED;
-      }
-      goto c_l_out;
-    }
   }
 
   list_iterate(&session->slot->pkcs11_sessions, login_sessions);
@@ -1268,15 +1244,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_Logout)(CK_SESSION_HANDLE hSession) {
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
   }
 
-  yubihsm_pkcs11_session *session;
-  rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
+  yubihsm_pkcs11_session *session = 0;
+  CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
     DBG_ERR("Invalid session ID: %lu", hSession);
     return rv;
@@ -1313,8 +1287,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -1327,8 +1299,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     return CKR_ARGUMENTS_BAD;
   }
 
-  yubihsm_pkcs11_session *session;
-  rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED_RW);
+  yubihsm_pkcs11_session *session = 0;
+  CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED_RW);
   if (rv != CKR_OK) {
     DBG_ERR("Invalid session ID: %lu", hSession);
     return rv;
@@ -1343,11 +1315,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
   struct {
     bool set;
     CK_ULONG d;
-  } class, key_type, id;
-  class.set = key_type.set = id.set = false;
-  class.d = key_type.d = id.d = 0;
-  yubihsm_pkcs11_object_template template;
-  memset(&template, 0, sizeof(template));
+  } class = {0}, key_type = {0}, id = {0};
+  yubihsm_pkcs11_object_template template = {0};
 
   for (CK_ULONG i = 0; i < ulCount; i++) {
     switch (pTemplate[i].type) {
@@ -1411,8 +1380,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
   template.id = id.d;
   yh_capabilities capabilities = {{0}};
   yh_capabilities delegated_capabilities = {{0}};
-  uint8_t type;
-  yh_rc rc;
+  uint8_t type = 0;
+  yh_rc rc = YHR_SUCCESS;
 
   if (template.exportable == ATTRIBUTE_TRUE) {
     rc = yh_string_to_capabilities("exportable-under-wrap", &capabilities);
@@ -1604,7 +1573,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       goto c_co_out;
     }
   } else if (class.d == CKO_CERTIFICATE || class.d == CKO_DATA) {
-    yh_algorithm algo;
+    yh_algorithm algo = 0;
     type = YH_OPAQUE;
     if (class.d == CKO_CERTIFICATE) {
       algo = YH_ALGO_OPAQUE_X509_CERTIFICATE;
@@ -1648,7 +1617,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     goto c_co_out;
   }
 
-  yh_object_descriptor object;
+  yh_object_descriptor object = {0};
   if (yh_util_get_object_info(session->slot->device_session, template.id, type,
                               &object) != YHR_SUCCESS) {
     DBG_ERR("Failed executing get object info after creating");
@@ -1690,15 +1659,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
   }
 
-  yubihsm_pkcs11_session *session;
-  rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
+  yubihsm_pkcs11_session *session = 0;
+  CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
     DBG_ERR("Invalid session ID %lu", hSession);
     return rv;
@@ -1722,7 +1689,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
       DBG_INFO("No ECDH session key with ID %08lx was found", hObject);
     }
   } else {
-    if (((uint8_t)(hObject >> 16)) == YH_PUBLIC_KEY) {
+    if (((uint8_t) (hObject >> 16)) == YH_PUBLIC_KEY) {
       DBG_INFO("Trying to delete public key, returning success with noop");
       goto c_do_out;
     }
@@ -1761,8 +1728,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetObjectSize)
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -1772,8 +1737,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetObjectSize)
     return CKR_ARGUMENTS_BAD;
   }
 
-  yubihsm_pkcs11_session *session;
-  rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
+  yubihsm_pkcs11_session *session = 0;
+  CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
     DBG_ERR("Unknown session %lu", hSession);
     return rv;
@@ -1815,8 +1780,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -1826,8 +1789,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
     return CKR_ARGUMENTS_BAD;
   }
 
-  yubihsm_pkcs11_session *session;
-  rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
+  yubihsm_pkcs11_session *session = 0;
+  CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
     DBG_ERR("Unknown session %lu", hSession);
     return rv;
@@ -1892,8 +1855,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
 
   DIN;
 
-  CK_RV rv = CKR_FUNCTION_NOT_SUPPORTED;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -1905,8 +1866,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
     return CKR_ARGUMENTS_BAD;
   }
 
-  yubihsm_pkcs11_session *session;
-  rv = get_session(&g_ctx, hSession, &session, 0);
+  yubihsm_pkcs11_session *session = 0;
+  CK_RV rv = get_session(&g_ctx, hSession, &session, 0);
   if (rv != CKR_OK) {
     DBG_ERR("Unknown session %lu", hSession);
     return rv;
@@ -1986,9 +1947,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-  char *label = NULL;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -1999,12 +1957,14 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
     return CKR_ARGUMENTS_BAD;
   }
 
-  yubihsm_pkcs11_session *session;
-  rv = get_session(&g_ctx, hSession, &session, 0);
+  yubihsm_pkcs11_session *session = 0;
+  CK_RV rv = get_session(&g_ctx, hSession, &session, 0);
   if (rv != CKR_OK) {
     DBG_ERR("Unknown session %lu", hSession);
     return rv;
   }
+
+  char *label = NULL;
 
   if (session->operation.type != OPERATION_NOOP) {
     DBG_ERR("Another operation is already active %d", session->operation.type);
@@ -2026,7 +1986,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
     goto c_foi_out;
   }
 
-  yh_rc rc;
+  yh_rc rc = YHR_SUCCESS;
 
   int id = 0;
   uint8_t type = 0;
@@ -2053,7 +2013,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           break;
 
         case CKA_CLASS: {
-          uint32_t value = *((CK_ULONG_PTR)(pTemplate[i].pValue));
+          uint32_t value = *((CK_ULONG_PTR) (pTemplate[i].pValue));
           switch (value) {
             case CKO_CERTIFICATE:
               DBG_INFO("Filtering for certificate");
@@ -2208,7 +2168,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
       // NOTE(adma): looking for a secret key. Get items of all types and filter
       // manually
       yh_object_descriptor
-        tmp_objects[YH_MAX_ITEMS_COUNT + MAX_ECDH_SESSION_KEYS];
+        tmp_objects[YH_MAX_ITEMS_COUNT + MAX_ECDH_SESSION_KEYS] = {0};
       size_t tmp_n_objects = YH_MAX_ITEMS_COUNT + MAX_ECDH_SESSION_KEYS;
       rc = yh_util_list_objects(session->slot->device_session, id, 0, domains,
                                 &capabilities, algorithm, label, tmp_objects,
@@ -2260,8 +2220,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
 
         if (label == NULL || strcmp(label, key->label) == 0) {
 
-          yh_object_descriptor desc;
-          memset(&desc, 0, sizeof(desc));
+          yh_object_descriptor desc = {0};
           desc.id = key->id & 0xffff;
           desc.len = key->len;
           desc.type = ECDH_KEY_TYPE;
@@ -2304,15 +2263,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjects)
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
   }
 
-  yubihsm_pkcs11_session *session;
-  rv = get_session(&g_ctx, hSession, &session, 0);
+  yubihsm_pkcs11_session *session = 0;
+  CK_RV rv = get_session(&g_ctx, hSession, &session, 0);
   if (rv != CKR_OK) {
     DBG_ERR("Unknown session %lu", hSession);
     return rv;
@@ -2389,15 +2346,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsFinal)(CK_SESSION_HANDLE hSession) {
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
   }
 
-  yubihsm_pkcs11_session *session;
-  rv = get_session(&g_ctx, hSession, &session, 0);
+  yubihsm_pkcs11_session *session = 0;
+  CK_RV rv = get_session(&g_ctx, hSession, &session, 0);
   if (rv != CKR_OK) {
     DBG_ERR("Unknown session %lu", hSession);
     return rv;
@@ -2428,8 +2383,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptInit)
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2440,8 +2393,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptInit)
     return CKR_ARGUMENTS_BAD;
   }
 
-  yubihsm_pkcs11_session *session;
-  rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
+  yubihsm_pkcs11_session *session = 0;
+  CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
     DBG_ERR("Invalid session ID %lu", hSession);
     return rv;
@@ -2731,9 +2684,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-  EVP_MD_CTX *mdctx = NULL;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2744,12 +2694,14 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
     return CKR_ARGUMENTS_BAD;
   }
 
-  yubihsm_pkcs11_session *session;
-  rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
+  yubihsm_pkcs11_session *session = 0;
+  CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
     DBG_ERR("Invalid session ID %lu", hSession);
     return rv;
   }
+
+  EVP_MD_CTX *mdctx = NULL;
 
   if (session->operation.type != OPERATION_NOOP) {
     DBG_ERR("Other operation in progress");
@@ -2948,7 +2900,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Decrypt)
   }
 
   // NOTE: datalen is just an approximation here since the data is encrypted
-  CK_ULONG datalen;
+  CK_ULONG datalen = 0;
   if (session->operation.mechanism.mechanism == CKM_RSA_PKCS) {
     datalen = (session->operation.op.decrypt.key_len + 7) / 8 - 11;
   } else if (session->operation.mechanism.mechanism == CKM_RSA_PKCS_OAEP) {
@@ -3127,7 +3079,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptFinal)
     goto c_df_out;
   }
 
-  CK_ULONG datalen;
+  CK_ULONG datalen = 0;
   if (session->operation.mechanism.mechanism == CKM_RSA_PKCS) {
     datalen = (session->operation.op.decrypt.key_len + 7) / 8 - 11;
   } else if (session->operation.mechanism.mechanism == CKM_RSA_PKCS_OAEP) {
@@ -3196,8 +3148,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_DigestInit)
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3208,8 +3158,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_DigestInit)
     return CKR_ARGUMENTS_BAD;
   }
 
-  yubihsm_pkcs11_session *session;
-  rv = get_session(&g_ctx, hSession, &session, 0);
+  yubihsm_pkcs11_session *session = 0;
+  CK_RV rv = get_session(&g_ctx, hSession, &session, 0);
   if (rv != CKR_OK) {
     DBG_ERR("Invalid session ID %lu", hSession);
     return rv;
@@ -3231,8 +3181,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DigestInit)
   }
   session->operation.mechanism.mechanism = pMechanism->mechanism;
 
-  CK_ULONG digest_length;
-  digest_length = get_digest_bytelength(pMechanism->mechanism);
+  CK_ULONG digest_length = get_digest_bytelength(pMechanism->mechanism);
 
   session->operation.op.digest.digest_len = digest_length;
 
@@ -3530,8 +3479,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_SignInit)
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3542,8 +3489,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_SignInit)
     return CKR_ARGUMENTS_BAD;
   }
 
-  yubihsm_pkcs11_session *session;
-  rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
+  yubihsm_pkcs11_session *session = 0;
+  CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
     DBG_ERR("Invalid session ID %lu", hSession);
     return rv;
@@ -3575,7 +3522,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_SignInit)
     goto c_si_out;
   }
 
-  size_t key_length;
+  size_t key_length = 0;
   yh_rc yrc = yh_get_key_bitlength(object->object.algorithm, &key_length);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Unable to get key length: %s", yh_strerror(yrc));
@@ -3954,8 +3901,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_VerifyInit)
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3966,8 +3911,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_VerifyInit)
     return CKR_ARGUMENTS_BAD;
   }
 
-  yubihsm_pkcs11_session *session;
-  rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
+  yubihsm_pkcs11_session *session = 0;
+  CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
     DBG_ERR("Invalid session ID %lu", hSession);
     return rv;
@@ -3999,7 +3944,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_VerifyInit)
     goto c_vi_out;
   }
 
-  size_t key_length;
+  size_t key_length = 0;
   yh_rc yrc = yh_get_key_bitlength(object->object.algorithm, &key_length);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Unable to get key length: %s", yh_strerror(yrc));
@@ -4137,7 +4082,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Verify)
     goto c_v_out;
   }
 
-  CK_ULONG siglen;
+  CK_ULONG siglen = 0;
   if (is_HMAC_sign_mechanism(session->operation.mechanism.mechanism) == true) {
     switch (session->operation.mechanism.mechanism) {
       case CKM_SHA_1_HMAC:
@@ -4428,8 +4373,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -4440,8 +4383,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
     return CKR_ARGUMENTS_BAD;
   }
 
-  yubihsm_pkcs11_session *session;
-  rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED_RW);
+  yubihsm_pkcs11_session *session = 0;
+  CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED_RW);
   if (rv != CKR_OK) {
     DBG_ERR("Invalid session ID: %lu", hSession);
     return rv;
@@ -4459,14 +4402,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
     goto c_gk_out;
   }
 
-  yubihsm_pkcs11_object_template template;
+  yubihsm_pkcs11_object_template template = {0};
   memset(&template, 0, sizeof(yubihsm_pkcs11_object_template));
   struct {
     bool set;
     CK_ULONG d;
-  } class, key_type, id;
-  class.set = key_type.set = id.set = false;
-  class.d = key_type.d = id.d = 0;
+  } class = {0}, key_type = {0}, id = {0};
 
   for (CK_ULONG i = 0; i < ulCount; i++) {
     switch (pTemplate[i].type) {
@@ -4529,8 +4470,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
   template.id = id.d;
   yh_capabilities capabilities = {{0}};
   yh_capabilities delegated_capabilities = {{0}};
-  uint8_t type;
-  yh_rc rc;
+  uint8_t type = 0;
+  yh_rc rc = YHR_SUCCESS;
 
   if (template.exportable == ATTRIBUTE_TRUE) {
     rc = yh_string_to_capabilities("exportable-under-wrap", &capabilities);
@@ -4623,7 +4564,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
     goto c_gk_out;
   }
 
-  yh_object_descriptor object;
+  yh_object_descriptor object = {0};
   if (yh_util_get_object_info(session->slot->device_session, template.id, type,
                               &object) != YHR_SUCCESS) {
     DBG_ERR("Failed getting new object %04x", template.id);
@@ -4651,11 +4592,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-
-  yubihsm_pkcs11_object_template template;
-  memset(&template, 0, sizeof(yubihsm_pkcs11_object_template));
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -4668,8 +4604,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
     return CKR_ARGUMENTS_BAD;
   }
 
-  yubihsm_pkcs11_session *session;
-  rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED_RW);
+  yubihsm_pkcs11_session *session = 0;
+  CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED_RW);
   if (rv != CKR_OK) {
     DBG_ERR("Invalid session ID: %lu", hSession);
     return rv;
@@ -4680,6 +4616,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
     rv = CKR_OPERATION_ACTIVE;
     goto c_gkp_out;
   }
+
+  yubihsm_pkcs11_object_template template = {0};
 
   if (pMechanism->mechanism == CKM_RSA_PKCS_KEY_PAIR_GEN) {
     rv =
@@ -4703,7 +4641,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
   }
 
   yh_capabilities capabilities = {{0}};
-  yh_rc rc;
+  yh_rc rc = YHR_SUCCESS;
 
   if (template.exportable == ATTRIBUTE_TRUE) {
     rc = yh_string_to_capabilities("exportable-under-wrap", &capabilities);
@@ -4771,7 +4709,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
     }
   }
 
-  yh_object_descriptor object;
+  yh_object_descriptor object = {0};
   if (yh_util_get_object_info(session->slot->device_session, template.id,
                               YH_ASYMMETRIC_KEY, &object) != YHR_SUCCESS) {
     rv = CKR_FUNCTION_FAILED;
@@ -4798,8 +4736,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_WrapKey)
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -4810,8 +4746,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_WrapKey)
     return CKR_ARGUMENTS_BAD;
   }
 
-  yubihsm_pkcs11_session *session;
-  rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
+  yubihsm_pkcs11_session *session = 0;
+  CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
     DBG_ERR("Unknown session %lu", hSession);
     return rv;
@@ -4878,7 +4814,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_WrapKey)
     goto c_wk_out;
   }
 
-  uint8_t buf[2048];
+  uint8_t buf[2048] = {0};
   size_t len = sizeof(buf);
 
   yh_rc yrc =
@@ -4917,8 +4853,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_UnwrapKey)
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-
   // NOTE: since the wrap is opaque we just ignore the template..
   UNUSED(pTemplate);
   UNUSED(ulAttributeCount);
@@ -4933,8 +4867,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_UnwrapKey)
     return CKR_ARGUMENTS_BAD;
   }
 
-  yubihsm_pkcs11_session *session;
-  rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
+  yubihsm_pkcs11_session *session = 0;
+  CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
     DBG_ERR("Unknown session %lu", hSession);
     return rv;
@@ -4975,8 +4909,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_UnwrapKey)
     goto c_uk_out;
   }
 
-  uint16_t target_id;
-  yh_object_type target_type;
+  uint16_t target_id = 0;
+  yh_object_type target_type = 0;
   yh_rc yrc = yh_util_import_wrapped(session->slot->device_session,
                                      key->object.id, pWrappedKey,
                                      ulWrappedKeyLen, &target_type, &target_id);
@@ -4986,7 +4920,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_UnwrapKey)
     goto c_uk_out;
   }
 
-  yh_object_descriptor object;
+  yh_object_descriptor object = {0};
   if (yh_util_get_object_info(session->slot->device_session, target_id,
                               target_type, &object) != YHR_SUCCESS) {
     rv = CKR_FUNCTION_FAILED;
@@ -5012,15 +4946,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
   }
 
-  yubihsm_pkcs11_session *session;
-  rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
+  yubihsm_pkcs11_session *session = 0;
+  CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
     DBG_ERR("Unknown session %lu", hSession);
     return rv;
@@ -5106,8 +5038,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
   // Read the base key as the private keyID
   uint16_t privkey_id = hBaseKey & 0xffff;
 
-  ecdh_session_key ecdh_key;
-  memset(&ecdh_key, 0, sizeof(ecdh_key));
+  ecdh_session_key ecdh_key = {0};
   size_t out_len = sizeof(ecdh_key.ecdh_key);
   rv = yh_util_derive_ecdh(session->slot->device_session, privkey_id, pubkey,
                            in_len, ecdh_key.ecdh_key, &out_len);
@@ -5163,8 +5094,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateRandom)
 
   DIN;
 
-  CK_RV rv = CKR_OK;
-
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -5176,8 +5105,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateRandom)
     return CKR_ARGUMENTS_BAD;
   }
 
-  yubihsm_pkcs11_session *session;
-  rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
+  yubihsm_pkcs11_session *session = 0;
+  CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
     DBG_ERR("Unknown session %lu", hSession);
     return rv;

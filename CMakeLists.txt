@@ -147,7 +147,8 @@ else()
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror")
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-format-zero-length -Wno-implicit-fallthrough")
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wformat -Wformat-security")
-
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wmissing-prototypes")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wbad-function-cast")
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-all")
   if (NOT CMAKE_C_COMPILER_ID MATCHES Clang)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-z,relro,-z,now")
@@ -195,6 +196,8 @@ option(ENABLE_YKHSM_AUTH "Enable/disable ykhsmauth module" ON)
 if(ENABLE_YKHSM_AUTH)
   add_definitions(-DYKHSMAUTH_ENABLED="1")
 endif()
+
+option(ENABLE_EXPERIMENTAL_ASYMMETRIC_AUTH "Enable support for experimental asymmetric authentication" OFF)
 
 add_subdirectory (lib)
 

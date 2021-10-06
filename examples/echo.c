@@ -81,9 +81,6 @@ int main(void) {
                                   sizeof(password) - 1, false, &session);
   assert(yrc == YHR_SUCCESS);
 
-  yrc = yh_authenticate_session(session);
-  assert(yrc == YHR_SUCCESS);
-
   uint8_t session_id;
   yrc = yh_get_session_id(session, &session_id);
   assert(yrc == YHR_SUCCESS);

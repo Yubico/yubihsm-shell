@@ -126,7 +126,7 @@ static NTSTATUS import_key(BCRYPT_ALG_HANDLE hAlg, BCRYPT_KEY_HANDLE *phKey,
     goto cleanup;
   }
 
-  cbKeyBlob = (DWORD)(sizeof(BCRYPT_KEY_DATA_BLOB_HEADER) + key_len);
+  cbKeyBlob = (DWORD) (sizeof(BCRYPT_KEY_DATA_BLOB_HEADER) + key_len);
 
   if (!(pbKeyBlob = (PBYTE) malloc(cbKeyBlob))) {
     status = STATUS_NO_MEMORY;
@@ -196,8 +196,9 @@ static const EVP_CIPHER *aes_cbc(uint16_t key_len) {
   }
 }
 
-static int aes_encrypt_ex(const EVP_CIPHER *cipher, uint8_t *in, uint8_t *out,
-                          uint16_t len, uint8_t *iv, aes_context *ctx) {
+static int aes_encrypt_ex(const EVP_CIPHER *cipher, const uint8_t *in,
+                          uint8_t *out, uint16_t len, const uint8_t *iv,
+                          aes_context *ctx) {
   if (EVP_EncryptInit_ex(ctx->ctx, cipher, NULL, ctx->key, iv) != 1) {
     return -1;
   }
@@ -218,8 +219,9 @@ static int aes_encrypt_ex(const EVP_CIPHER *cipher, uint8_t *in, uint8_t *out,
   return 0;
 }
 
-static int aes_decrypt_ex(const EVP_CIPHER *cipher, uint8_t *in, uint8_t *out,
-                          uint16_t len, uint8_t *iv, aes_context *ctx) {
+static int aes_decrypt_ex(const EVP_CIPHER *cipher, const uint8_t *in,
+                          uint8_t *out, uint16_t len, const uint8_t *iv,
+                          aes_context *ctx) {
   if (EVP_DecryptInit_ex(ctx->ctx, cipher, NULL, ctx->key, iv) != 1) {
     return -1;
   }
@@ -242,7 +244,7 @@ static int aes_decrypt_ex(const EVP_CIPHER *cipher, uint8_t *in, uint8_t *out,
 
 #endif
 
-int aes_set_key(uint8_t *key, uint16_t key_len, aes_context *ctx) {
+int aes_set_key(const uint8_t *key, uint16_t key_len, aes_context *ctx) {
 #ifdef _WIN32_BCRYPT
   NTSTATUS status = STATUS_SUCCESS;
 
@@ -281,7 +283,39 @@ int aes_set_key(uint8_t *key, uint16_t key_len, aes_context *ctx) {
   return 0;
 }
 
-int aes_encrypt(uint8_t *in, uint8_t *out, aes_context *ctx) {
+int aes_load_key(const char *key, aes_context *ctx) {
+#ifdef _WIN32_BCRYPT
+  (void) key;
+  (void) ctx;
+  return -1;
+#else
+  const uint8_t default_enc[] = {0x09, 0x0b, 0x47, 0xdb, 0xed, 0x59,
+                                 0x56, 0x54, 0x90, 0x1d, 0xee, 0x1c,
+                                 0xc6, 0x55, 0xe4, 0x20};
+  const uint8_t default_mac[] = {0x59, 0x2f, 0xd4, 0x83, 0xf7, 0x59,
+                                 0xe2, 0x99, 0x09, 0xa0, 0x4c, 0x45,
+                                 0x05, 0xd2, 0xce, 0x0a};
+  ctx->key_len = sizeof(default_enc);
+  if (key == NULL || aes_ecb(ctx->key_len) == NULL) {
+    return -1;
+  }
+  if (!ctx->ctx) {
+    ctx->ctx = EVP_CIPHER_CTX_new();
+    if (!ctx->ctx) {
+      return -2;
+    }
+  }
+  if (!strcmp(key, "default_enc"))
+    memcpy(ctx->key, default_enc, ctx->key_len);
+  else if (!strcmp(key, "default_mac"))
+    memcpy(ctx->key, default_mac, ctx->key_len);
+  else
+    memset(ctx->key, 0, ctx->key_len);
+  return 0;
+#endif
+}
+
+int aes_encrypt(const uint8_t *in, uint8_t *out, aes_context *ctx) {
 #ifdef _WIN32_BCRYPT
   NTSTATUS status = STATUS_SUCCESS;
   ULONG cbResult = 0;
@@ -306,7 +340,7 @@ int aes_encrypt(uint8_t *in, uint8_t *out, aes_context *ctx) {
 #endif
 }
 
-int aes_decrypt(uint8_t *in, uint8_t *out, aes_context *ctx) {
+int aes_decrypt(const uint8_t *in, uint8_t *out, aes_context *ctx) {
 #ifdef _WIN32_BCRYPT
   NTSTATUS status = STATUS_SUCCESS;
   ULONG cbResult = 0;
@@ -331,8 +365,8 @@ int aes_decrypt(uint8_t *in, uint8_t *out, aes_context *ctx) {
 #endif
 }
 
-int aes_cbc_encrypt(uint8_t *in, uint8_t *out, uint16_t len, uint8_t *iv,
-                    aes_context *ctx) {
+int aes_cbc_encrypt(const uint8_t *in, uint8_t *out, uint16_t len,
+                    const uint8_t *iv, aes_context *ctx) {
 #ifdef _WIN32_BCRYPT
   NTSTATUS status = STATUS_SUCCESS;
   ULONG cbResult = 0;
@@ -359,8 +393,8 @@ int aes_cbc_encrypt(uint8_t *in, uint8_t *out, uint16_t len, uint8_t *iv,
 #endif
 }
 
-int aes_cbc_decrypt(uint8_t *in, uint8_t *out, uint16_t len, uint8_t *iv,
-                    aes_context *ctx) {
+int aes_cbc_decrypt(const uint8_t *in, uint8_t *out, uint16_t len,
+                    const uint8_t *iv, aes_context *ctx) {
 #ifdef _WIN32_BCRYPT
   NTSTATUS status = STATUS_SUCCESS;
   ULONG cbResult = 0;

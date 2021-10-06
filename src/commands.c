@@ -74,11 +74,9 @@ int yh_com_audit(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  yh_rc yrc;
-
   uint16_t unlogged_boot = 0;
   uint16_t unlogged_auth = 0;
-  yh_log_entry logs[YH_MAX_LOG_ENTRIES];
+  yh_log_entry logs[YH_MAX_LOG_ENTRIES] = {0};
   size_t n_items = sizeof(logs) / sizeof(logs[0]);
 
   switch (fmt) {
@@ -95,14 +93,14 @@ int yh_com_audit(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
       break;
   }
 
-  yrc = yh_util_get_log_entries(argv[0].e, &unlogged_boot, &unlogged_auth, logs,
-                                &n_items);
+  yh_rc yrc = yh_util_get_log_entries(argv[0].e, &unlogged_boot, &unlogged_auth,
+                                      logs, &n_items);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to get logs: %s\n", yh_strerror(yrc));
     return -1;
   }
 
-  char digest_buf[(2 * YH_LOG_DIGEST_SIZE) + 1];
+  char digest_buf[(2 * YH_LOG_DIGEST_SIZE) + 1] = {0};
 
   switch (fmt) {
     case fmt_hex:
@@ -298,7 +296,7 @@ int yh_com_debug_error(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  uint8_t yh_verbosity;
+  uint8_t yh_verbosity = 0;
 
   yh_get_verbosity(&yh_verbosity);
   yh_verbosity ^= YH_VERB_ERR;
@@ -323,7 +321,7 @@ int yh_com_debug_info(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  uint8_t yh_verbosity;
+  uint8_t yh_verbosity = 0;
 
   yh_get_verbosity(&yh_verbosity);
   yh_verbosity ^= YH_VERB_INFO;
@@ -348,7 +346,7 @@ int yh_com_debug_intermediate(yubihsm_context *ctx, Argument *argv,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  uint8_t yh_verbosity;
+  uint8_t yh_verbosity = 0;
 
   yh_get_verbosity(&yh_verbosity);
   yh_verbosity ^= YH_VERB_INTERMEDIATE;
@@ -389,7 +387,7 @@ int yh_com_debug_raw(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  uint8_t yh_verbosity;
+  uint8_t yh_verbosity = 0;
 
   yh_get_verbosity(&yh_verbosity);
   yh_verbosity ^= YH_VERB_RAW;
@@ -414,7 +412,7 @@ int yh_com_debug_crypto(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  uint8_t yh_verbosity;
+  uint8_t yh_verbosity = 0;
 
   yh_get_verbosity(&yh_verbosity);
   yh_verbosity ^= YH_VERB_CRYPTO;
@@ -437,16 +435,14 @@ int yh_com_debug_crypto(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 int yh_com_decrypt_pkcs1v1_5(yubihsm_context *ctx, Argument *argv,
                              cmd_format in_fmt, cmd_format fmt) {
 
-  yh_rc yrc;
-
   UNUSED(in_fmt);
   UNUSED(ctx);
 
-  uint8_t response[YH_MSG_BUF_SIZE];
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
 
-  yrc = yh_util_decrypt_pkcs1v1_5(argv[0].e, argv[1].w, argv[2].x, argv[2].len,
-                                  response, &response_len);
+  yh_rc yrc = yh_util_decrypt_pkcs1v1_5(argv[0].e, argv[1].w, argv[2].x,
+                                        argv[2].len, response, &response_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to decrypt data: %s\n", yh_strerror(yrc));
     return -1;
@@ -494,18 +490,17 @@ int yh_com_derive_ecdh(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     return -1;
   }
 
-  uint8_t data[YH_MSG_BUF_SIZE];
+  uint8_t data[YH_MSG_BUF_SIZE] = {0};
   uint8_t *ptr = data;
   size_t data_len = i2o_ECPublicKey(ec, &ptr);
 
   EC_KEY_free(ec);
 
-  yh_rc yrc;
-  uint8_t response[YH_MSG_BUF_SIZE];
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
 
-  yrc = yh_util_derive_ecdh(argv[0].e, argv[1].w, data, data_len, response,
-                            &response_len);
+  yh_rc yrc = yh_util_derive_ecdh(argv[0].e, argv[1].w, data, data_len,
+                                  response, &response_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to do key exchange: %s\n", yh_strerror(yrc));
     return -1;
@@ -523,16 +518,14 @@ int yh_com_derive_ecdh(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 // arg 2: i:data
 int yh_com_decrypt_aesccm(yubihsm_context *ctx, Argument *argv,
                           cmd_format in_fmt, cmd_format fmt) {
-  yh_rc yrc;
-
   UNUSED(in_fmt);
   UNUSED(ctx);
 
-  uint8_t response[YH_MSG_BUF_SIZE];
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
 
-  yrc = yh_util_unwrap_data(argv[0].e, argv[1].w, argv[2].x, argv[2].len,
-                            response, &response_len);
+  yh_rc yrc = yh_util_unwrap_data(argv[0].e, argv[1].w, argv[2].x, argv[2].len,
+                                  response, &response_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to decrypt data: %s\n", yh_strerror(yrc));
     return -1;
@@ -550,16 +543,14 @@ int yh_com_decrypt_aesccm(yubihsm_context *ctx, Argument *argv,
 // arg 2: i:data
 int yh_com_encrypt_aesccm(yubihsm_context *ctx, Argument *argv,
                           cmd_format in_fmt, cmd_format fmt) {
-  yh_rc yrc;
-
   UNUSED(in_fmt);
   UNUSED(ctx);
 
-  uint8_t response[YH_MSG_BUF_SIZE];
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
 
-  yrc = yh_util_wrap_data(argv[0].e, argv[1].w, argv[2].x, argv[2].len,
-                          response, &response_len);
+  yh_rc yrc = yh_util_wrap_data(argv[0].e, argv[1].w, argv[2].x, argv[2].len,
+                                response, &response_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to encrypt data: %s\n", yh_strerror(yrc));
     return -1;
@@ -579,7 +570,7 @@ int yh_com_disconnect(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  yh_rc yrc;
+  yh_rc yrc = YHR_SUCCESS;
 
   for (size_t i = 0; i < sizeof(ctx->sessions) / sizeof(ctx->sessions[0]);
        i++) {
@@ -620,14 +611,12 @@ int yh_com_echo(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  yh_rc yrc;
+  uint8_t data[YH_MSG_BUF_SIZE] = {0};
+  uint16_t data_len = 0;
 
-  uint8_t data[YH_MSG_BUF_SIZE];
-  uint16_t data_len;
-
-  uint8_t response[YH_MSG_BUF_SIZE];
-  size_t response_len;
-  yh_cmd response_cmd;
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
+  size_t response_len = 0;
+  yh_cmd response_cmd = 0;
 
   uint8_t byte = argv[1].b;
 
@@ -642,8 +631,8 @@ int yh_com_echo(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   data_len = count;
   response_len = sizeof(response);
 
-  yrc = yh_send_secure_msg(argv[0].e, YHC_ECHO, data, data_len, &response_cmd,
-                           response, &response_len);
+  yh_rc yrc = yh_send_secure_msg(argv[0].e, YHC_ECHO, data, data_len,
+                                 &response_cmd, response, &response_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to send ECHO command: %s\n", yh_strerror(yrc));
     return -1;
@@ -678,7 +667,7 @@ int yh_com_generate_asymmetric(yubihsm_context *ctx, Argument *argv,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  yh_rc yrc;
+  yh_rc yrc = YHR_SUCCESS;
 
   if (yh_is_rsa(argv[5].a)) {
     yrc = yh_util_generate_rsa_key(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
@@ -720,15 +709,13 @@ int yh_com_generate_hmac(yubihsm_context *ctx, Argument *argv,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  yh_rc yrc;
-
   if (!yh_is_hmac(argv[5].a)) {
     fprintf(stderr, "Invalid algorithm: %d\n", argv[5].a);
     return -1;
   }
 
-  yrc = yh_util_generate_hmac_key(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
-                                  &argv[4].c, argv[5].a);
+  yh_rc yrc = yh_util_generate_hmac_key(argv[0].e, &argv[1].w, argv[2].s,
+                                        argv[3].w, &argv[4].c, argv[5].a);
 
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to generate HMAC key: %s\n", yh_strerror(yrc));
@@ -756,10 +743,9 @@ int yh_com_generate_wrap(yubihsm_context *ctx, Argument *argv,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  yh_rc yrc;
-
-  yrc = yh_util_generate_wrap_key(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
-                                  &argv[4].c, argv[6].a, &argv[5].c);
+  yh_rc yrc =
+    yh_util_generate_wrap_key(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
+                              &argv[4].c, argv[6].a, &argv[5].c);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to generate wrapping key: %s\n", yh_strerror(yrc));
     return -1;
@@ -781,7 +767,7 @@ int yh_com_get_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(ctx);
   UNUSED(in_fmt);
 
-  uint8_t response[YH_MSG_BUF_SIZE];
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
   int ret = -1;
 
@@ -824,12 +810,10 @@ int yh_com_get_option(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  yh_rc yrc;
-
-  uint8_t response[YH_MSG_BUF_SIZE];
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
 
-  yrc = yh_util_get_option(argv[0].e, argv[1].o, response, &response_len);
+  yh_rc yrc = yh_util_get_option(argv[0].e, argv[1].o, response, &response_len);
 
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to get option: %s\n", yh_strerror(yrc));
@@ -854,7 +838,7 @@ int yh_com_get_random(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
   UNUSED(in_fmt);
 
-  uint8_t response[YH_MSG_BUF_SIZE];
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
 
   yh_rc yrc =
@@ -885,12 +869,11 @@ int yh_com_get_storage(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  yh_rc yrc;
-  uint16_t total_records, free_records, free_pages, total_pages, page_size;
-  total_records = free_records = free_pages = total_pages = page_size = 0;
+  uint16_t total_records = 0, free_records = 0, free_pages = 0, total_pages = 0,
+           page_size = 0;
 
-  yrc = yh_util_get_storage_info(argv[0].e, &total_records, &free_records,
-                                 &total_pages, &free_pages, &page_size);
+  yh_rc yrc = yh_util_get_storage_info(argv[0].e, &total_records, &free_records,
+                                       &total_pages, &free_pages, &page_size);
 
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to get storage stats: %s\n", yh_strerror(yrc));
@@ -912,16 +895,14 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
   UNUSED(in_fmt);
 
-  yh_rc yrc;
-
-  uint8_t response[YH_MSG_BUF_SIZE];
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
 
-  yh_algorithm algo;
+  yh_algorithm algo = 0;
   EVP_PKEY *public_key = NULL;
 
-  yrc = yh_util_get_public_key(argv[0].e, argv[1].w, response, &response_len,
-                               &algo);
+  yh_rc yrc = yh_util_get_public_key(argv[0].e, argv[1].w, response,
+                                     &response_len, &algo);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to get public key: %s\n", yh_strerror(yrc));
     return -1;
@@ -1031,18 +1012,16 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   } else if (fmt == fmt_binary) {
     i2d_PUBKEY_fp(ctx->out, public_key);
   } else if (fmt == fmt_base64) {
-    BIO *bio;
-    BIO *b64;
     bool error = false;
 
-    b64 = BIO_new(BIO_f_base64());
+    BIO *b64 = BIO_new(BIO_f_base64());
     if (b64 == NULL) {
       fprintf(stderr, "Unable to allocate buffer\n");
       error = true;
       goto getpk_base64_cleanup;
     }
 
-    bio = BIO_new_fp(ctx->out, BIO_NOCLOSE);
+    BIO *bio = BIO_new_fp(ctx->out, BIO_NOCLOSE);
     if (bio == NULL) {
       fprintf(stderr, "Unable to allocate BIO\n");
       BIO_free_all(b64);
@@ -1080,10 +1059,10 @@ int yh_com_get_device_pubkey(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
-  uint8_t response[YH_MSG_BUF_SIZE];
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
 
-  yh_algorithm algo;
+  yh_algorithm algo = 0;
   yh_rc yrc =
     yh_util_get_device_pubkey(ctx->connector, response, &response_len, &algo);
 
@@ -1127,18 +1106,16 @@ int yh_com_get_device_pubkey(yubihsm_context *ctx, Argument *argv,
   } else if (fmt == fmt_binary) {
     i2d_PUBKEY_fp(ctx->out, public_key);
   } else if (fmt == fmt_base64) {
-    BIO *bio;
-    BIO *b64;
     bool error = false;
 
-    b64 = BIO_new(BIO_f_base64());
+    BIO *b64 = BIO_new(BIO_f_base64());
     if (b64 == NULL) {
       fprintf(stderr, "Unable to allocate buffer\n");
       error = true;
       goto getdpk_base64_cleanup;
     }
 
-    bio = BIO_new_fp(ctx->out, BIO_NOCLOSE);
+    BIO *bio = BIO_new_fp(ctx->out, BIO_NOCLOSE);
     if (bio == NULL) {
       fprintf(stderr, "Unable to allocate BIO\n");
       BIO_free_all(b64);
@@ -1171,23 +1148,22 @@ int yh_com_get_device_pubkey(yubihsm_context *ctx, Argument *argv,
 // arg 2: t:type
 int yh_com_get_object_info(yubihsm_context *ctx, Argument *argv,
                            cmd_format in_fmt, cmd_format fmt) {
-  yh_rc yrc;
-  yh_object_descriptor object;
+  yh_object_descriptor object = {0};
 
   UNUSED(ctx);
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  yrc = yh_util_get_object_info(argv[0].e, argv[1].w, argv[2].b, &object);
+  yh_rc yrc = yh_util_get_object_info(argv[0].e, argv[1].w, argv[2].b, &object);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to get object info: %s\n", yh_strerror(yrc));
     return -1;
   }
 
   char domains[256] = {0};
-  const char *cap[sizeof(yh_capability) / sizeof(yh_capability[0])];
+  const char *cap[sizeof(yh_capability) / sizeof(yh_capability[0])] = {0};
   size_t n_cap = sizeof(yh_capability) / sizeof(yh_capability[0]);
-  const char *type;
+  const char *type = 0;
   const char *algorithm = "";
   const char *extra_algo = "";
   char *label = object.label;
@@ -1263,14 +1239,13 @@ int yh_com_get_object_info(yubihsm_context *ctx, Argument *argv,
 // arg 4: f:file
 int yh_com_get_wrapped(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                        cmd_format fmt) {
-  uint8_t response[YH_MSG_BUF_SIZE];
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
-  yh_rc yrc;
 
   UNUSED(in_fmt);
 
-  yrc = yh_util_export_wrapped(argv[0].e, argv[1].w, argv[2].b, argv[3].w,
-                               response, &response_len);
+  yh_rc yrc = yh_util_export_wrapped(argv[0].e, argv[1].w, argv[2].b, argv[3].w,
+                                     response, &response_len);
 
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to get wrapped object: %s\n", yh_strerror(yrc));
@@ -1417,10 +1392,9 @@ static int compare_objects(const void *p1, const void *p2) {
 // arg 6: s:label
 int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                         cmd_format fmt) {
-  yh_rc yrc;
-  yh_object_descriptor objects[YH_MAX_ITEMS_COUNT];
+  yh_object_descriptor objects[YH_MAX_ITEMS_COUNT] = {0};
   size_t num_objects = YH_MAX_ITEMS_COUNT;
-  const char *label_arg;
+  const char *label_arg = 0;
 
   UNUSED(ctx);
   UNUSED(in_fmt);
@@ -1432,7 +1406,7 @@ int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     label_arg = argv[6].s;
   }
 
-  yrc =
+  yh_rc yrc =
     yh_util_list_objects(argv[0].e, argv[1].w, argv[2].b, argv[3].w, &argv[4].c,
                          argv[5].a, label_arg, objects, &num_objects);
   if (yrc != YHR_SUCCESS) {
@@ -1462,14 +1436,12 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  yh_session *ses = NULL;
-  uint8_t session_id = 0;
-
   if (ctx->connector == NULL) {
     fprintf(stderr, "Not connected\n");
     return -1;
   }
 
+  yh_session *ses = NULL;
   yh_rc yrc = yh_create_session_derived(ctx->connector, argv[0].w, argv[1].x,
                                         argv[1].len, false, &ses);
   insecure_memzero(argv[1].x, argv[1].len);
@@ -1478,11 +1450,7 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     return -1;
   }
 
-  yrc = yh_authenticate_session(ses);
-  if (yrc != YHR_SUCCESS) {
-    fprintf(stderr, "Failed to authenticate session: %s\n", yh_strerror(yrc));
-    return -1;
-  }
+  uint8_t session_id = 0;
 
   yrc = yh_get_session_id(ses, &session_id);
   if (yrc != YHR_SUCCESS) {
@@ -1513,20 +1481,17 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
 
   UNUSED(fmt);
 
-  yh_session *ses = NULL;
-  uint8_t session_id = 0;
-
   if (ctx->connector == NULL) {
     fprintf(stderr, "Not connected\n");
     return -1;
   }
 
   uint16_t authkey = argv[0].w;
-  uint8_t privkey[YH_EC_P256_PRIVKEY_LEN];
-  yh_rc yrc;
+  uint8_t privkey[YH_EC_P256_PRIVKEY_LEN] = {0};
+  yh_rc yrc = YHR_SUCCESS;
 
   if (in_fmt == fmt_password) {
-    uint8_t pubkey[YH_EC_P256_PUBKEY_LEN];
+    uint8_t pubkey[YH_EC_P256_PUBKEY_LEN] = {0};
     yrc = yh_util_derive_ec_p256_key(argv[1].x, argv[1].len, privkey,
                                      sizeof(privkey), pubkey, sizeof(pubkey));
     insecure_memzero(argv[1].x, argv[1].len);
@@ -1546,7 +1511,7 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
-  uint8_t device_pubkey[YH_EC_P256_PUBKEY_LEN];
+  uint8_t device_pubkey[YH_EC_P256_PUBKEY_LEN] = {0};
   size_t device_pubkey_len = sizeof(device_pubkey);
   yrc = yh_util_get_device_pubkey(ctx->connector, device_pubkey,
                                   &device_pubkey_len, NULL);
@@ -1578,6 +1543,7 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
+  yh_session *ses = NULL;
   yrc =
     yh_create_session_asym(ctx->connector, authkey, privkey, sizeof(privkey),
                            device_pubkey, device_pubkey_len, &ses);
@@ -1587,6 +1553,7 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
+  uint8_t session_id = 0;
   yrc = yh_get_session_id(ses, &session_id);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
@@ -1620,24 +1587,10 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  yh_session *ses = NULL;
-  uint8_t session_id = 0;
-
   if (ctx->connector == NULL) {
     fprintf(stderr, "Not connected\n");
     return -1;
   }
-
-  uint8_t *yh_context;
-
-  uint8_t card_cryptogram[YH_CONTEXT_LEN / 2];
-  uint8_t key_s_enc[YH_KEY_LEN];
-  uint8_t key_s_mac[YH_KEY_LEN];
-  uint8_t key_s_rmac[YH_KEY_LEN];
-  size_t key_s_enc_len = sizeof(key_s_enc);
-  size_t key_s_mac_len = sizeof(key_s_mac);
-  size_t key_s_rmac_len = sizeof(key_s_rmac);
-  uint8_t retries;
 
   ykhsmauth_rc ykhsmauthrc = ykhsmauth_connect(ctx->state, NULL);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
@@ -1646,20 +1599,91 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
-  yh_rc yrc =
-    yh_begin_create_session_ext(ctx->connector, argv[0].w, &yh_context,
-                                card_cryptogram, sizeof(card_cryptogram), &ses);
-  if (yrc != YHR_SUCCESS) {
-    fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
+  uint8_t host_challenge[YH_EC_P256_PUBKEY_LEN] = {0};
+  size_t host_challenge_len = sizeof(host_challenge);
+
+  ykhsmauthrc = ykhsmauth_get_challenge(ctx->state, argv[1].s, host_challenge,
+                                        &host_challenge_len);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
+    fprintf(stderr, "Failed to get host challenge from the YubiKey: %s\n",
+            ykhsmauth_strerror(ykhsmauthrc));
+    ykhsmauth_disconnect(ctx->state);
     return -1;
   }
 
+  uint8_t card_pubkey[YH_EC_P256_PUBKEY_LEN] = {0};
+  size_t card_pubkey_len = 0;
+  yh_rc yrc = YHR_SUCCESS;
+
+  if (host_challenge_len == YH_EC_P256_PUBKEY_LEN) {
+
+    card_pubkey_len = sizeof(card_pubkey);
+    yrc = yh_util_get_device_pubkey(ctx->connector, card_pubkey,
+                                    &card_pubkey_len, NULL);
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr, "Failed to retrieve device pubkey: %s\n",
+              yh_strerror(yrc));
+      ykhsmauth_disconnect(ctx->state);
+      return -1;
+    }
+
+    if (card_pubkey_len != YH_EC_P256_PUBKEY_LEN) {
+      fprintf(stderr, "Invalid device pubkey\n");
+      ykhsmauth_disconnect(ctx->state);
+      return -1;
+    }
+
+#ifdef USE_ASYMMETRIC_AUTH
+
+    int matched = 0;
+    for (uint8_t **pubkey = ctx->device_pubkey_list; *pubkey; pubkey++) {
+      if (!memcmp(*pubkey, card_pubkey, card_pubkey_len)) {
+        matched++;
+      }
+    }
+
+    if (ctx->device_pubkey_list[0] == NULL) {
+      fprintf(stderr, "CAUTION: Device public key (PK.SD) not validated\n");
+      for (size_t i = 0; i < card_pubkey_len; i++)
+        fprintf(stderr, "%02x", card_pubkey[i]);
+      fprintf(stderr, "\n");
+    } else if (matched == 0) {
+      fprintf(stderr, "Failed to validate device pubkey\n");
+      ykhsmauth_disconnect(ctx->state);
+      return -1;
+    }
+
+#endif
+  }
+
+  uint8_t card_cryptogram[YH_KEY_LEN] = {0};
+  size_t card_cryptogram_len = sizeof(card_cryptogram);
+  uint8_t *yh_context = 0;
+  yh_session *ses = NULL;
+
+  yrc = yh_begin_create_session(ctx->connector, argv[0].w, &yh_context,
+                                host_challenge, &host_challenge_len,
+                                card_cryptogram, &card_cryptogram_len, &ses);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
+    ykhsmauth_disconnect(ctx->state);
+    return -1;
+  }
+
+  uint8_t key_s_enc[YH_KEY_LEN] = {0};
+  uint8_t key_s_mac[YH_KEY_LEN] = {0};
+  uint8_t key_s_rmac[YH_KEY_LEN] = {0};
+  uint8_t retries = 0;
+
   ykhsmauthrc =
-    ykhsmauth_calculate(ctx->state, argv[1].s, yh_context, YH_CONTEXT_LEN,
-                        argv[2].x, argv[2].len, key_s_enc, sizeof(key_s_enc),
-                        key_s_mac, sizeof(key_s_mac), key_s_rmac,
-                        sizeof(key_s_rmac), &retries);
+    ykhsmauth_calculate_ex(ctx->state, argv[1].s, yh_context,
+                           2 * host_challenge_len, card_pubkey, card_pubkey_len,
+                           card_cryptogram, card_cryptogram_len, argv[2].x,
+                           argv[2].len, key_s_enc, sizeof(key_s_enc), key_s_mac,
+                           sizeof(key_s_mac), key_s_rmac, sizeof(key_s_rmac),
+                           &retries);
   insecure_memzero(argv[2].x, argv[2].len);
+  ykhsmauth_disconnect(ctx->state);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Failed to get session keys from the YubiKey: %s",
             ykhsmauth_strerror(ykhsmauthrc));
@@ -1671,21 +1695,16 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
-  yrc = yh_finish_create_session_ext(ctx->connector, ses, key_s_enc,
-                                     key_s_enc_len, key_s_mac, key_s_mac_len,
-                                     key_s_rmac, key_s_rmac_len,
-                                     card_cryptogram, sizeof(card_cryptogram));
+  yrc =
+    yh_finish_create_session(ses, key_s_enc, sizeof(key_s_enc), key_s_mac,
+                             sizeof(key_s_mac), key_s_rmac, sizeof(key_s_rmac),
+                             card_cryptogram, card_cryptogram_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
     return -1;
   }
 
-  yrc = yh_authenticate_session(ses);
-  if (yrc != YHR_SUCCESS) {
-    fprintf(stderr, "Failed to authenticate session: %s\n", yh_strerror(yrc));
-    return -1;
-  }
-
+  uint8_t session_id = 0;
   yrc = yh_get_session_id(ses, &session_id);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
@@ -1718,14 +1737,12 @@ int yh_com_pecho(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  yh_rc yrc;
+  uint8_t data[YH_MSG_BUF_SIZE] = {0};
+  uint16_t data_len = 0;
 
-  uint8_t data[YH_MSG_BUF_SIZE];
-  uint16_t data_len;
-
-  uint8_t response[YH_MSG_BUF_SIZE];
-  size_t response_len;
-  yh_cmd response_cmd;
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
+  size_t response_len = 0;
+  yh_cmd response_cmd = 0;
 
   if (ctx->connector == NULL) {
     fprintf(stderr, "Not connected\n");
@@ -1745,8 +1762,8 @@ int yh_com_pecho(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   data_len = count;
   response_len = sizeof(response);
 
-  yrc = yh_send_plain_msg(ctx->connector, YHC_ECHO, data, data_len,
-                          &response_cmd, response, &response_len);
+  yh_rc yrc = yh_send_plain_msg(ctx->connector, YHC_ECHO, data, data_len,
+                                &response_cmd, response, &response_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to send ECHO command: %s\n", yh_strerror(yrc));
     return -1;
@@ -1781,11 +1798,9 @@ int yh_com_put_asymmetric(yubihsm_context *ctx, Argument *argv,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  uint8_t key[512];
+  uint8_t key[512] = {0};
   size_t key_material_len = sizeof(key);
-  yh_algorithm algorithm;
-
-  yh_rc yrc;
+  yh_algorithm algorithm = 0;
 
   bool ret = read_private_key(argv[5].x, argv[5].len, &algorithm, key,
                               &key_material_len, false);
@@ -1793,6 +1808,8 @@ int yh_com_put_asymmetric(yubihsm_context *ctx, Argument *argv,
     fprintf(stderr, "Unable to read asymmetric key\n");
     return -1;
   }
+
+  yh_rc yrc = YHR_SUCCESS;
 
   switch (algorithm) {
     case YH_ALGO_RSA_2048:
@@ -1849,9 +1866,7 @@ int yh_com_put_authentication(yubihsm_context *ctx, Argument *argv,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  yh_rc yrc;
-
-  yrc =
+  yh_rc yrc =
     yh_util_import_authentication_key_derived(argv[0].e, &argv[1].w, argv[2].s,
                                               argv[3].w, &argv[4].c, &argv[5].c,
                                               argv[6].x, argv[6].len);
@@ -1882,12 +1897,12 @@ int yh_com_put_authentication_asym(yubihsm_context *ctx, Argument *argv,
   UNUSED(ctx);
   UNUSED(fmt);
 
-  yh_rc yrc;
+  yh_rc yrc = YHR_SUCCESS;
 
-  uint8_t pubkey[YH_EC_P256_PUBKEY_LEN];
+  uint8_t pubkey[YH_EC_P256_PUBKEY_LEN] = {0};
 
   if (in_fmt == fmt_password) {
-    uint8_t privkey[YH_EC_P256_PRIVKEY_LEN];
+    uint8_t privkey[YH_EC_P256_PRIVKEY_LEN] = {0};
     yrc = yh_util_derive_ec_p256_key(argv[6].x, argv[6].len, privkey,
                                      sizeof(privkey), pubkey, sizeof(pubkey));
     insecure_memzero(argv[6].x, argv[6].len);
@@ -1938,14 +1953,13 @@ int yh_com_put_authentication_asym(yubihsm_context *ctx, Argument *argv,
 int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                       cmd_format fmt) {
 
-  yh_rc yrc;
-
   UNUSED(ctx);
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  yrc = yh_util_import_opaque(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
-                              &argv[4].c, argv[5].a, argv[6].x, argv[6].len);
+  yh_rc yrc =
+    yh_util_import_opaque(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
+                          &argv[4].c, argv[5].a, argv[6].x, argv[6].len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to store opaque object: %s\n", yh_strerror(yrc));
     return -1;
@@ -1968,9 +1982,7 @@ int yh_com_put_option(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  yh_rc yrc;
-
-  yrc = yh_util_set_option(argv[0].e, argv[1].o, argv[2].len, argv[2].x);
+  yh_rc yrc = yh_util_set_option(argv[0].e, argv[1].o, argv[2].len, argv[2].x);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to store option: %s\n", yh_strerror(yrc));
     return -1;
@@ -1995,15 +2007,14 @@ int yh_com_put_hmac(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  yh_rc yrc;
-
   if (argv[6].len > 128) {
     fprintf(stderr, "Too long key supplied, max 128 bytes allowed\n");
     return -1;
   }
 
-  yrc = yh_util_import_hmac_key(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
-                                &argv[4].c, argv[5].a, argv[6].x, argv[6].len);
+  yh_rc yrc =
+    yh_util_import_hmac_key(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
+                            &argv[4].c, argv[5].a, argv[6].x, argv[6].len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to store HMAC key: %s\n", yh_strerror(yrc));
     return -1;
@@ -2025,12 +2036,10 @@ int yh_com_put_hmac(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 // arg 6: x:key
 int yh_com_put_wrapkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                        cmd_format fmt) {
-  yh_rc yrc;
-
   UNUSED(ctx);
   UNUSED(in_fmt);
   UNUSED(fmt);
-  yh_algorithm algo;
+  yh_algorithm algo = 0;
 
   if (argv[6].len == 16) {
     algo = YH_ALGO_AES128_CCM_WRAP;
@@ -2043,9 +2052,9 @@ int yh_com_put_wrapkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     return -1;
   }
 
-  yrc = yh_util_import_wrap_key(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
-                                &argv[4].c, algo, &argv[5].c, argv[6].x,
-                                argv[6].len);
+  yh_rc yrc = yh_util_import_wrap_key(argv[0].e, &argv[1].w, argv[2].s,
+                                      argv[3].w, &argv[4].c, algo, &argv[5].c,
+                                      argv[6].x, argv[6].len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to store wrapkey: %s\n", yh_strerror(yrc));
     return -1;
@@ -2063,22 +2072,21 @@ int yh_com_put_wrapkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 // arg 2: i:data
 int yh_com_put_wrapped(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                        cmd_format fmt) {
-  yh_rc yrc;
-  yh_object_type object_type;
-  uint16_t object_id;
-  const char *type = "";
-
   UNUSED(ctx);
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  yrc = yh_util_import_wrapped(argv[0].e, argv[1].w, argv[2].x, argv[2].len,
-                               &object_type, &object_id);
+  yh_object_type object_type = 0;
+  uint16_t object_id = 0;
+
+  yh_rc yrc = yh_util_import_wrapped(argv[0].e, argv[1].w, argv[2].x,
+                                     argv[2].len, &object_type, &object_id);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to store wrapped object: %s\n", yh_strerror(yrc));
     return -1;
   }
 
+  const char *type = "";
   yh_type_to_string(object_type, &type);
 
   fprintf(stderr, "Object imported as 0x%04x of type %s\n", object_id, type);
@@ -2098,14 +2106,13 @@ int yh_com_put_wrapped(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 int yh_com_put_template(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                         cmd_format fmt) {
 
-  yh_rc yrc;
-
   UNUSED(ctx);
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  yrc = yh_util_import_template(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
-                                &argv[4].c, argv[5].a, argv[6].x, argv[6].len);
+  yh_rc yrc =
+    yh_util_import_template(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
+                            &argv[4].c, argv[5].a, argv[6].x, argv[6].len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to store template object: %s\n", yh_strerror(yrc));
     return -1;
@@ -2127,15 +2134,13 @@ int yh_com_sign_ecdsa(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
   UNUSED(in_fmt);
 
-  yh_rc yrc;
-
-  uint8_t data[YH_MSG_BUF_SIZE];
+  uint8_t data[YH_MSG_BUF_SIZE] = {0};
   size_t data_len = sizeof(data);
 
-  uint8_t response[YH_MSG_BUF_SIZE];
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
 
-  int hash;
+  int hash = 0;
 
   switch (argv[2].a) {
     case YH_ALGO_EC_ECDSA_SHA1:
@@ -2164,8 +2169,8 @@ int yh_com_sign_ecdsa(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     return -1;
   }
 
-  yrc = yh_util_sign_ecdsa(argv[0].e, argv[1].w, data, data_len, response,
-                           &response_len);
+  yh_rc yrc = yh_util_sign_ecdsa(argv[0].e, argv[1].w, data, data_len, response,
+                                 &response_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to sign data with ecdsa: %s\n", yh_strerror(yrc));
     return -1;
@@ -2187,9 +2192,7 @@ int yh_com_sign_eddsa(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
   UNUSED(in_fmt);
 
-  yh_rc yrc;
-
-  uint8_t response[YH_MSG_BUF_SIZE];
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
 
   if (argv[2].a != YH_ALGO_EC_ED25519) {
@@ -2197,8 +2200,8 @@ int yh_com_sign_eddsa(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     return -1;
   }
 
-  yrc = yh_util_sign_eddsa(argv[0].e, argv[1].w, argv[3].x, argv[3].len,
-                           response, &response_len);
+  yh_rc yrc = yh_util_sign_eddsa(argv[0].e, argv[1].w, argv[3].x, argv[3].len,
+                                 response, &response_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to sign data with eddsa: %s\n", yh_strerror(yrc));
     return -1;
@@ -2220,15 +2223,13 @@ int yh_com_sign_pkcs1v1_5(yubihsm_context *ctx, Argument *argv,
 
   UNUSED(in_fmt);
 
-  yh_rc yrc;
-
-  uint8_t data[YH_MSG_BUF_SIZE];
+  uint8_t data[YH_MSG_BUF_SIZE] = {0};
   size_t data_len = sizeof(data);
 
-  uint8_t response[YH_MSG_BUF_SIZE];
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
 
-  int hash;
+  int hash = 0;
 
   switch (argv[2].a) {
     case YH_ALGO_RSA_PKCS1_SHA1:
@@ -2257,8 +2258,8 @@ int yh_com_sign_pkcs1v1_5(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
-  yrc = yh_util_sign_pkcs1v1_5(argv[0].e, argv[1].w, true, data, data_len,
-                               response, &response_len);
+  yh_rc yrc = yh_util_sign_pkcs1v1_5(argv[0].e, argv[1].w, true, data, data_len,
+                                     response, &response_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to sign data with PKCS#1v1.5: %s\n",
             yh_strerror(yrc));
@@ -2281,16 +2282,14 @@ int yh_com_sign_pss(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
   UNUSED(in_fmt);
 
-  yh_rc yrc;
-
-  uint8_t data[YH_MSG_BUF_SIZE];
+  uint8_t data[YH_MSG_BUF_SIZE] = {0};
   size_t data_len = sizeof(data);
 
-  uint8_t response[YH_MSG_BUF_SIZE];
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
 
-  int hash;
-  yh_algorithm mgf;
+  int hash = 0;
+  yh_algorithm mgf = 0;
 
   switch (argv[2].a) {
     case YH_ALGO_RSA_PSS_SHA1:
@@ -2324,8 +2323,8 @@ int yh_com_sign_pss(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   }
 
   // NOTE(adma): Salt length always matches the length of the hash
-  yrc = yh_util_sign_pss(argv[0].e, argv[1].w, data, data_len, response,
-                         &response_len, data_len, mgf);
+  yh_rc yrc = yh_util_sign_pss(argv[0].e, argv[1].w, data, data_len, response,
+                               &response_len, data_len, mgf);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to sign data with PSS: %s\n", yh_strerror(yrc));
     return -1;
@@ -2351,18 +2350,16 @@ int yh_com_get_device_info(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
-  yh_rc yrc;
-
-  uint8_t major;
-  uint8_t minor;
-  uint8_t patch;
-  uint32_t serial;
-  uint8_t log_total;
-  uint8_t log_used;
-  yh_algorithm algorithms[YH_MAX_ALGORITHM_COUNT];
+  uint8_t major = 0;
+  uint8_t minor = 0;
+  uint8_t patch = 0;
+  uint32_t serial = 0;
+  uint8_t log_total = 0;
+  uint8_t log_used = 0;
+  yh_algorithm algorithms[YH_MAX_ALGORITHM_COUNT] = {0};
   size_t n_algorithms = sizeof(algorithms);
 
-  yrc =
+  yh_rc yrc =
     yh_util_get_device_info(ctx->connector, &major, &minor, &patch, &serial,
                             &log_total, &log_used, algorithms, &n_algorithms);
   if (yrc != YHR_SUCCESS) {
@@ -2399,13 +2396,11 @@ int yh_com_hmac(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(ctx);
   UNUSED(in_fmt);
 
-  yh_rc yrc;
-
-  uint8_t response[YH_MSG_BUF_SIZE];
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
 
-  yrc = yh_util_sign_hmac(argv[0].e, argv[1].w, argv[2].x, argv[2].len,
-                          response, &response_len);
+  yh_rc yrc = yh_util_sign_hmac(argv[0].e, argv[1].w, argv[2].x, argv[2].len,
+                                response, &response_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to HMAC data: %s\n", yh_strerror(yrc));
     return -1;
@@ -2425,9 +2420,7 @@ int yh_com_reset(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  yh_rc yrc;
-
-  yrc = yh_util_reset_device(argv[0].e);
+  yh_rc yrc = yh_util_reset_device(argv[0].e);
   if (yrc != YHR_CONNECTION_ERROR && yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to reset device: %s\n", yh_strerror(yrc));
     return -1;
@@ -2471,39 +2464,35 @@ int yh_com_sign_ssh_certificate(yubihsm_context *ctx, Argument *argv,
   UNUSED(in_fmt);
   UNUSED(fmt); // TODO: respect output format
 
-  yh_rc yrc;
-
-  uint8_t data[YH_MSG_BUF_SIZE + 1024];
+  uint8_t data[YH_MSG_BUF_SIZE + 1024] = {0};
   size_t response_len = sizeof(data);
 
   memcpy(data, argv[4].x, argv[4].len);
   response_len -= argv[4].len;
 
-  yrc = yh_util_sign_ssh_certificate(argv[0].e, argv[1].w, argv[2].w, argv[3].a,
-                                     data, argv[4].len, data + argv[4].len,
-                                     &response_len);
+  yh_rc yrc = yh_util_sign_ssh_certificate(argv[0].e, argv[1].w, argv[2].w,
+                                           argv[3].a, data, argv[4].len,
+                                           data + argv[4].len, &response_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to get certificate signature: %s\n",
             yh_strerror(yrc));
     return -1;
   }
 
-  BIO *bio;
-  BIO *b64;
-  BUF_MEM *bufferPtr;
-
-  b64 = BIO_new(BIO_f_base64());
+  BIO *b64 = BIO_new(BIO_f_base64());
   if (b64 == NULL) {
     fprintf(stderr, "Failed to sign SSH certificate.\n");
     return -1;
   }
-  bio = BIO_new(BIO_s_mem());
+  BIO *bio = BIO_new(BIO_s_mem());
   if (bio == NULL) {
     fprintf(stderr, "Failed to sign SSH certificate.\n");
     BIO_free_all(b64);
     return -1;
   }
   bio = BIO_push(b64, bio);
+
+  BUF_MEM *bufferPtr = 0;
 
   (void) BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
   (void) BIO_write(bio, data + 4 + 256,
@@ -2676,10 +2665,10 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     struct timeval total = {0, 0};
     struct timeval avg = {0, 0};
     struct timeval max = {0, 0};
-    struct timeval min;
+    struct timeval min = {0, 0};
     yh_capabilities capabilities = {{0}};
     yh_rc yrc = YHR_SUCCESS;
-    uint8_t algo_data[1024];
+    uint8_t algo_data[1024] = {0};
     size_t algo_len = sizeof(algo_data);
     const char *str1 = NULL, *str2 = "", *str3 = "";
     uint16_t id = argv[2].w;
@@ -2907,9 +2896,6 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
         yrc = yh_create_session_derived(ctx->connector, id, password,
                                         sizeof(password) - 1, false, &ses);
         if (yrc == YHR_SUCCESS) {
-          yrc = yh_authenticate_session(ses);
-        }
-        if (yrc == YHR_SUCCESS) {
           yrc = yh_util_close_session(ses);
         }
 #ifdef USE_ASYMMETRIC_AUTH
@@ -2996,9 +2982,8 @@ int yh_com_otp_aead_create(yubihsm_context *ctx, Argument *argv,
 
   UNUSED(in_fmt);
 
-  uint8_t response[YH_MSG_BUF_SIZE];
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
-  yh_rc yrc;
 
   if (argv[2].len != 16) {
     fprintf(stderr, "Wrong length key supplied, has to be 16 bytes\n");
@@ -3010,8 +2995,8 @@ int yh_com_otp_aead_create(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
-  yrc = yh_util_create_otp_aead(argv[0].e, argv[1].w, argv[2].x, argv[3].x,
-                                response, &response_len);
+  yh_rc yrc = yh_util_create_otp_aead(argv[0].e, argv[1].w, argv[2].x,
+                                      argv[3].x, response, &response_len);
 
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to create OTP AEAD: %s\n", yh_strerror(yrc));
@@ -3035,11 +3020,10 @@ int yh_com_otp_aead_random(yubihsm_context *ctx, Argument *argv,
 
   UNUSED(in_fmt);
 
-  uint8_t response[YH_MSG_BUF_SIZE];
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
-  yh_rc yrc;
 
-  yrc =
+  yh_rc yrc =
     yh_util_randomize_otp_aead(argv[0].e, argv[1].w, response, &response_len);
 
   if (yrc != YHR_SUCCESS) {
@@ -3062,14 +3046,6 @@ int yh_com_otp_aead_random(yubihsm_context *ctx, Argument *argv,
 // arg 3: i:aead
 int yh_com_otp_decrypt(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                        cmd_format fmt) {
-  uint16_t useCtr;
-  uint8_t sessionCtr;
-  uint8_t tstph;
-  uint16_t tstpl;
-  yh_rc yrc;
-  uint8_t otp[16];
-  size_t otp_len = sizeof(otp);
-
   UNUSED(ctx);
   UNUSED(in_fmt);
   UNUSED(fmt);
@@ -3079,13 +3055,21 @@ int yh_com_otp_decrypt(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     return -1;
   }
 
+  uint8_t otp[16] = {0};
+  size_t otp_len = sizeof(otp);
+
   if (hex_decode(argv[2].s, otp, &otp_len) == false) {
     fprintf(stderr, "Failed to decode OTP\n");
     return -1;
   }
 
-  yrc = yh_util_decrypt_otp(argv[0].e, argv[1].w, argv[3].x, argv[3].len, otp,
-                            &useCtr, &sessionCtr, &tstph, &tstpl);
+  uint16_t useCtr = 0;
+  uint8_t sessionCtr = 0;
+  uint8_t tstph = 0;
+  uint16_t tstpl = 0;
+
+  yh_rc yrc = yh_util_decrypt_otp(argv[0].e, argv[1].w, argv[3].x, argv[3].len,
+                                  otp, &useCtr, &sessionCtr, &tstph, &tstpl);
 
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to decrypt OTP: %s\n", yh_strerror(yrc));
@@ -3107,15 +3091,15 @@ int yh_com_otp_decrypt(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 // arg 4: F:aead_out
 int yh_com_otp_rewrap(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                       cmd_format fmt) {
-  uint8_t response[YH_MSG_BUF_SIZE];
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
-  yh_rc yrc;
 
   UNUSED(ctx);
   UNUSED(in_fmt);
 
-  yrc = yh_util_rewrap_otp_aead(argv[0].e, argv[1].w, argv[2].w, argv[3].x,
-                                argv[3].len, response, &response_len);
+  yh_rc yrc =
+    yh_util_rewrap_otp_aead(argv[0].e, argv[1].w, argv[2].w, argv[3].x,
+                            argv[3].len, response, &response_len);
 
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to rewrap OTP AEAD: %s\n", yh_strerror(yrc));
@@ -3138,13 +3122,12 @@ int yh_com_sign_attestation_certificate(yubihsm_context *ctx, Argument *argv,
                                         cmd_format in_fmt, cmd_format fmt) {
   UNUSED(in_fmt);
 
-  uint8_t data[2048];
+  uint8_t data[2048] = {0};
   size_t data_len = sizeof(data);
-  yh_rc yrc;
   int ret = -1;
 
-  yrc = yh_util_sign_attestation_certificate(argv[0].e, argv[1].w, argv[2].w,
-                                             data, &data_len);
+  yh_rc yrc = yh_util_sign_attestation_certificate(argv[0].e, argv[1].w,
+                                                   argv[2].w, data, &data_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to attest asymmetric key: %s\n", yh_strerror(yrc));
     return -1;
@@ -3190,15 +3173,13 @@ int yh_com_put_otp_aead_key(yubihsm_context *ctx, Argument *argv,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  yh_rc yrc;
-
   if (argv[6].len != 16 && argv[6].len != 24 && argv[6].len != 32) {
     fprintf(stderr, "Key length (%zu) not matching, should be 16, 24 or 32\n",
             argv[6].len);
     return -1;
   }
 
-  yrc =
+  yh_rc yrc =
     yh_util_import_otp_aead_key(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
                                 &argv[4].c, argv[5].d, argv[6].x, argv[6].len);
   if (yrc != YHR_SUCCESS) {
@@ -3227,9 +3208,7 @@ int yh_com_generate_otp_aead_key(yubihsm_context *ctx, Argument *argv,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  yh_rc yrc;
-
-  yrc =
+  yh_rc yrc =
     yh_util_generate_otp_aead_key(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
                                   &argv[4].c, argv[5].a, argv[6].d);
   if (yrc != YHR_SUCCESS) {
@@ -3253,16 +3232,9 @@ int yh_com_decrypt_oaep(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                         cmd_format fmt) {
 
   UNUSED(in_fmt);
-  yh_rc yrc;
 
-  uint8_t response[YH_MSG_BUF_SIZE];
-  size_t response_len = sizeof(response);
-
-  uint8_t label[64];
-  size_t label_len = sizeof(label);
-
-  int hash;
-  yh_algorithm mgf;
+  int hash = 0;
+  yh_algorithm mgf = 0;
 
   switch (argv[2].a) {
     case YH_ALGO_RSA_OAEP_SHA1:
@@ -3290,14 +3262,21 @@ int yh_com_decrypt_oaep(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
       return -1;
   }
 
+  uint8_t label[64] = {0};
+  size_t label_len = sizeof(label);
+
   if (hash_bytes((const uint8_t *) argv[4].s, argv[4].len, hash, label,
                  &label_len) == false) {
     fprintf(stderr, "Unable to hash data\n");
     return -1;
   }
 
-  yrc = yh_util_decrypt_oaep(argv[0].e, argv[1].w, argv[3].x, argv[3].len,
-                             response, &response_len, label, label_len, mgf);
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
+  size_t response_len = sizeof(response);
+
+  yh_rc yrc =
+    yh_util_decrypt_oaep(argv[0].e, argv[1].w, argv[3].x, argv[3].len, response,
+                         &response_len, label, label_len, mgf);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to decrypt data with OAEP: %s\n", yh_strerror(yrc));
     return -1;
@@ -3381,8 +3360,8 @@ int yh_com_change_authentication_key_asym(yubihsm_context *ctx, Argument *argv,
   UNUSED(fmt);
   UNUSED(ctx);
 
-  uint8_t pubkey[YH_EC_P256_PUBKEY_LEN];
-  yh_rc yrc;
+  uint8_t pubkey[YH_EC_P256_PUBKEY_LEN] = {0};
+  yh_rc yrc = YHR_SUCCESS;
 
   if (in_fmt == fmt_password) {
     uint8_t privkey[YH_EC_P256_PRIVKEY_LEN];

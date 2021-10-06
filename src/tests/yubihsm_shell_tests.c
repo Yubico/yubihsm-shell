@@ -140,13 +140,6 @@ int main() {
     return EXIT_FAILURE;
   }
 
-  yrc = yh_authenticate_session(ses, yh_context);
-  if (yrc != YH_SUCCESS) {
-    fprintf(stderr, "Failed to create session: %d, %s\n", yrc,
-            yh_strerror(yrc));
-    return EXIT_FAILURE;
-  }
-
   len = 4;
   for (uint16_t rep = 0; rep < N_REPS; rep++) {
     len *= 2;

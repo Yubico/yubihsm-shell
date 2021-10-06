@@ -127,7 +127,7 @@ struct Command {
 typedef Command *CommandList;
 
 // NOTE(adma): push command to list and return the new head
-Command *register_command(CommandList list, Command command) {
+static Command *register_command(CommandList list, Command command) {
 
   Command *c = calloc(1, sizeof(Command));
   if (c == NULL) {
@@ -143,7 +143,7 @@ Command *register_command(CommandList list, Command command) {
   return c;
 }
 
-void register_subcommand(Command *parent, Command command) {
+static void register_subcommand(Command *parent, Command command) {
 
   Command *c = malloc(sizeof(Command));
   if (c == NULL) {
@@ -156,7 +156,7 @@ void register_subcommand(Command *parent, Command command) {
   parent->subcommands = c;
 }
 
-CommandList msort_list(CommandList list) {
+static CommandList msort_list(CommandList list) {
 
   Command *left;
   Command *right;
@@ -240,7 +240,7 @@ CommandList msort_list(CommandList list) {
   }
 }
 
-void create_command_list(CommandList *c) {
+static void create_command_list(CommandList *c) {
 
   // NOTE(adma): initialize
   *c = NULL;
@@ -893,8 +893,8 @@ int yh_com_set_outformat(yubihsm_context *ctx, Argument *argv,
   return -1;
 }
 
-void find_lcp(const char *items[], int n_items, const char **lcp,
-              int *lcp_len) {
+static void find_lcp(const char *items[], int n_items, const char **lcp,
+                     int *lcp_len) {
 
   int min = 0;
   int max = 0;
@@ -924,8 +924,8 @@ void find_lcp(const char *items[], int n_items, const char **lcp,
   *lcp_len = strlen(items[min]);
 }
 
-int tokenize(char *line, char **toks, int max_toks, int *cursorc, int *cursoro,
-             const char *space) {
+static int tokenize(char *line, char **toks, int max_toks, int *cursorc,
+                    int *cursoro, const char *space) {
   int i;
   int tok = 0;
   int length = strlen(line);
@@ -997,8 +997,8 @@ static int compare_strings(const void *a, const void *b) {
   return strcmp(*(char *const *) a, *(char *const *) b);
 }
 
-unsigned char complete_arg(EditLine *el, const char *arg, char *line,
-                           int cursoro) {
+static unsigned char complete_arg(EditLine *el, const char *arg, char *line,
+                                  int cursoro) {
 
   const char *candidates[COMPLETION_CANDIDATES];
   int n_candidates = 0;
@@ -1174,8 +1174,8 @@ unsigned char complete_arg(EditLine *el, const char *arg, char *line,
   return CC_REDISPLAY;
 }
 
-unsigned char complete_command(EditLine *el, Command *to_complete,
-                               const char *line, int cursoro) {
+static unsigned char complete_command(EditLine *el, Command *to_complete,
+                                      const char *line, int cursoro) {
 
   const char *candidates[COMPLETION_CANDIDATES];
   int n_candidates = 0;
@@ -1234,7 +1234,7 @@ unsigned char complete_command(EditLine *el, Command *to_complete,
   }
 }
 
-unsigned char yubihsm_complete(EditLine *el, int ch) {
+static unsigned char yubihsm_complete(EditLine *el, int ch) {
 
   UNUSED(ch);
 
@@ -1499,8 +1499,8 @@ static bool get_input_data(const char *name, uint8_t *out, size_t *len,
   return false;
 }
 
-int validate_arg(yubihsm_context *ctx, char type, const char *value,
-                 Argument *parsed, cmd_format fmt) {
+static int validate_arg(yubihsm_context *ctx, char type, const char *value,
+                        Argument *parsed, cmd_format fmt) {
 
   switch (type) {
     case 'b':   // byte
@@ -1612,7 +1612,8 @@ int validate_arg(yubihsm_context *ctx, char type, const char *value,
   return 0;
 }
 
-int validate_and_call(yubihsm_context *ctx, CommandList l, const char *line) {
+static int validate_and_call(yubihsm_context *ctx, CommandList l,
+                             const char *line) {
 
   int argc = 0;
   char *argv[64];

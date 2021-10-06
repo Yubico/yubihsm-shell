@@ -30,11 +30,10 @@
  First step of using a YubiHSM 2 is to initialize the library with #yh_init(),
  initialize a connector with #yh_init_connector() and then connect it to the
  YubiHSM 2 with #yh_connect(). After this, a session must be established with
- #yh_create_session_derived(), #yh_create_session() or
- #yh_begin_create_session_ext(). The session must then be authenticated using
- #yh_authenticate_session().
+ #yh_create_session_derived(), #yh_create_session(),
+ #yh_begin_create_session() + yh_finish_create_session().
 
- When a session is authenticated, commands can be exchanged over it. The
+ When a session is established, commands can be exchanged over it. The
  functions in the namespace yh_util are high-level convenience functions that do
  specific tasks with the device.
 
@@ -59,7 +58,6 @@
    assert(yh_connect(connector, 0) == YHR_SUCCESS);
    assert(yh_create_session_derived(connector, 1, YH_DEFAULT_PASSWORD,
    strlen(YH_DEFAULT_PASSWORD), false, &session) == YHR_SUCCESS);
-   assert(yh_authenticate_session(session) == YHR_SUCCESS);
    assert(yh_util_get_pseudo_random(session, sizeof(data), data,
  &data_len)==YHR_SUCCESS);
    assert(data_len == sizeof(data));
@@ -916,10 +914,10 @@ yh_rc yh_create_session_derived(yh_connector *connector, uint16_t authkey_id,
  * @param connector Connector to the device
  * @param authkey_id Object ID of the Authentication Key used to authenticate
  *the session
- * @param key_enc Encryption key used to derive the session encryption key
- * @param key_enc_len Length of the encryption key.
- * @param key_mac MAC key used to derive the session MAC key
- * @param key_mac_len Length of the MAC key.
+ * @param key_enc Key used to derive the session encryption key
+ * @param key_enc_len Length of key_enc
+ * @param key_mac Key used to derive the session MAC keys
+ * @param key_mac_len Length of key_mac
  * @param recreate_session If true, the session will be recreated if expired.
  *This caches the password in memory
  * @param session created session
@@ -940,17 +938,49 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
                         bool recreate_session, yh_session **session);
 
 /**
- * Begin creating an external session. The session's encryption key and MAC key
- *are not stored in the device.
+ * Create a session that uses named encryption keys from a platform-specific key
+ *store to derive session-specific keys
  *
- * This function must be followed by yh_finish_create_session_ext() to set the
- *session keys.
+ * @param connector Connector to the device
+ * @param authkey_id Object ID of the Authentication Key used to authenticate
+ *the session
+ * @param key_enc_name Name of key used to derive the session encryption key
+ * @param key_mac_name Name of key used to derive the session MAC keys
+ * @param session created session
+ *
+ * @return #YHR_SUCCESS if successful.
+ *         #YHR_INVALID_PARAMETERS if input parameters are NULL or incorrect.
+ *         See #yh_rc for other possible errors
+ *
+ * @see <a
+ *href="https://developers.yubico.com/YubiHSM2/Concepts/Session.html">Session</a>,
+ * <a
+ *href="https://developers.yubico.com/YubiHSM2/Concepts/Object.html">Authentication
+ *Key</a>
+ **/
+yh_rc yh_create_session_ex(yh_connector *connector, uint16_t authkey_id,
+                           const char *key_enc_name, const char *key_mac_name,
+                           yh_session **session);
+
+/**
+ * Begin creating a session where the session keys are calculated outside the
+ *library.
+ *
+ * This function must be followed by yh_finish_create_session() to set the
+ * session keys.
+ *
+ * If host_challenge_len is 0 when calling this function an 8 byte random
+ *challenge is generated, and symmetric authentication is assumed.
+ *
+ * For asymmetric authentication the host challenge must be provided.
  *
  * @param connector Connector to the device
  * @param authkey_id Object ID of the Authentication Key used to authenticate
  *the session
  * @param context pointer to where context data is saved
- * @param card_cryptogram Card cryptogram
+ * @param host_challenge Host challenge
+ * @param host_challenge_len Length of host challenge
+ * @param card_cryptogram Card cryptogram from the device
  * @param card_cryptogram_len Length of card cryptogram
  * @param session created session
  *
@@ -962,19 +992,25 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
  * @see <a
  *href="https://developers.yubico.com/YubiHSM2/Concepts/Session.html">Session</a>
  **/
-yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
-                                  uint8_t **context, uint8_t *card_cryptogram,
-                                  size_t card_cryptogram_len,
-                                  yh_session **session);
+yh_rc yh_begin_create_session(yh_connector *connector, uint16_t authkey_id,
+                              uint8_t **context, uint8_t *host_challenge,
+                              size_t *host_challenge_len,
+                              uint8_t *card_cryptogram,
+                              size_t *card_cryptogram_len,
+                              yh_session **session);
 
 /**
- * Finish creating external session. The session's encryption key and MAC key
- *are not stored in the device.
+ * Finish creating a session.
  *
- * This function must be called after yh_begin_create_session_ext().
+ * This function must be called after yh_begin_create_session().
  *
- * @param connector Connector to the device
- * @param session The session created with yh_begin_create_session_ext()
+ * For symmetric authentication this function will authenticate the session
+ * with the device using the provided sesion keys and card cryptogram.
+ *
+ * For asymmetric authentication the card cryptogram must be validated
+ *externally.
+ *
+ * @param session The session created with yh_begin_create_session()
  * @param key_senc Session encryption key used to encrypt the messages exchanged
  *with the device
  * @param key_senc_len Lenght of the encryption key. Must be #YH_KEY_LEN
@@ -995,13 +1031,11 @@ yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
  * @see <a
  *href="https://developers.yubico.com/YubiHSM2/Concepts/Session.html">Session</a>
  **/
-yh_rc yh_finish_create_session_ext(yh_connector *connector, yh_session *session,
-                                   const uint8_t *key_senc, size_t key_senc_len,
-                                   const uint8_t *key_smac, size_t key_smac_len,
-                                   const uint8_t *key_srmac,
-                                   size_t key_srmac_len,
-                                   uint8_t *card_cryptogram,
-                                   size_t card_cryptogram_len);
+yh_rc yh_finish_create_session(yh_session *session, const uint8_t *key_senc,
+                               size_t key_senc_len, const uint8_t *key_smac,
+                               size_t key_smac_len, const uint8_t *key_srmac,
+                               size_t key_srmac_len, uint8_t *card_cryptogram,
+                               size_t card_cryptogram_len);
 
 /**
  * Utility function that gets the value and algorithm of the device public key
@@ -1064,8 +1098,7 @@ yh_rc yh_util_generate_ec_p256_key(uint8_t *privkey, size_t privkey_len,
 
 /**
  * Create a session that uses the specified asymmetric key to derive
- *session-specific keys. The session is immediately usable,
- *yh_authenticate_session should not be used.
+ *session-specific keys.
  *
  * @param connector Connector to the device
  * @param authkey_id Object ID of the Asymmetric Authentication Key used to
@@ -1107,17 +1140,26 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
 yh_rc yh_destroy_session(yh_session **session);
 
 /**
- * Authenticate session
- *
- * @param session Session to authenticate
- *
- * @return #YHR_SUCCESS if successful.
- *         #YHR_INVALID_PARAMETERS if the session is NULL.
- *         #YHR_SESSION_AUTHENTICATION_FAILED if the session fails to
- *authenticate. See #yh_rc for other possible errors
- *
- * @see <a
- *href="https://developers.yubico.com/YubiHSM2/Concepts/Session.html">Session</a>
+ * Deprecated, use yh_begin_create_session instead.
+ **/
+yh_rc yh_begin_create_session_ext(yh_connector *connector, uint16_t authkey_id,
+                                  uint8_t **context, uint8_t *card_cryptogram,
+                                  size_t card_cryptogram_len,
+                                  yh_session **session);
+
+/**
+ * Deprecated, use yh_finish_create_session instead.
+ **/
+yh_rc yh_finish_create_session_ext(yh_connector *connector, yh_session *session,
+                                   const uint8_t *key_senc, size_t key_senc_len,
+                                   const uint8_t *key_smac, size_t key_smac_len,
+                                   const uint8_t *key_srmac,
+                                   size_t key_srmac_len,
+                                   uint8_t *card_cryptogram,
+                                   size_t card_cryptogram_len);
+
+/**
+ * Deprecated, calling this function has no effect.
  **/
 yh_rc yh_authenticate_session(yh_session *session);
 

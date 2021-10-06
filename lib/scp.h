@@ -64,6 +64,7 @@ union _Msg {
 #pragma pack(pop)
 
 typedef union _Msg Msg;
+struct yh_connector;
 
 typedef struct {
   uint8_t sid;
@@ -73,8 +74,7 @@ typedef struct {
   uint8_t mac_chaining_value[SCP_PRF_LEN];
   uint8_t ctr[SCP_PRF_LEN];
   char identifier[17];
-  bool in_use;
-  bool authenticated;
+  struct yh_connector *parent;
 } Scp_ctx;
 
 #endif
