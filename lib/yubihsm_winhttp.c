@@ -213,7 +213,7 @@ static yh_rc backend_send_msg(yh_backend *backend, Msg *msg, Msg *response,
 
   if (identifier != NULL && strlen(identifier) > 0 && strlen(identifier) < 32) {
     headers_len =
-      swprintf(hsm_identifier, 64, L"YubiHSM-Session: %hs", identifier);
+      swprintf(hsm_identifier, 64, L"X-Request-Id: %hs", identifier);
     headers = hsm_identifier;
   }
 
