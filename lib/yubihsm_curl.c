@@ -34,8 +34,10 @@ struct curl_data {
   uint8_t *end;
 };
 
+#ifndef STATIC
 uint8_t YH_INTERNAL _yh_verbosity;
 FILE YH_INTERNAL *_yh_output;
+#endif
 
 static size_t curl_callback_write(void *ptr, size_t size, size_t nmemb,
                                   void *stream) {

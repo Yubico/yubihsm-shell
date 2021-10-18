@@ -28,8 +28,10 @@
 #include "yubihsm_usb.h"
 #include "debug_lib.h"
 
+#ifndef STATIC
 uint8_t YH_INTERNAL _yh_verbosity;
 FILE YH_INTERNAL *_yh_output;
+#endif
 
 static void backend_set_verbosity(uint8_t verbosity, FILE *output) {
   _yh_verbosity = verbosity;
