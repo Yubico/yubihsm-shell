@@ -421,18 +421,29 @@ int aes_cbc_decrypt(const uint8_t *in, uint8_t *out, uint16_t len,
 #endif
 }
 
-void aes_add_padding(uint8_t *in, uint16_t *len) {
+int aes_add_padding(uint8_t *in, uint16_t max_len, uint16_t *len) {
+  uint16_t new_len = *len;
 
   if (in) {
-    in[*len] = 0x80;
-  }
-  (*len)++;
-  while ((*len) % AES_BLOCK_SIZE != 0) {
-    if (in) {
-      in[*len] = 0x00;
+    if (new_len >= max_len) {
+      return -1;
     }
-    (*len)++;
+    in[new_len] = 0x80;
   }
+  new_len++;
+
+  while (new_len % AES_BLOCK_SIZE != 0) {
+    if (in) {
+      if (new_len >= max_len) {
+        return -2;
+      }
+      in[new_len] = 0x00;
+    }
+    new_len++;
+  }
+
+  *len = new_len;
+  return 0;
 }
 
 void aes_remove_padding(uint8_t *in, uint16_t *len) {

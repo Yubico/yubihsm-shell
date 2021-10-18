@@ -415,7 +415,9 @@ static yh_rc send_encrypted_msg(Scp_ctx *session, yh_cmd cmd,
   }
 
   uint16_t len = 3 + data_len;
-  aes_add_padding(NULL, &len);
+  if (aes_add_padding(NULL, 0, &len)) {
+    return YHR_INVALID_PARAMETERS;
+  }
 
   // Encrypted message { sid | padded len | mac }
   if (1 + len + SCP_MAC_LEN > SCP_MSG_BUF_SIZE) {
@@ -434,7 +436,9 @@ static yh_rc send_encrypted_msg(Scp_ctx *session, yh_cmd cmd,
   DBG_NET(&msg, dump_msg);
 
   len = 3 + data_len;
-  aes_add_padding(msg.raw, &len);
+  if (aes_add_padding(msg.raw, sizeof(msg.raw), &len)) {
+    return YHR_INVALID_PARAMETERS;
+  }
 
   aes_context aes_ctx = {0};
   if (aes_set_key(session->s_enc, SCP_KEY_LEN, &aes_ctx)) {

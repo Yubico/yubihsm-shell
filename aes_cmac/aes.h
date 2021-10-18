@@ -75,7 +75,7 @@ int YH_INTERNAL aes_cbc_encrypt(const uint8_t *in, uint8_t *out, uint16_t len,
 int YH_INTERNAL aes_cbc_decrypt(const uint8_t *in, uint8_t *out, uint16_t len,
                                 const uint8_t *iv, aes_context *ctx);
 
-void YH_INTERNAL aes_add_padding(uint8_t *in, uint16_t *len);
+int YH_INTERNAL aes_add_padding(uint8_t *in, uint16_t max_len, uint16_t *len);
 void YH_INTERNAL aes_remove_padding(uint8_t *in, uint16_t *len);
 
 void YH_INTERNAL aes_destroy(aes_context *ctx);
