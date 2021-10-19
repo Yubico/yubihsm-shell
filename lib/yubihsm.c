@@ -1960,6 +1960,9 @@ static yh_rc import_asymmetric(yh_session *session, uint16_t *key_id,
 
   memcpy(k.capabilities, capabilities, YH_CAPABILITIES_LEN);
 
+  if (key_len > sizeof(k.bytes)) {
+    return YHR_INVALID_PARAMETERS;
+  }
   memcpy(k.bytes, key, key_len);
 
   uint16_t len = sizeof(k.key_id) + sizeof(k.domains) + sizeof(k.capabilities) +
