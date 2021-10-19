@@ -2794,6 +2794,23 @@ yh_rc yh_util_get_log_entries(yh_session *session, uint16_t *unlogged_boot,
     return yrc;
   }
 
+  if (response_len <
+    sizeof(response.log_overflow_boot) +
+    sizeof(response.log_overflow_auth) +
+    sizeof(response.items)) {
+      return YHR_WRONG_LENGTH;
+  }
+
+  size_t logs_size = response_len -
+    sizeof(response.log_overflow_boot) -
+    sizeof(response.log_overflow_auth) -
+    sizeof(response.items);
+
+  if (logs_size % sizeof(yh_log_entry) != 0 ||
+      logs_size / sizeof(yh_log_entry) != response.items) {
+      return YHR_WRONG_LENGTH;
+  }
+
   if (unlogged_boot) {
     *unlogged_boot = ntohs(response.log_overflow_boot);
   }
