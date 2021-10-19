@@ -1056,8 +1056,7 @@ static bool x9_63_sha256_kdf(const uint8_t *shsee, size_t shsee_len,
   }
   bool ok = false;
   uint8_t cnt[4] = {0};
-  size_t hash_len = 0;
-  for (uint8_t *end = dst + dst_len; dst < end; dst += hash_len) {
+  for (uint8_t *end = dst + dst_len; dst < end; dst += dst_len) {
     increment_ctr(cnt, sizeof(cnt));
     if (!hash_init(hashctx)) {
       goto err_out;
@@ -1076,7 +1075,7 @@ static bool x9_63_sha256_kdf(const uint8_t *shsee, size_t shsee_len,
         goto err_out;
       }
     }
-    if (!hash_final(hashctx, dst, &hash_len)) {
+    if (!hash_final(hashctx, dst, &dst_len)) {
       goto err_out;
     }
   }
