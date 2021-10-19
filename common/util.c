@@ -663,6 +663,10 @@ bool write_ed25519_key(uint8_t *buf, size_t buf_len, FILE *fp,
       drop_newline = 0;
     }
 
+    if (sizeof(ed25519public_oid) + buf_len < buf_len ||
+        sizeof(ed25519public_oid) + buf_len > sizeof(asn1)) {
+        return false;
+    }
     memcpy(asn1, ed25519public_oid, sizeof(ed25519public_oid));
     memcpy(asn1 + sizeof(ed25519public_oid), buf, buf_len);
 
