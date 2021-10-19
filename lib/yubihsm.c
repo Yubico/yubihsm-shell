@@ -2260,6 +2260,11 @@ yh_rc yh_util_verify_hmac(yh_session *session, uint16_t key_id,
     return YHR_INVALID_PARAMETERS;
   }
 
+  if (data_len + signature_len < data_len) {
+    // unsigned integer overflow detection
+    return YHR_INVALID_PARAMETERS;
+  }
+
   if (data_len + signature_len > YH_MSG_BUF_SIZE - 2) {
     DBG_ERR("Too much data, must be < %d", YH_MSG_BUF_SIZE - 2);
     return YHR_INVALID_PARAMETERS;
