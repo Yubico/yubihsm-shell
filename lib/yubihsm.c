@@ -289,6 +289,9 @@ static yh_rc send_msg(yh_connector *connector, Msg *msg, Msg *response,
   yh_rc yrc = connector->bf->backend_send_msg(connector->connection, msg,
                                               response, identifier);
   if (yrc == YHR_SUCCESS) {
+    if (ntohs(response->st.len) > sizeof(response->st.data)) {
+      return YHR_WRONG_LENGTH;
+    }
     DBG_NET(response, dump_response);
   }
   return yrc;
