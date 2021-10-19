@@ -1622,6 +1622,11 @@ yh_rc yh_util_get_public_key(yh_session *session, uint16_t id, uint8_t *data,
     return yrc;
   }
 
+  if (response_len < 1) {
+    // abg: why is the first byte of the response discarded?
+    return YHR_DEVICE_WRONG_LENGTH;
+  }
+
   if (response_len > *data_len) {
     return YHR_BUFFER_TOO_SMALL;
   }
