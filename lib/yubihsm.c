@@ -1507,12 +1507,12 @@ yh_rc yh_util_list_objects(yh_session *session, uint16_t id,
   }
 
   *n_objects = response_len / 4;
-  for (size_t i = 0; i < response_len; i += 4) {
+  for (size_t i = 0; i < *n_objects; i++) {
     // NOTE: clear the fields that we didn't set
-    memset(&objects[i / 4], 0, sizeof(yh_object_descriptor));
-    objects[i / 4].id = ntohs(*((uint16_t *) (response + i)));
-    objects[i / 4].type = response[i + 2];
-    objects[i / 4].sequence = response[i + 3];
+    memset(&objects[i], 0, sizeof(yh_object_descriptor));
+    objects[i].id = ntohs(*((uint16_t *) (response + i * 4)));
+    objects[i].type = response[i * 4 + 2];
+    objects[i].sequence = response[i * 4 + 3];
   }
 
   DBG_INFO("Found %zu objects", *n_objects);
