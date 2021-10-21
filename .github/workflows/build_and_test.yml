@@ -98,9 +98,9 @@ jobs:
 
         echo connector=$DEFAULT_CONNECTOR_URL
         curl "$DEFAULT_CONNECTOR_URL/connector/status"
-#        pushd resources/tests/bash
-#          ./cmdline_test.sh $GITHUB_WORKSPACE/build/src/yubihsm-shell
-#        popd
+        pushd resources/tests/bash
+          ./cmdline_test.sh $GITHUB_WORKSPACE/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
+        popd
     - name: Python PKCS11 Test
       if: ${{ matrix.test }}
       env:

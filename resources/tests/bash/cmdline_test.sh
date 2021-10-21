@@ -1,9 +1,9 @@
 #!/bin/bash
 
-if [ "$#" -ne 1 ]; then
+if [ "$#" -ne 2 ]; then
   BIN="yubihsm-shell"
 else
-  BIN=$1 # path to the yubico-piv-tool command line tool
+  BIN="$1 -C $2" # path to the yubico-piv-tool command line tool
 fi
 
 if [ -e yubihsm-shell_test_dir ];
