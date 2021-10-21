@@ -80,13 +80,13 @@ echo "===== rsa-pss-sha384"
 $BIN -p password -a sign-pss -i $import_keyid -A rsa-pss-sha384 --in data.txt --out data.2048psssha384.sig
 echo "===== rsa-pss-sha512"
 $BIN -p password -a sign-pss -i $import_keyid -A rsa-pss-sha512 --in data.txt --out data.2048psssha512.sig
-echo "=== Make self signed certificate"
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem
-openssl x509 -in cert.pem -out cert.der -outform DER
-$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
-$BIN -p password -a delete-object -i $keyid -t opaque
-$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
+#echo "=== Make self signed certificate"
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem
+#openssl x509 -in cert.pem -out cert.der -outform DER
+#$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
+#$BIN -p password -a delete-object -i $keyid -t opaque
+#$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
 echo "=== Sign attestation certificate"
 $BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
 $BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
@@ -163,13 +163,13 @@ echo "===== rsa-pss-sha384"
 $BIN -p password -a sign-pss -i $import_keyid -A rsa-pss-sha384 --in data.txt --out data.3072psssha384.sig
 echo "===== rsa-pss-sha512"
 $BIN -p password -a sign-pss -i $import_keyid -A rsa-pss-sha512 --in data.txt --out data.3072psssha512.sig
-echo "=== Make self signed certificate"
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem
-openssl x509 -in cert.pem -out cert.der -outform DER
-$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
-$BIN -p password -a delete-object -i $keyid -t opaque
-$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
+#echo "=== Make self signed certificate"
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem
+#openssl x509 -in cert.pem -out cert.der -outform DER
+#$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
+#$BIN -p password -a delete-object -i $keyid -t opaque
+#$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
 echo "=== Sign attestation certificate"
 $BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
 $BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
@@ -247,13 +247,13 @@ echo "===== rsa-pss-sha384"
 $BIN -p password -a sign-pss -i $import_keyid -A rsa-pss-sha384 --in data.txt --out data.4096psssha384.sig
 echo "===== rsa-pss-sha512"
 $BIN -p password -a sign-pss -i $import_keyid -A rsa-pss-sha512 --in data.txt --out data.4096psssha512.sig
-echo "=== Make self signed certificate"
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem
-openssl x509 -in cert.pem -out cert.der -outform DER
-$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
-$BIN -p password -a delete-object -i $keyid -t opaque
-$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
+#echo "=== Make self signed certificate"
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem
+#openssl x509 -in cert.pem -out cert.der -outform DER
+#$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
+#$BIN -p password -a delete-object -i $keyid -t opaque
+#$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
 echo "=== Sign attestation certificate"
 $BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
 $BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der

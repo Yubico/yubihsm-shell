@@ -55,13 +55,13 @@ $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha256 --in data.txt > 
 $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha384 --in data.txt > data.ecp224sha384.sig
 $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha512 --in data.txt > data.ecp224sha512.sig
 #-- Get attestation certificate and a selfsigned certificate
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem
-openssl x509 -in cert.pem -out cert.der -outform DER
-$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
-$BIN -p password -a delete-object -i $keyid -t opaque
-$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
-rm selfsigned_cert.pem
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem
+#openssl x509 -in cert.pem -out cert.der -outform DER
+#$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
+#$BIN -p password -a delete-object -i $keyid -t opaque
+#$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
+#rm selfsigned_cert.pem
 #-- Sign attestation certificate
 $BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
 $BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
@@ -100,13 +100,13 @@ $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha256 --in data.txt > 
 $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha384 --in data.txt > data.ecp256sha384.sig
 $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha512 --in data.txt > data.ecp256sha512.sig
 #-- Get attestation certificate and a selfsigned certificate
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem
-openssl x509 -in cert.pem -out cert.der -outform DER
-$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
-$BIN -p password -a delete-object -i $keyid -t opaque
-$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
-rm selfsigned_cert.pem
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem
+#openssl x509 -in cert.pem -out cert.der -outform DER
+#$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
+#$BIN -p password -a delete-object -i $keyid -t opaque
+#$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
+#rm selfsigned_cert.pem
 #-- Sign attestation certificate
 $BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
 $BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
@@ -141,13 +141,13 @@ $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha256 --in data.txt > 
 $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha384 --in data.txt > data.ecp384sha384.sig
 $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha512 --in data.txt > data.ecp384sha512.sig
 #-- Get attestation certificate and a selfsigned certificate
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem
-openssl x509 -in cert.pem -out cert.der -outform DER
-$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
-$BIN -p password -a delete-object -i $keyid -t opaque
-$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
-rm selfsigned_cert.pem
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem
+#openssl x509 -in cert.pem -out cert.der -outform DER
+#$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
+#$BIN -p password -a delete-object -i $keyid -t opaque
+#$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
+#rm selfsigned_cert.pem
 #-- Sign attestation certificate
 $BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
 $BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
@@ -182,13 +182,13 @@ $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha256 --in data.txt > 
 $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha384 --in data.txt > data.ecp521sha384.sig
 $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha512 --in data.txt > data.ecp521sha512.sig
 #-- Get attestation certificate and a selfsigned certificate
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem
-openssl x509 -in cert.pem -out cert.der -outform DER
-$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
-$BIN -p password -a delete-object -i $keyid -t opaque
-$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
-rm selfsigned_cert.pem
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem
+#openssl x509 -in cert.pem -out cert.der -outform DER
+#$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
+#$BIN -p password -a delete-object -i $keyid -t opaque
+#$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
+#rm selfsigned_cert.pem
 #-- Sign attestation certificate
 $BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
 $BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
@@ -223,13 +223,13 @@ $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha256 --in data.txt > 
 $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha384 --in data.txt > data.eck256sha384.sig
 $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha512 --in data.txt > data.eck256sha512.sig
 #-- Get attestation certificate and a selfsigned certificate
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem
-openssl x509 -in cert.pem -out cert.der -outform DER
-$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
-$BIN -p password -a delete-object -i $keyid -t opaque
-$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
-rm selfsigned_cert.pem
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem
+#openssl x509 -in cert.pem -out cert.der -outform DER
+#$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
+#$BIN -p password -a delete-object -i $keyid -t opaque
+#$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
+#rm selfsigned_cert.pem
 #-- Sign attestation certificate
 $BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
 $BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
@@ -264,13 +264,13 @@ $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha256 --in data.txt > 
 $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha384 --in data.txt > data.ecbp256sha384.sig
 $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha512 --in data.txt > data.ecbp256sha512.sig
 #-- Get attestation certificate and a selfsigned certificate
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem
-openssl x509 -in cert.pem -out cert.der -outform DER
-$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
-$BIN -p password -a delete-object -i $keyid -t opaque
-$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
-rm selfsigned_cert.pem
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem
+#openssl x509 -in cert.pem -out cert.der -outform DER
+#$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
+#$BIN -p password -a delete-object -i $keyid -t opaque
+#$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
+#rm selfsigned_cert.pem
 #-- Sign attestation certificate
 $BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
 $BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
@@ -305,13 +305,13 @@ $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha256 --in data.txt > 
 $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha384 --in data.txt > data.ecbp384sha384.sig
 $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha512 --in data.txt > data.ecbp384sha512.sig
 #-- Get attestation certificate and a selfsigned certificate
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem
-openssl x509 -in cert.pem -out cert.der -outform DER
-$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
-$BIN -p password -a delete-object -i $keyid -t opaque
-$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
-rm selfsigned_cert.pem
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem
+#openssl x509 -in cert.pem -out cert.der -outform DER
+#$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
+#$BIN -p password -a delete-object -i $keyid -t opaque
+#$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
+#rm selfsigned_cert.pem
 #-- Sign attestation certificate
 $BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
 $BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
@@ -346,13 +346,13 @@ $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha256 --in data.txt > 
 $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha384 --in data.txt > data.ecbp512sha384.sig
 $BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha512 --in data.txt > data.ecbp512sha512.sig
 #-- Get attestation certificate and a selfsigned certificate
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem
-openssl x509 -in cert.pem -out cert.der -outform DER
-$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
-$BIN -p password -a delete-object -i $keyid -t opaque
-$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
-rm selfsigned_cert.pem
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem
+#openssl x509 -in cert.pem -out cert.der -outform DER
+#$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
+#$BIN -p password -a delete-object -i $keyid -t opaque
+#$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
+#rm selfsigned_cert.pem
 #-- Sign attestation certificate
 $BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
 $BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
