@@ -87,10 +87,10 @@ $BIN -p password -a sign-pss -i $import_keyid -A rsa-pss-sha512 --in data.txt --
 #$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
 #$BIN -p password -a delete-object -i $keyid -t opaque
 #$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
-echo "=== Sign attestation certificate"
-$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
-rm cert.pem cert.der selfsigned_cert.pem
+#echo "=== Sign attestation certificate"
+#$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
+#rm cert.pem cert.der selfsigned_cert.pem
 echo "=== Decrypt with generated key and PKCS1v15"
 openssl rsautl -encrypt -inkey pubkey_rsa2048.pem -pubin -in data.txt -out data.enc
 $BIN -p password -a decrypt-pkcs1v15 -i $keyid --in data.enc --out data.dec
@@ -170,10 +170,10 @@ $BIN -p password -a sign-pss -i $import_keyid -A rsa-pss-sha512 --in data.txt --
 #$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
 #$BIN -p password -a delete-object -i $keyid -t opaque
 #$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
-echo "=== Sign attestation certificate"
-$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
-rm cert.pem cert.der selfsigned_cert.pem
+#echo "=== Sign attestation certificate"
+#$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
+#rm cert.pem cert.der selfsigned_cert.pem
 echo "=== Decrypt with generated key and PKCS1v15"
 openssl rsautl -encrypt -inkey pubkey_rsa3072.pem -pubin -in data.txt -out data.enc
 $BIN -p password -a decrypt-pkcs1v15 -i $keyid --in data.enc --out data.dec
@@ -254,10 +254,10 @@ $BIN -p password -a sign-pss -i $import_keyid -A rsa-pss-sha512 --in data.txt --
 #$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem
 #$BIN -p password -a delete-object -i $keyid -t opaque
 #$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem
-echo "=== Sign attestation certificate"
-$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
-$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
-rm cert.pem cert.der selfsigned_cert.pem
+#echo "=== Sign attestation certificate"
+#$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der
+#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der
+#rm cert.pem cert.der selfsigned_cert.pem
 echo "=== Decrypt with generated key and PKCS1v15"
 openssl rsautl -encrypt -inkey pubkey_rsa4096.pem -pubin -in data.txt -out data.enc
 $BIN -p password -a decrypt-pkcs1v15 -i $keyid --in data.enc --out data.dec
