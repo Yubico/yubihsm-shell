@@ -3,16 +3,14 @@ if($ARCH -eq "x86")
 {
     if ((Get-Command "yubihsm-shell.exe" -ErrorAction SilentlyContinue) -eq $null)
     {
-        #$env:Path += ";C:/Program Files (x86)/Yubico/YubiHSM Shell/bin"
-        $env:Path += ";Z:\yubihsm-shell\build_winx86\release\bin"
+        $env:Path += ";C:/Program Files (x86)/Yubico/YubiHSM Shell/bin"
     }
 }
 elseif ($ARCH -eq "x64")
 {
     if ((Get-Command "yubihsm-shell.exe" -ErrorAction SilentlyContinue) -eq $null)
     {
-        #$env:Path += ";C:/Program Files/Yubico/YubiHSM Shell/bin"
-        $env:Path += ";Z:\yubihsm-shell\build_winx64\release\bin"
+        $env:Path += ";C:/Program Files/Yubico/YubiHSM Shell/bin"
     }
 }
 else {
@@ -66,9 +64,9 @@ yubihsm-shell.exe -p password -a get-pseudo-random --count=10 --out=random.txt; 
 rm random.txt
 
 echo "********************** Asym keys ********************* "
-#& "$PSScriptRoot\test_edkey.ps1" "$ARCH"
-#& "$PSScriptRoot\test_eckey.ps1" "$ARCH"
-#& "$PSScriptRoot\test_rsakey.ps1" "$ARCH"
+& "$PSScriptRoot\test_edkey.ps1" "$ARCH"
+& "$PSScriptRoot\test_eckey.ps1" "$ARCH"
+& "$PSScriptRoot\test_rsakey.ps1" "$ARCH"
 
 echo "********************** HMAC keys ********************* "
 & "$PSScriptRoot\test_hmackey.ps1" "$ARCH"

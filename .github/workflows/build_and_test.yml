@@ -95,6 +95,10 @@ jobs:
           ctest --output-on-failure
         fi
         popd
+        pwd
+        pushd resources/tests/bash
+          ./cmdline_test.sh $GITHUB_WORKSPACE/build/src/yubihsm-shell
+        popd
     - name: Python PKCS11 Test
       if: ${{ matrix.test }}
       env:
