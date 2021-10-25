@@ -1,0 +1,3 @@
+version=3
+opts=pgpsigurlmangle=s/$/.sig/ \
+  https://developers.yubico.com/YubiHSM2/Releases/ yubihsm2-sdk-(.*)\.tar\.gz

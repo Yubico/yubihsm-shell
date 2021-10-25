@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<installer-gui-script minSpecVersion="1">
+    <title>yubihsm2-sdk</title>
+<!--    <readme file="README.html" mime-type="text/html"/> -->
+    <license file="license.html" mime-type="text/html" />
+    <pkg-ref id="com.yubico.yubihsm2-sdk"/>
+    <options customize="never" require-scripts="false"/>
+    <choices-outline>
+        <line choice="default">
+            <line choice="com.yubico.yubihsm2-sdk"/>
+        </line>
+    </choices-outline>
+    <choice id="default"/>
+    <choice id="com.yubico.yubihsm2-sdk" visible="false">
+        <pkg-ref id="com.yubico.yubihsm2-sdk"/>
+    </choice>
+    <pkg-ref id="com.yubico.yubihsm2-sdk" version="0" onConclusion="none">yubihsm2-sdk.pkg</pkg-ref>
+</installer-gui-script>

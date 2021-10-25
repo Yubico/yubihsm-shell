@@ -1,0 +1,155 @@
+Source: yubihsm-shell
+Maintainer: Yubico Maintainers <ossmaint@yubico.com>
+Uploaders: Klas Lindfors <klas@yubico.com>, Alessio Di Mauro <alessio@yubico.com>
+Section: utils
+Priority: optional
+Build-Depends: debhelper (>= 9),
+               cmake,
+               pkg-config,
+               libedit-dev,
+               libssl-dev,
+               libcurl4-openssl-dev,
+               gengetopt,
+               help2man,
+               dh-exec,
+Standards-Version: 3.9.8
+Homepage: https://developers.yubico.com/YubiHSM2
+Vcs-Git: git://github.com/Yubico/RELEASEME.git
+Vcs-Browser: https://github.com/Yubico/RELEASEME
+
+Package: libyubihsm1
+Architecture: any
+Section: libs
+Pre-Depends: ${misc:Pre-Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, libyubihsm-http1 (= ${binary:Version}) | libyubihsm-usb1 (= ${binary:Version})
+Description: Library for communication with the YubiHSM 2.
+ The YubiHSM 2 is a Hardware Security Module that is within reach of all
+ organizations.  It provides advanced cryptography, including hashing,
+ asymmetric and symmetric key cryptography, to protect the cryptographic keys
+ that secure critical applications, identities, and sensitive data in an
+ enterprise for certificate authorities, databases, code signing and more.
+ .
+ This package contains the run-time shared library.  You normally don't
+ need to install it manually.
+
+Package: libyubihsm-usb1
+Architecture: any
+Section: libs
+Pre-Depends: ${misc:Pre-Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Recommends: libyubihsm1
+Description: Library for communication with the YubiHSM 2.
+ The YubiHSM 2 is a Hardware Security Module that is within reach of all
+ organizations.  It provides advanced cryptography, including hashing,
+ asymmetric and symmetric key cryptography, to protect the cryptographic keys
+ that secure critical applications, identities, and sensitive data in an
+ enterprise for certificate authorities, databases, code signing and more.
+ .
+ This package contains backend functions for direct usb access for the
+ libyubihsm1 package.
+
+Package: libyubihsm-http1
+Architecture: any
+Section: libs
+Pre-Depends: ${misc:Pre-Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Recommends: libyubihsm1
+Suggests: yubihsm-connector
+Description: Library for communication with the YubiHSM 2.
+ The YubiHSM 2 is a Hardware Security Module that is within reach of all
+ organizations.  It provides advanced cryptography, including hashing,
+ asymmetric and symmetric key cryptography, to protect the cryptographic keys
+ that secure critical applications, identities, and sensitive data in an
+ enterprise for certificate authorities, databases, code signing and more.
+ .
+ This package contains backend functions for http access to the yubihsm
+ connector for the libyubihsm1 package.
+
+Package: libyubihsm-dev
+Architecture: any
+Section: libdevel
+Depends: ${shlibs:Depends}, ${misc:Depends}, libyubihsm1 (= ${binary:Version})
+Description: Library for communication with the YubiHSM 2
+ The YubiHSM 2 is a Hardware Security Module that is within reach of all
+ organizations.  It provides advanced cryptography, including hashing,
+ asymmetric and symmetric key cryptography, to protect the cryptographic keys
+ that secure critical applications, identities, and sensitive data in an
+ enterprise for certificate authorities, databases, code signing and more.
+ .
+ This package contains the development files for the library.
+
+Package: libykhsmauth1
+Architecture: any
+Section: libs
+Pre-Depends: ${misc:Pre-Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Library for communication with the YubiKey to setup an authentication key that can be used to access the YubiHSM 2.
+ The YubiHSM 2 is a Hardware Security Module that is within reach of all
+ organizations.  It provides advanced cryptography, including hashing,
+ asymmetric and symmetric key cryptography, to protect the cryptographic keys
+ that secure critical applications, identities, and sensitive data in an
+ enterprise for certificate authorities, databases, code signing and more.
+ .
+ This package contains the libykhsmauth run-time shared library
+
+Package: libykhsmauth-dev
+Architecture: any
+Section: libdevel
+Depends: ${shlibs:Depends}, ${misc:Depends}, libykhsmauth1 (= ${binary:Version})
+Description: Library for communication with the YubiKey to setup an authentication key that can be used to access the YubiHSM 2.
+ The YubiHSM 2 is a Hardware Security Module that is within reach of all
+ organizations.  It provides advanced cryptography, including hashing,
+ asymmetric and symmetric key cryptography, to protect the cryptographic keys
+ that secure critical applications, identities, and sensitive data in an
+ enterprise for certificate authorities, databases, code signing and more.
+ .
+ This package contains the development files for the libykhsmauth library.
+
+Package: yubihsm-pkcs11
+Architecture: any
+Section: libs
+Depends: ${shlibs:Depends}, ${misc:Depends}, libyubihsm1 (= ${binary:Version})
+Description: PKCS#11 module for communication with the YubiHSM 2.
+ The YubiHSM 2 is a Hardware Security Module that is within reach of all
+ organizations.  It provides advanced cryptography, including hashing,
+ asymmetric and symmetric key cryptography, to protect the cryptographic keys
+ that secure critical applications, identities, and sensitive data in an
+ enterprise for certificate authorities, databases, code signing and more.
+ .
+ This package contains the PKCS#11 module.
+
+Package: yubihsm-shell
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Command line and interactive tool for the YubiHSM 2.
+ The YubiHSM 2 is a Hardware Security Module that is within reach of all
+ organizations.  It provides advanced cryptography, including hashing,
+ asymmetric and symmetric key cryptography, to protect the cryptographic keys
+ that secure critical applications, identities, and sensitive data in an
+ enterprise for certificate authorities, databases, code signing and more.
+ .
+ This package contains the command-line tool.
+
+Package: yubihsm-wrap
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Command line tool for producing offline wrapped objects for the YubiHSM 2.
+ The YubiHSM 2 is a Hardware Security Module that is within reach of all
+ organizations.  It provides advanced cryptography, including hashing,
+ asymmetric and symmetric key cryptography, to protect the cryptographic keys
+ that secure critical applications, identities, and sensitive data in an
+ enterprise for certificate authorities, databases, code signing and more.
+ .
+ This package contains the yubihsm-wrap command-line tool.
+
+Package: yubihsm-auth
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Command line tool for storing the authentication keys of a YubiHSM in a YubiKey
+ The YubiHSM 2 is a Hardware Security Module that is within reach of all
+ organizations.  It provides advanced cryptography, including hashing,
+ asymmetric and symmetric key cryptography, to protect the cryptographic keys
+ that secure critical applications, identities, and sensitive data in an
+ enterprise for certificate authorities, databases, code signing and more.
+ .
+ This package contains the yubihsm-auth command-line tool.

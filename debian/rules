@@ -1,0 +1,22 @@
+#!/usr/bin/make -f
+
+DH_VERBOSE = 1
+DEB_BUILD_OPTIONS=noddebs
+
+%:
+	dh $@ --parallel
+
+override_dh_install:
+	chrpath -d $(CURDIR)/debian/tmp/usr/bin/*
+	chrpath -d $(CURDIR)/debian/tmp/usr/lib/*.so*
+	chrpath -d $(CURDIR)/debian/tmp/usr/lib/pkcs11/*.so*
+	dh_install --fail-missing
+
+override_dh_auto_configure:
+	dh_auto_configure -- -DWITHOUT_YKYH=1 -DRELEASE_BUILD=1
+
+override_dh_auto_test:
+	true
+
+#override_dh_installdocs:
+#	find debian

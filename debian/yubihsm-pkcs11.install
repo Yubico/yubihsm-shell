@@ -1,0 +1,3 @@
+#! /usr/bin/dh-exec
+
+usr/lib/pkcs11/*.so /usr/lib/${DEB_HOST_MULTIARCH}/pkcs11

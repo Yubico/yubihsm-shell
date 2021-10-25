@@ -1,6 +1,6 @@
-if($args.length -lt 4)
+if($args.length -lt 2)
 {
-    echo "Usage: ./make_installer.ps1 <Win32|x64> <VCPKG_PATH> <WIX_PATH> <MERGE_MODULE_PATH>"
+    echo "Usage: ./make_installer.ps1 <Win32|x64> <VCPKG_PATH>"
     echo ""
     echo "This is a script to build an MSI installer for yubihsm"
     echo ""
@@ -8,16 +8,11 @@ if($args.length -lt 4)
     echo "   x64                    builds using X64 architecture by adding '-A x64' argument to the cmake command"
     echo ""
     echo "   VCPKG_PATH             Absolute path to the directory where vcpkg.exe is located"
-    echo "   WIX_PATH               Absolute path to the directory where WIX Tools binaries (heat.exe, candle.exe and light.exe) are located"
-    echo "   MERGE_MODULE_PATH      Absolute path to the redistribution module (tex Microsoft_VC142_CRT_x86.msm or Microsoft_VC142_CRT_x64.msm)"
     exit
 }
 
 $CMAKE_ARCH=$args[0]
 $VCPKG_PATH=$args[1]
-$WIX_PATH=$args[2] # Absolute path to the WixTools binaries
-$MERGE_MODULE=$args[3] # Absolute path containing Microsoft_VC142_CRT_x86.msm or Microsoft_VC142_CRT_x64.msm
-
 
 if($CMAKE_ARCH -eq "Win32") {
     $ARCH="x86"
@@ -26,7 +21,7 @@ if($CMAKE_ARCH -eq "Win32") {
 }
 
 $WIN_DIR = "$PSScriptRoot"
-$SOURCE_DIR="$PSScriptRoot/../.."
+$SOURCE_DIR="$PSScriptRoot/../../.."
 $BUILD_DIR="$WIN_DIR/build_release"
 $RELEASE_DIR="$WIN_DIR/yubihsm-shell-$ARCH"
 $LICENSES_DIR="$RELEASE_DIR/licenses"
@@ -35,6 +30,7 @@ Set-PSDebug -Trace 1
 
 # Install prerequisites
 cd $VCPKG_PATH
+.\vcpkg.exe update
 .\vcpkg.exe install openssl:$ARCH-windows
 .\vcpkg.exe install getopt:$ARCH-windows
 
@@ -72,21 +68,8 @@ cp $license $LICENSES_DIR\openssl.txt
 $license=(Get-ChildItem -Path $VCPKG_PATH\buildtrees\getopt-win32\src\ -Filter LICENSE -Recurse -ErrorAction SilentlyContinue -Force | %{$_.FullName})
 cp $license $LICENSES_DIR\getopt.txt
 
-# Build MSI
-cd $WIN_DIR
-$env:PATH += ";$WIX_PATH"
-$env:SRCDIR = $RELEASE_DIR
-$env:MERGEDPATH = $MERGE_MODULE
-
-heat.exe dir $RELEASE_DIR -out fragment.wxs -gg -scom -srd -sfrag -sreg -dr INSTALLDIR -cg ApplicationFiles -var env.SRCDIR
-candle.exe fragment.wxs "yubihsm-shell_$ARCH.wxs" -ext WixUtilExtension  -arch $ARCH
-light.exe fragment.wixobj "yubihsm-shell_$ARCH.wixobj" -ext WixUIExtension -ext WixUtilExtension -o "yubihsm-shell-$ARCH.msi"
-
-#cleanup
-rm fragment.wxs
-rm fragment.wixobj
-rm "yubihsm-shell_$ARCH.wixobj"
-rm "yubihsm-shell-$ARCH.wixpdb"
+#cd $WIN_DIR
+#Compress-Archive -LiteralPath "$WIN_DIR/yubihsm-shell-$ARCH" -DestinationPath "$WIN_DIR/yubihsm-shell-$ARCH.zip"
 rm -r $BUILD_DIR
 
 Set-PSDebug -Trace 0

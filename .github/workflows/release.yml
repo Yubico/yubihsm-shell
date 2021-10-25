@@ -1,0 +1,221 @@
+name: Release binaries
+# This machine tests building the software on a both 32 and 64 Windows architecture.
+
+on: [push]
+
+jobs:
+
+  source:
+    name: Build dist with Linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: Install prerequisites
+        run: |
+          set -x
+          sudo apt -q update
+          sudo apt install libpcsclite-dev gengetopt help2man libedit-dev libcurl4-openssl-dev libssl-dev libusb-1.0-0-dev
+      - name: Create tar.gz
+        run: |
+          set -x
+          ./resources/make_src_dist.sh
+          cd ..
+          mkdir artifact
+          mv $GITHUB_WORKSPACE/yubihsm-shell-.tar.gz artifact/
+      - name: Upload artifact
+        uses: actions/upload-artifact@v1
+        with:
+          name: yubihsm-shell-src
+          path: ../artifact
+
+  Windowsx86:
+    name: Build Windows x86 release
+    needs: source
+    runs-on: windows-latest
+    steps:
+      - name: Download source from source job
+        uses: actions/download-artifact@v1
+        with:
+          name: yubihsm-shell-src
+
+      - name: Extract source
+        run: |
+          Set-PSDebug -Trace 1
+          cd yubihsm-shell-src
+          tar xf yubihsm-shell-.tar.gz
+
+      - name: Build and make MSI installer
+        run: |
+          Set-PSDebug -Trace 1
+          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-"
+          $MERGEDPATH = Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC142_CRT_x86.msm"
+
+          cd $YHSHELL_SRC_DIR/resources/release/win
+          ./make_release_binaries.ps1 Win32 C:/vcpkg
+          cd $YHSHELL_SRC_DIR/resources/release/win
+          ./repack_installer.ps1 x86 $env:WIX\bin "$MERGEDPATH"
+
+          mkdir $env:GITHUB_WORKSPACE/artifact
+          cp -r $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-x86 $env:GITHUB_WORKSPACE/artifact/
+          cp -r $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-x86.msi $env:GITHUB_WORKSPACE/artifact/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: yubihsm-shell-win32
+          path: artifact
+
+
+  windowsx64:
+    name: Build Windows x64 release
+    needs: source
+    runs-on: windows-latest
+
+    steps:
+      - name: Download source from source job
+        uses: actions/download-artifact@v1
+        with:
+          name: yubihsm-shell-src
+
+      - name: Extract source
+        run: |
+          Set-PSDebug -Trace 1
+          cd yubihsm-shell-src
+          tar xf yubihsm-shell-.tar.gz
+
+      - name: Build and make MSI installer
+        run: |
+          Set-PSDebug -Trace 1
+          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-"
+          $MERGEDPATH = Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC142_CRT_x64.msm"
+
+          cd $YHSHELL_SRC_DIR/resources/release/win
+          ./make_release_binaries.ps1 x64 C:/vcpkg
+          cd $YHSHELL_SRC_DIR/resources/release/win
+          ./repack_installer.ps1 x64 $env:WIX\bin "$MERGEDPATH"
+
+          mkdir $env:GITHUB_WORKSPACE/artifact
+          cp -r $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-x64 $env:GITHUB_WORKSPACE/artifact/
+          cp -r $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-x64.msi $env:GITHUB_WORKSPACE/artifact/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: yubihsm-shell-win64
+          path: artifact
+
+  macos_amd64:
+    name: Build MacOS amd64 release
+    needs: source
+    runs-on: macos-10.15
+    env:
+      VERSION: 2.2.0
+      SO_VERSION: 2
+    steps:
+      - name: Download source from source job
+        uses: actions/download-artifact@v1
+        with:
+          name: yubihsm-shell-src
+
+      - name: Extract source
+        run: |
+          set -x
+          cd yubihsm-shell-src
+          tar xf yubihsm-shell-.tar.gz
+
+      - name: Build and make MSI installer
+        run: |
+          set -e -o pipefail
+          set -x
+
+          brew install openssl@1.1
+          ls /usr/local/opt
+          ls /usr/local/opt/openssl@1.1
+          ls /usr/local/opt/openssl@1.1/lib
+
+
+          YHSHELL_SRC_DIR="$GITHUB_WORKSPACE/yubihsm-shell-src/yubihsm-shell-"
+
+          cd $YHSHELL_SRC_DIR
+          ./resources/release/macos/make_release_binaries.sh amd $VERSION $SO_VERSION
+          cd $YHSHELL_SRC_DIR/resources/release/macos/
+          ./make_installer.sh amd64 $YHSHELL_SRC_DIR/resources/release/macos/yubihsm-shell-darwin-amd-$VERSION
+
+          mkdir $GITHUB_WORKSPACE/artifact
+          cp -r $YHSHELL_SRC_DIR/resources/release/macos/yubihsm-shell-darwin-amd-$VERSION $GITHUB_WORKSPACE/artifact/
+          cp -r $YHSHELL_SRC_DIR/resources/release/macos/yubihsm2-sdk-darwin-amd64.pkg $GITHUB_WORKSPACE/artifact/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: yubihsm-shell-darwin-amd64
+          path: artifact
+
+  ubuntu1804:
+    name: Build Ubuntu 18.04 release
+    runs-on: ubuntu-18.04
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: Install prerequisites
+        run: |
+          set -x
+          sudo apt -q update
+          sudo apt install libpcsclite-dev gengetopt help2man libedit-dev libcurl4-openssl-dev libssl-dev libusb-1.0-0-dev debhelper dh-exec cmake
+
+      - name: Build release package
+        run: |
+          set -e -o pipefail
+          set -x
+          mkdir $GITHUB_WORKSPACE/artifact
+          dpkg-buildpackage -b --no-sign
+          cp ../*.deb $GITHUB_WORKSPACE/artifact/
+
+          LICENSE_DIR="$GITHUB_WORKSPACE/artifact/share/yubihsm-shell"
+          mkdir -p $LICENSE_DIR
+          cp -r resources/release/linux/licenses $LICENSE_DIR/
+          for lf in $LICENSE_DIR/licenses/*; do
+            chmod 644 $lf
+          done
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: yubihsm-shell-ubuntu1804-amd64
+          path: artifact
+
+  ubuntu2004:
+    name: Build Ubuntu 20.04 release
+    runs-on: ubuntu-20.04
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: Install prerequisites
+        run: |
+          set -x
+          sudo apt -q update
+          sudo apt install libpcsclite-dev gengetopt help2man libedit-dev libcurl4-openssl-dev libssl-dev libusb-1.0-0-dev debhelper dh-exec cmake
+
+      - name: Build release package
+        run: |
+          set -e -o pipefail
+          set -x
+          mkdir $GITHUB_WORKSPACE/artifact
+          dpkg-buildpackage -b --no-sign
+          cp ../*.deb $GITHUB_WORKSPACE/artifact/
+
+          LICENSE_DIR="$GITHUB_WORKSPACE/artifact/share/yubihsm-shell"
+          mkdir -p $LICENSE_DIR
+          cp -r resources/release/linux/licenses $LICENSE_DIR/
+          for lf in $LICENSE_DIR/licenses/*; do
+            chmod 644 $lf
+          done
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: yubihsm-shell-ubuntu2004-amd64
+          path: artifact
+
+
