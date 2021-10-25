@@ -30,7 +30,7 @@ set(
   )
 
 if(WIN32)
-  set(SOURCE ${SOURCE} cmdline.c ../common/time_win.c)
+  set(SOURCE ${SOURCE} cmdline.c ../common/time_win.c ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
   include(${CMAKE_SOURCE_DIR}/cmake/getopt.cmake)
   find_getopt()
 else(WIN32)
@@ -84,6 +84,10 @@ target_link_libraries(
   ${LIBCRYPTO_LDFLAGS}
   ${GETOPT_LIBS}
   )
+
+if(WIN32)
+  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc @ONLY)
+endif(WIN32)
 
 install(
   TARGETS yubihsm_pkcs11
