@@ -20,6 +20,10 @@ set (
   ykhsmauth.c
 )
 
+if(WIN32)
+    set(SOURCE ${SOURCE} ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
+endif(WIN32)
+
 include_directories (
   ${LIBPCSC_INCLUDEDIR}
 )
@@ -41,6 +45,9 @@ set_target_properties (ykhsmauth_static PROPERTIES COMPILE_FLAGS "-DSTATIC")
 target_link_libraries (ykhsmauth_static ${LIBPCSC_LDFLAGS})
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ykhsmauth.pc.in ${CMAKE_CURRENT_BINARY_DIR}/ykhsmauth.pc @ONLY)
+if(WIN32)
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc @ONLY)
+endif(WIN32)
 
 install(
   TARGETS ykhsmauth
