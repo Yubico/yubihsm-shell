@@ -299,6 +299,11 @@ static void create_command_list(CommandList *c) {
                                 "e:session,w:key_id,i:data=-", fmt_base64,
                                 fmt_binary, "Decrypt data using Yubico-AES-CCM",
                                 NULL, NULL});
+  register_subcommand(
+    *c, (Command){"aesecb", yh_com_decrypt_aes_ecb,
+                  "e:session,w:key_id,i:data=-", fmt_base64, fmt_binary,
+                  "Decrypt data using an AES symmetric key in ECB mode", NULL,
+                  NULL});
   *c = register_command(*c, (Command){"derive", yh_com_noop, NULL, fmt_nofmt,
                                       fmt_nofmt, "Drive data", NULL, NULL});
   register_subcommand(*c, (Command){"ecdh", yh_com_derive_ecdh,
@@ -313,6 +318,11 @@ static void create_command_list(CommandList *c) {
                                 "e:session,w:key_id,i:data=-", fmt_binary,
                                 fmt_base64, "Encrypt data using Yubico-AES-CCM",
                                 NULL, NULL});
+  register_subcommand(
+    *c, (Command){"aesecb", yh_com_encrypt_aes_ecb,
+                  "e:session,w:key_id,i:data=-", fmt_binary, fmt_base64,
+                  "Encrypt data using an AES symmetric key in ECB mode", NULL,
+                  NULL});
   *c =
     register_command(*c, (Command){"disconnect", yh_com_disconnect, NULL,
                                    fmt_nofmt, fmt_nofmt,

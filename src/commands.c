@@ -578,6 +578,50 @@ int yh_com_encrypt_aesccm(yubihsm_context *ctx, Argument *argv,
   return 0;
 }
 
+// NOTE: Decrypt data
+// argc = 3
+// arg 0: e:session
+// arg 1: w:key_id
+// arg 2: i:data
+int yh_com_decrypt_aes_ecb(yubihsm_context *ctx, Argument *argv,
+                           cmd_format in_fmt, cmd_format fmt) {
+  UNUSED(in_fmt);
+  UNUSED(ctx);
+
+  yh_rc yrc = yh_util_decrypt_aes_ecb(argv[0].e, argv[1].w, argv[2].x,
+                                      argv[2].len, argv[2].x, &argv[2].len);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to decrypt data: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  write_file(argv[2].x, argv[2].len, ctx->out, fmt_to_fmt(fmt));
+
+  return 0;
+}
+
+// NOTE: Encrypt data
+// argc = 3
+// arg 0: e:session
+// arg 1: w:key_id
+// arg 2: i:data
+int yh_com_encrypt_aes_ecb(yubihsm_context *ctx, Argument *argv,
+                           cmd_format in_fmt, cmd_format fmt) {
+  UNUSED(in_fmt);
+  UNUSED(ctx);
+
+  yh_rc yrc = yh_util_encrypt_aes_ecb(argv[0].e, argv[1].w, argv[2].x,
+                                      argv[2].len, argv[2].x, &argv[2].len);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to encrypt data: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  write_file(argv[2].x, argv[2].len, ctx->out, fmt_to_fmt(fmt));
+
+  return 0;
+}
+
 // NOTE(adma): Disconnect from a connector
 // argc = 0
 int yh_com_disconnect(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
