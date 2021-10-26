@@ -2251,6 +2251,19 @@ static yh_rc generate_key(yh_cmd cmd, yh_session *session, uint16_t *key_id,
   return YHR_SUCCESS;
 }
 
+yh_rc yh_util_generate_aes_key(yh_session *session, uint16_t *key_id,
+                               const char *label, uint16_t domains,
+                               const yh_capabilities *capabilities,
+                               yh_algorithm algorithm) {
+  if (!yh_is_aes(algorithm)) {
+    DBG_ERR("Invalid algorithm %d", algorithm);
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  return generate_key(YHC_GENERATE_SYMMETRIC_KEY, session, key_id, label,
+                      domains, capabilities, algorithm);
+}
+
 yh_rc yh_util_generate_rsa_key(yh_session *session, uint16_t *key_id,
                                const char *label, uint16_t domains,
                                const yh_capabilities *capabilities,
