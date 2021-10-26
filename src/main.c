@@ -345,6 +345,11 @@ static void create_command_list(CommandList *c) {
                                     "capabilities,a:algorithm,u:nonce_id",
                                     fmt_nofmt, fmt_nofmt,
                                     "Generate OTP AEAD key", NULL, NULL});
+  register_subcommand(*c, (Command){"symmetric", yh_com_generate_symmetric,
+                                    "e:session,w:key_id,s:label,d:domains,c:"
+                                    "capabilities,a:algorithm",
+                                    fmt_nofmt, fmt_nofmt,
+                                    "Generate a symmetric key", NULL, NULL});
   *c = register_command(*c, (Command){"get", yh_com_noop, NULL, fmt_nofmt,
                                       fmt_nofmt, "Retrieve data", NULL, NULL});
   register_subcommand(*c, (Command){"opaque", yh_com_get_opaque,

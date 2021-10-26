@@ -669,6 +669,40 @@ int yh_com_echo(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   return 0;
 }
 
+// Generate a Symmetric Key
+// argc = 6
+// arg 0: e:session
+// arg 1: w:key_id
+// arg 2: s:label
+// arg 3: w:domains
+// arg 4: c:capabilities
+// arg 5: a:algorithm
+int yh_com_generate_symmetric(yubihsm_context *ctx, Argument *argv,
+                              cmd_format in_fmt, cmd_format fmt) {
+  UNUSED(ctx);
+  UNUSED(in_fmt);
+  UNUSED(fmt);
+
+  yh_rc yrc;
+
+  if (yh_is_aes(argv[5].a)) {
+    yrc = yh_util_generate_aes_key(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
+                                   &argv[4].c, argv[5].a);
+  } else {
+    fprintf(stderr, "Invalid algorithm %d\n", argv[5].a);
+    return -1;
+  }
+
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to generate symmetric key: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  fprintf(stderr, "Generated symmetric key 0x%04x\n", argv[1].w);
+
+  return 0;
+}
+
 // NOTE(adma): Generate an Asymmetric Key
 // argc = 6
 // arg 0: e:session
