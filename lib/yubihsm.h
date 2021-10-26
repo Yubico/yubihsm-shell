@@ -607,6 +607,7 @@ static const struct {
   {"delete-hmac-key", 0x2b},
   {"delete-opaque", 0x27},
   {"delete-otp-aead-key", 0x2d},
+  {"delete-symmetric-key", 0x31},
   {"delete-template", 0x2c},
   {"delete-wrap-key", 0x2a},
   {"derive-ecdh", 0x0b},
