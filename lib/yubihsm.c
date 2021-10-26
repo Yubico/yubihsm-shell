@@ -1927,11 +1927,11 @@ yh_rc yh_util_get_pseudo_random(yh_session *session, size_t len, uint8_t *out,
   return yrc;
 }
 
-static yh_rc import_asymmetric(yh_session *session, uint16_t *key_id,
-                               const char *label, uint16_t domains,
-                               const yh_capabilities *capabilities,
-                               yh_algorithm algorithm, const uint8_t *key,
-                               uint16_t key_len) {
+static yh_rc import_key(yh_cmd cmd, yh_session *session, uint16_t *key_id,
+                        const char *label, uint16_t domains,
+                        const yh_capabilities *capabilities,
+                        yh_algorithm algorithm, const uint8_t *key,
+                        uint16_t key_len) {
 #pragma pack(push, 1)
   union {
     struct {
@@ -1972,16 +1972,19 @@ static yh_rc import_asymmetric(yh_session *session, uint16_t *key_id,
 
   uint16_t len = sizeof(k.key_id) + sizeof(k.domains) + sizeof(k.capabilities) +
                  sizeof(k.algo) + sizeof(k.label) + key_len;
-  yh_rc yrc = yh_send_secure_msg(session, YHC_PUT_ASYMMETRIC_KEY, k.buf, len,
-                                 &response_cmd, response.buf, &response_len);
+  yh_rc yrc = yh_send_secure_msg(session, cmd, k.buf, len, &response_cmd,
+                                 response.buf, &response_len);
   insecure_memzero(k.buf, len);
   if (yrc != YHR_SUCCESS) {
-    DBG_ERR("Failed to send PUT ASYMMETRIC KEY command: %s", yh_strerror(yrc));
+    DBG_ERR("Failed to send PUT %s KEY command: %s",
+            cmd == YHC_PUT_ASYMMETRIC_KEY ? "ASYMMETRIC" : "SYMMETRIC",
+            yh_strerror(yrc));
     return yrc;
   }
 
   *key_id = ntohs(response.key_id);
-  DBG_INFO("Stored Asymmetric key 0x%04x", *key_id);
+  DBG_INFO("Stored %s key 0x%04x",
+           cmd == YHC_PUT_ASYMMETRIC_KEY ? "asymmetric" : "symmetric", *key_id);
 
   return yrc;
 }
@@ -2014,8 +2017,9 @@ yh_rc yh_util_import_rsa_key(yh_session *session, uint16_t *key_id,
   memcpy(keybuf, p, component_len);
   memcpy(keybuf + component_len, q, component_len);
 
-  yh_rc yrc = import_asymmetric(session, key_id, label, domains, capabilities,
-                                algorithm, keybuf, component_len * 2);
+  yh_rc yrc =
+    import_key(YHC_PUT_ASYMMETRIC_KEY, session, key_id, label, domains,
+               capabilities, algorithm, keybuf, component_len * 2);
   insecure_memzero(keybuf, sizeof(keybuf));
 
   return yrc;
@@ -2055,8 +2059,8 @@ yh_rc yh_util_import_ec_key(yh_session *session, uint16_t *key_id,
     default:
       return YHR_INVALID_PARAMETERS;
   }
-  return import_asymmetric(session, key_id, label, domains, capabilities,
-                           algorithm, s, component_len);
+  return import_key(YHC_PUT_ASYMMETRIC_KEY, session, key_id, label, domains,
+                    capabilities, algorithm, s, component_len);
 }
 
 yh_rc yh_util_import_ed_key(yh_session *session, uint16_t *key_id,
@@ -2078,8 +2082,8 @@ yh_rc yh_util_import_ed_key(yh_session *session, uint16_t *key_id,
     default:
       return YHR_INVALID_PARAMETERS;
   }
-  return import_asymmetric(session, key_id, label, domains, capabilities,
-                           algorithm, k, component_len);
+  return import_key(YHC_PUT_ASYMMETRIC_KEY, session, key_id, label, domains,
+                    capabilities, algorithm, k, component_len);
 }
 
 yh_rc yh_util_import_hmac_key(yh_session *session, uint16_t *key_id,
