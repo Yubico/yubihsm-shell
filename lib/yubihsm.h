@@ -2501,6 +2501,19 @@ yh_rc yh_filter_capabilities(const yh_capabilities *capabilities,
                              yh_capabilities *result);
 
 /**
+ * Check if an algorithm is a supported Symmetric Key AES algorithm.
+ *
+ * Supported AES algorithms: #YH_ALGO_AES128, #YH_ALGO_AES192 and
+ *#YH_ALGO_AES256
+ *
+ * @param algorithm Algorithm to check. See #yh_algorithm
+ *
+ * @return True if the algorithm is one of the supported AES algorithms. False
+ *otherwise
+ **/
+bool yh_is_aes(yh_algorithm algorithm);
+
+/**
  * Check if an algorithm is a supported RSA algorithm.
  *
  * Supported RSA algorithms: #YH_ALGO_RSA_2048, #YH_ALGO_RSA_3072 and

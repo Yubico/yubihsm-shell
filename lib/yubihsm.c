@@ -4376,6 +4376,19 @@ yh_rc yh_filter_capabilities(const yh_capabilities *capabilities,
   return YHR_SUCCESS;
 }
 
+bool yh_is_aes(yh_algorithm algorithm) {
+  switch (algorithm) {
+    case YH_ALGO_AES128:
+    case YH_ALGO_AES192:
+    case YH_ALGO_AES256:
+      return true;
+    default:
+      break;
+  }
+
+  return false;
+}
+
 bool yh_is_rsa(yh_algorithm algorithm) {
 
   switch (algorithm) {
