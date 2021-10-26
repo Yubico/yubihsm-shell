@@ -4000,6 +4000,94 @@ yh_rc yh_util_decrypt_aes_ecb(yh_session *session, uint16_t key_id,
                      in_len, out, out_len);
 }
 
+static yh_rc encrypt_cbc(yh_cmd cmd, yh_session *session, uint16_t key_id,
+                         const uint8_t *iv, size_t iv_len, const uint8_t *in,
+                         size_t in_len, uint8_t *out, size_t *out_len) {
+#pragma pack(push, 1)
+  union {
+    struct {
+      uint16_t key_id;
+      uint8_t bytes[2016];
+    };
+    uint8_t buf[1];
+  } data = {0};
+#pragma pack(pop)
+
+  if (session == NULL || in == NULL || out == NULL || out_len == NULL ||
+      iv_len == 0 || iv_len >= sizeof(data.bytes) ||
+      sizeof(data.bytes) - iv_len < iv_len || in_len % iv_len != 0) {
+    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  if (in_len == 0) {
+    *out_len = 0;
+    return YHR_SUCCESS;
+  }
+
+  if (in_len > *out_len) {
+    *out_len = in_len;
+    return YHR_BUFFER_TOO_SMALL;
+  }
+
+  yh_cmd response_cmd = 0;
+  data.key_id = htons(key_id);
+  memcpy(data.bytes, iv, iv_len);
+
+  yh_rc yrc;
+  size_t rem = in_len;
+  const size_t chunksiz = (sizeof(data.bytes) - iv_len) / iv_len * iv_len;
+
+  while (rem != 0) {
+    size_t ochunk, ichunk;
+    ochunk = ichunk = rem < chunksiz ? rem : chunksiz;
+    memcpy(data.bytes + iv_len, in, ichunk);
+    if ((yrc = yh_send_secure_msg(session, cmd, data.buf, 2 + iv_len + ichunk,
+                                  &response_cmd, out, &ochunk)) != YHR_SUCCESS) {
+      goto cbc_fail;
+    } else if (ochunk != ichunk) {
+      yrc = YHR_GENERIC_ERROR;
+      goto cbc_fail;
+    }
+
+    if (cmd == YHC_ENCRYPT_CBC) {
+      memcpy(data.bytes, out + ichunk - iv_len, iv_len);
+    } else {
+      memcpy(data.bytes, data.bytes + ichunk, iv_len);
+    }
+
+    in += ichunk;
+    out += ichunk;
+    rem -= ichunk;
+  }
+
+  *out_len = in_len;
+
+cbc_fail:
+  insecure_memzero(data.buf, sizeof(data));
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("Failed to send CBC command: %s", yh_strerror(yrc));
+  }
+
+  return yrc;
+}
+
+yh_rc yh_util_encrypt_aes_cbc(yh_session *session, uint16_t key_id,
+                              const uint8_t iv[AES_BLOCK_SIZE],
+                              const uint8_t *in, size_t in_len, uint8_t *out,
+                              size_t *out_len) {
+  return encrypt_cbc(YHC_ENCRYPT_CBC, session, key_id, iv, AES_BLOCK_SIZE, in,
+                     in_len, out, out_len);
+}
+
+yh_rc yh_util_decrypt_aes_cbc(yh_session *session, uint16_t key_id,
+                              const uint8_t iv[AES_BLOCK_SIZE],
+                              const uint8_t *in, size_t in_len, uint8_t *out,
+                              size_t *out_len) {
+  return encrypt_cbc(YHC_DECRYPT_CBC, session, key_id, iv, AES_BLOCK_SIZE, in,
+                     in_len, out, out_len);
+}
+
 yh_rc yh_util_blink_device(yh_session *session, uint8_t seconds) {
 
   if (session == NULL) {

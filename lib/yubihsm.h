@@ -355,6 +355,10 @@ typedef enum {
   ADD_COMMAND(YHC_DECRYPT_ECB, 0x6f),
   /// Encrypt data using a Symmetric Key with ECB
   ADD_COMMAND(YHC_ENCRYPT_ECB, 0x70),
+  /// Decrypt data using a Symmetric Key with CBC
+  ADD_COMMAND(YHC_DECRYPT_CBC, 0x71),
+  /// Encrypt data using a Symmetric Key with CBC
+  ADD_COMMAND(YHC_ENCRYPT_CBC, 0x72),
   /// The response byte returned from the device if the command resulted in an
   /// error
   YHC_ERROR = 0x7f,
@@ -508,6 +512,8 @@ typedef enum {
   YH_ALGO_AES256 = 52,
   /// aes-ecb
   YH_ALGO_AES_ECB = 53,
+  /// aes-cbc
+  YH_ALGO_AES_CBC = 54,
 } yh_algorithm;
 
 /**
@@ -607,6 +613,7 @@ static const struct {
 } yh_capability[] = {
   {"change-authentication-key", 0x2e},
   {"create-otp-aead", 0x1e},
+  {"decrypt-cbc", 0x34},
   {"decrypt-ecb", 0x32},
   {"decrypt-oaep", 0x0a},
   {"decrypt-otp", 0x1d},
@@ -620,6 +627,7 @@ static const struct {
   {"delete-template", 0x2c},
   {"delete-wrap-key", 0x2a},
   {"derive-ecdh", 0x0b},
+  {"encrypt-cbc", 0x35},
   {"encrypt-ecb", 0x33},
   {"export-wrapped", 0x0c},
   {"exportable-under-wrap", 0x10},
@@ -673,6 +681,7 @@ static const struct {
   {"aes192-yubico-otp", YH_ALGO_AES192_YUBICO_OTP},
   {"aes256-ccm-wrap", YH_ALGO_AES256_CCM_WRAP},
   {"aes256-yubico-otp", YH_ALGO_AES256_YUBICO_OTP},
+  {"aes-cbc", YH_ALGO_AES_CBC},
   {"aes-ecb", YH_ALGO_AES_ECB},
   {"ecbp256", YH_ALGO_EC_BP256},
   {"ecbp384", YH_ALGO_EC_BP384},
@@ -2395,6 +2404,40 @@ yh_rc yh_util_encrypt_aes_ecb(yh_session *session, uint16_t key_id,
 yh_rc yh_util_decrypt_aes_ecb(yh_session *session, uint16_t key_id,
                               const uint8_t *in, size_t in_len, uint8_t *out,
                               size_t *out_len);
+
+/**
+ * Encrypt data using an AES #YH_SYMMETRIC_KEY in CBC mode
+ *
+ * @param session Authenticated session to use
+ * @param key_id Object ID of the Symmetric Key to use
+ * @param iv The 16-byte initialization vector
+ * @param in Plaintext data
+ * @param in_len Length of plaintext data
+ * @param out Encrypted data
+ * @param out_len Length of encrypted data
+ *
+ * @return #YHR_SUCCESS if successful. See #yh_rc for possible errors.
+ **/
+yh_rc yh_util_encrypt_aes_cbc(yh_session *session, uint16_t key_id,
+                              const uint8_t iv[16], const uint8_t *in,
+                              size_t in_len, uint8_t *out, size_t *out_len);
+
+/**
+ * Decrypt data using an AES #YH_SYMMETRIC_KEY in CBC mode
+ *
+ * @param session Authenticated session to use
+ * @param key_id Object ID of the Symmetric Key to use
+ * @param iv The 16-byte initialization vector
+ * @param in Encrypted data
+ * @param in_len Length of encrypted data
+ * @param out Decrypted data
+ * @param out_len Length of decrypted data
+ *
+ * @return #YHR_SUCCESS if successful. See #yh_rc for possible errors.
+ **/
+yh_rc yh_util_decrypt_aes_cbc(yh_session *session, uint16_t key_id,
+                              const uint8_t iv[16], const uint8_t *in,
+                              size_t in_len, uint8_t *out, size_t *out_len);
 
 /**
  * Blink the LED of the device to identify it
