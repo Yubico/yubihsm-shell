@@ -1989,6 +1989,32 @@ static yh_rc import_key(yh_cmd cmd, yh_session *session, uint16_t *key_id,
   return yrc;
 }
 
+yh_rc yh_util_import_aes_key(yh_session *session, uint16_t *key_id,
+                             const char *label, uint16_t domains,
+                             const yh_capabilities *capabilities,
+                             yh_algorithm algorithm, const uint8_t *key) {
+  if (session == NULL || key_id == NULL || label == NULL ||
+      strlen(label) > YH_OBJ_LABEL_LEN || key == NULL) {
+    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  uint16_t len;
+
+  if (algorithm == YH_ALGO_AES128) {
+    len = 16;
+  } else if (algorithm == YH_ALGO_AES192) {
+    len = 24;
+  } else if (algorithm == YH_ALGO_AES256) {
+    len = 32;
+  } else {
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  return import_key(YHC_PUT_SYMMETRIC_KEY, session, key_id, label, domains,
+                    capabilities, algorithm, key, len);
+}
+
 yh_rc yh_util_import_rsa_key(yh_session *session, uint16_t *key_id,
                              const char *label, uint16_t domains,
                              const yh_capabilities *capabilities,
