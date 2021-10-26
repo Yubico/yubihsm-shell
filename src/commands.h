@@ -76,6 +76,10 @@ int yh_com_decrypt_aes_ecb(yubihsm_context *ctx, Argument *argv,
                            cmd_format in_fmt, cmd_format fmt);
 int yh_com_encrypt_aes_ecb(yubihsm_context *ctx, Argument *argv,
                            cmd_format in_fmt, cmd_format fmt);
+int yh_com_decrypt_aes_cbc(yubihsm_context *ctx, Argument *argv,
+                           cmd_format in_fmt, cmd_format fmt);
+int yh_com_encrypt_aes_cbc(yubihsm_context *ctx, Argument *argv,
+                           cmd_format in_fmt, cmd_format fmt);
 int yh_com_disconnect(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                       cmd_format fmt);
 int yh_com_echo(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,

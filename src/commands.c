@@ -604,6 +604,67 @@ int yh_com_decrypt_aes_ecb(yubihsm_context *ctx, Argument *argv,
 // argc = 3
 // arg 0: e:session
 // arg 1: w:key_id
+// arg 2: s:iv
+// arg 3: i:data
+int yh_com_encrypt_aes_cbc(yubihsm_context *ctx, Argument *argv,
+                           cmd_format in_fmt, cmd_format fmt) {
+  UNUSED(in_fmt);
+  UNUSED(ctx);
+
+  uint8_t iv[16] = {0};
+  size_t iv_len = sizeof(iv);
+
+  if (hex_decode(argv[2].s, iv, &iv_len) == false) {
+    fprintf(stderr, "Failed to decode IV\n");
+    return -1;
+  }
+
+  yh_rc yrc = yh_util_encrypt_aes_cbc(argv[0].e, argv[1].w, iv, argv[3].x,
+                                      argv[3].len, argv[3].x, &argv[3].len);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to encrypt data: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  write_file(argv[3].x, argv[3].len, ctx->out, fmt_to_fmt(fmt));
+
+  return 0;
+}
+
+// NOTE: Decrypt data
+// argc = 3
+// arg 0: e:session
+// arg 1: w:key_id
+// arg 2: s:iv
+// arg 3: i:data
+int yh_com_decrypt_aes_cbc(yubihsm_context *ctx, Argument *argv,
+                           cmd_format in_fmt, cmd_format fmt) {
+  UNUSED(in_fmt);
+  UNUSED(ctx);
+
+  uint8_t iv[16] = {0};
+  size_t iv_len = sizeof(iv);
+
+  if (hex_decode(argv[2].s, iv, &iv_len) == false) {
+    fprintf(stderr, "Failed to decode IV\n");
+    return -1;
+  }
+  yh_rc yrc = yh_util_decrypt_aes_cbc(argv[0].e, argv[1].w, iv, argv[3].x,
+                                      argv[3].len, argv[3].x, &argv[3].len);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to decrypt data: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  write_file(argv[3].x, argv[3].len, ctx->out, fmt_to_fmt(fmt));
+
+  return 0;
+}
+
+// NOTE: Encrypt data
+// argc = 3
+// arg 0: e:session
+// arg 1: w:key_id
 // arg 2: i:data
 int yh_com_encrypt_aes_ecb(yubihsm_context *ctx, Argument *argv,
                            cmd_format in_fmt, cmd_format fmt) {

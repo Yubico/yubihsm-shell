@@ -300,6 +300,11 @@ static void create_command_list(CommandList *c) {
                                 fmt_binary, "Decrypt data using Yubico-AES-CCM",
                                 NULL, NULL});
   register_subcommand(
+    *c, (Command){"aescbc", yh_com_decrypt_aes_cbc,
+                  "e:session,w:key_id,s:iv,i:data=-", fmt_base64, fmt_binary,
+                  "Decrypt data using an AES symmetric key in CBC mode", NULL,
+                  NULL});
+  register_subcommand(
     *c, (Command){"aesecb", yh_com_decrypt_aes_ecb,
                   "e:session,w:key_id,i:data=-", fmt_base64, fmt_binary,
                   "Decrypt data using an AES symmetric key in ECB mode", NULL,
@@ -318,6 +323,11 @@ static void create_command_list(CommandList *c) {
                                 "e:session,w:key_id,i:data=-", fmt_binary,
                                 fmt_base64, "Encrypt data using Yubico-AES-CCM",
                                 NULL, NULL});
+  register_subcommand(
+    *c, (Command){"aescbc", yh_com_encrypt_aes_cbc,
+                  "e:session,w:key_id,s:iv,i:data=-", fmt_binary, fmt_base64,
+                  "Encrypt data using an AES symmetric key in CBC mode", NULL,
+                  NULL});
   register_subcommand(
     *c, (Command){"aesecb", yh_com_encrypt_aes_ecb,
                   "e:session,w:key_id,i:data=-", fmt_binary, fmt_base64,
