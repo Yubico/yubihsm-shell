@@ -486,6 +486,11 @@ static void create_command_list(CommandList *c) {
                                     "capabilities,u:nonce_id,i:key",
                                     fmt_hex, fmt_nofmt, "Store a OTP AEAD key",
                                     NULL, NULL});
+  register_subcommand(*c, (Command){"symmetric", yh_com_put_symmetric,
+                                    "e:session,w:key_id,s:label,d:domains,c:"
+                                    "capabilities,a:algorithm,i:key",
+                                    fmt_hex, fmt_nofmt, "Store a symmetric key",
+                                    NULL, NULL});
   *c = register_command(*c,
                         (Command){"quit", yh_com_quit, NULL, fmt_nofmt,
                                   fmt_nofmt, "Quit yubihsm-shell", NULL, NULL});

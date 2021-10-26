@@ -1821,6 +1821,49 @@ int yh_com_pecho(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   return 0;
 }
 
+// Store a symmetric key
+// argc = 6
+// arg 0: e:session
+// arg 1: w:key_id
+// arg 2: s:label
+// arg 3: w:domains
+// arg 4: c:capabilities
+// arg 5: a:algorithm
+// arg 6: i:key
+int yh_com_put_symmetric(yubihsm_context *ctx, Argument *argv,
+                         cmd_format in_fmt, cmd_format fmt) {
+
+  UNUSED(ctx);
+  UNUSED(in_fmt);
+  UNUSED(fmt);
+
+  yh_rc yrc;
+
+  if (yh_is_aes(argv[5].a)) {
+    if ((argv[5].a == YH_ALGO_AES128 && argv[6].len != 16) ||
+        (argv[5].a == YH_ALGO_AES192 && argv[6].len != 24) ||
+        (argv[5].a == YH_ALGO_AES256 && argv[6].len != 32)) {
+      fprintf(stderr, "Key length (%zu) not matching, should be 16, 24 or 32\n",
+              argv[6].len);
+      return -1;
+    }
+    yrc = yh_util_import_aes_key(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
+                                 &argv[4].c, argv[5].a, argv[6].x);
+  } else {
+    fprintf(stderr, "Invalid algorithm\n");
+    return -1;
+  }
+
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to store symmetric key: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  fprintf(stderr, "Stored symmetric key 0x%04x\n", argv[1].w);
+
+  return 0;
+}
+
 // NOTE(adma): Store an asymmetric key
 // argc = 6
 // arg 0: e:session

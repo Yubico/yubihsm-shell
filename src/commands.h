@@ -132,6 +132,8 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
 #endif
 int yh_com_pecho(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                  cmd_format fmt);
+int yh_com_put_symmetric(yubihsm_context *ctx, Argument *argv,
+                         cmd_format in_fmt, cmd_format fmt);
 int yh_com_put_asymmetric(yubihsm_context *ctx, Argument *argv,
                           cmd_format in_fmt, cmd_format fmt);
 int yh_com_put_authentication(yubihsm_context *ctx, Argument *argv,
