@@ -3920,6 +3920,86 @@ yh_rc yh_util_unwrap_data(yh_session *session, uint16_t key_id,
   return YHR_SUCCESS;
 }
 
+static yh_rc encrypt_ecb(yh_cmd cmd, yh_session *session, size_t block_size,
+                         uint16_t key_id, const uint8_t *in, size_t in_len,
+                         uint8_t *out, size_t *out_len) {
+#pragma pack(push, 1)
+  union {
+    struct {
+      uint16_t key_id;
+      uint8_t bytes[2016];
+    };
+    uint8_t buf[1];
+  } data = {0};
+#pragma pack(pop)
+
+  if (session == NULL || in == NULL || out == NULL || out_len == NULL ||
+      block_size == 0 || block_size > sizeof(data.bytes) ||
+      in_len % block_size != 0) {
+    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  if (in_len == 0) {
+    *out_len = 0;
+    return YHR_SUCCESS;
+  }
+
+  if (in_len > *out_len) {
+    *out_len = in_len;
+    return YHR_BUFFER_TOO_SMALL;
+  }
+
+  yh_cmd response_cmd = 0;
+  data.key_id = htons(key_id);
+
+  yh_rc yrc;
+  size_t rem = in_len;
+  const size_t chunksiz = sizeof(data.bytes) / block_size * block_size;
+
+  while (rem != 0) {
+    size_t ochunk, ichunk;
+    ochunk = ichunk = rem < chunksiz ? rem : chunksiz;
+    memcpy(data.bytes, in, ichunk);
+    if ((yrc = yh_send_secure_msg(session, cmd, data.buf, 2 + ichunk,
+                                  &response_cmd, out, &ochunk)) != YHR_SUCCESS) {
+      goto ecb_fail;
+    } else if (ochunk != ichunk) {
+      yrc = YHR_GENERIC_ERROR;
+      goto ecb_fail;
+    }
+
+    in += ichunk;
+    out += ichunk;
+    rem -= ichunk;
+  }
+
+  *out_len = in_len;
+
+ecb_fail:
+  insecure_memzero(data.buf, sizeof(data.buf));
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("Failed to send ECB command: %s", yh_strerror(yrc));
+    return yrc;
+  }
+
+  return YHR_SUCCESS;
+}
+
+yh_rc yh_util_encrypt_aes_ecb(yh_session *session, uint16_t key_id,
+                              const uint8_t *in, size_t in_len, uint8_t *out,
+                              size_t *out_len) {
+  return encrypt_ecb(YHC_ENCRYPT_ECB, session, AES_BLOCK_SIZE, key_id, in,
+                     in_len, out, out_len);
+}
+
+yh_rc yh_util_decrypt_aes_ecb(yh_session *session, uint16_t key_id,
+                              const uint8_t *in, size_t in_len, uint8_t *out,
+                              size_t *out_len) {
+  return encrypt_ecb(YHC_DECRYPT_ECB, session, AES_BLOCK_SIZE, key_id, in,
+                     in_len, out, out_len);
+}
+
 yh_rc yh_util_blink_device(yh_session *session, uint8_t seconds) {
 
   if (session == NULL) {
