@@ -2190,7 +2190,7 @@ yh_rc yh_util_import_hmac_key(yh_session *session, uint16_t *key_id,
   return yrc;
 }
 
-static yh_rc generate_key(yh_session *session, uint16_t *key_id,
+static yh_rc generate_key(yh_cmd cmd, yh_session *session, uint16_t *key_id,
                           const char *label, uint16_t domains,
                           const yh_capabilities *capabilities,
                           yh_algorithm algorithm) {
@@ -2234,17 +2234,19 @@ static yh_rc generate_key(yh_session *session, uint16_t *key_id,
 
   memcpy(data.capabilities, capabilities, YH_CAPABILITIES_LEN);
 
-  yh_rc yrc =
-    yh_send_secure_msg(session, YHC_GENERATE_ASYMMETRIC_KEY, data.buf, data_len,
-                       &response_cmd, response.buf, &response_len);
+  yh_rc yrc = yh_send_secure_msg(session, cmd, data.buf, data_len,
+                                 &response_cmd, response.buf, &response_len);
   if (yrc != YHR_SUCCESS) {
-    DBG_ERR("Failed to send GENERATE ASYMMETRIC KEY command: %s",
+    DBG_ERR("Failed to send GENERATE %s KEY command: %s",
+            cmd == YHC_GENERATE_ASYMMETRIC_KEY ? "ASYMMETRIC" : "SYMMETRIC",
             yh_strerror(yrc));
     return yrc;
   }
 
   *key_id = ntohs(response.key_id);
-  DBG_INFO("Generated Asymmetric key 0x%04x", *key_id);
+  DBG_INFO("Generated %s key 0x%04x",
+           cmd == YHC_GENERATE_ASYMMETRIC_KEY ? "asymmetric" : "symmetric",
+           *key_id);
 
   return YHR_SUCCESS;
 }
@@ -2259,7 +2261,8 @@ yh_rc yh_util_generate_rsa_key(yh_session *session, uint16_t *key_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  return generate_key(session, key_id, label, domains, capabilities, algorithm);
+  return generate_key(YHC_GENERATE_ASYMMETRIC_KEY, session, key_id, label,
+                      domains, capabilities, algorithm);
 }
 
 yh_rc yh_util_generate_ec_key(yh_session *session, uint16_t *key_id,
@@ -2272,7 +2275,8 @@ yh_rc yh_util_generate_ec_key(yh_session *session, uint16_t *key_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  return generate_key(session, key_id, label, domains, capabilities, algorithm);
+  return generate_key(YHC_GENERATE_ASYMMETRIC_KEY, session, key_id, label,
+                      domains, capabilities, algorithm);
 }
 
 yh_rc yh_util_generate_ed_key(yh_session *session, uint16_t *key_id,
@@ -2285,7 +2289,8 @@ yh_rc yh_util_generate_ed_key(yh_session *session, uint16_t *key_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  return generate_key(session, key_id, label, domains, capabilities, algorithm);
+  return generate_key(YHC_GENERATE_ASYMMETRIC_KEY, session, key_id, label,
+                      domains, capabilities, algorithm);
 }
 
 yh_rc yh_util_verify_hmac(yh_session *session, uint16_t key_id,
