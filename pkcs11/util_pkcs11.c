@@ -1523,6 +1523,7 @@ static CK_RV get_attribute(CK_ATTRIBUTE_TYPE type, yh_object_descriptor *object,
     case YH_TEMPLATE:
     case YH_AUTHENTICATION_KEY:
     case YH_OTP_AEAD_KEY:
+    case YH_SYMMETRIC_KEY:
       // TODO: do something good here.
       break;
   } // TODO(adma): try to check common attributes in some convenience function

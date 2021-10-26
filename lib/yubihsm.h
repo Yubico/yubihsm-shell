@@ -378,6 +378,8 @@ typedef enum {
   YH_TEMPLATE = 0x06,
   /// OTP AEAD Key is a secret key used to decrypt Yubico OTP values
   YH_OTP_AEAD_KEY = 0x07,
+  /// Symmetric Key is a secret key used for encryption and decryption.
+  YH_SYMMETRIC_KEY = 0x08,
   /// Public Key is the public key of an asymmetric key-pair. The public key
   /// never exists in device and is mostly here for PKCS#11.
   YH_PUBLIC_KEY = 0x83,
@@ -490,6 +492,12 @@ typedef enum {
   YH_ALGO_RSA_PKCS1_DECRYPT = 48,
   /// ec-p256-yubico-authentication
   YH_ALGO_EC_P256_YUBICO_AUTHENTICATION = 49,
+  /// aes128
+  YH_ALGO_AES128 = 50,
+  /// aes192
+  YH_ALGO_AES192 = 51,
+  /// aes256
+  YH_ALGO_AES256 = 52
 } yh_algorithm;
 
 /**
@@ -640,6 +648,9 @@ static const struct {
   const char *name;
   yh_algorithm algorithm;
 } yh_algorithms[] = {
+  {"aes128", YH_ALGO_AES128},
+  {"aes192", YH_ALGO_AES192},
+  {"aes256", YH_ALGO_AES256},
   {"aes128-ccm-wrap", YH_ALGO_AES128_CCM_WRAP},
   {"aes128-yubico-authentication", YH_ALGO_AES128_YUBICO_AUTHENTICATION},
   {"aes128-yubico-otp", YH_ALGO_AES128_YUBICO_OTP},
@@ -700,6 +711,7 @@ static const struct {
   {"hmac-key", YH_HMAC_KEY},
   {"opaque", YH_OPAQUE},
   {"otp-aead-key", YH_OTP_AEAD_KEY},
+  {"symmetric-key", YH_SYMMETRIC_KEY},
   {"template", YH_TEMPLATE},
   {"wrap-key", YH_WRAP_KEY},
 };
