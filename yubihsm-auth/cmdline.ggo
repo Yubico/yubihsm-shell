@@ -19,7 +19,7 @@ option "mgmkey" k "Management key is required to put and delete credentials. Som
 option "new-mgmkey" K "New management key" string optional default=""
 option "credpwd" p "Credential password is used to access the credential when logging into the YubiHSM2. Sometimes, this password is also referenced as 'User Access Code'" string optional default=""
 option "label" l "Credential label" string optional default=""
-option "reader" r "Only use a matching reader" string optional default="Yubikey"
+option "reader" r "Only use a matching reader" string optional default=""
 option "touch" t "Touch required" values="off","on" enum optional default="off"
 option "context" c "Session keys calculation context" string optional default=""
 option "verbose" v "Print more information" int optional default="0" argoptional
