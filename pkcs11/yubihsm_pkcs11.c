@@ -4433,7 +4433,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
     goto c_gk_out;
   }
 
-  if (pMechanism->mechanism != CKM_GENERIC_SECRET_KEY_GEN) {
+  if (pMechanism->mechanism != CKM_GENERIC_SECRET_KEY_GEN &&
+      pMechanism->mechanism != CKM_AES_KEY_GEN) {
     DBG_ERR("Invalid mechanism %lu", pMechanism->mechanism);
     rv = CKR_MECHANISM_INVALID;
     goto c_gk_out;
@@ -4620,6 +4621,38 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
       if (rc != YHR_SUCCESS) {
         DBG_ERR("Failed generating wrap key: %s", yh_strerror(rc));
         rv = yrc_to_rv(rc);
+        goto c_gk_out;
+      }
+    } else if (key_type.d == CKK_AES) {
+      type = YH_SYMMETRIC_KEY;
+      rv = parse_aes_template(pTemplate, ulCount, &template, true);
+      if (rv != CKR_OK) {
+        goto c_gk_out;
+      }
+
+      if (template.encrypt == ATTRIBUTE_TRUE) {
+        rc =
+          yh_string_to_capabilities("encrypt-ecb,encrypt-cbc", &capabilities);
+        if (rc != YHR_SUCCESS) {
+          rv = CKR_FUNCTION_FAILED;
+          goto c_gk_out;
+        }
+      }
+
+      if (template.decrypt == ATTRIBUTE_TRUE) {
+        rc =
+          yh_string_to_capabilities("decrypt-ecb,decrypt-cbc", &capabilities);
+        if (rc != YHR_SUCCESS) {
+          rv = CKR_FUNCTION_FAILED;
+          goto c_gk_out;
+        }
+      }
+
+      if (yh_util_generate_aes_key(session->slot->device_session, &template.id,
+                                   template.label, 0xffff, &capabilities,
+                                   template.algorithm) != YHR_SUCCESS) {
+        DBG_ERR("Failed generating symmetric key");
+        rv = CKR_FUNCTION_FAILED;
         goto c_gk_out;
       }
     } else {
