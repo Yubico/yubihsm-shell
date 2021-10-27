@@ -2227,7 +2227,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
       }
       for (size_t i = 0; i < tmp_n_objects; i++) {
         if (tmp_objects[i].type == YH_WRAP_KEY ||
-            tmp_objects[i].type == YH_HMAC_KEY) {
+            tmp_objects[i].type == YH_HMAC_KEY ||
+            tmp_objects[i].type == YH_SYMMETRIC_KEY) {
           memcpy(session->operation.op.find.objects + found_objects,
                  tmp_objects + i, sizeof(yh_object_descriptor));
           found_objects++;
@@ -2348,6 +2349,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjects)
       case YH_WRAP_KEY:
       case YH_HMAC_KEY:
       case YH_PUBLIC_KEY:
+      case YH_SYMMETRIC_KEY:
         id = object->sequence << 24;
         id |= object->type << 16;
         id |= object->id;

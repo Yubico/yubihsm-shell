@@ -281,6 +281,12 @@ CK_RV get_mechanism_list(yubihsm_pkcs11_slot *slot,
         add_mech(buffer, &items, CKM_GENERIC_SECRET_KEY_GEN);
         break;
 
+      case YH_ALGO_AES128:
+      case YH_ALGO_AES192:
+      case YH_ALGO_AES256:
+        add_mech(buffer, &items, CKM_AES_KEY_GEN);
+        break;
+
         // NOTE: there are algorithms don't have corresponding mechanisms
       default:
         break;
@@ -371,6 +377,40 @@ static void find_minmax_ec_key_length_in_bits(yh_algorithm *algorithms,
         break;
       default:
         size = 0;
+    }
+    if (size == 0) {
+      continue;
+    }
+    if (*min == 0 || *min > size) {
+      *min = size;
+    }
+    if (size > *max) {
+      *max = size;
+    }
+  }
+}
+
+static void find_minmax_aes_key_length_in_bytes(yh_algorithm *algorithms,
+                                                size_t n_algorithms,
+                                                CK_ULONG *min, CK_ULONG *max) {
+  *min = 0;
+  *max = 0;
+
+  for (size_t i = 0; i < n_algorithms; i++) {
+    CK_ULONG size;
+    switch (algorithms[i]) {
+      case YH_ALGO_AES128:
+        size = 16;
+        break;
+      case YH_ALGO_AES192:
+        size = 24;
+        break;
+      case YH_ALGO_AES256:
+        size = 32;
+        break;
+      default:
+        size = 0;
+        break;
     }
     if (size == 0) {
       continue;
@@ -525,6 +565,13 @@ CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
       pInfo->ulMaxKeySize =
         128 * 8; // NOTE: 128*8 is max key size for sha512-hmac keys
       pInfo->ulMinKeySize = 1;
+      pInfo->flags = CKF_HW | CKF_GENERATE;
+      break;
+
+    case CKM_AES_KEY_GEN:
+      find_minmax_aes_key_length_in_bytes(slot->algorithms, slot->n_algorithms,
+                                          &pInfo->ulMinKeySize,
+                                          &pInfo->ulMaxKeySize);
       pInfo->flags = CKF_HW | CKF_GENERATE;
       break;
 
@@ -749,6 +796,16 @@ static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
           default:
             return CKR_FUNCTION_FAILED;
         }
+      } else if (object->type == YH_SYMMETRIC_KEY) {
+        switch (object->algorithm) {
+          case YH_ALGO_AES128:
+          case YH_ALGO_AES192:
+          case YH_ALGO_AES256:
+            *((CK_KEY_TYPE *) value) = CKK_AES;
+            break;
+          default:
+            return CKR_FUNCTION_FAILED;
+        }
       } else {
         return CKR_FUNCTION_FAILED;
       }
@@ -756,7 +813,7 @@ static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_VALUE_LEN:
-      if (object->type == YH_WRAP_KEY) {
+      if (object->type == YH_WRAP_KEY || object->type == YH_SYMMETRIC_KEY) {
         size_t key_length = 0;
         yh_rc yrc = yh_get_key_bitlength(object->algorithm, &key_length);
         if (yrc != YHR_SUCCESS) {
@@ -816,15 +873,29 @@ static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_DECRYPT:
-      objtype = YH_WRAP_KEY;
-      get_capability_attribute(object, "unwrap-data", true, value, length,
-                               &objtype);
+      if (object->type == YH_WRAP_KEY) {
+        get_capability_attribute(object, "unwrap-data", true, value, length,
+                                 NULL);
+      } else if (object->type == YH_SYMMETRIC_KEY) {
+        get_capability_attribute(object, "decrypt-cbc,decrypt-ecb", true, value,
+                                 length, NULL);
+      } else {
+        *((CK_BBOOL *) value) = CK_FALSE;
+        *length = sizeof(CK_BBOOL);
+      }
       break;
 
     case CKA_ENCRYPT:
-      objtype = YH_WRAP_KEY;
-      get_capability_attribute(object, "wrap-data", true, value, length,
-                               &objtype);
+      if (object->type == YH_WRAP_KEY) {
+        get_capability_attribute(object, "wrap-data", true, value, length,
+                                 NULL);
+      } else if (object->type == YH_SYMMETRIC_KEY) {
+        get_capability_attribute(object, "encrypt-cbc,encrypt-ecb", true, value,
+                                 length, NULL);
+      } else {
+        *((CK_BBOOL *) value) = CK_FALSE;
+        *length = sizeof(CK_BBOOL);
+      }
       break;
 
     case CKA_TRUSTED:
@@ -1513,6 +1584,7 @@ static CK_RV get_attribute(CK_ATTRIBUTE_TYPE type, yh_object_descriptor *object,
 
     case YH_WRAP_KEY:
     case YH_HMAC_KEY:
+    case YH_SYMMETRIC_KEY:
       return get_attribute_secret_key(type, object, value, length);
 
     case YH_ASYMMETRIC_KEY:
@@ -1523,7 +1595,6 @@ static CK_RV get_attribute(CK_ATTRIBUTE_TYPE type, yh_object_descriptor *object,
     case YH_TEMPLATE:
     case YH_AUTHENTICATION_KEY:
     case YH_OTP_AEAD_KEY:
-    case YH_SYMMETRIC_KEY:
       // TODO: do something good here.
       break;
   } // TODO(adma): try to check common attributes in some convenience function
