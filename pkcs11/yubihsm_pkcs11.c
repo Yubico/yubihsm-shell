@@ -1594,6 +1594,39 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
         rv = yrc_to_rv(rc);
         goto c_co_out;
       }
+    } else if (key_type.d == CKK_AES) {
+      type = YH_SYMMETRIC_KEY;
+      rv = parse_aes_template(pTemplate, ulCount, &template, false);
+      if (rv != CKR_OK) {
+        goto c_co_out;
+      }
+
+      if (template.encrypt == ATTRIBUTE_TRUE) {
+        rc =
+          yh_string_to_capabilities("encrypt-ecb,encrypt-cbc", &capabilities);
+        if (rc != YHR_SUCCESS) {
+          rv = CKR_FUNCTION_FAILED;
+          goto c_co_out;
+        }
+      }
+
+      if (template.decrypt == ATTRIBUTE_TRUE) {
+        rc =
+          yh_string_to_capabilities("decrypt-ecb,decrypt-cbc", &capabilities);
+        if (rc != YHR_SUCCESS) {
+          rv = CKR_FUNCTION_FAILED;
+          goto c_co_out;
+        }
+      }
+
+      if (yh_util_import_aes_key(session->slot->device_session, &template.id,
+                                 template.label, 0xffff, &capabilities,
+                                 template.algorithm,
+                                 template.obj.buf) != YHR_SUCCESS) {
+        DBG_ERR("Failed writing symmetric key to device");
+        rv = CKR_FUNCTION_FAILED;
+        goto c_co_out;
+      }
     } else {
       DBG_ERR("Unknown key_type: %lx", key_type.d);
       rv = CKR_ATTRIBUTE_VALUE_INVALID;

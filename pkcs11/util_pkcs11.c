@@ -4343,6 +4343,105 @@ CK_RV parse_wrap_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
   }
 }
 
+CK_RV parse_aes_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
+                         yubihsm_pkcs11_object_template *template,
+                         bool generate) {
+
+  CK_RV rv;
+  CK_ULONG keylen = 0;
+
+  for (CK_ULONG i = 0; i < ulCount; i++) {
+    switch (pTemplate[i].type) {
+
+      case CKA_VALUE:
+        if (generate == false && template->obj.buf == NULL) {
+          template->obj.buf = (CK_BYTE_PTR) pTemplate[i].pValue;
+          template->objlen = keylen = pTemplate[i].ulValueLen;
+        } else {
+          return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+
+      case CKA_VALUE_LEN:
+        if (generate == true && template->obj.buf == NULL) {
+          keylen = *((CK_ULONG *) pTemplate[i].pValue);
+        } else {
+          return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+
+      case CKA_ENCRYPT:
+        if ((rv = set_template_attribute(&template->encrypt,
+                                         pTemplate[i].pValue)) != CKR_OK) {
+          return rv;
+        }
+        break;
+
+      case CKA_DECRYPT:
+        if ((rv = set_template_attribute(&template->decrypt,
+                                         pTemplate[i].pValue)) != CKR_OK) {
+          return rv;
+        }
+        break;
+
+      case CKA_TOKEN:
+      case CKA_PRIVATE:
+      case CKA_SENSITIVE:
+        if ((rv = check_bool_attribute(pTemplate[i].pValue, true)) != CKR_OK) {
+          DBG_ERR("Boolean truth check failed for attribute 0x%lx",
+                  pTemplate[i].type);
+          return rv;
+        }
+        break;
+
+      case CKA_WRAP:
+      case CKA_UNWRAP:
+      case CKA_DERIVE:
+      case CKA_SIGN:
+      case CKA_VERIFY:
+        if ((rv = check_bool_attribute(pTemplate[i].pValue, false)) != CKR_OK) {
+          DBG_ERR("Boolean false check failed for attribute 0x%lx",
+                  pTemplate[i].type);
+          return rv;
+        }
+        break;
+
+      case CKA_KEY_TYPE:
+      case CKA_CLASS:
+      case CKA_SUBJECT:
+      case CKA_ID:
+      case CKA_LABEL:
+      case CKA_EXTRACTABLE:
+        break;
+
+      default:
+        DBG_ERR("unknown attribute 0x%lx", pTemplate[i].type);
+        return CKR_ATTRIBUTE_TYPE_INVALID;
+    }
+  }
+
+  switch (keylen) {
+    case 16:
+      template->algorithm = YH_ALGO_AES128;
+      break;
+    case 24:
+      template->algorithm = YH_ALGO_AES192;
+      break;
+    case 32:
+      template->algorithm = YH_ALGO_AES256;
+      break;
+    default:
+      DBG_ERR("Invalid key length %lu", keylen);
+      return CKR_ATTRIBUTE_VALUE_INVALID;
+  }
+
+  if (generate == true || template->obj.buf) {
+    return CKR_OK;
+  } else {
+    return CKR_TEMPLATE_INCONSISTENT;
+  }
+}
+
 CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
                         CK_ULONG ulCount, yh_session *session) {
 
