@@ -4541,6 +4541,22 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
         }
       }
 
+      if (template.encrypt == ATTRIBUTE_TRUE) {
+        rc = yh_string_to_capabilities("wrap-data", &capabilities);
+        if (rc != YHR_SUCCESS) {
+          rv = CKR_FUNCTION_FAILED;
+          goto c_gk_out;
+        }
+      }
+
+      if (template.decrypt == ATTRIBUTE_TRUE) {
+        rc = yh_string_to_capabilities("unwrap-data", &capabilities);
+        if (rc != YHR_SUCCESS) {
+          rv = CKR_FUNCTION_FAILED;
+          goto c_gk_out;
+        }
+      }
+
       rc = yh_string_to_capabilities("all", &delegated_capabilities);
       if (rc != YHR_SUCCESS) {
         rv = CKR_FUNCTION_FAILED;
