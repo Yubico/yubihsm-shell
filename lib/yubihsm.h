@@ -2440,6 +2440,36 @@ yh_rc yh_util_decrypt_aes_cbc(yh_session *session, uint16_t key_id,
                               size_t in_len, uint8_t *out, size_t *out_len);
 
 /**
+ * Pad data using PKCS #7 padding
+ *
+ * @param buffer Data to be padded
+ * @param length Pointer to the current length of the data
+ * @param size The maximum size of the buffer
+ * @param block_size The block size of the cipher used for encryption, in bytes
+ *
+ * @return If successful, returns #YHR_SUCCESS and sets the contents of
+ *         length to the padded length of the buffer. See #yh_rc for
+ *         other possible return codes.
+ */
+yh_rc yh_util_pad_pkcs7(uint8_t *buffer, size_t *length, size_t size,
+                        uint8_t block_size);
+
+/**
+ * Unpad data that has PKCS #7 padding
+ *
+ * @warning Unpadding unauthenticated ciphertext provides a padding oracle.
+ *
+ * @param buffer Data to be unpadded
+ * @param length Pointer to the current length of the data
+ * @param block_size The block size of the cipher used for encryption, in bytes
+ *
+ * @return If successful, returns #YHR_SUCCESS and sets the contents of
+ *         length to the unpadded length of the buffer. See #yh_rc for
+ *         other possible return codes.
+ */
+yh_rc yh_util_unpad_pkcs7(uint8_t *buffer, size_t *length, uint8_t block_size);
+
+/**
  * Blink the LED of the device to identify it
  *
  * @param session Authenticated session to use

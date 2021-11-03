@@ -4088,6 +4088,47 @@ yh_rc yh_util_decrypt_aes_cbc(yh_session *session, uint16_t key_id,
                      in_len, out, out_len);
 }
 
+yh_rc yh_util_pad_pkcs7(uint8_t *buffer, size_t *length, size_t size,
+                        uint8_t block_size) {
+  if (buffer == NULL || length == NULL || block_size == 0 ||
+      SIZE_MAX - block_size < *length) {
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  size_t padded = (*length + block_size) - (*length % block_size);
+  uint8_t pad = padded - *length;
+
+  if (padded > size) {
+    return YHR_BUFFER_TOO_SMALL;
+  }
+
+  memset(&buffer[*length], pad, pad);
+  *length = padded;
+
+  return YHR_SUCCESS;
+}
+
+yh_rc yh_util_unpad_pkcs7(uint8_t *buffer, size_t *length, uint8_t block_size) {
+  if (buffer == NULL || length == NULL || block_size == 0 ||
+      *length < block_size) {
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  uint8_t pad = buffer[*length - 1];
+  if (pad == 0 || pad > block_size) {
+    return YHR_GENERIC_ERROR;
+  }
+
+  size_t unpadded = *length - pad;
+  if (memcmp(&buffer[unpadded], &buffer[unpadded + 1], pad - 1)) {
+    return YHR_GENERIC_ERROR;
+  }
+
+  *length = unpadded;
+
+  return YHR_SUCCESS;
+}
+
 yh_rc yh_util_blink_device(yh_session *session, uint8_t seconds) {
 
   if (session == NULL) {
