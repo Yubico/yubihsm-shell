@@ -4467,8 +4467,20 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
   }
 
   if (key_type.set == false || class.set == false) {
-    rv = CKR_TEMPLATE_INCOMPLETE;
-    goto c_gk_out;
+    if (pMechanism->mechanism == CKM_AES_KEY_GEN) {
+      /* attributes given implicitly */
+      if (!key_type.set) {
+        key_type.d = CKK_AES;
+        key_type.set = true;
+      }
+      if (!class.set) {
+        class.d = CKO_SECRET_KEY;
+        class.set = true;
+      }
+    } else {
+      rv = CKR_TEMPLATE_INCOMPLETE;
+      goto c_gk_out;
+    }
   }
 
   template.id = id.d;
