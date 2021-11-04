@@ -334,7 +334,7 @@ bool get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
   pInfo->flags = 0;
   switch (type) {
     case CKM_RSA_PKCS:
-      pInfo->flags = CKF_DECRYPT | CKA_ENCRYPT;
+      pInfo->flags = CKF_DECRYPT | CKF_ENCRYPT;
 
     case CKM_SHA1_RSA_PKCS:
     case CKM_SHA256_RSA_PKCS:
