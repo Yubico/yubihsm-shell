@@ -66,7 +66,7 @@ int aes_cmac_encrypt(aes_cmac_context_t *ctx, const uint8_t *message,
                      const uint16_t message_len, uint8_t *mac) {
 
   uint8_t M[AES_BLOCK_SIZE] = {0};
-  uint8_t *ptr = (uint8_t *) message;
+  const uint8_t *ptr = message;
 
   memcpy(mac, zero, AES_BLOCK_SIZE);
 

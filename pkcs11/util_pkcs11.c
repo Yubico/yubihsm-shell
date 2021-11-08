@@ -2312,6 +2312,8 @@ CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
     uint8_t *md = md_data;
     unsigned int md_len = sizeof(md_data);
     EVP_PKEY_CTX *ctx = NULL;
+    EVP_MD *evp_md = NULL;
+    EVP_MD *evp_mgf1md = NULL;
 
     if (key == NULL) {
       rv = CKR_FUNCTION_FAILED;
@@ -2377,7 +2379,8 @@ CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
       rv = CKR_FUNCTION_FAILED;
       goto pv_failure;
     }
-    if (EVP_PKEY_CTX_set_signature_md(ctx, op_info->op.verify.md) <= 0) {
+    evp_md = EVP_MD_meth_dup(op_info->op.verify.md);
+    if (EVP_PKEY_CTX_set_signature_md(ctx, evp_md) <= 0) {
       rv = CKR_FUNCTION_FAILED;
       goto pv_failure;
     }
@@ -2392,7 +2395,8 @@ CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
           rv = CKR_FUNCTION_FAILED;
           goto pv_failure;
         }
-        if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, op_info->op.verify.mgf1md) <= 0) {
+        evp_mgf1md = EVP_MD_meth_dup(op_info->op.verify.mgf1md);
+        if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, evp_mgf1md) <= 0) {
           rv = CKR_FUNCTION_FAILED;
           goto pv_failure;
         }
@@ -2418,6 +2422,12 @@ CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
     }
 
   pv_failure:
+    if (evp_md != NULL) {
+      EVP_MD_meth_free(evp_md);
+    }
+    if (evp_mgf1md != NULL) {
+      EVP_MD_meth_free(evp_md);
+    }
     if (ctx != NULL) {
       EVP_PKEY_CTX_free(ctx);
       ctx = NULL;

@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
                           &session);
   assert(rv == CKR_OK);
 
-  const char *password = "0001password";
+  char password[] = "0001password";
   rv = p11->C_Login(session, CKU_USER, (CK_UTF8CHAR_PTR) password,
                     (CK_ULONG) strlen(password));
   assert(rv == CKR_OK);

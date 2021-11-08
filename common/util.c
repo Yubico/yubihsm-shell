@@ -34,7 +34,7 @@ bool set_component(unsigned char *in_ptr, const BIGNUM *bn, int element_len) {
     return false;
   }
 
-  memset(in_ptr, 0, (size_t)(element_len - real_len));
+  memset(in_ptr, 0, (size_t) (element_len - real_len));
   in_ptr += element_len - real_len;
   return BN_bn2bin(bn, in_ptr) > 0;
 }
@@ -671,7 +671,7 @@ bool write_ed25519_key(uint8_t *buf, size_t buf_len, FILE *fp,
     memcpy(asn1 + sizeof(ed25519public_oid), buf, buf_len);
 
     if (format == _PEM) {
-      write_file((uint8_t *) PEM_public_header,
+      write_file(PEM_public_header,
                  sizeof(PEM_public_header) - 1 - drop_newline, fp, _PEM);
     }
 
@@ -682,7 +682,7 @@ bool write_ed25519_key(uint8_t *buf, size_t buf_len, FILE *fp,
     }
 
     if (format == _PEM) {
-      write_file((uint8_t *) PEM_public_trailer,
+      write_file(PEM_public_trailer,
                  sizeof(PEM_public_trailer) - 1 - drop_newline, fp, _PEM);
     }
   } else if (format == _hex) {

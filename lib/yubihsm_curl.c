@@ -249,7 +249,7 @@ static yh_rc backend_option(yh_backend *connection, yh_connector_option opt,
       DBG_ERR("%d is an unknown option", opt);
       return YHR_INVALID_PARAMETERS;
   }
-  CURLcode rc = curl_easy_setopt(connection, option, (char *) val);
+  CURLcode rc = curl_easy_setopt(connection, option, val);
   if (rc == CURLE_OK) {
     DBG_INFO("Successfully set %s.", optname);
     return YHR_SUCCESS;
