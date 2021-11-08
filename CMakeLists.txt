@@ -26,6 +26,8 @@ project (yubihsm-shell)
 option(BUILD_ONLY_LIB "Library only build" OFF)
 option(SUPRESS_MSVC_WARNINGS "Suppresses a lot of the warnings when compiling with MSVC" ON)
 
+include(${CMAKE_SOURCE_DIR}/cmake/SecurityFlags.cmake)
+
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
 # Set various install paths
@@ -141,18 +143,9 @@ if(MSVC)
     set (WIN32_BCRYPT 1)
   endif()
 else()
-  message("not win32")
+  message(STATUS "not win32")
 
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic")
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror")
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-format-zero-length -Wno-implicit-fallthrough")
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wformat -Wformat-security")
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wmissing-prototypes")
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wbad-function-cast")
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-all")
-  if (NOT CMAKE_C_COMPILER_ID MATCHES Clang)
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-z,relro,-z,now")
-  endif ()
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-format-zero-length")
 
   include(CheckFunctionExists)
 

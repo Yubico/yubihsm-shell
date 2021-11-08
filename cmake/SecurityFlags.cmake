@@ -1,0 +1,20 @@
+if (CMAKE_C_COMPILER_ID MATCHES ".*Clang")
+    # This rule applies to both "Clang" and "AppleClang".
+elseif (CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    string (APPEND CMAKE_C_FLAGS " -Wall -Wextra -Werror")
+    string (APPEND CMAKE_C_FLAGS " -Wformat -Wformat-nonliteral -Wformat-security")
+    #string (APPEND CMAKE_C_FLAGS " -Wshadow")
+    #string (APPEND CMAKE_C_FLAGS " -Wcast-qual")
+    string (APPEND CMAKE_C_FLAGS " -Wmissing-prototypes")
+    string (APPEND CMAKE_C_FLAGS " -Wbad-function-cast")
+    string (APPEND CMAKE_C_FLAGS " -Wno-implicit-fallthrough")
+    #string (APPEND CMAKE_C_FLAGS " -Wwrite-strings")
+    string (APPEND CMAKE_C_FLAGS " -pedantic")
+
+    string (APPEND CMAKE_C_FLAGS " -fstack-protector-all")
+    string (APPEND CMAKE_C_FLAGS " -Wl,-z,relro,-z,now")
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON) # explicitly enable flag for -fPIC and -fPIE
+elseif (CMAKE_C_COMPILER_ID STREQUAL "MSVC")
+else ()
+    message(WARNING "Security related flags cannot be set for unknown C compiler.")
+endif ()
