@@ -59,10 +59,6 @@ if (NOT CMAKE_BUILD_TYPE)
    endif ()
 endif ()
 
-# fortify can only be used with -O2 and higher, so only enable for release builds
-if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-  set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2")
-endif ()
 if(MSVC)
   set(DISABLE_LTO 1)
 endif()
@@ -79,11 +75,10 @@ if (NOT DISABLE_LTO)
 endif ()
 
 if (CMAKE_C_COMPILER_ID STREQUAL AppleClang)
-  set (CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -fPIE")
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-nullability-completeness -Wno-nullability-extension -Wno-expansion-to-defined")
 else()
   # -Wl,--strip-all is dependent on linker not compiler...
-  set (CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -Wl,--strip-all -fPIE -pie")
+  set (CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -Wl,--strip-all")
 endif ()
 
 set (CMAKE_C_STANDARD 11)
