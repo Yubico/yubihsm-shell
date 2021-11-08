@@ -90,7 +90,7 @@ History *g_hist;
   }
 
 static bool calling_device = false;
-static yubihsm_context ctx = {0};
+static yubihsm_context g_ctx = {0};
 
 int yh_com_help(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                 cmd_format fmt);
@@ -786,11 +786,11 @@ static void WINAPI timer_handler(void *lpParam,
 static void timer_handler(int signo __attribute__((unused))) {
 #endif
 
-  if (calling_device == true || ctx.connector == NULL) {
+  if (calling_device == true || g_ctx.connector == NULL) {
     return;
   }
-  for (size_t i = 0; i < sizeof(ctx.sessions) / sizeof(ctx.sessions[0]); i++) {
-    probe_session(&ctx, i);
+  for (size_t i = 0; i < sizeof(g_ctx.sessions) / sizeof(g_ctx.sessions[0]); i++) {
+    probe_session(&g_ctx, i);
   }
 }
 
@@ -1329,8 +1329,8 @@ static unsigned char yubihsm_complete(EditLine *el, int ch) {
         // NOTE(adma): cursor is after a command but there is no more
         // text to match, show all subcommands
         printf("\n");
-        for (Command *command = to_complete; command; command = command->next) {
-          printf("%s\n", command->name);
+        for (Command *iter = to_complete; iter; iter = iter->next) {
+          printf("%s\n", iter->name);
         }
         return CC_REDISPLAY;
       } else {
@@ -1733,7 +1733,7 @@ static int validate_and_call(yubihsm_context *ctx, CommandList l,
          g_out_fmt == fmt_nofmt ? command->out_fmt : g_out_fmt);
     calling_device = false;
 
-    for (int i = 0; i < n_arguments; i++) {
+    for (i = 0; i < n_arguments; i++) {
       if (arguments[i].x != NULL) {
         free(arguments[i].x);
         arguments[i].x = NULL;
@@ -1760,7 +1760,7 @@ static int validate_and_call(yubihsm_context *ctx, CommandList l,
              i ? argv[1] : "");
     } else if (*args != '\0' || argc - 1 == 0) {
       printf("Incomplete command\n");
-      for (int i = 0; i < argc; i++) {
+      for (i = 0; i < argc; i++) {
         arguments[i].s = argv[i];
       }
       yh_com_help(NULL, arguments, fmt_nofmt, fmt_nofmt);
@@ -1853,7 +1853,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Warning, unable to reset locale\n");
   }
 
-  ctx.out = stdout;
+  g_ctx.out = stdout;
 
   cmdline_parser_params_init(&params);
   params.initialize = 1;
@@ -1920,7 +1920,7 @@ int main(int argc, char *argv[]) {
       break;
   }
 
-  if (parse_configured_connectors(&ctx, args_info.connector_arg,
+  if (parse_configured_connectors(&g_ctx, args_info.connector_arg,
                                   args_info.connector_given) == -1) {
     fprintf(stderr, "Unable to parse connector list\n");
     rc = EXIT_FAILURE;
@@ -1928,7 +1928,7 @@ int main(int argc, char *argv[]) {
   }
 
 #ifdef USE_ASYMMETRIC_AUTH
-  if (parse_configured_pubkeys(&ctx, args_info.device_pubkey_arg,
+  if (parse_configured_pubkeys(&g_ctx, args_info.device_pubkey_arg,
                                args_info.device_pubkey_given) == -1) {
     fprintf(stderr, "Unable to parse device pubkey list\n");
     rc = EXIT_FAILURE;
@@ -1945,7 +1945,7 @@ int main(int argc, char *argv[]) {
   if (getenv("DEBUG") != NULL) {
     args_info.verbose_arg = YH_VERB_ALL;
   }
-  yh_set_verbosity(ctx.connector, args_info.verbose_arg);
+  yh_set_verbosity(g_ctx.connector, args_info.verbose_arg);
 
   yrc = yh_init();
   if (yrc != YHR_SUCCESS) {
@@ -1957,7 +1957,7 @@ int main(int argc, char *argv[]) {
 #ifdef YKHSMAUTH_ENABLED
   ykhsmauth_rc ykhsmauthrc;
   ykhsmauthrc =
-    ykhsmauth_init(&ctx.state, 1); // TODO(adma): do something about verbosity
+    ykhsmauth_init(&g_ctx.state, 1); // TODO(adma): do something about verbosity
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Failed to initialize libykhsmauth\n");
     rc = EXIT_FAILURE;
@@ -1965,20 +1965,20 @@ int main(int argc, char *argv[]) {
   }
 #endif
 
-  if (ctx.connector_list[0] == NULL) {
+  if (g_ctx.connector_list[0] == NULL) {
     fprintf(stderr, "Using default connector URL: %s\n", LOCAL_CONNECTOR_URL);
 
     char *local_connector_url = LOCAL_CONNECTOR_URL;
 
-    free_configured_connectors(&ctx);
-    parse_configured_connectors(&ctx, &local_connector_url, 1);
+    free_configured_connectors(&g_ctx);
+    parse_configured_connectors(&g_ctx, &local_connector_url, 1);
   }
 
   if (args_info.cacert_given) {
-    ctx.cacert = strdup(args_info.cacert_arg);
+    g_ctx.cacert = strdup(args_info.cacert_arg);
   }
   if (args_info.proxy_given) {
-    ctx.proxy = strdup(args_info.proxy_arg);
+    g_ctx.proxy = strdup(args_info.proxy_arg);
   }
 
 #ifndef __WIN32
@@ -1997,14 +1997,14 @@ int main(int argc, char *argv[]) {
   if (args_info.action_given) {
     uint8_t buf[8192] = {0};
 
-    ctx.out = open_file(args_info.out_arg, false);
-    if (ctx.out == NULL) {
+    g_ctx.out = open_file(args_info.out_arg, false);
+    if (g_ctx.out == NULL) {
       fprintf(stderr, "Unable to open output file %s\n", args_info.out_arg);
       rc = EXIT_FAILURE;
       goto main_exit;
     }
 
-    yh_com_connect(&ctx, NULL, fmt_nofmt, fmt_nofmt);
+    yh_com_connect(&g_ctx, NULL, fmt_nofmt, fmt_nofmt);
 
     bool requires_session = false;
     for (unsigned i = 0; i < args_info.action_given; i++) {
@@ -2041,12 +2041,12 @@ int main(int argc, char *argv[]) {
         arg[1].len = strlen(args_info.ykhsmauth_label_arg);
         arg[2].x = buf;
         arg[2].len = pw_len;
-        comrc = yh_com_open_yksession(&ctx, arg, fmt_nofmt, fmt_nofmt);
+        comrc = yh_com_open_yksession(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
       } else {
 #endif
         arg[1].x = buf;
         arg[1].len = pw_len;
-        comrc = yh_com_open_session(&ctx, arg, fmt_nofmt, fmt_nofmt);
+        comrc = yh_com_open_session(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
 #ifdef YKHSMAUTH_ENABLED
       }
 #endif
@@ -2058,10 +2058,10 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    for (size_t i = 0; i < sizeof(ctx.sessions) / sizeof(ctx.sessions[0]);
+    for (size_t i = 0; i < sizeof(g_ctx.sessions) / sizeof(g_ctx.sessions[0]);
          i++) {
-      if (ctx.sessions[i] != NULL) {
-        arg[0].e = ctx.sessions[i];
+      if (g_ctx.sessions[i] != NULL) {
+        arg[0].e = g_ctx.sessions[i];
       }
     }
 
@@ -2080,7 +2080,7 @@ int main(int argc, char *argv[]) {
             rc = EXIT_FAILURE;
             break;
           }
-          comrc = yh_com_decrypt_pkcs1v1_5(&ctx, arg, fmt_nofmt,
+          comrc = yh_com_decrypt_pkcs1v1_5(&g_ctx, arg, fmt_nofmt,
                                            g_out_fmt == fmt_nofmt ? fmt_binary
                                                                   : g_out_fmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to decrypt data");
@@ -2098,7 +2098,7 @@ int main(int argc, char *argv[]) {
             break;
           }
           comrc =
-            yh_com_derive_ecdh(&ctx, arg, fmt_nofmt,
+            yh_com_derive_ecdh(&g_ctx, arg, fmt_nofmt,
                                g_out_fmt == fmt_nofmt ? fmt_hex : g_out_fmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to perform ECDH key exchange");
         } break;
@@ -2129,7 +2129,7 @@ int main(int argc, char *argv[]) {
           yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[5].a);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
 
-          comrc = yh_com_generate_asymmetric(&ctx, arg, fmt_nofmt, fmt_nofmt);
+          comrc = yh_com_generate_asymmetric(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to generate asymmetric key");
         } break;
 
@@ -2154,7 +2154,7 @@ int main(int argc, char *argv[]) {
           yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[5].a);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
 
-          comrc = yh_com_generate_hmac(&ctx, arg, fmt_nofmt, fmt_nofmt);
+          comrc = yh_com_generate_hmac(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to generate hmac key");
         } break;
 
@@ -2189,7 +2189,7 @@ int main(int argc, char *argv[]) {
           yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[6].a);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
 
-          comrc = yh_com_generate_wrap(&ctx, arg, fmt_nofmt, fmt_nofmt);
+          comrc = yh_com_generate_wrap(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to generate wrap key");
         } break;
 
@@ -2222,7 +2222,7 @@ int main(int argc, char *argv[]) {
 
           arg[6].d = args_info.nonce_arg;
 
-          comrc = yh_com_generate_otp_aead_key(&ctx, arg, fmt_nofmt, fmt_nofmt);
+          comrc = yh_com_generate_otp_aead_key(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to generate otp key");
         } break;
 
@@ -2230,7 +2230,7 @@ int main(int argc, char *argv[]) {
           arg[1].w = args_info.object_id_arg;
 
           comrc =
-            yh_com_get_opaque(&ctx, arg, fmt_nofmt,
+            yh_com_get_opaque(&g_ctx, arg, fmt_nofmt,
                               g_out_fmt == fmt_nofmt ? fmt_binary : g_out_fmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to get opaque object");
         } break;
@@ -2239,13 +2239,13 @@ int main(int argc, char *argv[]) {
           arg[1].w = args_info.count_arg;
 
           comrc =
-            yh_com_get_random(&ctx, arg, fmt_nofmt,
+            yh_com_get_random(&g_ctx, arg, fmt_nofmt,
                               g_out_fmt == fmt_nofmt ? fmt_hex : g_out_fmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to get random bytes");
         } break;
 
         case action_arg_getMINUS_storageMINUS_info:
-          comrc = yh_com_get_storage(&ctx, arg, fmt_nofmt, fmt_nofmt);
+          comrc = yh_com_get_storage(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to get storage stats");
           break;
 
@@ -2255,14 +2255,14 @@ int main(int argc, char *argv[]) {
           arg[2].len = strlen(args_info.out_arg);
 
           comrc =
-            yh_com_get_pubkey(&ctx, arg, fmt_nofmt,
+            yh_com_get_pubkey(&g_ctx, arg, fmt_nofmt,
                               g_out_fmt == fmt_nofmt ? fmt_PEM : g_out_fmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to get public key");
         } break;
 
         case action_arg_getMINUS_deviceMINUS_pubkey:
 #ifdef USE_ASYMMETRIC_AUTH
-          comrc = yh_com_get_device_pubkey(&ctx, arg, fmt_nofmt,
+          comrc = yh_com_get_device_pubkey(&g_ctx, arg, fmt_nofmt,
                                            g_out_fmt == fmt_nofmt ? fmt_PEM
                                                                   : g_out_fmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to get device public key");
@@ -2283,7 +2283,7 @@ int main(int argc, char *argv[]) {
           yrc = yh_string_to_type(args_info.object_type_arg, &arg[2].t);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse type: ");
 
-          comrc = yh_com_get_object_info(&ctx, arg, fmt_nofmt, fmt_nofmt);
+          comrc = yh_com_get_object_info(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to get object info");
         } break;
 
@@ -2310,20 +2310,20 @@ int main(int argc, char *argv[]) {
           arg[4].len = strlen(args_info.out_arg);
 
           comrc =
-            yh_com_get_wrapped(&ctx, arg, fmt_nofmt,
+            yh_com_get_wrapped(&g_ctx, arg, fmt_nofmt,
                                g_out_fmt == fmt_nofmt ? fmt_base64 : g_out_fmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to get wrapped object");
         } break;
 
         case action_arg_getMINUS_deviceMINUS_info:
-          comrc = yh_com_get_device_info(&ctx, arg, fmt_nofmt, fmt_nofmt);
+          comrc = yh_com_get_device_info(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to get device info");
           break;
 
         case action_arg_getMINUS_template: {
           arg[1].w = args_info.object_id_arg;
 
-          comrc = yh_com_get_template(&ctx, arg, fmt_nofmt,
+          comrc = yh_com_get_template(&g_ctx, arg, fmt_nofmt,
                                       g_out_fmt == fmt_nofmt ? fmt_base64
                                                              : g_out_fmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to get template object");
@@ -2360,7 +2360,7 @@ int main(int argc, char *argv[]) {
           arg[6].s = args_info.label_arg;
           arg[6].len = strlen(args_info.label_arg);
 
-          comrc = yh_com_list_objects(&ctx, arg, fmt_nofmt, fmt_nofmt);
+          comrc = yh_com_list_objects(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to list objects");
         } break;
 
@@ -2389,7 +2389,7 @@ int main(int argc, char *argv[]) {
           arg[6].x = (uint8_t *) args_info.new_password_arg;
           arg[6].len = strlen(args_info.new_password_arg);
 
-          comrc = yh_com_put_authentication(&ctx, arg, fmt_nofmt, fmt_nofmt);
+          comrc = yh_com_put_authentication(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to store authentication key");
         } break;
 
@@ -2415,7 +2415,7 @@ int main(int argc, char *argv[]) {
             rc = EXIT_FAILURE;
             break;
           }
-          comrc = yh_com_put_asymmetric(&ctx, arg, fmt_nofmt, fmt_nofmt);
+          comrc = yh_com_put_asymmetric(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to store asymmetric key");
         } break;
 
@@ -2451,7 +2451,7 @@ int main(int argc, char *argv[]) {
             break;
           }
 
-          comrc = yh_com_put_opaque(&ctx, arg, fmt_nofmt, fmt_nofmt);
+          comrc = yh_com_put_opaque(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to store opaque object");
         } break;
 
@@ -2479,7 +2479,7 @@ int main(int argc, char *argv[]) {
           }
           arg[2].x = buf;
 
-          comrc = yh_com_put_option(&ctx, arg, fmt_hex, fmt_nofmt);
+          comrc = yh_com_put_option(&g_ctx, arg, fmt_hex, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to put option");
         } break;
 
@@ -2493,7 +2493,7 @@ int main(int argc, char *argv[]) {
           yrc = yh_string_to_option(args_info.opt_name_arg, &arg[1].o);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse option name: ");
 
-          comrc = yh_com_get_option(&ctx, arg, fmt_nofmt, fmt_nofmt);
+          comrc = yh_com_get_option(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to get option");
         } break;
 
@@ -2536,7 +2536,7 @@ int main(int argc, char *argv[]) {
             break;
           }
 
-          comrc = yh_com_put_wrapkey(&ctx, arg, fmt_nofmt, fmt_nofmt);
+          comrc = yh_com_put_wrapkey(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to put wrapkey");
         } break;
 
@@ -2558,7 +2558,7 @@ int main(int argc, char *argv[]) {
             break;
           }
 
-          comrc = yh_com_put_wrapped(&ctx, arg, fmt_nofmt, fmt_nofmt);
+          comrc = yh_com_put_wrapped(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to store wrapped object");
         } break;
 
@@ -2594,7 +2594,7 @@ int main(int argc, char *argv[]) {
             break;
           }
 
-          comrc = yh_com_put_template(&ctx, arg, fmt_nofmt, fmt_nofmt);
+          comrc = yh_com_put_template(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to store template object");
         } break;
 
@@ -2625,11 +2625,11 @@ int main(int argc, char *argv[]) {
           }
 
           if (args_info.action_arg[i] == action_arg_signMINUS_ecdsa) {
-            comrc = yh_com_sign_ecdsa(&ctx, arg, fmt_nofmt,
+            comrc = yh_com_sign_ecdsa(&g_ctx, arg, fmt_nofmt,
                                       g_out_fmt == fmt_nofmt ? fmt_base64
                                                              : g_out_fmt);
           } else {
-            comrc = yh_com_sign_eddsa(&ctx, arg, fmt_nofmt,
+            comrc = yh_com_sign_eddsa(&g_ctx, arg, fmt_nofmt,
                                       g_out_fmt == fmt_nofmt ? fmt_base64
                                                              : g_out_fmt);
           }
@@ -2658,7 +2658,7 @@ int main(int argc, char *argv[]) {
             break;
           }
 
-          comrc = yh_com_sign_pkcs1v1_5(&ctx, arg, fmt_nofmt,
+          comrc = yh_com_sign_pkcs1v1_5(&g_ctx, arg, fmt_nofmt,
                                         g_out_fmt == fmt_nofmt ? fmt_base64
                                                                : g_out_fmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to sign data");
@@ -2686,7 +2686,7 @@ int main(int argc, char *argv[]) {
           }
 
           comrc =
-            yh_com_sign_pss(&ctx, arg, fmt_nofmt,
+            yh_com_sign_pss(&g_ctx, arg, fmt_nofmt,
                             g_out_fmt == fmt_nofmt ? fmt_base64 : g_out_fmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to sign data");
         } break;
@@ -2696,7 +2696,7 @@ int main(int argc, char *argv[]) {
           // TODO(adma): this requires a hex parser
 
         case action_arg_reset: {
-          comrc = yh_com_reset(&ctx, arg, fmt_nofmt, fmt_nofmt);
+          comrc = yh_com_reset(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to reset device");
         } break;
 
@@ -2711,7 +2711,7 @@ int main(int argc, char *argv[]) {
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse type: ");
           arg[1].w = args_info.object_id_arg;
 
-          comrc = yh_com_delete(&ctx, arg, fmt_nofmt, fmt_nofmt);
+          comrc = yh_com_delete(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to delete object");
         } break;
 
@@ -2744,7 +2744,7 @@ int main(int argc, char *argv[]) {
           }
 
           comrc =
-            yh_com_sign_ssh_certificate(&ctx, arg, fmt_nofmt,
+            yh_com_sign_ssh_certificate(&g_ctx, arg, fmt_nofmt,
                                         g_out_fmt == fmt_nofmt ? fmt_binary
                                                                : g_out_fmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to get ssh certificate");
@@ -2762,7 +2762,7 @@ int main(int argc, char *argv[]) {
           arg[2].s = args_info.out_arg;
           arg[2].len = strlen(args_info.out_arg);
 
-          comrc = yh_com_otp_aead_random(&ctx, arg, fmt_nofmt,
+          comrc = yh_com_otp_aead_random(&g_ctx, arg, fmt_nofmt,
                                          g_out_fmt == fmt_nofmt ? fmt_binary
                                                                 : g_out_fmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to get aead from random");
@@ -2782,7 +2782,7 @@ int main(int argc, char *argv[]) {
           arg[1].w = args_info.object_id_arg;
           arg[2].w = args_info.attestation_id_arg;
 
-          comrc = yh_com_sign_attestation_certificate(&ctx, arg, fmt_nofmt,
+          comrc = yh_com_sign_attestation_certificate(&g_ctx, arg, fmt_nofmt,
                                                       g_out_fmt == fmt_nofmt
                                                         ? fmt_PEM
                                                         : g_out_fmt);
@@ -2790,7 +2790,7 @@ int main(int argc, char *argv[]) {
         } break;
 
         case action_arg_getMINUS_logs: {
-          comrc = yh_com_audit(&ctx, arg, fmt_nofmt,
+          comrc = yh_com_audit(&g_ctx, arg, fmt_nofmt,
                                g_out_fmt == fmt_nofmt ? fmt_ASCII : g_out_fmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to extract logs");
         } break;
@@ -2804,7 +2804,7 @@ int main(int argc, char *argv[]) {
 
           arg[1].w = args_info.log_index_arg;
 
-          comrc = yh_com_set_log_index(&ctx, arg, fmt_nofmt,
+          comrc = yh_com_set_log_index(&g_ctx, arg, fmt_nofmt,
                                        g_out_fmt == fmt_nofmt ? fmt_ASCII
                                                               : g_out_fmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to set log index");
@@ -2819,7 +2819,7 @@ int main(int argc, char *argv[]) {
 
           arg[1].w = args_info.duration_arg;
 
-          comrc = yh_com_blink(&ctx, arg, fmt_nofmt, fmt_nofmt);
+          comrc = yh_com_blink(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to blink device");
         } break;
 
@@ -2873,7 +2873,7 @@ int main(int argc, char *argv[]) {
     create_command_list(&g_commands);
 
     if (args_info.pre_connect_flag) {
-      yh_com_connect(&ctx, NULL, fmt_nofmt, fmt_nofmt);
+      yh_com_connect(&g_ctx, NULL, fmt_nofmt, fmt_nofmt);
     }
 
     while (g_running == true) {
@@ -2896,7 +2896,7 @@ int main(int argc, char *argv[]) {
 #ifndef __WIN32
         history(g_hist, &ev, H_ENTER, buf);
 #endif
-        validate_and_call(&ctx, g_commands, buf);
+        validate_and_call(&g_ctx, g_commands, buf);
       }
     }
 
@@ -2910,39 +2910,39 @@ main_exit:
 
   calling_device = true;
 
-  for (size_t i = 0; i < sizeof(ctx.sessions) / sizeof(ctx.sessions[0]); i++) {
-    if (ctx.sessions[i]) {
-      yh_util_close_session(ctx.sessions[i]);
-      yh_destroy_session(&ctx.sessions[i]);
+  for (size_t i = 0; i < sizeof(g_ctx.sessions) / sizeof(g_ctx.sessions[0]); i++) {
+    if (g_ctx.sessions[i]) {
+      yh_util_close_session(g_ctx.sessions[i]);
+      yh_destroy_session(&g_ctx.sessions[i]);
     }
   }
 
-  yh_disconnect(ctx.connector);
+  yh_disconnect(g_ctx.connector);
 
   cmdline_parser_free(&args_info);
 
-  if (ctx.out != stdout && ctx.out != NULL) {
-    fclose(ctx.out);
+  if (g_ctx.out != stdout && g_ctx.out != NULL) {
+    fclose(g_ctx.out);
   }
 
-  if (ctx.cacert) {
-    free(ctx.cacert);
+  if (g_ctx.cacert) {
+    free(g_ctx.cacert);
   }
-  if (ctx.proxy) {
-    free(ctx.proxy);
+  if (g_ctx.proxy) {
+    free(g_ctx.proxy);
   }
 
   yh_exit();
 #ifdef YKHSMAUTH_ENABLED
-  ykhsmauth_done(ctx.state);
-  ctx.state = NULL;
+  ykhsmauth_done(g_ctx.state);
+  g_ctx.state = NULL;
 #endif
 
 #ifdef USE_ASYMMETRIC_AUTH
-  free_configured_pubkeys(&ctx);
+  free_configured_pubkeys(&g_ctx);
 #endif
 
-  free_configured_connectors(&ctx);
+  free_configured_connectors(&g_ctx);
 
   return rc;
 }

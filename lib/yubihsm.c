@@ -3965,7 +3965,7 @@ static yh_rc load_backend(const char *name,
 #else
 static yh_rc load_backend(const char *name, void **backend,
                           struct backend_functions **bf) {
-  struct backend_functions *(*backend_functions)(void);
+  struct backend_functions *(*fptr_backend_functions)(void);
 #ifdef WIN32
   HMODULE module = GetModuleHandle("libyubihsm");
   if (!module) {
@@ -3992,7 +3992,7 @@ static yh_rc load_backend(const char *name, void **backend,
     DBG_ERR("Failed loading backend library '%s'", path);
     return YHR_GENERIC_ERROR;
   }
-  backend_functions = (struct backend_functions * (*) (void) )
+  fptr_backend_functions = (struct backend_functions * (*) (void) )
     GetProcAddress(*backend, "backend_functions");
 #else
   *backend = dlopen(name, RTLD_NOW);
@@ -4000,13 +4000,13 @@ static yh_rc load_backend(const char *name, void **backend,
     DBG_ERR("Failed loading '%s' with error: '%s'", name, dlerror());
     return YHR_GENERIC_ERROR;
   }
-  *(void **) (&backend_functions) = dlsym(*backend, "backend_functions");
+  *(void **) (&fptr_backend_functions) = dlsym(*backend, "backend_functions");
 #endif
-  if (backend_functions == NULL) {
+  if (fptr_backend_functions == NULL) {
     DBG_ERR("Symbol 'backend_functions' not found in '%s'", name);
     return YHR_GENERIC_ERROR;
   }
-  *bf = backend_functions();
+  *bf = fptr_backend_functions();
   return (*bf)->backend_init(_yh_verbosity, _yh_output);
 }
 #endif

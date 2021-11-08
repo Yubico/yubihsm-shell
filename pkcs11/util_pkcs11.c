@@ -3375,8 +3375,7 @@ CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
   }
   if (ecparams && template->obj.buf) {
     uint16_t key_len;
-    CK_RV rv =
-      parse_ecparams(ecparams, ecparams_len, &template->algorithm, &key_len);
+    rv = parse_ecparams(ecparams, ecparams_len, &template->algorithm, &key_len);
     if (rv != CKR_OK) {
       return rv;
     }
