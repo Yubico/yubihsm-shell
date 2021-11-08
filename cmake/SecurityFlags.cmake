@@ -1,8 +1,9 @@
 include(CheckCCompilerFlag)
 
-if (CMAKE_C_COMPILER_ID MATCHES ".*Clang")
-    # This rule applies to both "Clang" and "AppleClang".
-elseif (CMAKE_C_COMPILER_ID STREQUAL "GNU")
+if (CMAKE_C_COMPILER_ID STREQUAL "Clang" OR
+    CMAKE_C_COMPILER_ID STREQUAL "AppleClang" OR
+    CMAKE_C_COMPILER_ID STREQUAL "GNU")
+
     check_c_compiler_flag("-Werror -fstack-protector-all" HAVE_STACK_PROTECTOR_ALL)
 
     add_compile_options (-Wall -Wextra -Werror)
@@ -18,8 +19,8 @@ elseif (CMAKE_C_COMPILER_ID STREQUAL "GNU")
 	if(HAVE_STACK_PROTECTOR_ALL)
 		add_compile_options(-fstack-protector-all)
 	endif()
-    add_compile_options (-Wl,-z,relro,-z,now)
-    add_compile_options (-Wl,-z,noexecstack)
+    string(APPEND CMAKE_SHARED_LINKER_FLAGS " -Wl,-z,noexecstack -Wl,-z,relro,-z,now")
+    string(APPEND CMAKE_EXE_LINKER_FLAGS " -Wl,-z,noexecstack -Wl,-z,relro,-z,now")
     set(CMAKE_POSITION_INDEPENDENT_CODE ON) # explicitly enable flag for -fPIC and -fPIE
 elseif (CMAKE_C_COMPILER_ID STREQUAL "MSVC")
 else ()
