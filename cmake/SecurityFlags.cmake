@@ -19,6 +19,7 @@ elseif (CMAKE_C_COMPILER_ID STREQUAL "GNU")
 		add_compile_options(-fstack-protector-all)
 	endif()
     add_compile_options (-Wl,-z,relro,-z,now)
+    add_compile_options (-Wl,-z,noexecstack)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON) # explicitly enable flag for -fPIC and -fPIE
 elseif (CMAKE_C_COMPILER_ID STREQUAL "MSVC")
 else ()
