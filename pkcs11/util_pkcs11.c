@@ -2440,8 +2440,6 @@ CK_RV perform_decrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
 
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Decryption failed: %s", yh_strerror(yrc));
-    fprintf(stderr, "------------------- Decryption failed: %s\n",
-            yh_strerror(yrc));
     return CKR_FUNCTION_FAILED;
   }
 
@@ -2457,137 +2455,15 @@ CK_RV perform_decrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
 }
 
 CK_RV perform_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
-                      uint8_t *encdata, uint16_t *encdata_len) {
+                      uint8_t *data, uint16_t *data_len) {
 
   yh_rc yrc;
   size_t outlen = sizeof(op_info->buffer);
-  EVP_PKEY_CTX *ctx = NULL;
 
   if (op_info->mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
     yrc =
       yh_util_wrap_data(session, op_info->op.encrypt.key_id, op_info->buffer,
                         op_info->buffer_length, op_info->buffer, &outlen);
-    if (outlen > *encdata_len) {
-      return CKR_BUFFER_TOO_SMALL;
-    }
-    memcpy(encdata, op_info->buffer, outlen);
-    *encdata_len = outlen;
-
-  } else if (op_info->mechanism.mechanism == CKM_RSA_PKCS ||
-             op_info->mechanism.mechanism == CKM_RSA_PKCS_OAEP) {
-    uint8_t response[2048];
-    size_t response_len = sizeof(response);
-    yh_algorithm algo;
-    if (yh_util_get_public_key(session, op_info->op.encrypt.key_id, response,
-                               &response_len, &algo) != YHR_SUCCESS) {
-      DBG_ERR("Failed to get public key with ObjectId 0x%4x",
-              op_info->op.encrypt.key_id);
-      fprintf(stderr,
-              "---------------------- Failed to get public key with ObjectId "
-              "0x%4x\n",
-              op_info->op.encrypt.key_id);
-      return CKR_FUNCTION_FAILED;
-    }
-
-    EVP_PKEY *public_key = NULL;
-    public_key = EVP_PKEY_new();
-    if (public_key == NULL) {
-      fprintf(stderr, "------------------ Failed to create public key\n");
-      return -1;
-    }
-
-    if (yh_is_rsa(algo)) {
-      RSA *rsa = RSA_new();
-      if (rsa == NULL) {
-        fprintf(stderr, "----------------- Failed to create RSA key\n");
-        return -1;
-      }
-      BIGNUM *e = BN_new();
-      BIGNUM *n = BN_bin2bn(response, response_len, NULL);
-      BN_hex2bn(&e, "10001");
-      if (RSA_set0_key(rsa, n, e, NULL) != 1) {
-        fprintf(stderr, "--------------------- Failed to set RSA key\n");
-        RSA_free(rsa);
-        return -1;
-      }
-      if (EVP_PKEY_set1_RSA(public_key, rsa) != 1) {
-        fprintf(stderr, "------------------------- Failed to set RSA key\n");
-        RSA_free(rsa);
-        return -1;
-      }
-      RSA_free(rsa);
-    } else {
-      DBG_ERR("Key 0x%4x is not an RSA key", op_info->op.encrypt.key_id);
-      fprintf(stderr, "---------------------- Key 0x%4x is not an RSA key\n",
-              op_info->op.encrypt.key_id);
-      return CKR_FUNCTION_FAILED;
-    }
-
-    /*
-        const unsigned char *p = pubkey;
-        EVP_PKEY *key = d2i_PUBKEY(NULL, &p, pubkey_len);
-        if(key == NULL) {
-          DBG_ERR("Failed to get public key with ObjectId 0x%4x",
-       op_info->op.encrypt.key_id); fprintf(stderr, "----------------------
-       Failed to convert public key 0x%4x to EVP_PKEY\n",
-       op_info->op.encrypt.key_id); return CKR_FUNCTION_FAILED;
-        }
-    */
-    EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(public_key, NULL);
-    if (ctx == NULL) {
-      fprintf(stderr, "---------------------- ctx is NULL\n");
-      return CKR_FUNCTION_FAILED;
-    }
-    if (EVP_PKEY_encrypt_init(ctx) <= 0) {
-      fprintf(stderr,
-              "---------------------- EVP_PKEY_encrypt_init(ctx) <= 0\n");
-      yrc = CKR_FUNCTION_FAILED;
-      goto rsa_enc_cleanup;
-    }
-    if (op_info->op.encrypt.oaep_md != NULL &&
-        op_info->op.encrypt.mgf1_md != NULL &&
-        op_info->op.encrypt.oaep_label != NULL) {
-      if (EVP_PKEY_CTX_set_rsa_oaep_md(ctx, op_info->op.encrypt.oaep_md) >= 0) {
-        fprintf(stderr,
-                "---------------------- EVP_PKEY_CTX_set_rsa_oaep_md(ctx, "
-                "op_info->op.encrypt.oaep_md) >= 0\n");
-        yrc = CKR_FUNCTION_FAILED;
-        goto rsa_enc_cleanup;
-      }
-
-      if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, op_info->op.encrypt.mgf1_md) >= 0) {
-        fprintf(stderr,
-                "---------------------- EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, "
-                "op_info->mechanism.oaep.mgf1Algo) >= 0\n");
-        yrc = CKR_FUNCTION_FAILED;
-        goto rsa_enc_cleanup;
-      }
-
-      if (EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, op_info->op.encrypt.oaep_label,
-                                           op_info->op.encrypt
-                                             .oaep_label_len) >= 0) {
-        fprintf(stderr,
-                "---------------------- EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, "
-                "op_info->op.encrypt.oaep_label, "
-                "op_info->op.encrypt.oaep_label_len) >= 0\n");
-        yrc = CKR_FUNCTION_FAILED;
-        goto rsa_enc_cleanup;
-      }
-    }
-
-    size_t cbLen = *encdata_len;
-    if (EVP_PKEY_encrypt(ctx, encdata, &cbLen, op_info->buffer,
-                         op_info->buffer_length) <= 0) {
-      fprintf(stderr,
-              "---------------------- EVP_PKEY_encrypt(ctx, data, &cbLen, "
-              "op_info->buffer, op_info->buffer_length) <= 0\n");
-      yrc = CKR_FUNCTION_FAILED;
-      goto rsa_enc_cleanup;
-    }
-
-    *encdata_len = cbLen;
-    yrc = CKR_OK;
-    goto rsa_enc_cleanup;
   } else {
     DBG_ERR("Mechanism %lu not supported", op_info->mechanism.mechanism);
     return CKR_MECHANISM_INVALID;
@@ -2596,14 +2472,14 @@ CK_RV perform_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
   if (yrc != YHR_SUCCESS) {
     return CKR_FUNCTION_FAILED;
   }
-  return CKR_OK;
 
-rsa_enc_cleanup:
-  if (yrc != CKR_OK) {
-    free(op_info->op.encrypt.oaep_label);
+  if (outlen > *data_len) {
+    return CKR_BUFFER_TOO_SMALL;
   }
-  EVP_PKEY_CTX_free(ctx);
-  return yrc;
+  memcpy(data, op_info->buffer, outlen);
+  *data_len = outlen;
+
+  return CKR_OK;
 }
 
 CK_RV perform_rsa_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
@@ -2614,17 +2490,12 @@ CK_RV perform_rsa_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
     fprintf(stderr, "data is null\n");
   }
 
-  fprintf(stderr, "----------------- perform_rsa_encrypt\n");
-  uint8_t response[2048];
+  uint8_t response[2048] = {0};
   size_t response_len = sizeof(response);
   yh_algorithm algo;
   if (yh_util_get_public_key(session, op_info->op.encrypt.key_id, response,
                              &response_len, &algo) != YHR_SUCCESS) {
     DBG_ERR("Failed to get public key with ObjectId 0x%4x",
-            op_info->op.encrypt.key_id);
-    fprintf(stderr,
-            "---------------------- Failed to get public key with ObjectId "
-            "0x%4x\n",
             op_info->op.encrypt.key_id);
     return CKR_FUNCTION_FAILED;
   }
@@ -2632,38 +2503,37 @@ CK_RV perform_rsa_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
   EVP_PKEY *public_key = NULL;
   public_key = EVP_PKEY_new();
   if (public_key == NULL) {
-    fprintf(stderr, "------------------ Failed to create public key\n");
-    return -1;
+    DBG_ERR("Failed to create EVP_PKEY object for public key");
+    return CKR_FUNCTION_FAILED;
   }
 
   if (yh_is_rsa(algo)) {
     RSA *rsa = RSA_new();
     if (rsa == NULL) {
-      fprintf(stderr, "----------------- Failed to create RSA key\n");
-      return -1;
+      DBG_ERR("Failed to create RSA object for public key");
+      return CKR_FUNCTION_FAILED;
     }
     BIGNUM *e = BN_new();
     BIGNUM *n = BN_bin2bn(response, response_len, NULL);
     BN_hex2bn(&e, "10001");
     if (RSA_set0_key(rsa, n, e, NULL) != 1) {
-      fprintf(stderr, "--------------------- Failed to set RSA key\n");
       RSA_free(rsa);
-      return -1;
+      DBG_ERR("Failed to set RSA key for encryption");
+      return CKR_FUNCTION_FAILED;
     }
     if (EVP_PKEY_set1_RSA(public_key, rsa) != 1) {
-      fprintf(stderr, "------------------------- Failed to set RSA key\n");
       RSA_free(rsa);
-      return -1;
+      DBG_ERR("Failed to set RSA public key for encryption");
+      return CKR_FUNCTION_FAILED;
     }
     RSA_free(rsa);
   } else {
     DBG_ERR("Key 0x%4x is not an RSA key", op_info->op.encrypt.key_id);
-    fprintf(stderr, "---------------------- Key 0x%4x is not an RSA key\n",
-            op_info->op.encrypt.key_id);
     return CKR_FUNCTION_FAILED;
   }
 
-  fprintf(stderr, "---------------------- got public key\n");
+  DBG_INFO("Successfully retrieved RSA key 0x%4x for encryption",
+           op_info->op.encrypt.key_id);
 
   if (EVP_PKEY_base_id(public_key) != EVP_PKEY_RSA) {
     return CKR_KEY_TYPE_INCONSISTENT;
@@ -2672,12 +2542,10 @@ CK_RV perform_rsa_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
   CK_RV rv;
   EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(public_key, NULL);
   if (ctx == NULL) {
-    fprintf(stderr, "---------------- ctx = NULL\n");
     return CKR_FUNCTION_FAILED;
   }
 
   if (EVP_PKEY_encrypt_init(ctx) <= 0) {
-    fprintf(stderr, "---------------- EVP_PKEY_encrypt_init(ctx) <= 0\n");
     rv = CKR_FUNCTION_FAILED;
     goto rsa_enc_cleanup;
   }
@@ -2687,7 +2555,7 @@ CK_RV perform_rsa_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
     DBG_ERR("Unsupported padding RSA_NO_PADDING");
     rv = CKR_FUNCTION_FAILED;
     goto rsa_enc_cleanup;
-  } else if (padding == RSA_PKCS1_OAEP_PADDING) {
+  } else {
     if (EVP_PKEY_CTX_set_rsa_padding(ctx, padding) <= 0) {
       rv = CKR_FUNCTION_FAILED;
       goto rsa_enc_cleanup;
@@ -2698,15 +2566,11 @@ CK_RV perform_rsa_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
       op_info->op.encrypt.mgf1_md != NULL &&
       op_info->op.encrypt.oaep_label != NULL) {
     if (EVP_PKEY_CTX_set_rsa_oaep_md(ctx, op_info->op.encrypt.oaep_md) >= 0) {
-      fprintf(stderr, "---------------- EVP_PKEY_CTX_set_rsa_oaep_md(ctx, "
-                      "op_info->op.encrypt.oaep_md) >= 0\n");
       rv = CKR_FUNCTION_FAILED;
       goto rsa_enc_cleanup;
     }
 
     if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, op_info->op.encrypt.mgf1_md) >= 0) {
-      fprintf(stderr, "---------------- EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, "
-                      "op_info->op.encrypt.mgf1_md) >= 0\n");
       rv = CKR_FUNCTION_FAILED;
       goto rsa_enc_cleanup;
     }
@@ -2714,25 +2578,15 @@ CK_RV perform_rsa_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
     if (EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, op_info->op.encrypt.oaep_label,
                                          op_info->op.encrypt.oaep_label_len) >=
         0) {
-      fprintf(stderr, "---------------- EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, "
-                      "op_info->op.encrypt.oaep_label, "
-                      "op_info->op.encrypt.oaep_label_len) >= 0\n");
       rv = CKR_FUNCTION_FAILED;
       goto rsa_enc_cleanup;
     }
   }
-
   size_t cbLen = *enc_len;
-  if (EVP_PKEY_encrypt(ctx, enc, &cbLen, op_info->buffer,
-                       op_info->buffer_length) <= 0) {
-    fprintf(stderr, "---------------- EVP_PKEY_encrypt(ctx, enc, &cbLen, data, "
-                    "data_len) <= 0\n");
+  if (EVP_PKEY_encrypt(ctx, enc, &cbLen, data, data_len) <= 0) {
     rv = CKR_FUNCTION_FAILED;
     goto rsa_enc_cleanup;
   }
-
-  fprintf(stderr, "---------------- EVP_PKEY_encrypt successful\n");
-
   *enc_len = cbLen;
   rv = CKR_OK;
 

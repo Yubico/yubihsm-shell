@@ -2439,22 +2439,22 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptInit)
       rv = CKR_KEY_TYPE_INCONSISTENT;
       goto c_ei_out;
     }
-  } else {
+  } else if (pMechanism->mechanism == CKM_RSA_PKCS ||
+             pMechanism->mechanism == CKM_RSA_PKCS_OAEP) {
     if (object->object.type != YH_ASYMMETRIC_KEY) {
       DBG_ERR("Wrong key type for algorithm");
       rv = CKR_KEY_TYPE_INCONSISTENT;
       goto c_ei_out;
     }
 
-    if (pMechanism->mechanism == CKM_RSA_PKCS_OAEP) {
+    if (pMechanism->mechanism == CKM_RSA_PKCS) {
+      session->operation.op.encrypt.padding = RSA_PKCS1_PADDING;
+    } else {
+      session->operation.op.encrypt.padding = RSA_PKCS1_OAEP_PADDING;
+
       if (pMechanism->ulParameterLen != sizeof(CK_RSA_PKCS_OAEP_PARAMS)) {
         DBG_ERR("Length of mechanism parameters does not match expected value: "
                 "found %lu, expected %zu",
-                pMechanism->ulParameterLen, sizeof(CK_RSA_PKCS_OAEP_PARAMS));
-        fprintf(stderr,
-                "----------------- Length of mechanism parameters does not "
-                "match expected value: "
-                "found %lu, expected %zu\n",
                 pMechanism->ulParameterLen, sizeof(CK_RSA_PKCS_OAEP_PARAMS));
         rv = CKR_MECHANISM_PARAM_INVALID;
         goto c_ei_out;
@@ -2464,25 +2464,19 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptInit)
 
       if (params->source == 0 && params->ulSourceDataLen != 0) {
         DBG_ERR("Source parameter empty but sourceDataLen != 0");
-        fprintf(stderr, "---------------- Source parameter empty but "
-                        "sourceDataLen != 0\n");
         rv = CKR_MECHANISM_PARAM_INVALID;
         goto c_ei_out;
       } else if (params->source != 0 && params->source != CKZ_DATA_SPECIFIED) {
         DBG_ERR("Unknown value in parameter source");
-        fprintf(stderr,
-                "-------------------- Unknown value in parameter source\n");
         rv = CKR_MECHANISM_PARAM_INVALID;
         goto c_ei_out;
       }
 
-      session->operation.op.encrypt.padding = RSA_PKCS1_OAEP_PADDING;
       DBG_INFO("OAEP params : hashAlg 0x%lx mgf 0x%lx source 0x%lx pSourceData "
                "%p ulSourceDataLen %lu",
                params->hashAlg, params->mgf, params->source,
                params->pSourceData, params->ulSourceDataLen);
-      // session->operation.op.encrypt.oaep_md =
-      // EVP_MD_by_mechanism(oaep->hashAlg)
+
       const EVP_MD *md = NULL;
       switch (params->hashAlg) {
         case CKM_SHA_1:
@@ -2502,7 +2496,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptInit)
       }
       session->operation.op.encrypt.oaep_md = md;
 
-      // session->operation.op.encrypt.mgf1_md = EVP_MD_by_mechanism(oaep->mgf);
       switch (params->mgf) {
         case CKG_MGF1_SHA1:
           session->operation.op.encrypt.mgf1_md = EVP_sha1();
@@ -2535,27 +2528,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptInit)
         session->operation.op.encrypt.oaep_label = NULL;
         session->operation.op.encrypt.oaep_label_len = 0;
       }
-      fprintf(stderr,
-              "------------------- session->operation.op.encrypt.padding: "
-              "%lu\n",
-              session->operation.op.encrypt.padding);
-      fprintf(stderr,
-              "------------------- "
-              "session->operation.op.encrypt.oaep_md==null? %d\n",
-              session->operation.op.encrypt.oaep_md == NULL);
-      fprintf(stderr,
-              "------------------- "
-              "session->operation.op.encrypt.mgf1_md==null? %d\n",
-              session->operation.op.encrypt.mgf1_md == NULL);
-      fprintf(stderr,
-              "------------------- session->operation.op.encrypt.oaep_label: "
-              "%p\n",
-              session->operation.op.encrypt.oaep_label);
-      fprintf(stderr,
-              "------------------- "
-              "session->operation.op.encrypt.oaep_label_len: %lu\n",
-              session->operation.op.encrypt.oaep_label_len);
     }
+  } else {
+    DBG_ERR("Mechanism %lu not supported",
+            session->operation.mechanism.mechanism);
+    rv = CKR_MECHANISM_INVALID;
+    goto c_ei_out;
   }
 
   session->operation.op.encrypt.key_id = hKey;
@@ -2577,7 +2555,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
 
   CK_RV rv = CKR_OK;
   bool terminate = true;
-  CK_ULONG datalen = 0;
 
   yubihsm_pkcs11_session *session = NULL;
 
@@ -2600,7 +2577,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
   }
 
   if (session->operation.mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
-    datalen = YH_CCM_WRAP_OVERHEAD + ulDataLen;
+    CK_ULONG datalen = YH_CCM_WRAP_OVERHEAD + ulDataLen;
     DBG_INFO("The size of the data will be %lu", datalen);
 
     if (pEncryptedData == NULL) {
@@ -2624,14 +2601,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
     }
 
     DBG_INFO("Encrypting %lu bytes", ulDataLen);
-    fprintf(stderr, "---------------------- Encrypting %lu bytes\n", ulDataLen);
     rv = apply_encrypt_mechanism_update(&session->operation, pData, ulDataLen);
     if (rv != CKR_OK) {
       DBG_ERR("Unable to perform encrypt operation step");
-      fprintf(stderr,
-              "---------------------- Unable to perform encrypt update "
-              "operation step %lu\n",
-              rv);
       goto c_e_out;
     }
 
@@ -2639,48 +2611,22 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
                          pEncryptedData, (uint16_t *) pulEncryptedDataLen);
     if (rv != CKR_OK) {
       DBG_ERR("Unable to encrypt data");
-      fprintf(stderr, "---------------------- Unable to encrypt data %lu\n",
-              rv);
       goto c_e_out;
-    } else {
-      fprintf(stderr, "---------------------- Encryption successful\n");
-
-      if (pEncryptedData == NULL) {
-        // NOTE: if data is NULL, just return size we'll need
-        terminate = false;
-
-        DOUT;
-      }
     }
   } else if (session->operation.mechanism.mechanism == CKM_RSA_PKCS ||
              session->operation.mechanism.mechanism == CKM_RSA_PKCS_OAEP) {
-    rv = apply_encrypt_mechanism_update(&session->operation, pData, ulDataLen);
-    if (rv != CKR_OK) {
-      DBG_ERR("Unable to perform encrypt operation step");
-      fprintf(stderr,
-              "---------------------- Unable to perform encrypt update "
-              "operation step %lu\n",
-              rv);
-      goto c_e_out;
-    }
 
     rv = perform_rsa_encrypt(session->slot->device_session, &session->operation,
                              pData, ulDataLen, pEncryptedData,
                              pulEncryptedDataLen);
     if (rv != CKR_OK) {
       DBG_ERR("Unable to RSA encrypt data");
-      fprintf(stderr, "---------------------- Unable to encrypt data %lu\n",
-              rv);
       goto c_e_out;
-    } else {
-      fprintf(stderr, "---------------------- Encryption successful\n");
+    }
 
-      if (pEncryptedData == NULL) {
-        // NOTE: if data is NULL, just return size we'll need
-        terminate = false;
-
-        DOUT;
-      }
+    if (pEncryptedData == NULL) {
+      // NOTE: if data is NULL, just return size we'll need
+      terminate = false;
     }
   }
 
@@ -2809,20 +2755,29 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptFinal)
       rv = CKR_ARGUMENTS_BAD;
       goto c_ef_out;
     }
+
+    rv =
+      perform_encrypt(session->slot->device_session, &session->operation,
+                      pLastEncryptedPart, (uint16_t *) pulLastEncryptedPartLen);
+
+  } else if (session->operation.mechanism.mechanism == CKM_RSA_PKCS ||
+             session->operation.mechanism.mechanism == CKM_RSA_PKCS_OAEP) {
+    rv = perform_rsa_encrypt(session->slot->device_session, &session->operation,
+                             session->operation.buffer,
+                             session->operation.buffer_length,
+                             pLastEncryptedPart, pulLastEncryptedPartLen);
+    if (pLastEncryptedPart == NULL) {
+      terminate = false;
+    }
+  } else {
+    DBG_ERR("Mechanism %lu not supported",
+            session->operation.mechanism.mechanism);
+    rv = CKR_MECHANISM_INVALID;
+    goto c_ef_out;
   }
-
-  rv =
-    perform_encrypt(session->slot->device_session, &session->operation,
-                    pLastEncryptedPart, (uint16_t *) pulLastEncryptedPartLen);
-
   if (rv != CKR_OK) {
     DBG_ERR("Unable to encrypt data");
     goto c_ef_out;
-  } else {
-    if (pLastEncryptedPart == NULL) {
-      // NOTE: if data is NULL, just return size we'll need
-      terminate = false;
-    }
   }
 
   DBG_INFO("Got %lu bytes back", *pulLastEncryptedPartLen);
@@ -2902,7 +2857,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
   if (object->object.type == YH_ASYMMETRIC_KEY &&
       yh_is_rsa(object->object.algorithm)) {
     DBG_INFO("RSA decryption requested");
-    fprintf(stderr, "------------------- dec_init: RSA decryption requested\n");
+
     size_t key_length;
     yh_rc yrc = yh_get_key_bitlength(object->object.algorithm, &key_length);
     if (yrc != YHR_SUCCESS) {
@@ -2914,7 +2869,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
     session->operation.op.decrypt.key_len = key_length;
 
     if (pMechanism->mechanism == CKM_RSA_PKCS_OAEP) {
-      fprintf(stderr, "------------------- dec_init: CKM_RSA_PKCS_OAEP\n");
       if (pMechanism->ulParameterLen != sizeof(CK_RSA_PKCS_OAEP_PARAMS)) {
         DBG_ERR("Length of mechanism parameters does not match expected value: "
                 "found %lu, expected %zu",
@@ -3018,8 +2972,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
     DBG_ERR("Unable to initialize decryption operation");
     goto c_di_out;
   }
-  fprintf(stderr,
-          "---------------------- dec_init: apply_decrypt_mechanism_init OK\n");
 
   session->operation.type = OPERATION_DECRYPT;
 
@@ -3068,10 +3020,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Decrypt)
   // NOTE: datalen is just an approximation here since the data is encrypted
   CK_ULONG datalen = 0;
   if (session->operation.mechanism.mechanism == CKM_RSA_PKCS) {
-    fprintf(stderr, "-------------- dec: CKM_RSA_PKCS\n");
     datalen = (session->operation.op.decrypt.key_len + 7) / 8 - 11;
   } else if (session->operation.mechanism.mechanism == CKM_RSA_PKCS_OAEP) {
-    fprintf(stderr, "-------------- dec: CKM_RSA_PKCS_OAEP\n");
     datalen = (session->operation.op.decrypt.key_len + 7) / 8 -
               session->operation.mechanism.oaep.label_len * 2 - 2;
   } else if (session->operation.mechanism.mechanism ==
@@ -3129,7 +3079,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Decrypt)
                        pData, (uint16_t *) pulDataLen);
   if (rv != CKR_OK) {
     DBG_ERR("Unable to decrypt data");
-    fprintf(stderr, "------------- dec: Unable to decrypt data: %lu\n", rv);
     if (rv == CKR_BUFFER_TOO_SMALL) {
       terminate = false;
     }
