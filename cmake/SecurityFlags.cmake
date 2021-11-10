@@ -1,5 +1,7 @@
 include(CheckCCompilerFlag)
 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 if (CMAKE_C_COMPILER_ID STREQUAL "Clang" OR
     CMAKE_C_COMPILER_ID STREQUAL "AppleClang" OR
     CMAKE_C_COMPILER_ID STREQUAL "GNU")
@@ -24,8 +26,11 @@ if (CMAKE_C_COMPILER_ID STREQUAL "Clang" OR
     endif ()
     add_link_options (-Wl,-z,relro,-z,now)
     add_link_options (-Wl,-z,noexecstack)
-    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 elseif (CMAKE_C_COMPILER_ID STREQUAL "MSVC")
+    add_compile_options (/GS)
+    add_compile_options (/Gs)
+    add_link_options (/NXCOMPAT)
+    add_link_options (/guard:cf)
 else ()
     message(WARNING "Security related flags cannot be set for unknown C compiler.")
 endif ()
