@@ -186,4 +186,8 @@ ykhsmauth_rc ykhsmauth_put_mgmkey(ykhsmauth_state *state, uint8_t *mgmkey,
 }
 #endif
 
+#ifdef _MSC_VER
+#pragma strict_gs_check(on)
+#endif
+
 #endif

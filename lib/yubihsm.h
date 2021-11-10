@@ -2711,4 +2711,8 @@ yh_rc yh_domains_to_string(uint16_t domains, char *string, size_t max_len);
 }
 #endif
 
+#ifdef _MSC_VER
+#pragma strict_gs_check(on)
+#endif
+
 #endif

@@ -65,4 +65,8 @@ int actions_run(struct gengetopt_args_info *args_info);
 int do_put_key(uint8_t *enc_key, uint8_t *mac_key, uint16_t key_id,
                uint16_t domains, uint32_t capabilities, yh_session *ses);
 
+#ifdef _MSC_VER
+#pragma strict_gs_check(on)
+#endif
+
 #endif

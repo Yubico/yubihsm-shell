@@ -207,4 +207,8 @@ typedef struct {
   } obj;
 } yubihsm_pkcs11_object_template;
 
+#ifdef _MSC_VER
+#pragma strict_gs_check(on)
+#endif
+
 #endif
