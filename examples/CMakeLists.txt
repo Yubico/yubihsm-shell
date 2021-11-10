@@ -19,12 +19,6 @@ find_libcrypto()
 
 add_definitions (-DDEFAULT_CONNECTOR_URL="${DEFAULT_CONNECTOR_URL}")
 
-if (CMAKE_C_COMPILER_ID MATCHES Clang)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE")
-elseif (NOT MSVC)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE -pie")
-endif ()
-
 set (
   SOURCE_IMPORT_RSA
   import_rsa.c

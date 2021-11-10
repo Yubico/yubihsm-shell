@@ -14,12 +14,6 @@
 # limitations under the License.
 #
 
-if (CMAKE_C_COMPILER_ID MATCHES Clang)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE")
-else ()
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE -pie")
-endif ()
-
 find_program (BASH_PROGRAM bash)
 
 add_test(

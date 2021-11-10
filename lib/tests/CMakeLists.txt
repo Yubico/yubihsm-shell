@@ -14,12 +14,6 @@
 # limitations under the License.
 #
 
-if (CMAKE_C_COMPILER_ID MATCHES Clang)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE")
-elseif (NOT MSVC)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE -pie")
-endif ()
-
 if(MSVC)
   set(ADDITIONAL_LIBRARY ws2_32)
 endif(MSVC)

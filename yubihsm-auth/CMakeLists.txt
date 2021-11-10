@@ -48,12 +48,6 @@ if(WIN32)
   set (BCRYPT_LIBRARY bcrypt)
 endif(WIN32)
 
-if (CMAKE_C_COMPILER_ID MATCHES Clang)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE")
-else ()
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE -pie")
-endif ()
-
 # NOTE(adma): required by gengetopt
 add_definitions (-DPACKAGE="yubihsm-auth")
 add_definitions (-DVERSION="${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}")

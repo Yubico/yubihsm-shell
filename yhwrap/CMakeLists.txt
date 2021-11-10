@@ -48,12 +48,6 @@ if(${WIN32})
   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc @ONLY)
 endif(${WIN32})
 
-if (CMAKE_C_COMPILER_ID MATCHES Clang)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE")
-elseif (NOT MSVC)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE -pie")
-endif ()
-
 # NOTE(adma): required by gengetopt
 add_definitions (-DPACKAGE="yubihsm-wrap")
 add_definitions (-DVERSION="${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}")
