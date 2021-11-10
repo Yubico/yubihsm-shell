@@ -67,6 +67,9 @@ CK_RV apply_decrypt_mechanism_update(yubihsm_pkcs11_op_info *op_info,
 CK_RV apply_decrypt_mechanism_finalize(yubihsm_pkcs11_op_info *op_info);
 CK_RV perform_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
                       uint8_t *plaintext, uint16_t *plaintext_len);
+CK_RV perform_rsa_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
+                          CK_BYTE_PTR data, CK_ULONG data_len, CK_BYTE_PTR enc,
+                          CK_ULONG_PTR enc_len);
 bool decrypt_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info);
 
 bool check_encrypt_mechanism(yubihsm_pkcs11_slot *slot,

@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "../common/platform-config.h"
+#include "../common/util.h"
 #include "../common/time_win.h"
 
 #ifdef __WIN32
@@ -334,7 +335,7 @@ bool get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
   pInfo->flags = 0;
   switch (type) {
     case CKM_RSA_PKCS:
-      pInfo->flags = CKF_DECRYPT;
+      pInfo->flags = CKF_DECRYPT | CKF_ENCRYPT;
 
     case CKM_SHA1_RSA_PKCS:
     case CKM_SHA256_RSA_PKCS:
@@ -361,7 +362,7 @@ bool get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
       find_minmax_rsa_key_length_in_bits(slot->algorithms, slot->n_algorithms,
                                          &pInfo->ulMinKeySize,
                                          &pInfo->ulMaxKeySize);
-      pInfo->flags = CKF_HW | CKF_DECRYPT;
+      pInfo->flags = CKF_HW | CKF_DECRYPT | CKF_ENCRYPT;
       break;
 
     case CKM_RSA_PKCS_KEY_PAIR_GEN:
@@ -1651,7 +1652,8 @@ bool check_encrypt_mechanism(yubihsm_pkcs11_slot *slot,
   CK_MECHANISM_TYPE mechanisms[128];
   CK_ULONG count = 128;
 
-  if (pMechanism->mechanism != CKM_YUBICO_AES_CCM_WRAP) {
+  if (is_RSA_decrypt_mechanism(pMechanism->mechanism) == false &&
+      pMechanism->mechanism != CKM_YUBICO_AES_CCM_WRAP) {
     return false;
   }
 
@@ -2027,6 +2029,8 @@ CK_RV apply_encrypt_mechanism_update(yubihsm_pkcs11_op_info *op_info,
 
   switch (op_info->mechanism.mechanism) {
     case CKM_YUBICO_AES_CCM_WRAP:
+    case CKM_RSA_PKCS:
+    case CKM_RSA_PKCS_OAEP:
       if (op_info->buffer_length + in_len > sizeof(op_info->buffer)) {
         return CKR_DATA_LEN_RANGE;
       }
@@ -2458,7 +2462,7 @@ CK_RV perform_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
 
   if (op_info->mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
     yrc =
-      yh_util_wrap_data(session, op_info->op.decrypt.key_id, op_info->buffer,
+      yh_util_wrap_data(session, op_info->op.encrypt.key_id, op_info->buffer,
                         op_info->buffer_length, op_info->buffer, &outlen);
   } else {
     DBG_ERR("Mechanism %lu not supported", op_info->mechanism.mechanism);
@@ -2476,6 +2480,130 @@ CK_RV perform_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
   *data_len = outlen;
 
   return CKR_OK;
+}
+
+CK_RV perform_rsa_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
+                          CK_BYTE_PTR data, CK_ULONG data_len, CK_BYTE_PTR enc,
+                          CK_ULONG_PTR enc_len) {
+
+  if (data == NULL || data_len <= 0) {
+    fprintf(stderr, "data is null\n");
+  }
+
+  EVP_PKEY *public_key = NULL;
+  uint8_t response[2048];
+  size_t response_len = sizeof(response);
+  yh_algorithm algo;
+
+  if (yh_util_get_public_key(session, op_info->op.encrypt.key_id, response,
+                             &response_len, &algo) != YHR_SUCCESS) {
+    DBG_ERR("Failed to get public key with ObjectId 0x%4x",
+            op_info->op.encrypt.key_id);
+    return CKR_FUNCTION_FAILED;
+  }
+
+  public_key = EVP_PKEY_new();
+  if (public_key == NULL) {
+    DBG_ERR("Failed to create EVP_PKEY object for public key");
+    return CKR_FUNCTION_FAILED;
+  }
+
+  if (yh_is_rsa(algo)) {
+    RSA *rsa = RSA_new();
+    if (rsa == NULL) {
+      DBG_ERR("Failed to create RSA public key object");
+      return CKR_FUNCTION_FAILED;
+    }
+    BIGNUM *e = BN_new();
+    BIGNUM *n = BN_bin2bn(response, response_len, NULL);
+    BN_hex2bn(&e, "10001");
+    if (RSA_set0_key(rsa, n, e, NULL) != 1) {
+      DBG_ERR("Failed to set RSA key");
+      RSA_free(rsa);
+      return CKR_FUNCTION_FAILED;
+    }
+    if (EVP_PKEY_set1_RSA(public_key, rsa) != 1) {
+      DBG_ERR("Failed to set RSA public key");
+      RSA_free(rsa);
+      return CKR_FUNCTION_FAILED;
+    }
+    RSA_free(rsa);
+  } else {
+    DBG_ERR("Key 0x%4x is not an RSA key", op_info->op.encrypt.key_id);
+    return CKR_FUNCTION_FAILED;
+  }
+
+  fprintf(stderr, "------------------ got public key\n");
+
+  if (EVP_PKEY_base_id(public_key) != EVP_PKEY_RSA) {
+    return CKR_KEY_TYPE_INCONSISTENT;
+  }
+
+  CK_RV rv;
+  EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(public_key, NULL);
+  if (ctx == NULL) {
+    fprintf(stderr, "------------------------- ctx == NULL\n");
+    return CKR_FUNCTION_FAILED;
+  }
+
+  if (EVP_PKEY_encrypt_init(ctx) <= 0) {
+    fprintf(stderr,
+            "------------------------- EVP_PKEY_encrypt_init(ctx) <= 0\n");
+    rv = CKR_FUNCTION_FAILED;
+    goto rsa_enc_cleanup;
+  }
+
+  CK_ULONG padding = op_info->op.encrypt.padding;
+  if (padding == RSA_NO_PADDING) {
+    DBG_ERR("Unsupported padding RSA_NO_PADDING");
+    rv = CKR_FUNCTION_FAILED;
+    goto rsa_enc_cleanup;
+  } else if (padding == RSA_PKCS1_OAEP_PADDING) {
+    if (EVP_PKEY_CTX_set_rsa_padding(ctx, padding) <= 0) {
+      rv = CKR_FUNCTION_FAILED;
+      goto rsa_enc_cleanup;
+    }
+  }
+  fprintf(stderr, "------------------------- set padding\n");
+  if (op_info->op.encrypt.oaep_md != NULL &&
+      op_info->op.encrypt.mgf1_md != NULL &&
+      op_info->op.encrypt.oaep_label != NULL) {
+    if (EVP_PKEY_CTX_set_rsa_oaep_md(ctx, op_info->op.encrypt.oaep_md) >= 0) {
+      rv = CKR_FUNCTION_FAILED;
+      goto rsa_enc_cleanup;
+    }
+
+    if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, op_info->op.encrypt.mgf1_md) >= 0) {
+      rv = CKR_FUNCTION_FAILED;
+      goto rsa_enc_cleanup;
+    }
+
+    if (EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, op_info->op.encrypt.oaep_label,
+                                         op_info->op.encrypt.oaep_label_len) >=
+        0) {
+      rv = CKR_FUNCTION_FAILED;
+      goto rsa_enc_cleanup;
+    }
+  }
+
+  size_t cbLen = *enc_len;
+  if (EVP_PKEY_encrypt(ctx, enc, &cbLen, op_info->buffer,
+                       op_info->buffer_length) <= 0) {
+    fprintf(stderr, "------------------------- EVP_PKEY_encrypt(ctx, enc, "
+                    "&cbLen, op_info->buffer, op_info->buffer_length) <= 0\n");
+    rv = CKR_FUNCTION_FAILED;
+    goto rsa_enc_cleanup;
+  }
+  fprintf(stderr, "--------------------- enc successful\n");
+  *enc_len = cbLen;
+  rv = CKR_OK;
+
+rsa_enc_cleanup:
+  if (rv != CKR_OK) {
+    free(op_info->op.encrypt.oaep_label);
+  }
+  EVP_PKEY_CTX_free(ctx);
+  return rv;
 }
 
 CK_RV perform_digest(yubihsm_pkcs11_op_info *op_info, uint8_t *digest,
@@ -2576,10 +2704,6 @@ bool is_RSA_decrypt_mechanism(CK_MECHANISM_TYPE m) {
 
   switch (m) {
     case CKM_RSA_PKCS:
-    case CKM_SHA1_RSA_PKCS:
-    case CKM_SHA256_RSA_PKCS:
-    case CKM_SHA384_RSA_PKCS:
-    case CKM_SHA512_RSA_PKCS:
     case CKM_RSA_PKCS_OAEP:
       return true;
 
