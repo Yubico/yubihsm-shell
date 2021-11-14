@@ -2426,7 +2426,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptInit)
     goto c_ei_out;
   }
 
-  if (check_encrypt_mechanism(session->slot, pMechanism) != true) {
+  if (check_decrypt_mechanism(session->slot, pMechanism) != true) {
     DBG_ERR("Encryption mechanism %lu not supported", pMechanism->mechanism);
     rv = CKR_MECHANISM_INVALID;
     goto c_ei_out;
@@ -4072,7 +4072,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_VerifyInit)
 
   session->operation.op.verify.key_len = key_length;
 
-  if (check_verify_mechanism(session->slot, pMechanism) != true) {
+  if (check_sign_mechanism(session->slot, pMechanism) != true) {
     DBG_ERR("Verification mechanism %lu not supported", pMechanism->mechanism);
     rv = CKR_MECHANISM_INVALID;
     goto c_vi_out;

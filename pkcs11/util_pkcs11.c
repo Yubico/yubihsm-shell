@@ -1616,37 +1616,7 @@ bool check_sign_mechanism(yubihsm_pkcs11_slot *slot,
   return false;
 }
 
-bool check_verify_mechanism(yubihsm_pkcs11_slot *slot,
-                            CK_MECHANISM_PTR pMechanism) {
-
-  return check_sign_mechanism(slot, pMechanism);
-}
-
 bool check_decrypt_mechanism(yubihsm_pkcs11_slot *slot,
-                             CK_MECHANISM_PTR pMechanism) {
-
-  CK_MECHANISM_TYPE mechanisms[128];
-  CK_ULONG count = 128;
-
-  if (is_RSA_decrypt_mechanism(pMechanism->mechanism) == false &&
-      pMechanism->mechanism != CKM_YUBICO_AES_CCM_WRAP) {
-    return false;
-  }
-
-  if (get_mechanism_list(slot, mechanisms, &count) != CKR_OK) {
-    return false;
-  }
-
-  for (CK_ULONG i = 0; i < count; i++) {
-    if (pMechanism->mechanism == mechanisms[i]) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-bool check_encrypt_mechanism(yubihsm_pkcs11_slot *slot,
                              CK_MECHANISM_PTR pMechanism) {
 
   CK_MECHANISM_TYPE mechanisms[128];
