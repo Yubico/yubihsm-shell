@@ -200,6 +200,10 @@ static void test_rsa_encrypt(CK_OBJECT_HANDLE keyid, RSA *rsak,
 
   CK_RSA_PKCS_OAEP_PARAMS params = {0};
   CK_MECHANISM mech = {mech_type, &params, sizeof(params)};
+  if (mech_type == CKM_RSA_PKCS) {
+    mech.pParameter = NULL;
+    mech.ulParameterLen = 0;
+  }
 
   if (RAND_bytes(data, data_len) <= 0)
     exit(EXIT_FAILURE);

@@ -1819,6 +1819,96 @@ CK_RV apply_decrypt_mechanism_init(yubihsm_pkcs11_op_info *op_info) {
   }
 }
 
+CK_RV apply_encrypt_mechanism_init(yubihsm_pkcs11_session *session,
+                                   CK_MECHANISM_PTR pMechanism) {
+
+  if (pMechanism->mechanism == CKM_RSA_PKCS) {
+    if (pMechanism->pParameter != NULL) {
+      DBG_ERR("Expecting NULL mechanism parameter for CKM_RSA_PKCS");
+      return CKR_MECHANISM_PARAM_INVALID;
+    }
+    session->operation.op.encrypt.padding = RSA_PKCS1_PADDING;
+  } else if (pMechanism->mechanism == CKM_RSA_PKCS_OAEP) {
+    session->operation.op.encrypt.padding = RSA_PKCS1_OAEP_PADDING;
+
+    if (pMechanism->ulParameterLen != sizeof(CK_RSA_PKCS_OAEP_PARAMS)) {
+      DBG_ERR("Length of mechanism parameters does not match expected value: "
+              "found %lu, expected %zu",
+              pMechanism->ulParameterLen, sizeof(CK_RSA_PKCS_OAEP_PARAMS));
+      return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    CK_RSA_PKCS_OAEP_PARAMS *params = pMechanism->pParameter;
+
+    if (params->source == 0 && params->ulSourceDataLen != 0) {
+      DBG_ERR("Source parameter empty but sourceDataLen != 0");
+      return CKR_MECHANISM_PARAM_INVALID;
+    } else if (params->source != 0 && params->source != CKZ_DATA_SPECIFIED) {
+      DBG_ERR("Unknown value in parameter source");
+      return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    DBG_INFO("OAEP params : hashAlg 0x%lx mgf 0x%lx source 0x%lx pSourceData "
+             "%p ulSourceDataLen %lu",
+             params->hashAlg, params->mgf, params->source, params->pSourceData,
+             params->ulSourceDataLen);
+
+    const EVP_MD *md = NULL;
+    switch (params->hashAlg) {
+      case CKM_SHA_1:
+        md = EVP_sha1();
+        break;
+      case CKM_SHA256:
+        md = EVP_sha256();
+        break;
+      case CKM_SHA384:
+        md = EVP_sha384();
+        break;
+      case CKM_SHA512:
+        md = EVP_sha512();
+        break;
+      default:
+        md = NULL;
+    }
+    session->operation.op.encrypt.oaep_md = md;
+
+    switch (params->mgf) {
+      case CKG_MGF1_SHA1:
+        session->operation.op.encrypt.mgf1_md = EVP_sha1();
+        break;
+      case CKG_MGF1_SHA256:
+        session->operation.op.encrypt.mgf1_md = EVP_sha256();
+        break;
+      case CKG_MGF1_SHA384:
+        session->operation.op.encrypt.mgf1_md = EVP_sha384();
+        break;
+      case CKG_MGF1_SHA512:
+        session->operation.op.encrypt.mgf1_md = EVP_sha512();
+        break;
+      default:
+        session->operation.op.encrypt.mgf1_md = NULL;
+    }
+
+    if (params->source == CKZ_DATA_SPECIFIED && params->pSourceData) {
+      session->operation.op.encrypt.oaep_label =
+        malloc(params->ulSourceDataLen);
+      if (session->operation.op.encrypt.oaep_label == NULL) {
+        DBG_INFO("Unable to allocate memory for %lu byte OAEP label",
+                 params->ulSourceDataLen);
+        return CKR_HOST_MEMORY;
+      }
+      memcpy(session->operation.op.encrypt.oaep_label, params->pSourceData,
+             params->ulSourceDataLen);
+      session->operation.op.encrypt.oaep_label_len = params->ulSourceDataLen;
+    } else {
+      session->operation.op.encrypt.oaep_label = NULL;
+      session->operation.op.encrypt.oaep_label_len = 0;
+    }
+  }
+  session->operation.op.encrypt.finalized = false;
+  return CKR_OK;
+}
+
 CK_RV apply_digest_mechanism_init(yubihsm_pkcs11_op_info *op_info) {
 
   const EVP_MD *md = NULL;
@@ -2079,6 +2169,68 @@ CK_RV apply_verify_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
 CK_RV apply_decrypt_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
 
   op_info->op.decrypt.finalized = true;
+  return CKR_OK;
+}
+
+CK_RV apply_encrypt_mechanism_finalize(yubihsm_pkcs11_session *session,
+                                       CK_ULONG ulDataLen,
+                                       CK_BYTE_PTR pEncryptedData,
+                                       CK_ULONG_PTR pulEncryptedDataLen) {
+
+  CK_RV rv;
+  session->operation.op.encrypt.finalized = true;
+  if (session->operation.mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
+    CK_ULONG datalen = YH_CCM_WRAP_OVERHEAD + ulDataLen;
+    DBG_INFO("The size of the data will be %lu", datalen);
+
+    if (pEncryptedData == NULL) {
+      // NOTE: if data is NULL, just return size we'll need
+      *pulEncryptedDataLen = datalen;
+      return CKR_OK;
+    }
+
+    if (*pulEncryptedDataLen < datalen) {
+      DBG_ERR("pulEncryptedDataLen too small, expected = %lu, got %lu)",
+              datalen, *pulEncryptedDataLen);
+      *pulEncryptedDataLen = datalen;
+      session->operation.op.encrypt.finalized = false;
+      return CKR_BUFFER_TOO_SMALL;
+    }
+
+    if (pEncryptedData == NULL) {
+      // NOTE: should this rather return length and ok?
+      DBG_ERR("No buffer provided");
+      return CKR_ARGUMENTS_BAD;
+    }
+
+    DBG_INFO("Encrypting %lu bytes", ulDataLen);
+
+    rv =
+      perform_wrap_encrypt(session->slot->device_session, &session->operation,
+                           pEncryptedData, (uint16_t *) pulEncryptedDataLen);
+    if (rv != CKR_OK) {
+      DBG_ERR("Unable to encrypt data");
+      return rv;
+    }
+  } else if (session->operation.mechanism.mechanism == CKM_RSA_PKCS ||
+             session->operation.mechanism.mechanism == CKM_RSA_PKCS_OAEP) {
+
+    rv = perform_rsa_encrypt(session->slot->device_session, &session->operation,
+                             session->operation.buffer,
+                             session->operation.buffer_length, pEncryptedData,
+                             pulEncryptedDataLen);
+    if (rv != CKR_OK) {
+      DBG_ERR("Unable to RSA encrypt data");
+      return rv;
+    }
+
+    if (pEncryptedData == NULL) {
+      // NOTE: if data is NULL, just return size we'll need
+      session->operation.op.encrypt.finalized = false;
+      return CKR_OK;
+    }
+  }
+
   return CKR_OK;
 }
 
@@ -2424,8 +2576,8 @@ CK_RV perform_decrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
   return CKR_OK;
 }
 
-CK_RV perform_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
-                      uint8_t *data, uint16_t *data_len) {
+CK_RV perform_wrap_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
+                           uint8_t *data, uint16_t *data_len) {
 
   yh_rc yrc;
   size_t outlen = sizeof(op_info->buffer);
