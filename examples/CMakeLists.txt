@@ -147,6 +147,11 @@ set (
   change_authkey.c
   )
 
+set(
+  SOURCE_ENCRYPT_AES
+  encrypt_aes.c
+)
+
 include_directories (
   ${LIBCRYPTO_INCLUDEDIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/../lib
@@ -335,6 +340,13 @@ target_link_libraries (
   ${LIBCRYPTO_LDFLAGS}
   yubihsm
   )
+
+add_executable(encrypt_aes ${SOURCE_ENCRYPT_AES})
+
+target_link_libraries(
+  encrypt_aes
+  yubihsm
+)
 
 if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
   add_executable (p11_generate_rsa ${SOURCE_P11_GENERATE_RSA})
