@@ -2499,14 +2499,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
     goto c_e_out;
   }
 
-  rv = apply_encrypt_mechanism_update(&session->operation, pData, ulDataLen);
-  if (rv != CKR_OK) {
-    DBG_ERR("Unable to perform encrypt operation step");
-    goto c_e_out;
-  }
-
-  rv = apply_encrypt_mechanism_finalize(session, ulDataLen, pEncryptedData,
-                                        pulEncryptedDataLen);
+  rv = apply_encrypt_mechanism_finalize(session, pData, ulDataLen,
+                                        pEncryptedData, pulEncryptedDataLen);
   if (rv != CKR_OK) {
     DBG_ERR("Unable to perform encrypt operation step");
     goto c_e_out;
@@ -2611,10 +2605,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptFinal)
     goto c_ef_out;
   }
 
-  rv =
-    apply_encrypt_mechanism_finalize(session, session->operation.buffer_length,
-                                     pLastEncryptedPart,
-                                     pulLastEncryptedPartLen);
+  rv = apply_encrypt_mechanism_finalize(session, NULL,
+                                        session->operation.buffer_length,
+                                        pLastEncryptedPart,
+                                        pulLastEncryptedPartLen);
   if (rv != CKR_OK) {
     DBG_ERR("Unable to perform encrypt operation step");
     goto c_ef_out;

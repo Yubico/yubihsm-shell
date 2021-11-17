@@ -2173,7 +2173,7 @@ CK_RV apply_decrypt_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
 }
 
 CK_RV apply_encrypt_mechanism_finalize(yubihsm_pkcs11_session *session,
-                                       CK_ULONG ulDataLen,
+                                       CK_BYTE_PTR pData, CK_ULONG ulDataLen,
                                        CK_BYTE_PTR pEncryptedData,
                                        CK_ULONG_PTR pulEncryptedDataLen) {
 
@@ -2186,6 +2186,7 @@ CK_RV apply_encrypt_mechanism_finalize(yubihsm_pkcs11_session *session,
     if (pEncryptedData == NULL) {
       // NOTE: if data is NULL, just return size we'll need
       *pulEncryptedDataLen = datalen;
+      session->operation.op.encrypt.finalized = false;
       return CKR_OK;
     }
 
@@ -2196,15 +2197,18 @@ CK_RV apply_encrypt_mechanism_finalize(yubihsm_pkcs11_session *session,
       session->operation.op.encrypt.finalized = false;
       return CKR_BUFFER_TOO_SMALL;
     }
+  }
 
-    if (pEncryptedData == NULL) {
-      // NOTE: should this rather return length and ok?
-      DBG_ERR("No buffer provided");
-      return CKR_ARGUMENTS_BAD;
+  if (pData != NULL) {
+    rv = apply_encrypt_mechanism_update(&session->operation, pData, ulDataLen);
+    if (rv != CKR_OK) {
+      DBG_ERR("Unable to perform encrypt operation step");
+      return rv;
     }
+  }
+  DBG_INFO("Encrypting %u bytes", session->operation.buffer_length);
 
-    DBG_INFO("Encrypting %lu bytes", ulDataLen);
-
+  if (session->operation.mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
     rv =
       perform_wrap_encrypt(session->slot->device_session, &session->operation,
                            pEncryptedData, (uint16_t *) pulEncryptedDataLen);
@@ -2212,6 +2216,10 @@ CK_RV apply_encrypt_mechanism_finalize(yubihsm_pkcs11_session *session,
       DBG_ERR("Unable to encrypt data");
       return rv;
     }
+
+    DBG_INFO("Got %lu butes back", *pulEncryptedDataLen);
+
+    return CKR_OK;
   } else if (session->operation.mechanism.mechanism == CKM_RSA_PKCS ||
              session->operation.mechanism.mechanism == CKM_RSA_PKCS_OAEP) {
 
