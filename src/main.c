@@ -2554,6 +2554,40 @@ int main(int argc, char *argv[]) {
           COM_SUCCEED_OR_DIE(comrc, "Unable to put wrapkey");
         } break;
 
+        case action_arg_putMINUS_symmetricMINUS_key: {
+          if (args_info.algorithm_given == 0) {
+            fprintf(stderr, "Missing argument algorithm\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          arg[1].w = args_info.object_id_arg;
+          arg[2].s = args_info.label_arg;
+          arg[2].len = strlen(args_info.label_arg);
+
+          yrc = yh_string_to_domains(args_info.domains_arg, &arg[3].w);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse domains: ");
+
+          memset(&arg[4].c, 0, sizeof(yh_capabilities));
+          yrc =
+            yh_string_to_capabilities(args_info.capabilities_arg, &arg[4].c);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse capabilities: ");
+
+          yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[5].a);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
+
+          if (get_input_data(args_info.in_arg, &arg[6].x, &arg[6].len,
+                             g_in_fmt == fmt_nofmt ? fmt_hex : g_in_fmt) ==
+              false) {
+            fprintf(stderr, "Failed to get input data\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+          comrc = yh_com_put_symmetric(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
+          free(arg[6].x);
+          COM_SUCCEED_OR_DIE(comrc, "Unable to store symmetric key");
+        } break;
+
         case action_arg_putMINUS_wrapped: {
           if (args_info.wrap_id_given == 0) {
             fprintf(stderr, "Missing argument wrap-id\n");
