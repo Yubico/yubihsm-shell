@@ -2258,6 +2258,31 @@ int main(int argc, char *argv[]) {
           COM_SUCCEED_OR_DIE(comrc, "Unable to generate otp key");
         } break;
 
+        case action_arg_generateMINUS_symmetricMINUS_key: {
+          if (args_info.algorithm_given == 0) {
+            fprintf(stderr, "Missing argument algorithm\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          arg[1].w = args_info.object_id_arg;
+          arg[2].s = args_info.label_arg;
+          arg[2].len = strlen(args_info.label_arg);
+          yrc = yh_string_to_domains(args_info.domains_arg, &arg[3].w);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse domains: ");
+
+          memset(&arg[4].c, 0, sizeof(yh_capabilities));
+          yrc =
+            yh_string_to_capabilities(args_info.capabilities_arg, &arg[4].c);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse capabilities: ");
+
+          yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[5].a);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
+
+          comrc = yh_com_generate_symmetric(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
+          COM_SUCCEED_OR_DIE(comrc, "Unable to generate symmetric key");
+        } break;
+
         case action_arg_getMINUS_opaque: {
           arg[1].w = args_info.object_id_arg;
 
