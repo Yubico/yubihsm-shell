@@ -197,6 +197,8 @@ static void test_rsa_encrypt(CK_OBJECT_HANDLE keyid, RSA *rsak,
   CK_BYTE enc[1024] = {0};
   CK_ULONG enc_len;
   CK_BYTE dec[512] = {0};
+  CK_BYTE dec_internal[512] = {0};
+  CK_ULONG dec_internal_len;
 
   CK_RSA_PKCS_OAEP_PARAMS params = {0};
   CK_MECHANISM mech = {mech_type, &params, sizeof(params)};
@@ -226,6 +228,16 @@ static void test_rsa_encrypt(CK_OBJECT_HANDLE keyid, RSA *rsak,
   }
   assert(memcmp(dec, data, data_len) == 0);
 
+  if (mech_type == CKM_RSA_PKCS) {
+    assert(p11->C_DecryptInit(session, &mech, keyid) == CKR_OK);
+    dec_internal_len = 0;
+    assert(p11->C_Decrypt(session, enc, enc_len, NULL, &dec_internal_len) ==
+           CKR_OK);
+    assert(p11->C_Decrypt(session, enc, enc_len, dec_internal,
+                          &dec_internal_len) == CKR_OK);
+    assert(memcmp(dec_internal, data, data_len) == 0);
+  }
+
   // Encrypt Update
   assert(p11->C_EncryptInit(session, &mech, keyid) == CKR_OK);
   enc_len = sizeof(enc);
@@ -244,6 +256,22 @@ static void test_rsa_encrypt(CK_OBJECT_HANDLE keyid, RSA *rsak,
             ERR_error_string(err, NULL));
   }
   assert(memcmp(dec, data, data_len) == 0);
+
+  if (mech_type == CKM_RSA_PKCS) {
+    // Decrypt Update
+    assert(p11->C_DecryptInit(session, &mech, keyid) == CKR_OK);
+    dec_internal_len = sizeof(dec_internal);
+    assert(p11->C_DecryptUpdate(session, enc, 10, NULL, &dec_internal_len) ==
+           CKR_OK);
+    dec_internal_len = sizeof(dec_internal);
+    assert(p11->C_DecryptUpdate(session, enc + 10, enc_len - 10, NULL,
+                                &dec_internal_len) == CKR_OK);
+    dec_internal_len = 0;
+    assert(p11->C_DecryptFinal(session, NULL, &dec_internal_len) == CKR_OK);
+    assert(p11->C_DecryptFinal(session, dec_internal, &dec_internal_len) ==
+           CKR_OK);
+    assert(memcmp(dec_internal, data, data_len) == 0);
+  }
 }
 
 static void test_encrypt_RSA(int keysize, CK_ULONG expected_enc_len) {
