@@ -2598,6 +2598,32 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptFinal)
   }
 
   session->operation.op.encrypt.finalized = true;
+
+  CK_ULONG datalen = 0;
+  if (session->operation.mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
+    datalen = session->operation.buffer_length + YH_CCM_WRAP_OVERHEAD;
+
+    if (*pulLastEncryptedPartLen < datalen) {
+      DBG_ERR("pulLastEncryptedPartLen too small, data will not fit, expected "
+              "= "
+              "%lu, got %lu",
+              datalen, *pulLastEncryptedPartLen);
+      rv = CKR_BUFFER_TOO_SMALL;
+
+      *pulLastEncryptedPartLen = datalen;
+      session->operation.op.encrypt.finalized = false;
+
+      goto c_ef_out;
+    }
+
+    if (pLastEncryptedPart == NULL) {
+      // NOTE: should this rather return length and ok?
+      DBG_ERR("No buffer provided");
+      rv = CKR_ARGUMENTS_BAD;
+      goto c_ef_out;
+    }
+  }
+
   rv = apply_encrypt_mechanism_finalize(session, pLastEncryptedPart,
                                         pulLastEncryptedPartLen);
   if (rv != CKR_OK) {
