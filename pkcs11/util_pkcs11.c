@@ -1942,7 +1942,6 @@ CK_RV apply_encrypt_mechanism_init(yubihsm_pkcs11_session *session,
       session->operation.op.encrypt.oaep_label_len = 0;
     }
   }
-  session->operation.op.encrypt.finalized = false;
   return CKR_OK;
 }
 
@@ -2239,8 +2238,6 @@ CK_RV apply_encrypt_mechanism_finalize(yubihsm_pkcs11_session *session,
     }
 
     if (pEncryptedData == NULL) {
-      // NOTE: if data is NULL, just return size we'll need
-      session->operation.op.encrypt.finalized = false;
       return CKR_OK;
     }
   }
@@ -2593,19 +2590,36 @@ CK_RV perform_decrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
 CK_RV perform_wrap_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
                            uint8_t *data, uint16_t *data_len) {
 
-  yh_rc yrc;
-  size_t outlen = sizeof(op_info->buffer);
-
-  if (op_info->mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
-    yrc =
-      yh_util_wrap_data(session, op_info->op.encrypt.key_id, op_info->buffer,
-                        op_info->buffer_length, op_info->buffer, &outlen);
-  } else {
+  if (op_info->mechanism.mechanism != CKM_YUBICO_AES_CCM_WRAP) {
     DBG_ERR("Mechanism %lu not supported", op_info->mechanism.mechanism);
     return CKR_MECHANISM_INVALID;
   }
 
-  if (yrc != YHR_SUCCESS) {
+  CK_ULONG datalen = op_info->buffer_length + YH_CCM_WRAP_OVERHEAD;
+
+  if (*data_len < datalen) {
+    DBG_ERR("pulLastEncryptedPartLen too small, data will not fit, expected "
+            "= "
+            "%lu, got %hu",
+            datalen, *data_len);
+
+    *data_len = datalen;
+
+    return CKR_BUFFER_TOO_SMALL;
+    ;
+  }
+
+  if (data == NULL) {
+    // NOTE: should this rather return length and ok?
+    DBG_ERR("No buffer provided");
+    return CKR_ARGUMENTS_BAD;
+  }
+
+  size_t outlen = sizeof(op_info->buffer);
+
+  if (yh_util_wrap_data(session, op_info->op.encrypt.key_id, op_info->buffer,
+                        op_info->buffer_length, op_info->buffer,
+                        &outlen) != YHR_SUCCESS) {
     return CKR_FUNCTION_FAILED;
   }
 

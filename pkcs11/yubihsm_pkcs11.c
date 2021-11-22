@@ -2462,7 +2462,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
     goto c_e_out;
   }
 
-  session->operation.op.encrypt.finalized = true;
+  bool terminate = true;
   if (session->operation.mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
     CK_ULONG datalen = YH_CCM_WRAP_OVERHEAD + ulDataLen;
     DBG_INFO("The size of the data will be %lu", datalen);
@@ -2470,7 +2470,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
     if (pEncryptedData == NULL) {
       // NOTE: if data is NULL, just return size we'll need
       *pulEncryptedDataLen = datalen;
-      session->operation.op.encrypt.finalized = false;
+      terminate = false;
       rv = CKR_OK;
       goto c_e_out;
     }
@@ -2479,7 +2479,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
       DBG_ERR("pulEncryptedDataLen too small, expected = %lu, got %lu)",
               datalen, *pulEncryptedDataLen);
       *pulEncryptedDataLen = datalen;
-      session->operation.op.encrypt.finalized = false;
+      terminate = false;
       rv = CKR_BUFFER_TOO_SMALL;
       goto c_e_out;
     }
@@ -2493,7 +2493,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
 
   rv = apply_encrypt_mechanism_finalize(session, pEncryptedData,
                                         pulEncryptedDataLen);
-  if (rv != CKR_OK) {
+  if (rv == CKR_BUFFER_TOO_SMALL || (rv == CKR_OK && pEncryptedData == NULL)) {
+    terminate = false;
+    goto c_e_out;
+  } else {
     DBG_ERR("Unable to perform encrypt operation step");
     goto c_e_out;
   }
@@ -2505,7 +2508,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
 c_e_out:
   if (session != NULL) {
     release_session(&g_ctx, session);
-    if (session->operation.op.encrypt.finalized == true) {
+    if (terminate == true) {
       session->operation.type = OPERATION_NOOP;
     }
   }
@@ -2597,36 +2600,14 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptFinal)
     goto c_ef_out;
   }
 
-  session->operation.op.encrypt.finalized = true;
-
-  CK_ULONG datalen = 0;
-  if (session->operation.mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
-    datalen = session->operation.buffer_length + YH_CCM_WRAP_OVERHEAD;
-
-    if (*pulLastEncryptedPartLen < datalen) {
-      DBG_ERR("pulLastEncryptedPartLen too small, data will not fit, expected "
-              "= "
-              "%lu, got %lu",
-              datalen, *pulLastEncryptedPartLen);
-      rv = CKR_BUFFER_TOO_SMALL;
-
-      *pulLastEncryptedPartLen = datalen;
-      session->operation.op.encrypt.finalized = false;
-
-      goto c_ef_out;
-    }
-
-    if (pLastEncryptedPart == NULL) {
-      // NOTE: should this rather return length and ok?
-      DBG_ERR("No buffer provided");
-      rv = CKR_ARGUMENTS_BAD;
-      goto c_ef_out;
-    }
-  }
-
+  bool terminate = true;
   rv = apply_encrypt_mechanism_finalize(session, pLastEncryptedPart,
                                         pulLastEncryptedPartLen);
-  if (rv != CKR_OK) {
+  if (rv == CKR_BUFFER_TOO_SMALL ||
+      (rv == CKR_OK && pLastEncryptedPart == NULL)) {
+    terminate = false;
+    goto c_ef_out;
+  } else {
     DBG_ERR("Unable to perform encrypt operation step");
     goto c_ef_out;
   }
@@ -2638,7 +2619,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptFinal)
 c_ef_out:
   if (session != NULL) {
     release_session(&g_ctx, session);
-    if (session->operation.op.encrypt.finalized == true) {
+    if (terminate == true) {
       session->operation.type = OPERATION_NOOP;
       decrypt_mechanism_cleanup(&session->operation);
     }

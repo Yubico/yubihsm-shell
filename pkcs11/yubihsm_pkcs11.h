@@ -93,7 +93,6 @@ typedef struct {
   const EVP_MD *mgf1_md;
   unsigned char *oaep_label;
   CK_ULONG oaep_label_len;
-  bool finalized;
 } encrypt_info;
 
 typedef struct {
