@@ -2462,6 +2462,28 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
     goto c_e_out;
   }
 
+  if (session->operation.mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
+    CK_ULONG datalen = YH_CCM_WRAP_OVERHEAD + ulDataLen;
+    DBG_INFO("The size of the data will be %lu", datalen);
+
+    if (pEncryptedData == NULL) {
+      // NOTE: if data is NULL, just return size we'll need
+      *pulEncryptedDataLen = datalen;
+      terminate = false;
+      rv = CKR_OK;
+      goto c_e_out;
+    }
+
+    if (*pulEncryptedDataLen < datalen) {
+      DBG_ERR("pulEncryptedDataLen too small, expected = %lu, got %lu)",
+              datalen, *pulEncryptedDataLen);
+      *pulEncryptedDataLen = datalen;
+      terminate = false;
+      rv = CKR_BUFFER_TOO_SMALL;
+      goto c_e_out;
+    }
+  }
+
   rv = apply_encrypt_mechanism_update(&session->operation, pData, ulDataLen);
   if (rv != CKR_OK) {
     DBG_ERR("Unable to perform encrypt operation step");
