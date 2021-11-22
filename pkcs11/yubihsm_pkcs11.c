@@ -2441,7 +2441,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
   DIN;
 
   CK_RV rv = CKR_OK;
-
+  bool terminate = true;
   yubihsm_pkcs11_session *session = NULL;
 
   if (g_yh_initialized == false) {
@@ -2462,7 +2462,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
     goto c_e_out;
   }
 
-  bool terminate = true;
   if (session->operation.mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
     CK_ULONG datalen = YH_CCM_WRAP_OVERHEAD + ulDataLen;
     DBG_INFO("The size of the data will be %lu", datalen);
@@ -2580,6 +2579,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptFinal)
   DIN;
 
   CK_RV rv = CKR_OK;
+  bool terminate = true;
   yubihsm_pkcs11_session *session = NULL;
 
   if (g_yh_initialized == false) {
@@ -2600,7 +2600,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptFinal)
     goto c_ef_out;
   }
 
-  bool terminate = true;
   rv = apply_encrypt_mechanism_finalize(session, pLastEncryptedPart,
                                         pulLastEncryptedPartLen);
   if (rv == CKR_BUFFER_TOO_SMALL ||
