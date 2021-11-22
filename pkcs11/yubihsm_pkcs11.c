@@ -2406,60 +2406,23 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptInit)
     goto c_ei_out;
   }
 
-  DBG_INFO("Trying to encrypt data with mechanism 0x%04lx and key %08lx",
-           pMechanism->mechanism, hKey);
-
-  int type = hKey >> 16;
-  if (type == ECDH_KEY_TYPE) {
-    DBG_ERR("Wrong key type");
-    rv = CKR_KEY_TYPE_INCONSISTENT;
-    goto c_ei_out;
-  }
-
-  yubihsm_pkcs11_object_desc *object =
-    get_object_desc(session->slot->device_session, session->slot->objects,
-                    hKey);
-
-  if (object == NULL) {
-    DBG_ERR("Unable to retrieve object");
-    rv = CKR_FUNCTION_FAILED;
-    goto c_ei_out;
-  }
-
   if (check_decrypt_mechanism(session->slot, pMechanism) != true) {
     DBG_ERR("Encryption mechanism %lu not supported", pMechanism->mechanism);
     rv = CKR_MECHANISM_INVALID;
     goto c_ei_out;
   }
-  session->operation.mechanism.mechanism = pMechanism->mechanism;
 
-  if (pMechanism->mechanism == CKM_YUBICO_AES_CCM_WRAP) {
-    if (object->object.type != YH_WRAP_KEY) {
-      DBG_ERR("Wrong key type or algorithm");
-      rv = CKR_KEY_TYPE_INCONSISTENT;
-      goto c_ei_out;
-    }
-  } else if (pMechanism->mechanism == CKM_RSA_PKCS ||
-             pMechanism->mechanism == CKM_RSA_PKCS_OAEP) {
-    if (object->object.type != YH_ASYMMETRIC_KEY) {
-      DBG_ERR("Wrong key type for algorithm");
-      rv = CKR_KEY_TYPE_INCONSISTENT;
-      goto c_ei_out;
-    }
-  } else {
-    DBG_ERR("Mechanism %lu not supported",
-            session->operation.mechanism.mechanism);
-    rv = CKR_MECHANISM_INVALID;
-    goto c_ei_out;
-  }
+  DBG_INFO("Trying to encrypt data with mechanism 0x%04lx and key %08lx",
+           pMechanism->mechanism, hKey);
 
-  rv = apply_encrypt_mechanism_init(session, pMechanism);
+  rv = apply_encrypt_mechanism_init(session, pMechanism, hKey);
   if (rv != CKR_OK) {
     DBG_ERR("Failed to initialize encryption operation");
     rv = CKR_FUNCTION_FAILED;
     goto c_ei_out;
   }
 
+  session->operation.mechanism.mechanism = pMechanism->mechanism;
   session->operation.op.encrypt.key_id = hKey;
   session->operation.type = OPERATION_ENCRYPT;
   session->operation.buffer_length = 0;
@@ -2499,8 +2462,37 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
     goto c_e_out;
   }
 
-  rv = apply_encrypt_mechanism_finalize(session, pData, ulDataLen,
-                                        pEncryptedData, pulEncryptedDataLen);
+  session->operation.op.encrypt.finalized = true;
+  if (session->operation.mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
+    CK_ULONG datalen = YH_CCM_WRAP_OVERHEAD + ulDataLen;
+    DBG_INFO("The size of the data will be %lu", datalen);
+
+    if (pEncryptedData == NULL) {
+      // NOTE: if data is NULL, just return size we'll need
+      *pulEncryptedDataLen = datalen;
+      session->operation.op.encrypt.finalized = false;
+      rv = CKR_OK;
+      goto c_e_out;
+    }
+
+    if (*pulEncryptedDataLen < datalen) {
+      DBG_ERR("pulEncryptedDataLen too small, expected = %lu, got %lu)",
+              datalen, *pulEncryptedDataLen);
+      *pulEncryptedDataLen = datalen;
+      session->operation.op.encrypt.finalized = false;
+      rv = CKR_BUFFER_TOO_SMALL;
+      goto c_e_out;
+    }
+  }
+
+  rv = apply_encrypt_mechanism_update(&session->operation, pData, ulDataLen);
+  if (rv != CKR_OK) {
+    DBG_ERR("Unable to perform encrypt operation step");
+    return rv;
+  }
+
+  rv = apply_encrypt_mechanism_finalize(session, pEncryptedData,
+                                        pulEncryptedDataLen);
   if (rv != CKR_OK) {
     DBG_ERR("Unable to perform encrypt operation step");
     goto c_e_out;
@@ -2605,9 +2597,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptFinal)
     goto c_ef_out;
   }
 
-  rv = apply_encrypt_mechanism_finalize(session, NULL,
-                                        session->operation.buffer_length,
-                                        pLastEncryptedPart,
+  session->operation.op.encrypt.finalized = true;
+  rv = apply_encrypt_mechanism_finalize(session, pLastEncryptedPart,
                                         pulLastEncryptedPartLen);
   if (rv != CKR_OK) {
     DBG_ERR("Unable to perform encrypt operation step");

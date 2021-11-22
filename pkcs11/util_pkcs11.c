@@ -1820,15 +1820,50 @@ CK_RV apply_decrypt_mechanism_init(yubihsm_pkcs11_op_info *op_info) {
 }
 
 CK_RV apply_encrypt_mechanism_init(yubihsm_pkcs11_session *session,
-                                   CK_MECHANISM_PTR pMechanism) {
+                                   CK_MECHANISM_PTR pMechanism,
+                                   CK_OBJECT_HANDLE hKey) {
 
-  if (pMechanism->mechanism == CKM_RSA_PKCS) {
+  int type = hKey >> 16;
+  if (type == ECDH_KEY_TYPE) {
+    DBG_ERR("Wrong key type");
+    return CKR_KEY_TYPE_INCONSISTENT;
+  }
+
+  yubihsm_pkcs11_object_desc *object =
+    get_object_desc(session->slot->device_session, session->slot->objects,
+                    hKey);
+
+  if (object == NULL) {
+    DBG_ERR("Unable to retrieve object");
+    return CKR_FUNCTION_FAILED;
+  }
+
+  if (pMechanism->mechanism == CKM_YUBICO_AES_CCM_WRAP) {
+    if (object->object.type != YH_WRAP_KEY) {
+      DBG_ERR("Wrong key type or algorithm");
+      return CKR_KEY_TYPE_INCONSISTENT;
+    }
+  } else if (pMechanism->mechanism == CKM_RSA_PKCS) {
+    if (object->object.type != YH_ASYMMETRIC_KEY) {
+      DBG_ERR("Wrong key type for algorithm");
+      return CKR_KEY_TYPE_INCONSISTENT;
+    }
+
     if (pMechanism->pParameter != NULL) {
       DBG_ERR("Expecting NULL mechanism parameter for CKM_RSA_PKCS");
       return CKR_MECHANISM_PARAM_INVALID;
     }
     session->operation.op.encrypt.padding = RSA_PKCS1_PADDING;
   } else if (pMechanism->mechanism == CKM_RSA_PKCS_OAEP) {
+    if (object->object.type != YH_ASYMMETRIC_KEY) {
+      DBG_ERR("Wrong key type for algorithm");
+      return CKR_KEY_TYPE_INCONSISTENT;
+    }
+
+    if (pMechanism->pParameter == NULL) {
+      DBG_ERR("Mechanism parameter for CKM_RSA_PKCS_OAEP is NULL");
+      return CKR_MECHANISM_PARAM_INVALID;
+    }
     session->operation.op.encrypt.padding = RSA_PKCS1_OAEP_PADDING;
 
     if (pMechanism->ulParameterLen != sizeof(CK_RSA_PKCS_OAEP_PARAMS)) {
@@ -2173,41 +2208,10 @@ CK_RV apply_decrypt_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
 }
 
 CK_RV apply_encrypt_mechanism_finalize(yubihsm_pkcs11_session *session,
-                                       CK_BYTE_PTR pData, CK_ULONG ulDataLen,
                                        CK_BYTE_PTR pEncryptedData,
                                        CK_ULONG_PTR pulEncryptedDataLen) {
 
   CK_RV rv;
-  session->operation.op.encrypt.finalized = true;
-  if (session->operation.mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
-    CK_ULONG datalen = YH_CCM_WRAP_OVERHEAD + ulDataLen;
-    DBG_INFO("The size of the data will be %lu", datalen);
-
-    if (pEncryptedData == NULL) {
-      // NOTE: if data is NULL, just return size we'll need
-      *pulEncryptedDataLen = datalen;
-      session->operation.op.encrypt.finalized = false;
-      return CKR_OK;
-    }
-
-    if (*pulEncryptedDataLen < datalen) {
-      DBG_ERR("pulEncryptedDataLen too small, expected = %lu, got %lu)",
-              datalen, *pulEncryptedDataLen);
-      *pulEncryptedDataLen = datalen;
-      session->operation.op.encrypt.finalized = false;
-      return CKR_BUFFER_TOO_SMALL;
-    }
-  }
-
-  if (pData != NULL) {
-    rv = apply_encrypt_mechanism_update(&session->operation, pData, ulDataLen);
-    if (rv != CKR_OK) {
-      DBG_ERR("Unable to perform encrypt operation step");
-      return rv;
-    }
-  }
-  DBG_INFO("Encrypting %u bytes", session->operation.buffer_length);
-
   if (session->operation.mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
     rv =
       perform_wrap_encrypt(session->slot->device_session, &session->operation,

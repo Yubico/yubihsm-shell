@@ -68,11 +68,11 @@ CK_RV perform_decrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
 bool decrypt_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info);
 
 CK_RV apply_encrypt_mechanism_init(yubihsm_pkcs11_session *session,
-                                   CK_MECHANISM_PTR pMechanism);
+                                   CK_MECHANISM_PTR pMechanism,
+                                   CK_OBJECT_HANDLE hKey);
 CK_RV apply_encrypt_mechanism_update(yubihsm_pkcs11_op_info *op_info,
                                      CK_BYTE_PTR in, CK_ULONG in_len);
 CK_RV apply_encrypt_mechanism_finalize(yubihsm_pkcs11_session *session,
-                                       CK_BYTE_PTR pData, CK_ULONG ulDataLen,
                                        CK_BYTE_PTR pEncryptedData,
                                        CK_ULONG_PTR pulEncryptedDataLen);
 CK_RV perform_wrap_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
