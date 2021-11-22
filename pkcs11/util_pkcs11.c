@@ -1844,7 +1844,8 @@ CK_RV apply_encrypt_mechanism_init(yubihsm_pkcs11_session *session,
       return CKR_KEY_TYPE_INCONSISTENT;
     }
   } else if (pMechanism->mechanism == CKM_RSA_PKCS) {
-    if (object->object.type != YH_ASYMMETRIC_KEY) {
+    if (object->object.type != YH_ASYMMETRIC_KEY ||
+        !yh_is_rsa(object->object.algorithm)) {
       DBG_ERR("Wrong key type for algorithm");
       return CKR_KEY_TYPE_INCONSISTENT;
     }
@@ -1855,7 +1856,8 @@ CK_RV apply_encrypt_mechanism_init(yubihsm_pkcs11_session *session,
     }
     session->operation.op.encrypt.padding = RSA_PKCS1_PADDING;
   } else if (pMechanism->mechanism == CKM_RSA_PKCS_OAEP) {
-    if (object->object.type != YH_ASYMMETRIC_KEY) {
+    if (object->object.type != YH_ASYMMETRIC_KEY ||
+        !yh_is_rsa(object->object.algorithm)) {
       DBG_ERR("Wrong key type for algorithm");
       return CKR_KEY_TYPE_INCONSISTENT;
     }
