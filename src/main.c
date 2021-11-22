@@ -2159,6 +2159,41 @@ int main(int argc, char *argv[]) {
         case action_arg_encryptMINUS_aesccm:
           LIB_SUCCEED_OR_DIE(YHR_GENERIC_ERROR, "Command not implemented: ");
 
+        case action_arg_encryptMINUS_aescbc:
+        case action_arg_decryptMINUS_aescbc: {
+          if (args_info.iv_given == 0) {
+            fprintf(stderr, "Missing argument IV\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          arg[1].w = args_info.object_id_arg;
+          arg[2].s = args_info.iv_arg;
+
+          if (get_input_data(args_info.in_arg, &arg[3].x, &arg[3].len,
+                             g_in_fmt == fmt_nofmt ? fmt_binary : g_in_fmt) ==
+              false) {
+            fprintf(stderr, "Failed to get input data\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          if (args_info.action_arg[i] == action_arg_encryptMINUS_aescbc) {
+            comrc = yh_com_encrypt_aes_cbc(&g_ctx, arg, fmt_nofmt,
+                                           g_out_fmt == fmt_nofmt ? fmt_binary
+                                                                  : g_out_fmt);
+            free(arg[3].x);
+            COM_SUCCEED_OR_DIE(comrc, "Unable to encrypt input");
+          } else {
+            comrc = yh_com_decrypt_aes_cbc(&g_ctx, arg, fmt_nofmt,
+                                           g_out_fmt == fmt_nofmt ? fmt_binary
+                                                                  : g_out_fmt);
+            free(arg[3].x);
+            COM_SUCCEED_OR_DIE(comrc, "Unable to decrypt input");
+          }
+
+        } break;
+
         case action_arg_encryptMINUS_aesecb:
         case action_arg_decryptMINUS_aesecb: {
           arg[1].w = args_info.object_id_arg;

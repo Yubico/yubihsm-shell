@@ -18,6 +18,7 @@ option "action" a "Action to perform" values="benchmark",
                                              "blink-device",
                                              "create-otp-aead",
                                              "decrypt-aesccm",
+                                             "decrypt-aescbc",
                                              "decrypt-aesecb",
                                              "decrypt-oaep",
                                              "decrypt-otp",
@@ -25,6 +26,7 @@ option "action" a "Action to perform" values="benchmark",
                                              "delete-object",
                                              "derive-ecdh",
                                              "encrypt-aesccm",
+                                             "encrypt-aescbc",
                                              "encrypt-aesecb",
                                              "generate-asymmetric-key",
                                              "generate-hmac-key",
@@ -77,6 +79,7 @@ option "delegated" - "Delegated capabilities" string optional default="0"
 option "new-password" - "New authentication password" string optional
 option "algorithm" A "Operation algorithm" string optional default="any"
 option "nonce" - "OTP nonce" int optional
+option "iv" - "An initialization vector as a hexadecimal string" string optional
 option "count" - "Number of bytes to request" int optional default="256"
 option "duration" - "Blink duration in seconds" int optional default="10"
 option "wrap-id" - "Wrap key ID" int optional
