@@ -2607,13 +2607,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptFinal)
   if (session->operation.mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
     CK_ULONG datalen = session->operation.buffer_length + YH_CCM_WRAP_OVERHEAD;
 
-    if (pLastEncryptedPart == NULL) {
-      // NOTE: should this rather return length and ok?
-      DBG_ERR("No buffer provided");
-      rv = CKR_ARGUMENTS_BAD;
-      goto c_ef_out;
-    }
-
     if (*pulLastEncryptedPartLen < datalen) {
       DBG_ERR("pulLastEncryptedPartLen too small, data will not fit, expected "
               "= "
@@ -2623,6 +2616,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptFinal)
 
       *pulLastEncryptedPartLen = datalen;
       terminate = false;
+      goto c_ef_out;
+    }
+
+    if (pLastEncryptedPart == NULL) {
+      // NOTE: should this rather return length and ok?
+      DBG_ERR("No buffer provided");
+      rv = CKR_ARGUMENTS_BAD;
       goto c_ef_out;
     }
   }
