@@ -2497,7 +2497,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
                                         pulEncryptedDataLen);
   if (rv == CKR_BUFFER_TOO_SMALL || (rv == CKR_OK && pEncryptedData == NULL)) {
     terminate = false;
-    DOUT;
     goto c_e_out;
   } else {
     DBG_ERR("Unable to perform encrypt operation step");
@@ -2625,7 +2624,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptFinal)
 
       *pulLastEncryptedPartLen = datalen;
       terminate = false;
-      DOUT;
       goto c_ef_out;
     }
   }
