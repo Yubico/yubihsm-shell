@@ -58,7 +58,7 @@ static void get_function_list(char *argv[]) {
   *(void **) (&fn) = dlsym(handle, "C_GetFunctionList");
   assert(fn != NULL);
 
-  CK_RV rv = ((CK_C_GetFunctionList) fn)(&p11);
+  CK_RV rv = fn(&p11);
   assert(rv == CKR_OK);
 }
 

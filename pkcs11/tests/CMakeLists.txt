@@ -246,6 +246,11 @@ set (
   ecdh_derive_test.c
   )
 
+set (
+  SOURCE_RSA_ENC_TEST
+  rsa_enc_test.c
+  )
+
 if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 add_executable (ecdh_derive_test ${SOURCE_ECDH_DERIVE})
 
@@ -258,4 +263,17 @@ add_test (
   NAME ecdh_derive_test
   COMMAND ${CMAKE_CURRENT_BINARY_DIR}/ecdh_derive_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
   )
+
+add_executable (rsa_enc_test ${SOURCE_RSA_ENC_TEST})
+
+target_link_libraries (
+        rsa_enc_test
+        ${LIBCRYPTO_LDFLAGS}
+        "-ldl")
+
+add_test (
+        NAME rsa_enc_test
+        COMMAND ${CMAKE_CURRENT_BINARY_DIR}/rsa_enc_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
+)
+
 endif()

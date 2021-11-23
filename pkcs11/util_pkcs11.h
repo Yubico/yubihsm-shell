@@ -49,8 +49,6 @@ CK_RV perform_signature(yh_session *session, yubihsm_pkcs11_op_info *op_info,
                         uint8_t *signature, uint16_t *signature_len);
 bool sign_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info);
 
-bool check_verify_mechanism(yubihsm_pkcs11_slot *slot,
-                            CK_MECHANISM_PTR pMechanism);
 CK_RV apply_verify_mechanism_init(yubihsm_pkcs11_op_info *op_info);
 CK_RV apply_verify_mechanism_update(yubihsm_pkcs11_op_info *op_info,
                                     CK_BYTE_PTR in, CK_ULONG in_len);
@@ -65,16 +63,21 @@ CK_RV apply_decrypt_mechanism_init(yubihsm_pkcs11_op_info *op_info);
 CK_RV apply_decrypt_mechanism_update(yubihsm_pkcs11_op_info *op_info,
                                      CK_BYTE_PTR in, CK_ULONG in_len);
 CK_RV apply_decrypt_mechanism_finalize(yubihsm_pkcs11_op_info *op_info);
-CK_RV perform_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
-                      uint8_t *plaintext, uint16_t *plaintext_len);
-bool decrypt_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info);
-
-bool check_encrypt_mechanism(yubihsm_pkcs11_slot *slot,
-                             CK_MECHANISM_PTR pMechanism);
-CK_RV apply_encrypt_mechanism_update(yubihsm_pkcs11_op_info *op_info,
-                                     CK_BYTE_PTR in, CK_ULONG in_len);
 CK_RV perform_decrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
                       uint8_t *ciphertext, uint16_t *ciphertext_len);
+bool decrypt_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info);
+
+CK_RV apply_encrypt_mechanism_init(yubihsm_pkcs11_session *session,
+                                   CK_MECHANISM_PTR pMechanism,
+                                   CK_OBJECT_HANDLE hKey);
+CK_RV apply_encrypt_mechanism_finalize(yubihsm_pkcs11_session *session,
+                                       CK_BYTE_PTR pEncryptedData,
+                                       CK_ULONG_PTR pulEncryptedDataLen);
+CK_RV perform_wrap_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
+                           uint8_t *plaintext, uint16_t *plaintext_len);
+CK_RV perform_rsa_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
+                          CK_BYTE_PTR data, CK_ULONG data_len, CK_BYTE_PTR enc,
+                          CK_ULONG_PTR enc_len);
 
 bool check_digest_mechanism(CK_MECHANISM_PTR pMechanism);
 CK_RV apply_digest_mechanism_init(yubihsm_pkcs11_op_info *op_info);

@@ -1689,7 +1689,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
       DBG_INFO("No ECDH session key with ID %08lx was found", hObject);
     }
   } else {
-    if (((uint8_t) (hObject >> 16)) == YH_PUBLIC_KEY) {
+    if (((uint8_t)(hObject >> 16)) == YH_PUBLIC_KEY) {
       DBG_INFO("Trying to delete public key, returning success with noop");
       goto c_do_out;
     }
@@ -2013,7 +2013,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           break;
 
         case CKA_CLASS: {
-          uint32_t value = *((CK_ULONG_PTR) (pTemplate[i].pValue));
+          uint32_t value = *((CK_ULONG_PTR)(pTemplate[i].pValue));
           switch (value) {
             case CKO_CERTIFICATE:
               DBG_INFO("Filtering for certificate");
@@ -2388,7 +2388,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptInit)
     return CKR_CRYPTOKI_NOT_INITIALIZED;
   }
 
-  if (pMechanism == NULL || pMechanism->mechanism != CKM_YUBICO_AES_CCM_WRAP) {
+  if (pMechanism == NULL) {
     DBG_ERR("Invalid Mechanism");
     return CKR_ARGUMENTS_BAD;
   }
@@ -2406,39 +2406,23 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptInit)
     goto c_ei_out;
   }
 
-  DBG_INFO("Trying to encrypt data with mechanism 0x%04lx and key %08lx",
-           pMechanism->mechanism, hKey);
-
-  int type = hKey >> 16;
-  if (type == ECDH_KEY_TYPE) {
-    DBG_ERR("Wrong key type");
-    rv = CKR_KEY_TYPE_INCONSISTENT;
-    goto c_ei_out;
-  }
-
-  yubihsm_pkcs11_object_desc *object =
-    get_object_desc(session->slot->device_session, session->slot->objects,
-                    hKey);
-
-  if (object == NULL) {
-    DBG_ERR("Unable to retrieve object");
-    rv = CKR_FUNCTION_FAILED;
-    goto c_ei_out;
-  }
-
-  if (check_encrypt_mechanism(session->slot, pMechanism) != true) {
+  if (check_decrypt_mechanism(session->slot, pMechanism) != true) {
     DBG_ERR("Encryption mechanism %lu not supported", pMechanism->mechanism);
     rv = CKR_MECHANISM_INVALID;
     goto c_ei_out;
   }
-  session->operation.mechanism.mechanism = pMechanism->mechanism;
 
-  if (object->object.type != YH_WRAP_KEY) {
-    DBG_ERR("Wrong key type or algorithm");
-    rv = CKR_KEY_TYPE_INCONSISTENT;
+  DBG_INFO("Trying to encrypt data with mechanism 0x%04lx and key %08lx",
+           pMechanism->mechanism, hKey);
+
+  rv = apply_encrypt_mechanism_init(session, pMechanism, hKey);
+  if (rv != CKR_OK) {
+    DBG_ERR("Failed to initialize encryption operation");
+    rv = CKR_FUNCTION_FAILED;
     goto c_ei_out;
   }
 
+  session->operation.mechanism.mechanism = pMechanism->mechanism;
   session->operation.op.encrypt.key_id = hKey;
   session->operation.type = OPERATION_ENCRYPT;
   session->operation.buffer_length = 0;
@@ -2458,7 +2442,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
 
   CK_RV rv = CKR_OK;
   bool terminate = true;
-
   yubihsm_pkcs11_session *session = NULL;
 
   if (g_yh_initialized == false) {
@@ -2479,46 +2462,43 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
     goto c_e_out;
   }
 
-  if (session->operation.mechanism.mechanism != CKM_YUBICO_AES_CCM_WRAP) {
-    DBG_ERR("Wrong mechanism: %lu", session->operation.mechanism.mechanism);
-    rv = CKR_MECHANISM_INVALID;
-    goto c_e_out;
+  if (session->operation.mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
+    CK_ULONG datalen = YH_CCM_WRAP_OVERHEAD + ulDataLen;
+    DBG_INFO("The size of the data will be %lu", datalen);
+
+    if (pEncryptedData == NULL) {
+      // NOTE: if data is NULL, just return size we'll need
+      *pulEncryptedDataLen = datalen;
+      rv = CKR_OK;
+      terminate = false;
+
+      goto c_e_out;
+    }
+
+    if (*pulEncryptedDataLen < datalen) {
+      DBG_ERR("pulEncryptedDataLen too small, expected = %lu, got %lu)",
+              datalen, *pulEncryptedDataLen);
+      rv = CKR_BUFFER_TOO_SMALL;
+      *pulEncryptedDataLen = datalen;
+      terminate = false;
+
+      goto c_e_out;
+    }
   }
 
-  CK_ULONG datalen = YH_CCM_WRAP_OVERHEAD + ulDataLen;
-  DBG_INFO("The size of the data will be %lu", datalen);
-
-  if (pEncryptedData == NULL) {
-    // NOTE: if data is NULL, just return size we'll need
-    *pulEncryptedDataLen = datalen;
-    rv = CKR_OK;
-    terminate = false;
-
-    DOUT;
-    goto c_e_out;
-  }
-
-  if (*pulEncryptedDataLen < datalen) {
-    DBG_ERR("pulEncryptedDataLen too small, expected = %lu, got %lu)", datalen,
-            *pulEncryptedDataLen);
-    rv = CKR_BUFFER_TOO_SMALL;
-    *pulEncryptedDataLen = datalen;
-    terminate = false;
-
-    goto c_e_out;
-  }
-
-  DBG_INFO("Encrypting %lu bytes", ulDataLen);
-  rv = apply_encrypt_mechanism_update(&session->operation, pData, ulDataLen);
+  rv = apply_decrypt_mechanism_update(&session->operation, pData, ulDataLen);
   if (rv != CKR_OK) {
     DBG_ERR("Unable to perform encrypt operation step");
-    goto c_e_out;
+    return rv;
   }
 
-  rv = perform_encrypt(session->slot->device_session, &session->operation,
-                       pEncryptedData, (uint16_t *) pulEncryptedDataLen);
-  if (rv != CKR_OK) {
-    DBG_ERR("Unable to encrypt data");
+  rv = apply_encrypt_mechanism_finalize(session, pEncryptedData,
+                                        pulEncryptedDataLen);
+  if (rv == CKR_BUFFER_TOO_SMALL || (rv == CKR_OK && pEncryptedData == NULL)) {
+    terminate = false;
+    goto c_e_out;
+  } else {
+    DBG_ERR("Unable to perform encrypt operation step");
     goto c_e_out;
   }
 
@@ -2573,7 +2553,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptUpdate)
 
   DBG_INFO("Encrypt update with %lu bytes", ulPartLen);
 
-  rv = apply_encrypt_mechanism_update(&session->operation, pPart, ulPartLen);
+  rv = apply_decrypt_mechanism_update(&session->operation, pPart, ulPartLen);
   if (rv != CKR_OK) {
     DBG_ERR("Unable to perform encryption operation step");
     goto c_eu_out;
@@ -2624,41 +2604,37 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptFinal)
     goto c_ef_out;
   }
 
-  CK_ULONG datalen = 0;
   if (session->operation.mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
-    datalen = session->operation.buffer_length + YH_CCM_WRAP_OVERHEAD;
-  } else {
-    DBG_ERR("Mechanism %lu not supported",
-            session->operation.mechanism.mechanism);
-    rv = CKR_MECHANISM_INVALID;
-    goto c_ef_out;
+    CK_ULONG datalen = session->operation.buffer_length + YH_CCM_WRAP_OVERHEAD;
+
+    if (*pulLastEncryptedPartLen < datalen) {
+      DBG_ERR("pulLastEncryptedPartLen too small, data will not fit, expected "
+              "= "
+              "%lu, got %lu",
+              datalen, *pulLastEncryptedPartLen);
+      rv = CKR_BUFFER_TOO_SMALL;
+
+      *pulLastEncryptedPartLen = datalen;
+      terminate = false;
+      goto c_ef_out;
+    }
+
+    if (pLastEncryptedPart == NULL) {
+      // NOTE: should this rather return length and ok?
+      DBG_ERR("No buffer provided");
+      rv = CKR_ARGUMENTS_BAD;
+      goto c_ef_out;
+    }
   }
 
-  if (*pulLastEncryptedPartLen < datalen) {
-    DBG_ERR("pulLastEncryptedPartLen too small, data will not fit, expected = "
-            "%lu, got %lu",
-            datalen, *pulLastEncryptedPartLen);
-    rv = CKR_BUFFER_TOO_SMALL;
-
-    *pulLastEncryptedPartLen = datalen;
+  rv = apply_encrypt_mechanism_finalize(session, pLastEncryptedPart,
+                                        pulLastEncryptedPartLen);
+  if (rv == CKR_BUFFER_TOO_SMALL ||
+      (rv == CKR_OK && pLastEncryptedPart == NULL)) {
     terminate = false;
-
     goto c_ef_out;
-  }
-
-  if (pLastEncryptedPart == NULL) {
-    // NOTE: should this rather return length and ok?
-    DBG_ERR("No buffer provided");
-    rv = CKR_ARGUMENTS_BAD;
-    goto c_ef_out;
-  }
-
-  rv =
-    perform_encrypt(session->slot->device_session, &session->operation,
-                    pLastEncryptedPart, (uint16_t *) pulLastEncryptedPartLen);
-
-  if (rv != CKR_OK) {
-    DBG_ERR("Unable to encrypt data");
+  } else {
+    DBG_ERR("Unable to perform encrypt operation step");
     goto c_ef_out;
   }
 
@@ -3954,7 +3930,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_VerifyInit)
 
   session->operation.op.verify.key_len = key_length;
 
-  if (check_verify_mechanism(session->slot, pMechanism) != true) {
+  if (check_sign_mechanism(session->slot, pMechanism) != true) {
     DBG_ERR("Verification mechanism %lu not supported", pMechanism->mechanism);
     rv = CKR_MECHANISM_INVALID;
     goto c_vi_out;
