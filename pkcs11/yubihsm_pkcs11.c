@@ -2469,22 +2469,25 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
     if (pEncryptedData == NULL) {
       // NOTE: if data is NULL, just return size we'll need
       *pulEncryptedDataLen = datalen;
-      terminate = false;
       rv = CKR_OK;
+      terminate = false;
+
+      DOUT;
       goto c_e_out;
     }
 
     if (*pulEncryptedDataLen < datalen) {
       DBG_ERR("pulEncryptedDataLen too small, expected = %lu, got %lu)",
               datalen, *pulEncryptedDataLen);
+      rv = CKR_BUFFER_TOO_SMALL;
       *pulEncryptedDataLen = datalen;
       terminate = false;
-      rv = CKR_BUFFER_TOO_SMALL;
+
       goto c_e_out;
     }
   }
 
-  rv = apply_encrypt_mechanism_update(&session->operation, pData, ulDataLen);
+  rv = apply_decrypt_mechanism_update(&session->operation, pData, ulDataLen);
   if (rv != CKR_OK) {
     DBG_ERR("Unable to perform encrypt operation step");
     return rv;
@@ -2501,6 +2504,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
   }
 
   DBG_INFO("Got %lu butes back", *pulEncryptedDataLen);
+
+  rv = CKR_OK;
 
   DOUT;
 
@@ -2549,7 +2554,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptUpdate)
 
   DBG_INFO("Encrypt update with %lu bytes", ulPartLen);
 
-  rv = apply_encrypt_mechanism_update(&session->operation, pPart, ulPartLen);
+  rv = apply_decrypt_mechanism_update(&session->operation, pPart, ulPartLen);
   if (rv != CKR_OK) {
     DBG_ERR("Unable to perform encryption operation step");
     goto c_eu_out;
@@ -2598,6 +2603,30 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptFinal)
     DBG_ERR("Encrypt operation not initialized");
     rv = CKR_OPERATION_NOT_INITIALIZED;
     goto c_ef_out;
+  }
+
+  if (session->operation.mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
+    CK_ULONG datalen = session->operation.buffer_length + YH_CCM_WRAP_OVERHEAD;
+
+    if (*pulLastEncryptedPartLen < datalen) {
+      DBG_ERR("pulLastEncryptedPartLen too small, data will not fit, expected "
+              "= "
+              "%lu, got %lu",
+              datalen, *pulLastEncryptedPartLen);
+      rv = CKR_BUFFER_TOO_SMALL;
+
+      *pulLastEncryptedPartLen = datalen;
+      terminate = false;
+
+      goto c_ef_out;
+    }
+
+    if (pLastEncryptedPart == NULL) {
+      // NOTE: should this rather return length and ok?
+      DBG_ERR("No buffer provided");
+      rv = CKR_ARGUMENTS_BAD;
+      goto c_ef_out;
+    }
   }
 
   rv = apply_encrypt_mechanism_finalize(session, pLastEncryptedPart,
