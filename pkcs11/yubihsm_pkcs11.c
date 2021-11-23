@@ -2472,7 +2472,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
       rv = CKR_OK;
       terminate = false;
 
-      DOUT;
       goto c_e_out;
     }
 
@@ -2633,7 +2632,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptFinal)
   if (rv == CKR_BUFFER_TOO_SMALL ||
       (rv == CKR_OK && pLastEncryptedPart == NULL)) {
     terminate = false;
-    DOUT;
     goto c_ef_out;
   } else {
     DBG_ERR("Unable to perform encrypt operation step");
