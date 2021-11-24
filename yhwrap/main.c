@@ -294,7 +294,7 @@ int main(int argc, char *argv[]) {
 
       if (input_file == stdin) {
         const char *prompt = "Derivation Password: ";
-        if (EVP_read_pw_string(password, password_len, prompt, 1)) {
+        if (EVP_read_pw_string(password, password_len - 1, prompt, 1)) {
           fprintf(stderr, "Unable to read password prompt\n");
           goto main_exit;
         }

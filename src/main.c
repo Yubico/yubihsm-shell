@@ -1433,7 +1433,8 @@ static bool get_input_data(const char *name, uint8_t *out, size_t *len,
         return false;
       }
 #endif
-      if (EVP_read_pw_string((char *) out, *len, "Enter password: ", 0) == 0) {
+      if (EVP_read_pw_string((char *) out, *len - 1, "Enter password: ", 0) ==
+          0) {
         data_len = strlen((char *) out);
         ret = true;
       }

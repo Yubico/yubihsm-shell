@@ -57,7 +57,7 @@ bool read_string(const char *name, char *str_buf, size_t str_buf_len,
     case HIDDEN_CHECKED:
       checked = true;
     case HIDDEN_UNCHECKED:
-      ret = EVP_read_pw_string(str_buf, str_buf_len, prompt, checked);
+      ret = EVP_read_pw_string(str_buf, str_buf_len - 1, prompt, checked);
       if (ret != 0) {
         fprintf(stderr, "Retrieving %s failed (%d)\n", name, ret);
         return false;

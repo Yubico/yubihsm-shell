@@ -2467,6 +2467,12 @@ int yh_com_sign_ssh_certificate(yubihsm_context *ctx, Argument *argv,
   uint8_t data[YH_MSG_BUF_SIZE + 1024] = {0};
   size_t response_len = sizeof(data);
 
+  if (argv[4].len > YH_MSG_BUF_SIZE) {
+    fprintf(stderr, "Failed to sign ssh certificate: %s\n",
+            yh_strerror(YHR_BUFFER_TOO_SMALL));
+    return -1;
+  }
+
   memcpy(data, argv[4].x, argv[4].len);
   response_len -= argv[4].len;
 

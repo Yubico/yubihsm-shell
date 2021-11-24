@@ -425,9 +425,11 @@ static yh_rc send_encrypted_msg(Scp_ctx *session, yh_cmd cmd,
 
   Msg msg = {0}, enc_msg = {0};
 
-  msg.st.cmd = cmd;
-  msg.st.len = htons(data_len);
-  memcpy(msg.st.data, data, data_len);
+  msg.msg.st.cmd = cmd;
+  msg.msg.st.len = htons(data_len);
+  if (data_len > 0) {
+    memcpy(msg.msg.st.data, data, data_len);
+  }
 
   DBG_NET(&msg, dump_msg);
 
