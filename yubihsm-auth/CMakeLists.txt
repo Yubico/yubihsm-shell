@@ -45,7 +45,7 @@ include_directories (
 if(WIN32)
   list(APPEND SOURCE ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc @ONLY)
-  set (BCRYPT_LIBRARY bcrypt)
+  set (BCRYPT_LIBRARY bcrypt ncrypt)
 endif(WIN32)
 
 # NOTE(adma): required by gengetopt

@@ -18,32 +18,17 @@
 
 #ifdef _WIN32_BCRYPT
 #include <windows.h>
-#include <bcrypt.h>
-#include <ntstatus.h>
+#include <ncrypt.h>
 #else
 #include <openssl/rand.h>
 #endif
 
 bool rand_generate(uint8_t *buf, size_t cb_buf) {
-
 #ifdef _WIN32_BCRYPT
-  NTSTATUS status = STATUS_SUCCESS;
-
-  BCRYPT_ALG_HANDLE hAlg = 0;
-
-  if (!BCRYPT_SUCCESS(
-        status =
-          BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_RNG_ALGORITHM, NULL, 0))) {
-    return false;
-  }
-
-  status = BCryptGenRandom(hAlg, buf, (ULONG) cb_buf, 0);
-  BCryptCloseAlgorithmProvider(hAlg, 0);
-
+  NTSTATUS status =
+    BCryptGenRandom(BCRYPT_RNG_ALG_HANDLE, buf, (ULONG) cb_buf, 0);
   return BCRYPT_SUCCESS(status);
-
 #else
   return (1 == RAND_bytes(buf, cb_buf));
-
 #endif
 }

@@ -16,7 +16,7 @@
 
 #ifdef _WIN32_BCRYPT
 #include <windows.h>
-#include <bcrypt.h>
+#include <ncrypt.h>
 #else
 #include <openssl/evp.h>
 #endif
@@ -24,15 +24,11 @@
 #include <stdlib.h>
 
 #include "hash.h"
-#include "insecure_memzero.h"
 
 typedef struct _hash_ctx {
 #ifdef _WIN32_BCRYPT
-  BCRYPT_ALG_HANDLE hAlg;
   BCRYPT_HASH_HANDLE hHash;
-  PBYTE pbHashObj;
-  bool fFinal;
-  size_t cbHash;
+  ULONG cbHash;
 #else
   EVP_MD_CTX *mdctx;
   const EVP_MD *md;
@@ -41,7 +37,7 @@ typedef struct _hash_ctx {
 
 #ifndef _WIN32_BCRYPT
 
-const YH_INTERNAL EVP_MD *get_hash(hash_t hash) {
+const EVP_MD *get_hash(hash_t hash) {
   switch (hash) {
     case _NONE:
       return NULL;
@@ -65,25 +61,25 @@ const YH_INTERNAL EVP_MD *get_hash(hash_t hash) {
 
 #else
 
-LPCWSTR YH_INTERNAL get_hash(hash_t hash) {
+BCRYPT_ALG_HANDLE get_hash(hash_t hash, bool hmac) {
   switch (hash) {
     case _NONE:
       return NULL;
 
     case _SHA1:
-      return BCRYPT_SHA1_ALGORITHM;
+      return hmac ? BCRYPT_HMAC_SHA1_ALG_HANDLE : BCRYPT_SHA1_ALG_HANDLE;
 
     case _SHA256:
-      return BCRYPT_SHA256_ALGORITHM;
+      return hmac ? BCRYPT_HMAC_SHA256_ALG_HANDLE : BCRYPT_SHA256_ALG_HANDLE;
 
     case _SHA384:
-      return BCRYPT_SHA384_ALGORITHM;
+      return hmac ? BCRYPT_HMAC_SHA384_ALG_HANDLE : BCRYPT_SHA384_ALG_HANDLE;
 
     case _SHA512:
-      return BCRYPT_SHA512_ALGORITHM;
+      return hmac ? BCRYPT_HMAC_SHA512_ALG_HANDLE : BCRYPT_SHA512_ALG_HANDLE;
 
     default:
-      return NULL;
+      return 0;
   }
 }
 
@@ -91,123 +87,33 @@ LPCWSTR YH_INTERNAL get_hash(hash_t hash) {
 
 bool hash_bytes(const uint8_t *in, size_t len, hash_t hash, uint8_t *out,
                 size_t *out_len) {
-#ifndef _WIN32_BCRYPT
-
-  const EVP_MD *md;
-  uint32_t d_len = 0;
-  bool ret = false;
-
-  md = get_hash(hash);
-  if (md == NULL) {
+  hash_ctx ctx = 0;
+  if (!hash_create(&ctx, hash)) {
     return false;
   }
-
-  if (EVP_MD_size(md) < 0 || *out_len < (size_t) EVP_MD_size(md)) {
+  if (!hash_init(ctx)) {
+    hash_destroy(ctx);
     return false;
   }
-
-  EVP_MD_CTX *mdctx = EVP_MD_CTX_create();
-  if ((EVP_DigestInit_ex(mdctx, md, NULL)) != 1) {
-    goto hash_bytes_exit;
-  }
-  if ((EVP_DigestUpdate(mdctx, in, len)) != 1) {
-    goto hash_bytes_exit;
-  }
-  if ((EVP_DigestFinal_ex(mdctx, out, &d_len)) != 1) {
-    goto hash_bytes_exit;
-  }
-  ret = true;
-
-hash_bytes_exit:
-  *out_len = (uint16_t) d_len;
-  EVP_MD_CTX_destroy(mdctx);
-  return ret;
-
-#else
-
-  bool res = false;
-  NTSTATUS status = 0;
-  LPCWSTR alg = NULL;
-  BCRYPT_ALG_HANDLE hAlg = 0;
-  BCRYPT_HASH_HANDLE hHash = 0;
-  DWORD cbHashObj = 0;
-  DWORD cbHash = 0;
-  DWORD cbData = 0;
-  PBYTE pbHashObj = NULL;
-
-  alg = get_hash(hash);
-  if (alg == NULL) {
+  if (!hash_update(ctx, in, len)) {
+    hash_destroy(ctx);
     return false;
   }
-
-  if (!BCRYPT_SUCCESS(status =
-                        BCryptOpenAlgorithmProvider(&hAlg, alg, NULL, 0))) {
-    goto cleanup;
+  if (!hash_final(ctx, out, out_len)) {
+    hash_destroy(ctx);
+    return false;
   }
-
-  if (!BCRYPT_SUCCESS(status = BCryptGetProperty(hAlg, BCRYPT_OBJECT_LENGTH,
-                                                 (PBYTE) &cbHashObj,
-                                                 sizeof(DWORD), &cbData, 0))) {
-    goto cleanup;
-  }
-
-  if (!(pbHashObj = (PBYTE) malloc(cbHashObj))) {
-    goto cleanup;
-  }
-
-  if (!BCRYPT_SUCCESS(status = BCryptGetProperty(hAlg, BCRYPT_HASH_LENGTH,
-                                                 (PBYTE) &cbHash, sizeof(DWORD),
-                                                 &cbData, 0))) {
-    goto cleanup;
-  }
-
-  if (*out_len < cbHash) {
-    goto cleanup;
-  }
-
-  if (!BCRYPT_SUCCESS(status = BCryptCreateHash(hAlg, &hHash, pbHashObj,
-                                                cbHashObj, NULL, 0, 0))) {
-    goto cleanup;
-  }
-
-  if (!BCRYPT_SUCCESS(status = BCryptHashData(hHash, (PBYTE) in, len, 0))) {
-    goto cleanup;
-  }
-
-  if (!BCRYPT_SUCCESS(status = BCryptFinishHash(hHash, out, cbHash, 0))) {
-    goto cleanup;
-  }
-
-  *out_len = cbHash;
-  res = true;
-
-cleanup:
-
-  if (pbHashObj) {
-    free(pbHashObj);
-  }
-  if (hHash) {
-    BCryptDestroyHash(hHash);
-  }
-  if (hAlg) {
-    BCryptCloseAlgorithmProvider(hAlg, 0);
-  }
-
-  return res;
-
-#endif
+  return hash_destroy(ctx);
 }
 
-bool hash_create(_hash_ctx **ctx, hash_t hash) {
+bool hash_create(hash_ctx *ctx, hash_t hash) {
   bool res = false;
-  _hash_ctx *ctx_temp = NULL;
+  hash_ctx ctx_temp = NULL;
 
 #ifdef _WIN32_BCRYPT
   NTSTATUS status = 0;
-  LPCWSTR alg = NULL;
-  DWORD cbHashObj = 0;
-  DWORD cbHash = 0;
-  DWORD cbData = 0;
+  BCRYPT_ALG_HANDLE hAlg = 0;
+  ULONG cbData = 0;
 #else
   const EVP_MD *md = NULL;
 #endif
@@ -220,50 +126,27 @@ bool hash_create(_hash_ctx **ctx, hash_t hash) {
     return false;
   }
 
-  if (!(ctx_temp = (_hash_ctx *) malloc(sizeof(_hash_ctx)))) {
+  if (!(ctx_temp = (hash_ctx) calloc(1, sizeof(_hash_ctx)))) {
     return false;
   }
 
-  insecure_memzero(ctx_temp, sizeof(_hash_ctx));
-
 #ifdef _WIN32_BCRYPT
-  if (!(alg = get_hash(hash))) {
+  if (!(hAlg = get_hash(hash, false))) {
     goto cleanup;
   }
 
-  if (!BCRYPT_SUCCESS(status = BCryptOpenAlgorithmProvider(&(ctx_temp->hAlg),
-                                                           alg, NULL, 0))) {
-    goto cleanup;
-  }
-
-  if (!BCRYPT_SUCCESS(status =
-                        BCryptGetProperty(ctx_temp->hAlg, BCRYPT_OBJECT_LENGTH,
-                                          (PBYTE) &cbHashObj, sizeof(DWORD),
-                                          &cbData, 0))) {
-    goto cleanup;
-  }
-
-  if (!(ctx_temp->pbHashObj = (PBYTE) malloc(cbHashObj))) {
+  if (!BCRYPT_SUCCESS(status = BCryptGetProperty(hAlg, BCRYPT_HASH_LENGTH,
+                                                 (PBYTE) &ctx_temp->cbHash,
+                                                 sizeof(ctx_temp->cbHash),
+                                                 &cbData, 0))) {
     goto cleanup;
   }
 
   if (!BCRYPT_SUCCESS(status =
-                        BCryptGetProperty(ctx_temp->hAlg, BCRYPT_HASH_LENGTH,
-                                          (PBYTE) &cbHash, sizeof(DWORD),
-                                          &cbData, 0))) {
-    goto cleanup;
-  }
-
-  ctx_temp->cbHash = (size_t) cbHash;
-
-  if (!BCRYPT_SUCCESS(status =
-                        BCryptCreateHash(ctx_temp->hAlg, &(ctx_temp->hHash),
-                                         ctx_temp->pbHashObj, cbHashObj, NULL,
+                        BCryptCreateHash(hAlg, &ctx_temp->hHash, NULL, 0, NULL,
                                          0, BCRYPT_HASH_REUSABLE_FLAG))) {
     goto cleanup;
   }
-
-  ctx_temp->fFinal = true;
 
 #else
   if (!(md = get_hash(hash))) {
@@ -290,12 +173,6 @@ cleanup:
     if (ctx_temp->hHash) {
       BCryptDestroyHash(ctx_temp->hHash);
     }
-    if (ctx_temp->pbHashObj) {
-      free(ctx_temp->pbHashObj);
-    }
-    if (ctx_temp->hAlg) {
-      BCryptCloseAlgorithmProvider(ctx_temp->hAlg, 0);
-    }
 #endif
     free(ctx_temp);
   }
@@ -303,24 +180,15 @@ cleanup:
   return res;
 }
 
-bool hash_init(_hash_ctx *ctx) {
+bool hash_init(hash_ctx ctx) {
   if (!ctx) {
     return false;
   }
 
 #ifdef _WIN32_BCRYPT
-  /* finalize the hash, it should be marked as reusable */
-  if (!ctx->fFinal) {
-    size_t cbHash = ctx->cbHash;
-    uint8_t *temp = (uint8_t *) malloc(cbHash);
-
-    if (temp) {
-      bool res = hash_final(ctx, temp, &cbHash);
-      free(temp);
-      return res;
-    }
+  if (!ctx->hHash) {
+    return false;
   }
-
 #else
   if (EVP_DigestInit_ex(ctx->mdctx, ctx->md, NULL) != 1) {
     return false;
@@ -330,7 +198,7 @@ bool hash_init(_hash_ctx *ctx) {
   return true;
 }
 
-bool hash_update(_hash_ctx *ctx, const uint8_t *in, size_t cb_in) {
+bool hash_update(hash_ctx ctx, const uint8_t *in, size_t cb_in) {
 #ifdef _WIN32_BCRYPT
   NTSTATUS status = 0;
 #endif
@@ -344,10 +212,8 @@ bool hash_update(_hash_ctx *ctx, const uint8_t *in, size_t cb_in) {
     return false;
   }
 
-  ctx->fFinal = true;
-
-  if (!BCRYPT_SUCCESS(status =
-                        BCryptHashData(ctx->hHash, (PBYTE) in, cb_in, 0))) {
+  if (!BCRYPT_SUCCESS(
+        status = BCryptHashData(ctx->hHash, (PBYTE) in, (ULONG) cb_in, 0))) {
     return false;
   }
 
@@ -364,7 +230,7 @@ bool hash_update(_hash_ctx *ctx, const uint8_t *in, size_t cb_in) {
   return true;
 }
 
-bool hash_final(_hash_ctx *ctx, uint8_t *out, size_t *pcb_out) {
+bool hash_final(hash_ctx ctx, uint8_t *out, size_t *pcb_out) {
 #ifdef _WIN32_BCRYPT
   NTSTATUS status = 0;
 #else
@@ -403,7 +269,7 @@ bool hash_final(_hash_ctx *ctx, uint8_t *out, size_t *pcb_out) {
   return true;
 }
 
-bool hash_destroy(_hash_ctx *ctx) {
+bool hash_destroy(hash_ctx ctx) {
   if (!ctx) {
     return false;
   }
@@ -411,12 +277,6 @@ bool hash_destroy(_hash_ctx *ctx) {
 #ifdef _WIN32_BCRYPT
   if (ctx->hHash) {
     BCryptDestroyHash(ctx->hHash);
-  }
-  if (ctx->pbHashObj) {
-    free(ctx->pbHashObj);
-  }
-  if (ctx->hAlg) {
-    BCryptCloseAlgorithmProvider(ctx->hAlg, 0);
   }
 #else
   if (ctx->mdctx) {

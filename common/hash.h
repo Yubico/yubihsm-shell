@@ -39,7 +39,7 @@ typedef enum {
   _SHA512,
 } hash_t;
 
-#ifndef __WIN32
+#ifndef _WIN32_BCRYPT
 #define YH_INTERNAL __attribute__((visibility("hidden")))
 #else
 #define YH_INTERNAL
@@ -61,8 +61,8 @@ bool YH_INTERNAL hash_destroy(hash_ctx ctx);
 const YH_INTERNAL EVP_MD *get_hash(hash_t hash);
 #else
 #include <windows.h>
-#include <bcrypt.h>
-LPCWSTR YH_INTERNAL get_hash(hash_t hash);
+#include <ncrypt.h>
+BCRYPT_ALG_HANDLE YH_INTERNAL get_hash(hash_t hash, bool hmac);
 #endif
 
 #ifdef __cplusplus

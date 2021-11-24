@@ -937,6 +937,19 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
                         const uint8_t *key_mac, size_t key_mac_len,
                         bool recreate_session, yh_session **session);
 
+yh_rc yh_util_list_client_auth_providers(FILE *out);
+
+yh_rc yh_util_list_client_auth_keys(FILE *out);
+
+yh_rc yh_util_list_client_asym_auth_keys(FILE *out);
+
+yh_rc yh_util_generate_auth_key(const char *key_name, uint8_t *key, size_t len);
+
+yh_rc yh_util_generate_asym_auth_key(const char *key_name, uint8_t *key,
+                                     size_t len);
+
+yh_rc yh_util_destroy_auth_key(const char *key);
+
 /**
  * Create a session that uses named encryption keys from a platform-specific key
  *store to derive session-specific keys
@@ -1125,6 +1138,35 @@ yh_rc yh_create_session_asym(yh_connector *connector, uint16_t authkey_id,
                              const uint8_t *privkey, size_t privkey_len,
                              const uint8_t *device_pubkey,
                              size_t device_pubkey_len, yh_session **session);
+
+/**
+ * Create a session that uses the specified asymmetric key to derive
+ *session-specific keys.
+ *
+ * @param connector Connector to the device
+ * @param authkey_id Object ID of the Asymmetric Authentication Key used to
+ *authenticate the session
+ * @param privkey Name of the private key of the client, used to derive the
+ *session encryption key and authenticate the client
+ * @param device_pubkey Public key of the device, used to derive the session
+ *encryption key and authenticate the device
+ * @param device_pubkey_len Length of the device public key.
+ * @param session created session
+ *
+ * @return #YHR_SUCCESS if successful.
+ *         #YHR_INVALID_PARAMETERS if input parameters are NULL or incorrect.
+ *         See #yh_rc for other possible errors
+ *
+ * @see <a
+ *href="https://developers.yubico.com/YubiHSM2/Concepts/Session.html">Session</a>,
+ * <a
+ *href="https://developers.yubico.com/YubiHSM2/Concepts/Object.html">Authentication
+ *Key</a>
+ **/
+yh_rc yh_create_session_asym_ex(yh_connector *connector, uint16_t authkey_id,
+                                const char *privkey,
+                                const uint8_t *device_pubkey,
+                                size_t device_pubkey_len, yh_session **session);
 
 /**
  * Free data associated with the session

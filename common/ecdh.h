@@ -31,13 +31,22 @@
 extern "C" {
 #endif
 
-#ifndef __WIN32
+#ifndef _WIN32_BCRYPT
 #define YH_INTERNAL __attribute__((visibility("hidden")))
 #else
 #define YH_INTERNAL
 #endif
 
 int YH_INTERNAL ecdh_curve_p256(void);
+int YH_INTERNAL ecdh_curve_p384(void);
+int YH_INTERNAL ecdh_curve_p521(void);
+
+int YH_INTERNAL ecdh_list_providers(void *ctx,
+                                    int (*callback)(void *ctx,
+                                                    const char *provider));
+int YH_INTERNAL ecdh_list_keys(int curve, void *ctx,
+                               int (*callback)(void *ctx, const char *key));
+
 int YH_INTERNAL ecdh_calculate_public_key(int curve, const uint8_t *privkey,
                                           size_t cb_privkey, uint8_t *pubkey,
                                           size_t cb_pubkey);
@@ -48,6 +57,15 @@ int YH_INTERNAL ecdh_calculate_secret(int curve, const uint8_t *privkey,
                                       size_t cb_privkey, const uint8_t *pubkey,
                                       size_t cb_pubkey, uint8_t *secret,
                                       size_t cb_secret);
+int YH_INTERNAL ecdh_calculate_public_key_ex(int curve, const char *privkey,
+                                             uint8_t *pubkey, size_t cb_pubkey);
+int YH_INTERNAL ecdh_generate_keypair_ex(int curve, const char *privkey,
+                                         uint8_t *pubkey, size_t cb_pubkey);
+int YH_INTERNAL ecdh_calculate_secret_ex(int curve, const char *privkey,
+                                         const uint8_t *pubkey,
+                                         size_t cb_pubkey, uint8_t *secret,
+                                         size_t cb_secret);
+int YH_INTERNAL ecdh_destroy_key_ex(const char *privkey);
 
 #ifdef __cplusplus
 }

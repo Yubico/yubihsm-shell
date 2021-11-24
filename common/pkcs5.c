@@ -18,7 +18,7 @@
 
 #ifdef _WIN32_BCRYPT
 #include <windows.h>
-#include <bcrypt.h>
+#include <ncrypt.h>
 #else
 #include <openssl/evp.h>
 #endif
@@ -30,16 +30,9 @@ bool pkcs5_pbkdf2_hmac(const uint8_t *password, size_t cb_password,
 
 #ifdef _WIN32_BCRYPT
   NTSTATUS status = 0;
-  LPCWSTR alg = NULL;
   BCRYPT_ALG_HANDLE hAlg = 0;
 
-  if (!(alg = get_hash(hash))) {
-    goto cleanup;
-  }
-
-  if (!BCRYPT_SUCCESS(
-        status = BCryptOpenAlgorithmProvider(&hAlg, alg, NULL,
-                                             BCRYPT_ALG_HANDLE_HMAC_FLAG))) {
+  if (!(hAlg = get_hash(hash, true))) {
     goto cleanup;
   }
 
@@ -54,10 +47,6 @@ bool pkcs5_pbkdf2_hmac(const uint8_t *password, size_t cb_password,
   res = true;
 
 cleanup:
-
-  if (hAlg) {
-    BCryptCloseAlgorithmProvider(hAlg, 0);
-  }
 
 #else
   const EVP_MD *md = NULL;

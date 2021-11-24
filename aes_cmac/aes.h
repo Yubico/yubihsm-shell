@@ -27,8 +27,7 @@
 
 #ifdef _WIN32_BCRYPT
 #include <windows.h>
-#include <bcrypt.h>
-#include <ntstatus.h>
+#include <ncrypt.h>
 #else
 #include <openssl/evp.h>
 #endif
@@ -43,40 +42,41 @@ extern "C" {
 
 typedef struct {
 #ifdef _WIN32_BCRYPT
-  BCRYPT_ALG_HANDLE hAlgCBC;
-  BCRYPT_ALG_HANDLE hAlgECB;
-  BCRYPT_KEY_HANDLE hKeyCBC;
-  BCRYPT_KEY_HANDLE hKeyECB;
-  PBYTE pbKeyCBCObj;
-  PBYTE pbKeyECBObj;
-  size_t cbKeyObj;
+  NCRYPT_PROV_HANDLE hProvider;
+  NCRYPT_KEY_HANDLE hKeyCBC;
+  NCRYPT_KEY_HANDLE hKeyECB;
 #else
   EVP_CIPHER_CTX *ctx;
-  uint16_t key_len;
+  uint32_t key_len;
   uint8_t key[32];
 #endif
 } aes_context;
 
-#ifndef __WIN32
+#ifndef _WIN32_BCRYPT
 #define YH_INTERNAL __attribute__((visibility("hidden")))
 #else
 #define YH_INTERNAL
 #endif
 
+int YH_INTERNAL aes_generate_key(const char *name, uint8_t *key,
+                                 uint32_t key_len);
+
 int YH_INTERNAL aes_load_key(const char *key, aes_context *ctx);
-int YH_INTERNAL aes_set_key(const uint8_t *key, uint16_t key_len,
+int YH_INTERNAL aes_set_key(const uint8_t *key, uint32_t key_len,
                             aes_context *ctx);
 
-int YH_INTERNAL aes_encrypt(const uint8_t *in, uint8_t *out, aes_context *ctx);
-int YH_INTERNAL aes_decrypt(const uint8_t *in, uint8_t *out, aes_context *ctx);
+int YH_INTERNAL aes_encrypt(const uint8_t *in, uint8_t *out, uint32_t len,
+                            aes_context *ctx);
+int YH_INTERNAL aes_decrypt(const uint8_t *in, uint8_t *out, uint32_t len,
+                            aes_context *ctx);
 
-int YH_INTERNAL aes_cbc_encrypt(const uint8_t *in, uint8_t *out, uint16_t len,
+int YH_INTERNAL aes_cbc_encrypt(const uint8_t *in, uint8_t *out, uint32_t len,
                                 const uint8_t *iv, aes_context *ctx);
-int YH_INTERNAL aes_cbc_decrypt(const uint8_t *in, uint8_t *out, uint16_t len,
+int YH_INTERNAL aes_cbc_decrypt(const uint8_t *in, uint8_t *out, uint32_t len,
                                 const uint8_t *iv, aes_context *ctx);
 
-int YH_INTERNAL aes_add_padding(uint8_t *in, uint16_t max_len, uint16_t *len);
-void YH_INTERNAL aes_remove_padding(uint8_t *in, uint16_t *len);
+int YH_INTERNAL aes_add_padding(uint8_t *in, uint32_t max_len, uint32_t *len);
+void YH_INTERNAL aes_remove_padding(uint8_t *in, uint32_t *len);
 
 void YH_INTERNAL aes_destroy(aes_context *ctx);
 
