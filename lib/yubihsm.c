@@ -1314,6 +1314,13 @@ static int name_listing(void *ctx, const char *name) {
   return 0;
 }
 
+yh_rc yh_util_load_client_auth_module(const char *module) {
+
+  ecdh_load_module(module);
+
+  return YHR_SUCCESS;
+}
+
 yh_rc yh_util_list_client_auth_providers(FILE *out) {
 
   ecdh_list_providers(out, name_listing);

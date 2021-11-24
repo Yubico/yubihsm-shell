@@ -937,6 +937,8 @@ yh_rc yh_create_session(yh_connector *connector, uint16_t authkey_id,
                         const uint8_t *key_mac, size_t key_mac_len,
                         bool recreate_session, yh_session **session);
 
+yh_rc yh_util_load_client_auth_module(const char *module);
+
 yh_rc yh_util_list_client_auth_providers(FILE *out);
 
 yh_rc yh_util_list_client_auth_keys(FILE *out);

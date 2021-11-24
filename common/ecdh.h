@@ -41,6 +41,8 @@ int YH_INTERNAL ecdh_curve_p256(void);
 int YH_INTERNAL ecdh_curve_p384(void);
 int YH_INTERNAL ecdh_curve_p521(void);
 
+int YH_INTERNAL ecdh_load_module(const char *module);
+
 int YH_INTERNAL ecdh_list_providers(void *ctx,
                                     int (*callback)(void *ctx,
                                                     const char *provider));

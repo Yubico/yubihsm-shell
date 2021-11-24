@@ -1555,10 +1555,20 @@ int yh_com_open_session_ex(yubihsm_context *ctx, Argument *argv,
   return 0;
 }
 
+int yh_com_load_client_auth_module(yubihsm_context *ctx, Argument *argv,
+                                   cmd_format in_fmt, cmd_format fmt) {
+
+  UNUSED(ctx);
+  UNUSED(in_fmt);
+  UNUSED(fmt);
+
+  yh_util_load_client_auth_module(argv[0].s);
+  return 0;
+}
+
 int yh_com_list_client_auth_providers(yubihsm_context *ctx, Argument *argv,
                                       cmd_format in_fmt, cmd_format fmt) {
 
-  UNUSED(ctx);
   UNUSED(argv);
   UNUSED(in_fmt);
   UNUSED(fmt);
@@ -1570,7 +1580,6 @@ int yh_com_list_client_auth_providers(yubihsm_context *ctx, Argument *argv,
 int yh_com_list_client_auth_keys(yubihsm_context *ctx, Argument *argv,
                                  cmd_format in_fmt, cmd_format fmt) {
 
-  UNUSED(ctx);
   UNUSED(argv);
   UNUSED(in_fmt);
   UNUSED(fmt);

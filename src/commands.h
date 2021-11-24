@@ -124,6 +124,8 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                         cmd_format fmt);
 int yh_com_open_session_ex(yubihsm_context *ctx, Argument *argv,
                            cmd_format in_fmt, cmd_format fmt);
+int yh_com_load_client_auth_module(yubihsm_context *ctx, Argument *argv,
+                                   cmd_format in_fmt, cmd_format fmt);
 int yh_com_list_client_auth_providers(yubihsm_context *ctx, Argument *argv,
                                       cmd_format in_fmt, cmd_format fmt);
 int yh_com_list_client_auth_keys(yubihsm_context *ctx, Argument *argv,

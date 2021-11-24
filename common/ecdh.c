@@ -22,12 +22,15 @@
 #include <windows.h>
 #include <ncrypt.h>
 #else
+#include <dlfcn.h>
+
 #include <openssl/evp.h>
 #include <openssl/ec.h>
 #include <openssl/ecdh.h>
 #include <openssl/rand.h>
 
 #include "openssl-compat.h"
+#include "../pkcs11/pkcs11.h"
 #endif
 
 #include "ecdh.h"
@@ -106,6 +109,11 @@ void mserror(const char *str, int err) {
   if (module) {
     FreeLibrary(module);
   }
+}
+
+int ecdh_load_module(const char *module) {
+  UNUSED(module);
+  return 0;
 }
 
 int ecdh_list_providers(void *ctx,
@@ -643,24 +651,1075 @@ err:
   return len;
 }
 
+static CK_FUNCTION_LIST function_list;
+
+CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
+  UNUSED(pInitArgs);
+  return CKR_OK;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pReserved) {
+  UNUSED(pReserved);
+  return CKR_OK;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_GetInfo)(CK_INFO_PTR pInfo) {
+
+  pInfo->cryptokiVersion = function_list.version;
+
+  memset(pInfo->manufacturerID, ' ', sizeof(pInfo->manufacturerID));
+  memcpy(pInfo->manufacturerID, "Yubico", 6);
+
+  pInfo->flags = 0;
+
+  memset(pInfo->libraryDescription, ' ', sizeof(pInfo->libraryDescription));
+  memcpy(pInfo->libraryDescription, "Internal", 8);
+
+  pInfo->libraryVersion.major = 1;
+  pInfo->libraryVersion.minor = 0;
+
+  return CKR_OK;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_GetFunctionList)
+(CK_FUNCTION_LIST_PTR_PTR ppFunctionList) {
+
+  *ppFunctionList = &function_list;
+
+  return CKR_OK;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_GetSlotList)
+(CK_BBOOL tokenPresent, CK_SLOT_ID_PTR pSlotList, CK_ULONG_PTR pulCount) {
+
+  UNUSED(tokenPresent);
+  UNUSED(pSlotList);
+  UNUSED(pulCount);
+
+  *pulCount = 2;
+  for (CK_ULONG i = 0; i < *pulCount; i++) {
+    pSlotList[i] = i;
+  }
+
+  return CKR_OK;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_GetSlotInfo)
+(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo) {
+
+  int len =
+    sprintf((char *) pInfo->slotDescription, "Fake Provider %lu", slotID);
+  memset(pInfo->slotDescription + len, ' ',
+         sizeof(pInfo->slotDescription) - len);
+
+  len = sprintf((char *) pInfo->manufacturerID, "Fake  Manufacturer");
+  memset(pInfo->manufacturerID + len, ' ', sizeof(pInfo->manufacturerID) - len);
+
+  pInfo->hardwareVersion.major = 1;
+  pInfo->hardwareVersion.minor = 0;
+
+  pInfo->firmwareVersion.major = 1;
+  pInfo->firmwareVersion.minor = 0;
+
+  return CKR_OK;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_GetTokenInfo)
+(CK_SLOT_ID slotID, CK_TOKEN_INFO_PTR pInfo) {
+
+  int len = sprintf((char *) pInfo->label, "Fake Label %lu", slotID);
+  memset(pInfo->label + len, ' ', sizeof(pInfo->label) - len);
+
+  len = sprintf((char *) pInfo->manufacturerID, "Fake Manufacturer");
+  memset(pInfo->manufacturerID + len, ' ', sizeof(pInfo->manufacturerID) - len);
+
+  len = sprintf((char *) pInfo->model, "Fake Model");
+  memset(pInfo->model + len, ' ', sizeof(pInfo->model) - len);
+
+  len = sprintf((char *) pInfo->serialNumber, "12345-%lu", slotID);
+  memset(pInfo->serialNumber + len, ' ', sizeof(pInfo->serialNumber) - len);
+
+  pInfo->flags = CKF_RNG | CKF_LOGIN_REQUIRED | CKF_USER_PIN_INITIALIZED |
+                 CKF_TOKEN_INITIALIZED;
+
+  pInfo->ulMaxSessionCount =
+    CK_EFFECTIVELY_INFINITE; // maximum number of sessions that can be opened
+                             // with the token at one time by a single
+                             // application
+  pInfo->ulSessionCount =
+    CK_UNAVAILABLE_INFORMATION; // number of sessions that this application
+                                // currently has open with the token
+  pInfo->ulMaxRwSessionCount =
+    CK_EFFECTIVELY_INFINITE; // maximum number of read/write sessions that can
+                             // be opened with the token at one time by a single
+                             // application
+  pInfo->ulRwSessionCount =
+    CK_UNAVAILABLE_INFORMATION; // number of read/write sessions that this
+                                // application currently has open with the token
+  pInfo->ulMaxPinLen = 6;       // maximum length in bytes of the PIN
+  pInfo->ulMinPinLen = 8;       // minimum length in bytes of the PIN
+
+  pInfo->ulTotalPublicMemory = CK_UNAVAILABLE_INFORMATION;
+  pInfo->ulFreePublicMemory = CK_UNAVAILABLE_INFORMATION;
+  pInfo->ulTotalPrivateMemory = CK_UNAVAILABLE_INFORMATION;
+  pInfo->ulFreePrivateMemory = CK_UNAVAILABLE_INFORMATION;
+
+  CK_VERSION ver = {1, 0};
+
+  pInfo->hardwareVersion = ver;
+
+  pInfo->firmwareVersion = ver;
+
+  return CKR_OK;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_GetMechanismList)
+(CK_SLOT_ID slotID, CK_MECHANISM_TYPE_PTR pMechanismList,
+ CK_ULONG_PTR pulCount) {
+
+  UNUSED(slotID);
+  UNUSED(pMechanismList);
+
+  *pulCount = 0;
+  return CKR_OK;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_GetMechanismInfo)
+(CK_SLOT_ID slotID, CK_MECHANISM_TYPE type, CK_MECHANISM_INFO_PTR pInfo) {
+
+  UNUSED(slotID);
+  UNUSED(type);
+  UNUSED(pInfo);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_InitToken)
+(CK_SLOT_ID slotID, CK_UTF8CHAR_PTR pPin, CK_ULONG ulPinLen,
+ CK_UTF8CHAR_PTR pLabel) {
+
+  UNUSED(slotID);
+  UNUSED(pPin);
+  UNUSED(ulPinLen);
+  UNUSED(pLabel);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_InitPIN)
+(CK_SESSION_HANDLE hSession, CK_UTF8CHAR_PTR pPin, CK_ULONG ulPinLen) {
+
+  UNUSED(hSession);
+  UNUSED(pPin);
+  UNUSED(ulPinLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_SetPIN)
+(CK_SESSION_HANDLE hSession, CK_UTF8CHAR_PTR pOldPin, CK_ULONG ulOldLen,
+ CK_UTF8CHAR_PTR pNewPin, CK_ULONG ulNewLen) {
+
+  UNUSED(hSession);
+  UNUSED(pOldPin);
+  UNUSED(ulOldLen);
+  UNUSED(pNewPin);
+  UNUSED(ulNewLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_OpenSession)
+(CK_SLOT_ID slotID, CK_FLAGS flags, CK_VOID_PTR pApplication, CK_NOTIFY Notify,
+ CK_SESSION_HANDLE_PTR phSession) {
+
+  UNUSED(slotID);
+  UNUSED(Notify);
+  UNUSED(pApplication);
+
+  if ((flags & CKF_SERIAL_SESSION) == 0) {
+    return CKR_SESSION_PARALLEL_NOT_SUPPORTED;
+  }
+
+  *phSession = 1;
+
+  return CKR_OK;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_CloseSession)(CK_SESSION_HANDLE hSession) {
+
+  UNUSED(hSession);
+
+  return CKR_OK;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_CloseAllSessions)(CK_SLOT_ID slotID) {
+
+  UNUSED(slotID);
+
+  return CKR_OK;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_GetSessionInfo)
+(CK_SESSION_HANDLE hSession, CK_SESSION_INFO_PTR pInfo) {
+
+  UNUSED(hSession);
+
+  pInfo->flags = 0;
+  pInfo->slotID = 0;
+  pInfo->state = 0;
+  pInfo->ulDeviceError = 0;
+
+  return CKR_OK;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_GetOperationState)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pOperationState,
+ CK_ULONG_PTR pulOperationStateLen) {
+
+  UNUSED(hSession);
+  UNUSED(pOperationState);
+  UNUSED(pulOperationStateLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_SetOperationState)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pOperationState,
+ CK_ULONG ulOperationStateLen, CK_OBJECT_HANDLE hEncryptionKey,
+ CK_OBJECT_HANDLE hAuthenticationKey) {
+
+  UNUSED(hSession);
+  UNUSED(pOperationState);
+  UNUSED(ulOperationStateLen);
+  UNUSED(hEncryptionKey);
+  UNUSED(hAuthenticationKey);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_Login)
+(CK_SESSION_HANDLE hSession, CK_USER_TYPE userType, CK_UTF8CHAR_PTR pPin,
+ CK_ULONG ulPinLen) {
+
+  UNUSED(hSession);
+  UNUSED(userType);
+  UNUSED(pPin);
+  UNUSED(ulPinLen);
+
+  return CKR_OK;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_Logout)(CK_SESSION_HANDLE hSession) {
+
+  UNUSED(hSession);
+
+  return CKR_OK;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
+(CK_SESSION_HANDLE hSession, CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
+ CK_OBJECT_HANDLE_PTR phObject) {
+
+  UNUSED(hSession);
+  UNUSED(pTemplate);
+  UNUSED(ulCount);
+  UNUSED(phObject);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_CopyObject)
+(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hObject,
+ CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
+ CK_OBJECT_HANDLE_PTR phNewObject) {
+
+  UNUSED(hSession);
+  UNUSED(hObject);
+  UNUSED(pTemplate);
+  UNUSED(ulCount);
+  UNUSED(phNewObject);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
+(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hObject) {
+
+  UNUSED(hSession);
+  UNUSED(hObject);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_GetObjectSize)
+(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hObject, CK_ULONG_PTR pulSize) {
+
+  UNUSED(hSession);
+  UNUSED(hObject);
+  UNUSED(pulSize);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
+(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hObject,
+ CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount) {
+
+  UNUSED(hSession);
+  UNUSED(hObject);
+  UNUSED(pTemplate);
+  UNUSED(ulCount);
+
+  for (CK_ULONG i = 0; i < ulCount; i++) {
+    if (pTemplate[i].type == CKA_LABEL) {
+      pTemplate[i].ulValueLen = 8;
+      memcpy(pTemplate[i].pValue, "Fake Key", pTemplate[i].ulValueLen);
+    } else {
+      pTemplate[i].ulValueLen = CK_UNAVAILABLE_INFORMATION;
+    }
+  }
+
+  return CKR_OK;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
+(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hObject,
+ CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount) {
+
+  UNUSED(hSession);
+  UNUSED(hObject);
+  UNUSED(pTemplate);
+  UNUSED(ulCount);
+
+  return CKR_FUNCTION_FAILED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
+(CK_SESSION_HANDLE hSession, CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount) {
+
+  UNUSED(hSession);
+  UNUSED(pTemplate);
+  UNUSED(ulCount);
+
+  return CKR_OK;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_FindObjects)
+(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE_PTR phObject,
+ CK_ULONG ulMaxObjectCount, CK_ULONG_PTR pulObjectCount) {
+
+  UNUSED(hSession);
+  UNUSED(phObject);
+  UNUSED(ulMaxObjectCount);
+  UNUSED(pulObjectCount);
+
+  *pulObjectCount = 2;
+
+  for (CK_ULONG i = 0; i < *pulObjectCount; i++) {
+    phObject[i] = i + 1;
+  }
+
+  return CKR_OK;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsFinal)(CK_SESSION_HANDLE hSession) {
+
+  UNUSED(hSession);
+
+  return CKR_OK;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_EncryptInit)
+(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
+ CK_OBJECT_HANDLE hKey) {
+
+  UNUSED(hSession);
+  UNUSED(pMechanism);
+  UNUSED(hKey);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pData, CK_ULONG ulDataLen,
+ CK_BYTE_PTR pEncryptedData, CK_ULONG_PTR pulEncryptedDataLen) {
+
+  UNUSED(hSession);
+  UNUSED(pData);
+  UNUSED(ulDataLen);
+  UNUSED(pEncryptedData);
+  UNUSED(pulEncryptedDataLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_EncryptUpdate)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart, CK_ULONG ulPartLen,
+ CK_BYTE_PTR pEncryptedPart, CK_ULONG_PTR pulEncryptedPartLen) {
+
+  UNUSED(hSession);
+  UNUSED(pPart);
+  UNUSED(ulPartLen);
+  UNUSED(pEncryptedPart);
+  UNUSED(pulEncryptedPartLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_EncryptFinal)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pLastEncryptedPart,
+ CK_ULONG_PTR pulLastEncryptedPartLen) {
+
+  UNUSED(hSession);
+  UNUSED(pLastEncryptedPart);
+  UNUSED(pulLastEncryptedPartLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
+(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
+ CK_OBJECT_HANDLE hKey) {
+
+  UNUSED(hSession);
+  UNUSED(pMechanism);
+  UNUSED(hKey);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_Decrypt)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pData, CK_ULONG ulDataLen,
+ CK_BYTE_PTR pEncryptedData, CK_ULONG_PTR pulEncryptedDataLen) {
+
+  UNUSED(hSession);
+  UNUSED(pData);
+  UNUSED(ulDataLen);
+  UNUSED(pEncryptedData);
+  UNUSED(pulEncryptedDataLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_DecryptUpdate)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart, CK_ULONG ulPartLen,
+ CK_BYTE_PTR pEncryptedPart, CK_ULONG_PTR pulEncryptedPartLen) {
+
+  UNUSED(hSession);
+  UNUSED(pPart);
+  UNUSED(ulPartLen);
+  UNUSED(pEncryptedPart);
+  UNUSED(pulEncryptedPartLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_DecryptFinal)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pLastEncryptedPart,
+ CK_ULONG_PTR pulLastEncryptedPartLen) {
+
+  UNUSED(hSession);
+  UNUSED(pLastEncryptedPart);
+  UNUSED(pulLastEncryptedPartLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_DigestInit)
+(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism) {
+
+  UNUSED(hSession);
+  UNUSED(pMechanism);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_Digest)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pData, CK_ULONG ulDataLen,
+ CK_BYTE_PTR pDigest, CK_ULONG_PTR pulDigestLen) {
+
+  UNUSED(hSession);
+  UNUSED(pData);
+  UNUSED(ulDataLen);
+  UNUSED(pDigest);
+  UNUSED(pulDigestLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_DigestUpdate)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart, CK_ULONG ulPartLen) {
+
+  UNUSED(hSession);
+  UNUSED(pPart);
+  UNUSED(ulPartLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_DigestKey)
+(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hKey) {
+
+  UNUSED(hSession);
+  UNUSED(hKey);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_DigestFinal)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pDigest, CK_ULONG_PTR pulDigestLen) {
+
+  UNUSED(hSession);
+  UNUSED(pDigest);
+  UNUSED(pulDigestLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_SignInit)
+(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
+ CK_OBJECT_HANDLE hKey) {
+
+  UNUSED(hSession);
+  UNUSED(pMechanism);
+  UNUSED(hKey);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_Sign)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pData, CK_ULONG ulDataLen,
+ CK_BYTE_PTR pSignature, CK_ULONG_PTR pulSignatureLen) {
+
+  UNUSED(hSession);
+  UNUSED(pData);
+  UNUSED(ulDataLen);
+  UNUSED(pSignature);
+  UNUSED(pulSignatureLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_SignUpdate)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart, CK_ULONG ulPartLen) {
+
+  UNUSED(hSession);
+  UNUSED(pPart);
+  UNUSED(ulPartLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_SignFinal)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pSignature,
+ CK_ULONG_PTR pulSignatureLen) {
+
+  UNUSED(hSession);
+  UNUSED(pSignature);
+  UNUSED(pulSignatureLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_SignRecoverInit)
+(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
+ CK_OBJECT_HANDLE hKey) {
+
+  UNUSED(hSession);
+  UNUSED(pMechanism);
+  UNUSED(hKey);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_SignRecover)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pData, CK_ULONG ulDataLen,
+ CK_BYTE_PTR pSignature, CK_ULONG_PTR pulSignatureLen) {
+
+  UNUSED(hSession);
+  UNUSED(pData);
+  UNUSED(ulDataLen);
+  UNUSED(pSignature);
+  UNUSED(pulSignatureLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_VerifyInit)
+(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
+ CK_OBJECT_HANDLE hKey) {
+
+  UNUSED(hSession);
+  UNUSED(pMechanism);
+  UNUSED(hKey);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_Verify)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pData, CK_ULONG ulDataLen,
+ CK_BYTE_PTR pSignature, CK_ULONG ulSignatureLen) {
+
+  UNUSED(hSession);
+  UNUSED(pData);
+  UNUSED(ulDataLen);
+  UNUSED(pSignature);
+  UNUSED(ulSignatureLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_VerifyUpdate)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart, CK_ULONG ulPartLen) {
+
+  UNUSED(hSession);
+  UNUSED(pPart);
+  UNUSED(ulPartLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_VerifyFinal)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pSignature, CK_ULONG ulSignatureLen) {
+
+  UNUSED(hSession);
+  UNUSED(pSignature);
+  UNUSED(ulSignatureLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_VerifyRecoverInit)
+(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
+ CK_OBJECT_HANDLE hKey) {
+
+  UNUSED(hSession);
+  UNUSED(pMechanism);
+  UNUSED(hKey);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_VerifyRecover)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pSignature, CK_ULONG ulSignatureLen,
+ CK_BYTE_PTR pData, CK_ULONG_PTR pulDataLen) {
+
+  UNUSED(hSession);
+  UNUSED(pSignature);
+  UNUSED(ulSignatureLen);
+  UNUSED(pData);
+  UNUSED(pulDataLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_DigestEncryptUpdate)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart, CK_ULONG ulPartLen,
+ CK_BYTE_PTR pEncryptedPart, CK_ULONG_PTR pulEncryptedPartLen) {
+
+  UNUSED(hSession);
+  UNUSED(pPart);
+  UNUSED(ulPartLen);
+  UNUSED(pEncryptedPart);
+  UNUSED(pulEncryptedPartLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_DecryptDigestUpdate)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pEncryptedPart,
+ CK_ULONG ulEncryptedPartLen, CK_BYTE_PTR pPart, CK_ULONG_PTR pulPartLen) {
+
+  UNUSED(hSession);
+  UNUSED(pEncryptedPart);
+  UNUSED(ulEncryptedPartLen);
+  UNUSED(pPart);
+  UNUSED(pulPartLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_SignEncryptUpdate)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart, CK_ULONG ulPartLen,
+ CK_BYTE_PTR pEncryptedPart, CK_ULONG_PTR pulEncryptedPartLen) {
+
+  UNUSED(hSession);
+  UNUSED(pPart);
+  UNUSED(ulPartLen);
+  UNUSED(pEncryptedPart);
+  UNUSED(pulEncryptedPartLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_DecryptVerifyUpdate)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pEncryptedPart,
+ CK_ULONG ulEncryptedPartLen, CK_BYTE_PTR pPart, CK_ULONG_PTR pulPartLen) {
+
+  UNUSED(hSession);
+  UNUSED(pEncryptedPart);
+  UNUSED(ulEncryptedPartLen);
+  UNUSED(pPart);
+  UNUSED(pulPartLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
+(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
+ CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount, CK_OBJECT_HANDLE_PTR phKey) {
+
+  UNUSED(hSession);
+  UNUSED(pMechanism);
+  UNUSED(pTemplate);
+  UNUSED(ulCount);
+  UNUSED(phKey);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
+(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
+ CK_ATTRIBUTE_PTR pPublicKeyTemplate, CK_ULONG ulPublicKeyAttributeCount,
+ CK_ATTRIBUTE_PTR pPrivateKeyTemplate, CK_ULONG ulPrivateKeyAttributeCount,
+ CK_OBJECT_HANDLE_PTR phPublicKey, CK_OBJECT_HANDLE_PTR phPrivateKey) {
+
+  UNUSED(hSession);
+  UNUSED(pMechanism);
+  UNUSED(pPublicKeyTemplate);
+  UNUSED(ulPublicKeyAttributeCount);
+  UNUSED(pPrivateKeyTemplate);
+  UNUSED(ulPrivateKeyAttributeCount);
+  UNUSED(phPublicKey);
+  UNUSED(phPrivateKey);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_WrapKey)
+(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
+ CK_OBJECT_HANDLE hWrappingKey, CK_OBJECT_HANDLE hKey, CK_BYTE_PTR pWrappedKey,
+ CK_ULONG_PTR pulWrappedKeyLen) {
+
+  UNUSED(hSession);
+  UNUSED(pMechanism);
+  UNUSED(hWrappingKey);
+  UNUSED(hKey);
+  UNUSED(pWrappedKey);
+  UNUSED(pulWrappedKeyLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_UnwrapKey)
+(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
+ CK_OBJECT_HANDLE hUnwrappingKey, CK_BYTE_PTR pWrappedKey,
+ CK_ULONG ulWrappedKeyLen, CK_ATTRIBUTE_PTR pTemplate,
+ CK_ULONG ulAttributeCount, CK_OBJECT_HANDLE_PTR phKey) {
+
+  UNUSED(hSession);
+  UNUSED(pMechanism);
+  UNUSED(hUnwrappingKey);
+  UNUSED(pWrappedKey);
+  UNUSED(ulWrappedKeyLen);
+  UNUSED(pTemplate);
+  UNUSED(ulAttributeCount);
+  UNUSED(phKey);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
+(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
+ CK_OBJECT_HANDLE hBaseKey, CK_ATTRIBUTE_PTR pTemplate,
+ CK_ULONG ulAttributeCount, CK_OBJECT_HANDLE_PTR phKey) {
+
+  UNUSED(hSession);
+  UNUSED(pMechanism);
+  UNUSED(hBaseKey);
+  UNUSED(pTemplate);
+  UNUSED(ulAttributeCount);
+  UNUSED(phKey);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_SeedRandom)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pSeed, CK_ULONG ulSeedLen) {
+
+  UNUSED(hSession);
+  UNUSED(pSeed);
+  UNUSED(ulSeedLen);
+
+  return CKR_RANDOM_SEED_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_GenerateRandom)
+(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pRandomData, CK_ULONG ulRandomLen) {
+
+  UNUSED(hSession);
+  UNUSED(pRandomData);
+  UNUSED(ulRandomLen);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_GetFunctionStatus)
+(CK_SESSION_HANDLE hSession) {
+
+  UNUSED(hSession);
+
+  return CKR_FUNCTION_NOT_PARALLEL;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_CancelFunction)(CK_SESSION_HANDLE hSession) {
+
+  UNUSED(hSession);
+
+  return CKR_FUNCTION_NOT_PARALLEL;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_WaitForSlotEvent)
+(CK_FLAGS flags, CK_SLOT_ID_PTR pSlot, CK_VOID_PTR pReserved) {
+
+  UNUSED(flags);
+  UNUSED(pSlot);
+  UNUSED(pReserved);
+
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+static CK_FUNCTION_LIST function_list = {
+  {CRYPTOKI_VERSION_MAJOR, CRYPTOKI_VERSION_MINOR},
+  C_Initialize,
+  C_Finalize,
+  C_GetInfo,
+  C_GetFunctionList,
+  C_GetSlotList,
+  C_GetSlotInfo,
+  C_GetTokenInfo,
+  C_GetMechanismList,
+  C_GetMechanismInfo,
+  C_InitToken,
+  C_InitPIN,
+  C_SetPIN,
+  C_OpenSession,
+  C_CloseSession,
+  C_CloseAllSessions,
+  C_GetSessionInfo,
+  C_GetOperationState,
+  C_SetOperationState,
+  C_Login,
+  C_Logout,
+  C_CreateObject,
+  C_CopyObject,
+  C_DestroyObject,
+  C_GetObjectSize,
+  C_GetAttributeValue,
+  C_SetAttributeValue,
+  C_FindObjectsInit,
+  C_FindObjects,
+  C_FindObjectsFinal,
+  C_EncryptInit,
+  C_Encrypt,
+  C_EncryptUpdate,
+  C_EncryptFinal,
+  C_DecryptInit,
+  C_Decrypt,
+  C_DecryptUpdate,
+  C_DecryptFinal,
+  C_DigestInit,
+  C_Digest,
+  C_DigestUpdate,
+  C_DigestKey,
+  C_DigestFinal,
+  C_SignInit,
+  C_Sign,
+  C_SignUpdate,
+  C_SignFinal,
+  C_SignRecoverInit,
+  C_SignRecover,
+  C_VerifyInit,
+  C_Verify,
+  C_VerifyUpdate,
+  C_VerifyFinal,
+  C_VerifyRecoverInit,
+  C_VerifyRecover,
+  C_DigestEncryptUpdate,
+  C_DecryptDigestUpdate,
+  C_SignEncryptUpdate,
+  C_DecryptVerifyUpdate,
+  C_GenerateKey,
+  C_GenerateKeyPair,
+  C_WrapKey,
+  C_UnwrapKey,
+  C_DeriveKey,
+  C_SeedRandom,
+  C_GenerateRandom,
+  C_GetFunctionStatus,
+  C_CancelFunction,
+  C_WaitForSlotEvent,
+};
+
+static void *module_handle;
+static CK_FUNCTION_LIST_PTR p11 = &function_list;
+
+static void trimright(unsigned char *buf, size_t len) {
+  unsigned char *p = buf + len;
+  while (p > buf && *--p == ' ')
+    *p = 0;
+}
+
+int ecdh_load_module(const char *module) {
+
+  if (module_handle) {
+    p11->C_Finalize(0);
+    dlclose(module_handle);
+    module_handle = 0;
+    p11 = &function_list;
+  }
+
+  if (strcmp(module, "-")) {
+    module_handle = dlopen(module, RTLD_NOW | RTLD_GLOBAL);
+    if (module_handle == 0) {
+      puts("Can't open shared library");
+      return CKR_ARGUMENTS_BAD;
+    }
+
+    CK_C_GetFunctionList fn = 0;
+    *(void **) (&fn) = dlsym(module_handle, "C_GetFunctionList");
+    if (fn == 0) {
+      puts("Can't find symbol");
+      dlclose(module_handle);
+      module_handle = 0;
+      return CKR_GENERAL_ERROR;
+    }
+
+    CK_RV rv = fn(&p11);
+    if (rv != CKR_OK) {
+      puts("Can't get function list");
+      dlclose(module_handle);
+      module_handle = 0;
+      p11 = &function_list;
+      return rv;
+    }
+
+    rv = p11->C_Initialize(0);
+    if (rv != CKR_OK) {
+      puts("Can't initialize module");
+      dlclose(module_handle);
+      module_handle = 0;
+      p11 = &function_list;
+      return rv;
+    }
+  }
+  return CKR_OK;
+}
+
 int ecdh_list_providers(void *ctx,
                         int (*callback)(void *ctx, const char *key)) {
-  callback(ctx, "Fake Provider");
-  callback(ctx, "Fake Provider 2");
+  CK_SLOT_ID slot[128] = {0};
+  CK_ULONG slots = 128;
+  CK_RV rv = p11->C_GetSlotList(CK_TRUE, slot, &slots);
+  if (rv) {
+    return 0;
+  }
+  for (CK_ULONG i = 0; i < slots; i++) {
+    CK_TOKEN_INFO info = {0};
+    rv = p11->C_GetTokenInfo(slot[i], &info);
+    if (rv)
+      continue;
+    trimright(info.label, sizeof(info.label));
+    callback(ctx, (char *) info.label);
+  }
   return 0;
+}
+
+struct p11_ctx {
+  void *ctx;
+  CK_SLOT_ID slot;
+  CK_SESSION_HANDLE session;
+  CK_OBJECT_HANDLE object;
+};
+
+static CK_RV p11_list_keys(int curve, struct p11_ctx *ctx,
+                           int (*callback)(void *ctx, const char *key)) {
+  CK_SLOT_ID slot[256] = {0};
+  CK_ULONG slots = sizeof(slot) / sizeof(slot[0]);
+  CK_RV rv = p11->C_GetSlotList(CK_TRUE, slot, &slots);
+  if (rv) {
+    return rv;
+  }
+  for (CK_ULONG i = 0; i < slots; i++) {
+    ctx->slot = slot[i];
+    CK_TOKEN_INFO info = {0};
+    rv = p11->C_GetTokenInfo(ctx->slot, &info);
+    if (rv) {
+      return rv;
+    }
+    trimright(info.label, sizeof(info.label));
+    char buf[256] = {0};
+    int len = snprintf(buf, sizeof(buf), "%s:", info.label);
+    rv = p11->C_OpenSession(ctx->slot, CKF_SERIAL_SESSION | CKF_RW_SESSION,
+                            NULL, NULL, &ctx->session);
+    if (rv) {
+      return rv;
+    }
+    rv = p11->C_Login(ctx->session, CKU_USER, (CK_UTF8CHAR_PTR) "123456", 6);
+    if (rv) {
+      p11->C_CloseSession(ctx->session);
+      return rv;
+    }
+    CK_BBOOL token = TRUE;
+    CK_OBJECT_CLASS class = curve ? CKO_PRIVATE_KEY : CKO_SECRET_KEY;
+    CK_KEY_TYPE type = curve ? CKK_EC : CKK_AES;
+    CK_ATTRIBUTE template[] = {{CKA_TOKEN, &token, sizeof(token)},
+                               {CKA_CLASS, &class, sizeof(class)},
+                               {CKA_KEY_TYPE, &type, sizeof(type)}};
+    rv = p11->C_FindObjectsInit(ctx->session, template,
+                                sizeof(template) / sizeof(template[0]));
+    if (rv) {
+      p11->C_CloseSession(ctx->session);
+      return rv;
+    }
+    CK_OBJECT_HANDLE object[256] = {0};
+    CK_ULONG objects = 0;
+    rv = p11->C_FindObjects(ctx->session, object,
+                            sizeof(object) / sizeof(object[0]), &objects);
+    if (rv) {
+      p11->C_CloseSession(ctx->session);
+      return rv;
+    }
+    for (CK_ULONG j = 0; j < objects; j++) {
+      ctx->object = object[j];
+      CK_ATTRIBUTE attrib[] = {{CKA_LABEL, buf + len, sizeof(buf) - len - 1}};
+      rv = p11->C_GetAttributeValue(ctx->session, ctx->object, attrib,
+                                    sizeof(attrib) / sizeof(attrib[0]));
+      if (rv) {
+        p11->C_CloseSession(ctx->session);
+        return rv;
+      }
+      buf[len + attrib->ulValueLen] = 0;
+      int rc = callback(ctx->ctx, buf);
+      if (rc) {
+        p11->C_CloseSession(ctx->session);
+        return CKR_CANCEL;
+      }
+    }
+    rv = p11->C_FindObjectsFinal(ctx->session);
+    rv = p11->C_CloseSession(ctx->session);
+    if (rv) {
+      return rv;
+    }
+  }
+  return CKR_OK;
 }
 
 int ecdh_list_keys(int curve, void *ctx,
                    int (*callback)(void *ctx, const char *key)) {
-  if (curve) {
-    callback(ctx, "Fake Provider:Fake ECP256 Key 1");
-    callback(ctx, "Fake Provider:Fake ECP256 Key 2");
-    callback(ctx, "MACHINE:Fake Provider:Fake ECP256 Key 1");
-  } else {
-    callback(ctx, "Fake Provider:Fake AES Key 1");
-    callback(ctx, "Fake Provider:Fake AES Key 2");
-    callback(ctx, "MACHINE:Fake Provider:Fake AES Key 1");
-  }
+  struct p11_ctx p11_ctx = {ctx, 0, 0, 0};
+  p11_list_keys(curve, &p11_ctx, callback);
   return 0;
 }
 

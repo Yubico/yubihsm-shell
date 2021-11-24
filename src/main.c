@@ -421,20 +421,6 @@ static void create_command_list(CommandList *c) {
                                     fmt_nofmt, fmt_nofmt,
                                     "List objects according to filter", NULL,
                                     NULL});
-  register_subcommand(*c,
-                      (Command){"providers", yh_com_list_client_auth_providers,
-                                NULL, fmt_nofmt, fmt_nofmt,
-                                "List persisted client auth key providers",
-                                NULL, NULL});
-  register_subcommand(*c,
-                      (Command){"keys", yh_com_list_client_auth_keys, NULL,
-                                fmt_nofmt, fmt_nofmt,
-                                "List persisted client auth keys", NULL, NULL});
-  register_subcommand(*c,
-                      (Command){"keys_asym", yh_com_list_client_asym_auth_keys,
-                                NULL, fmt_nofmt, fmt_nofmt,
-                                "List persisted asym client auth keys", NULL,
-                                NULL});
   *c =
     register_command(*c,
                      (Command){"plain", yh_com_noop, NULL, fmt_nofmt, fmt_nofmt,
@@ -697,14 +683,27 @@ static void create_command_list(CommandList *c) {
                                     NULL, NULL});
 #endif
 
-  *c = register_command(*c, (Command){"destroy", yh_com_noop, NULL, fmt_nofmt,
-                                      fmt_nofmt, "destroy persistent objects",
-                                      NULL, NULL});
-  register_subcommand(*c, (Command){"authkey", yh_com_destroy_authentication_ex,
+  *c = register_command(*c, (Command){"pkcs11", yh_com_noop, NULL, fmt_nofmt,
+                                      fmt_nofmt, "Manage PKCS11 modules", NULL,
+                                      NULL});
+  register_subcommand(*c, (Command){"load", yh_com_load_client_auth_module,
+                                    "s:module_name", fmt_nofmt, fmt_nofmt,
+                                    "Load a PKCS11 module", NULL, NULL});
+  register_subcommand(*c, (Command){"slots", yh_com_list_client_auth_providers,
+                                    NULL, fmt_nofmt, fmt_nofmt,
+                                    "List PKCS11 module slots", NULL, NULL});
+  register_subcommand(*c,
+                      (Command){"symmetric_keys", yh_com_list_client_auth_keys,
+                                NULL, fmt_nofmt, fmt_nofmt,
+                                "List symmetric client auth keys", NULL, NULL});
+  register_subcommand(*c, (Command){"asymmetric_keys",
+                                    yh_com_list_client_asym_auth_keys, NULL,
+                                    fmt_nofmt, fmt_nofmt,
+                                    "List asymmetric client auth keys", NULL,
+                                    NULL});
+  register_subcommand(*c, (Command){"destroy", yh_com_destroy_authentication_ex,
                                     "s:key_name", fmt_nofmt, fmt_nofmt,
-                                    "Delete a persisten authentication key",
-                                    NULL, NULL});
-
+                                    "Delete a client auth key", NULL, NULL});
   *c = msort_list(*c);
   for (Command *t = *c; t != NULL; t = t->next) {
     if (t->subcommands != NULL) {
