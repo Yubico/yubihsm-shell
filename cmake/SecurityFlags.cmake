@@ -1,4 +1,5 @@
 include(CheckCCompilerFlag)
+include(CheckLinkerFlag)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -6,7 +7,9 @@ if (CMAKE_C_COMPILER_ID STREQUAL "Clang" OR
     CMAKE_C_COMPILER_ID STREQUAL "AppleClang" OR
     CMAKE_C_COMPILER_ID STREQUAL "GNU")
 
-    check_c_compiler_flag("-Werror -fstack-protector-all" HAVE_STACK_PROTECTOR_ALL)
+    check_c_compiler_flag("-fstack-protector-all" HAVE_STACK_PROTECTOR_ALL)
+    check_linker_flag(C "-Wl,-z,relro,-z,now" HAVE_RELRO)
+    check_linker_flag(C "-Wl,-z,noexecstack" HAVE_NOEXECSTACK)
 
     add_compile_options (-Wall -Wextra -Werror)
     add_compile_options (-Wformat -Wformat-nonliteral -Wformat-security)
@@ -23,10 +26,17 @@ if (CMAKE_C_COMPILER_ID STREQUAL "Clang" OR
     endif ()
 
 	if(HAVE_STACK_PROTECTOR_ALL)
+        message(STATUS "-fstack-protector-all support detected")
 		add_compile_options(-fstack-protector-all)
 	endif()
-    add_link_options (-Wl,-z,relro,-z,now)
-    add_link_options (-Wl,-z,noexecstack)
+    if (HAVE_RELRO)
+        message(STATUS "relro support detected")
+        add_link_options(-Wl,-z,relro,-z,now)
+    endif ()
+    if (HAVE_NOEXECSTACK)
+        message(STATUS "noexecstack support detected")
+        add_link_options (-Wl,-z,noexecstack)
+    endif ()
 elseif (CMAKE_C_COMPILER_ID STREQUAL "MSVC")
     add_compile_options (/GS)
     add_compile_options (/Gs)
