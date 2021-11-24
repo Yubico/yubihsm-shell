@@ -2677,12 +2677,16 @@ CK_RV perform_rsa_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
   if (op_info->op.encrypt.oaep_md != NULL &&
       op_info->op.encrypt.mgf1_md != NULL &&
       op_info->op.encrypt.oaep_label != NULL) {
-    if (EVP_PKEY_CTX_set_rsa_oaep_md(ctx, op_info->op.encrypt.oaep_md) >= 0) {
+    if (EVP_PKEY_CTX_set_rsa_oaep_md(ctx, EVP_MD_meth_dup(
+                                            op_info->op.encrypt.oaep_md)) >=
+        0) {
       rv = CKR_FUNCTION_FAILED;
       goto rsa_enc_cleanup;
     }
 
-    if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, op_info->op.encrypt.mgf1_md) >= 0) {
+    if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, EVP_MD_meth_dup(
+                                            op_info->op.encrypt.mgf1_md)) >=
+        0) {
       rv = CKR_FUNCTION_FAILED;
       goto rsa_enc_cleanup;
     }
