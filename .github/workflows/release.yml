@@ -8,6 +8,8 @@ jobs:
   source:
     name: Build dist with Linux
     runs-on: ubuntu-latest
+    env:
+      VERSION: 2.3.0
     steps:
       - name: checkout
         uses: actions/checkout@v2
@@ -19,10 +21,10 @@ jobs:
       - name: Create tar.gz
         run: |
           set -x
-          ./resources/make_src_dist.sh
+          ./resources/make_src_dist.sh $VERSION
           cd ..
           mkdir artifact
-          mv $GITHUB_WORKSPACE/yubihsm-shell-.tar.gz artifact/
+          mv $GITHUB_WORKSPACE/yubihsm-shell-$VERSION.tar.gz artifact/
       - name: Upload artifact
         uses: actions/upload-artifact@v1
         with:
@@ -33,6 +35,8 @@ jobs:
     name: Build Windows x86 release
     needs: source
     runs-on: windows-latest
+    env:
+      VERSION: 2.3.0
     steps:
       - name: Download source from source job
         uses: actions/download-artifact@v1
@@ -43,12 +47,12 @@ jobs:
         run: |
           Set-PSDebug -Trace 1
           cd yubihsm-shell-src
-          tar xf yubihsm-shell-.tar.gz
+          tar xf yubihsm-shell-$env:VERSION.tar.gz
 
       - name: Build and make MSI installer
         run: |
           Set-PSDebug -Trace 1
-          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-"
+          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:VERSION"
           $MERGEDPATH = Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC142_CRT_x86.msm"
 
           cd $YHSHELL_SRC_DIR/resources/release/win
@@ -71,7 +75,8 @@ jobs:
     name: Build Windows x64 release
     needs: source
     runs-on: windows-latest
-
+    env:
+      VERSION: 2.3.0
     steps:
       - name: Download source from source job
         uses: actions/download-artifact@v1
@@ -82,12 +87,12 @@ jobs:
         run: |
           Set-PSDebug -Trace 1
           cd yubihsm-shell-src
-          tar xf yubihsm-shell-.tar.gz
+          tar xf yubihsm-shell-$env:VERSION.tar.gz
 
       - name: Build and make MSI installer
         run: |
           Set-PSDebug -Trace 1
-          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-"
+          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:VERSION"
           $MERGEDPATH = Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC142_CRT_x64.msm"
 
           cd $YHSHELL_SRC_DIR/resources/release/win
@@ -110,7 +115,7 @@ jobs:
     needs: source
     runs-on: macos-10.15
     env:
-      VERSION: 2.2.0
+      VERSION: 2.3.0
       SO_VERSION: 2
     steps:
       - name: Download source from source job
@@ -122,7 +127,7 @@ jobs:
         run: |
           set -x
           cd yubihsm-shell-src
-          tar xf yubihsm-shell-.tar.gz
+          tar xf yubihsm-shell-$VERSION.tar.gz
 
       - name: Build and make MSI installer
         run: |
@@ -135,7 +140,7 @@ jobs:
           ls /usr/local/opt/openssl@1.1/lib
 
 
-          YHSHELL_SRC_DIR="$GITHUB_WORKSPACE/yubihsm-shell-src/yubihsm-shell-"
+          YHSHELL_SRC_DIR="$GITHUB_WORKSPACE/yubihsm-shell-src/yubihsm-shell-$VERSION"
 
           cd $YHSHELL_SRC_DIR
           ./resources/release/macos/make_release_binaries.sh amd $VERSION $SO_VERSION
@@ -217,5 +222,3 @@ jobs:
         with:
           name: yubihsm-shell-ubuntu2004-amd64
           path: artifact
-
-
