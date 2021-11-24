@@ -84,7 +84,7 @@ endif ()
 set (CMAKE_C_STANDARD 11)
 
 set (yubihsm_shell_VERSION_MAJOR 2)
-set (yubihsm_shell_VERSION_MINOR 2)
+set (yubihsm_shell_VERSION_MINOR 3)
 set (yubihsm_shell_VERSION_PATCH 0)
 set (VERSION "${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}")
 

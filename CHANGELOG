@@ -1,3 +1,18 @@
+=== Version 2.3.0
+
+lib: Security update for https://www.yubico.com/support/security-advisories/ysa-2021-04/[YSA-2021-04]
+lib: Improve backend loading on Windows
+lib: Add support for ecdh primitives using bcrypt on Windows
+lib: cli: Improve error handling
+lib: pkcs11: Add more connection option
+lib: pkcs11: cli: Fix minor bugs
+cli: Rename set-option to put-option and add support for get-option
+pkcs11: Add support for RSA encryption
+yubihsm-auth: No PSCS reader name filtering by default
+build: Add version details to yubihsm_pkcs11 module and libykhsmauth library files on Windows
+build: Make minimum CMake version required 3.5
+test: Improved testing
+
 === Version 2.2.0
 
 shell: Enable ykhsmauth to be used from commandline
