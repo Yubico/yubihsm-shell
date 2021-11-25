@@ -111,7 +111,7 @@ void mserror(const char *str, int err) {
   }
 }
 
-int ecdh_load_module(const char *module) {
+int ecdh_load_module(const char *module, FILE *out) {
   UNUSED(module);
   return 0;
 }
@@ -1571,7 +1571,7 @@ static void trimright(unsigned char *buf, size_t len) {
     *p = 0;
 }
 
-int ecdh_load_module(const char *module) {
+int ecdh_load_module(const char *module, FILE *out) {
 
   if (module_handle) {
     p11->C_Finalize(0);
@@ -1583,14 +1583,14 @@ int ecdh_load_module(const char *module) {
   if (strcmp(module, "-")) {
     module_handle = dlopen(module, RTLD_NOW | RTLD_GLOBAL);
     if (module_handle == 0) {
-      puts("Can't open shared library");
+      fprintf(out, "Can't open shared library '%s'\n", module);
       return CKR_ARGUMENTS_BAD;
     }
 
     CK_C_GetFunctionList fn = 0;
     *(void **) (&fn) = dlsym(module_handle, "C_GetFunctionList");
     if (fn == 0) {
-      puts("Can't find symbol");
+      fprintf(out, "Can't find symbol 'C_GetFunctionList' in '%s'\n", module);
       dlclose(module_handle);
       module_handle = 0;
       return CKR_GENERAL_ERROR;
@@ -1598,7 +1598,7 @@ int ecdh_load_module(const char *module) {
 
     CK_RV rv = fn(&p11);
     if (rv != CKR_OK) {
-      puts("Can't get function list");
+      fprintf(out, "Can't get function list from '%s', rv=%lu\n", module, rv);
       dlclose(module_handle);
       module_handle = 0;
       p11 = &function_list;
@@ -1607,7 +1607,7 @@ int ecdh_load_module(const char *module) {
 
     rv = p11->C_Initialize(0);
     if (rv != CKR_OK) {
-      puts("Can't initialize module");
+      fprintf(out, "Can't initialize module '%s', rv = %lu\n", module, rv);
       dlclose(module_handle);
       module_handle = 0;
       p11 = &function_list;

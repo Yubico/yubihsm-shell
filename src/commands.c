@@ -1562,7 +1562,7 @@ int yh_com_load_client_auth_module(yubihsm_context *ctx, Argument *argv,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  yh_util_load_client_auth_module(argv[0].s);
+  yh_util_load_client_auth_module(argv[0].s, ctx->out);
   return 0;
 }
 

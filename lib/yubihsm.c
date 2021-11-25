@@ -1314,9 +1314,9 @@ static int name_listing(void *ctx, const char *name) {
   return 0;
 }
 
-yh_rc yh_util_load_client_auth_module(const char *module) {
+yh_rc yh_util_load_client_auth_module(const char *module, FILE *out) {
 
-  ecdh_load_module(module);
+  ecdh_load_module(module, out);
 
   return YHR_SUCCESS;
 }
