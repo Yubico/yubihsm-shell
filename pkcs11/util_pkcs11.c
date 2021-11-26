@@ -2379,9 +2379,42 @@ CK_RV apply_verify_mechanism_finalize(yubihsm_pkcs11_op_info *op_info,
   return CKR_OK;
 }
 
-CK_RV apply_decrypt_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
+CK_RV apply_decrypt_mechanism_finalize(yh_session *session,
+                                       yubihsm_pkcs11_op_info *op_info,
+                                       CK_BYTE_PTR pData,
+                                       CK_ULONG_PTR pulDataLen) {
+  yh_rc yrc;
+  size_t outlen = *pulDataLen;
 
-  op_info->op.decrypt.finalized = true;
+  if (op_info->mechanism.mechanism == CKM_RSA_PKCS) {
+    yrc = yh_util_decrypt_pkcs1v1_5(session, op_info->op.decrypt.key_id,
+                                    op_info->buffer, op_info->buffer_length,
+                                    pData, &outlen);
+  } else if (op_info->mechanism.mechanism == CKM_RSA_PKCS_OAEP) {
+    yrc = yh_util_decrypt_oaep(session, op_info->op.decrypt.key_id,
+                               op_info->buffer, op_info->buffer_length, pData,
+                               &outlen, op_info->mechanism.oaep.label,
+                               op_info->mechanism.oaep.label_len,
+                               op_info->mechanism.oaep.mgf1Algo);
+  } else if (op_info->mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
+    yrc =
+      yh_util_unwrap_data(session, op_info->op.decrypt.key_id, op_info->buffer,
+                          op_info->buffer_length, pData, &outlen);
+  } else {
+    DBG_ERR("Mechanism %lu not supported", op_info->mechanism.mechanism);
+    return CKR_MECHANISM_INVALID;
+  }
+
+  if (yrc != YHR_SUCCESS && yrc != YHR_BUFFER_TOO_SMALL) {
+    DBG_ERR("Decryption failed: %s", yh_strerror(yrc));
+    return yrc_to_rv(yrc);
+  }
+
+  if (yrc == YHR_BUFFER_TOO_SMALL || outlen > *pulDataLen) {
+    *pulDataLen = outlen;
+    return CKR_BUFFER_TOO_SMALL;
+  }
+
   return CKR_OK;
 }
 
@@ -2721,48 +2754,6 @@ CK_RV perform_signature(yh_session *session, yubihsm_pkcs11_op_info *op_info,
   }
   memcpy(signature, op_info->buffer, outlen);
   *signature_len = outlen;
-
-  return CKR_OK;
-}
-
-CK_RV perform_decrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
-                      uint8_t *data, uint16_t *data_len) {
-
-  yh_rc yrc;
-  size_t outlen = sizeof(op_info->buffer);
-
-  if (op_info->mechanism.mechanism == CKM_RSA_PKCS) {
-    yrc = yh_util_decrypt_pkcs1v1_5(session, op_info->op.decrypt.key_id,
-                                    op_info->buffer, op_info->buffer_length,
-                                    op_info->buffer, &outlen);
-  } else if (op_info->mechanism.mechanism == CKM_RSA_PKCS_OAEP) {
-    yrc =
-      yh_util_decrypt_oaep(session, op_info->op.decrypt.key_id, op_info->buffer,
-                           op_info->buffer_length, op_info->buffer, &outlen,
-                           op_info->mechanism.oaep.label,
-                           op_info->mechanism.oaep.label_len,
-                           op_info->mechanism.oaep.mgf1Algo);
-  } else if (op_info->mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
-    yrc =
-      yh_util_unwrap_data(session, op_info->op.decrypt.key_id, op_info->buffer,
-                          op_info->buffer_length, op_info->buffer, &outlen);
-  } else {
-    DBG_ERR("Mechanism %lu not supported", op_info->mechanism.mechanism);
-    return CKR_MECHANISM_INVALID;
-  }
-
-  if (yrc != YHR_SUCCESS) {
-    DBG_ERR("Decryption failed: %s", yh_strerror(yrc));
-    return yrc_to_rv(yrc);
-  }
-
-  if (outlen > *data_len) {
-    DBG_ERR("Data won't fit in buffer %zu > %d", outlen, *data_len);
-    *data_len = outlen;
-    return CKR_BUFFER_TOO_SMALL;
-  }
-  memcpy(data, op_info->buffer, outlen);
-  *data_len = outlen;
 
   return CKR_OK;
 }

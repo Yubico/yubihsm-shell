@@ -3036,28 +3036,18 @@ CK_DEFINE_FUNCTION(CK_RV, C_Decrypt)
   // NOTE: if pData is set we'll go on with decryption no matter what pulDataLen
   // is, the user might know more than us about the real data length
 
-  // if the operation is already finalized, skip to perform
-  if (session->operation.op.decrypt.finalized == false) {
-    DBG_INFO("Sending %lu bytes to decrypt", ulEncryptedDataLen);
+  DBG_INFO("Sending %lu bytes to decrypt using key %04x", ulEncryptedDataLen,
+           session->operation.op.decrypt.key_id);
 
-    rv = apply_decrypt_mechanism_update(&session->operation, pEncryptedData,
-                                        ulEncryptedDataLen);
-    if (rv != CKR_OK) {
-      DBG_ERR("Unable to perform decrypt operation step");
-      goto c_d_out;
-    }
-
-    rv = apply_decrypt_mechanism_finalize(&session->operation);
-    if (rv != CKR_OK) {
-      DBG_ERR("Unable to finalize decrypt operation");
-      goto c_d_out;
-    }
+  rv = apply_decrypt_mechanism_update(&session->operation, pEncryptedData,
+                                      ulEncryptedDataLen);
+  if (rv != CKR_OK) {
+    DBG_ERR("Unable to perform decrypt operation step");
+    goto c_d_out;
   }
 
-  DBG_INFO("Using key %04x", session->operation.op.decrypt.key_id);
-
-  rv = perform_decrypt(session->slot->device_session, &session->operation,
-                       pData, (uint16_t *) pulDataLen);
+  rv = apply_decrypt_mechanism_finalize(session->slot->device_session,
+                                        &session->operation, pData, pulDataLen);
   if (rv != CKR_OK) {
     DBG_ERR("Unable to decrypt data");
     if (rv == CKR_BUFFER_TOO_SMALL) {
@@ -3079,6 +3069,9 @@ c_d_out:
       session->operation.type = OPERATION_NOOP;
       decrypt_mechanism_cleanup(&session->operation);
     }
+
+    // Reset the internal buffer.
+    session->operation.buffer_length = 0;
   }
 
   return rv;
@@ -3213,17 +3206,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptFinal)
     goto c_df_out;
   }
 
-  // if it's already finalized, skip to perform
-  if (session->operation.op.decrypt.finalized == false) {
-    rv = apply_decrypt_mechanism_finalize(&session->operation);
-    if (rv != CKR_OK) {
-      DBG_ERR("Unable to finalize decryption operation");
-      goto c_df_out;
-    }
-  }
-
-  rv = perform_decrypt(session->slot->device_session, &session->operation,
-                       pLastPart, (uint16_t *) pulLastPartLen);
+  rv = apply_decrypt_mechanism_finalize(session->slot->device_session,
+                                        &session->operation, pLastPart,
+                                        pulLastPartLen);
   if (rv != CKR_OK) {
     DBG_ERR("Unable to decrypt data");
     if (rv == CKR_BUFFER_TOO_SMALL) {
