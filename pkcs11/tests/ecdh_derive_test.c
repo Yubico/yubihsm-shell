@@ -383,7 +383,8 @@ static bool test_ecdh_value(const char *curve, CK_OBJECT_HANDLE yh_privkey,
   }
 
   bool equal = true;
-  for (unsigned int i = 0; i < ecdh_openssl_len; i++) {
+  unsigned int i;
+  for (i = 0; i < ecdh_openssl_len; i++) {
     if (ecdh1_bytes[i] != ecdh_openssl[i]) {
       equal = false;
       break;
@@ -442,7 +443,8 @@ static bool test_duplicate_ecdh(const char *curve, CK_OBJECT_HANDLE yh_privkey,
   }
 
   bool equal = true;
-  for (unsigned int i = 0; i < ecdh1_len; i++) {
+  unsigned int i;
+  for (i = 0; i < ecdh1_len; i++) {
     if (ecdh1_value[i] != ecdh2_value[i]) {
       equal = false;
       break;
@@ -572,8 +574,8 @@ static bool check_attributes_buffer_too_small(CK_OBJECT_HANDLE key_id) {
     fail("Should have returned buffer too small!");
     return false;
   }
-
-  for (CK_ULONG i = 0; i < attribute_count; ++i) {
+  CK_ULONG i;
+  for (i = 0; i < attribute_count; ++i) {
     if (template[i].ulValueLen != CK_UNAVAILABLE_INFORMATION) {
       fail("ulValueLen should be CK_UNAVAILABLE_INFORMATION.");
       return false;
@@ -772,7 +774,8 @@ static bool find(CK_ATTRIBUTE template[], CK_ULONG attribute_count,
         ret = false;
       } else {
         int found = 0;
-        for (size_t i = 0; i < total_objects_found; i++) {
+        size_t i;
+        for (i = 0; i < total_objects_found; i++) {
           if (found_objects[i] == *ecdh1 || found_objects[i] == *ecdh2 ||
               found_objects[i] == *ecdh3) {
             found++;
@@ -936,8 +939,8 @@ int main(int argc, char **argv) {
   int exit_status = EXIT_SUCCESS;
 
   CK_OBJECT_HANDLE yh_pubkey, yh_privkey;
-
-  for (int i = 0; i < CURVE_COUNT; i++) {
+  int i;
+  for ( i = 0; i < CURVE_COUNT; i++) {
 
     printf("\n/////// Testing curve %s\n", CURVES[i]);
 

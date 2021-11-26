@@ -91,7 +91,8 @@ int main(void) {
   assert(yrc == YHR_SUCCESS);
 
   printf("HMAC of data (%zu bytes) is:", hmac_data_len);
-  for (size_t i = 0; i < hmac_data_len; i++) {
+  size_t i;
+  for (i = 0; i < hmac_data_len; i++) {
     printf(" %02x", hmac_data[i]);
   }
   printf("\n");

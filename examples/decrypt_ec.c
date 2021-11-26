@@ -93,7 +93,8 @@ int main(void) {
   assert(yrc == YHR_SUCCESS);
 
   printf("Public key (%zd bytes) is:", public_key_len);
-  for (size_t i = 0; i < public_key_len; i++) {
+  size_t i;
+  for (i = 0; i < public_key_len; i++) {
     printf(" %02x", public_key[i]);
   }
   printf("\n");

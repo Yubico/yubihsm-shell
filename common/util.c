@@ -371,7 +371,8 @@ cleanup:
 
 void format_digest(uint8_t *digest, char *str, uint16_t len) {
 
-  for (uint32_t i = 0; i < len; i++) {
+  uint32_t i;
+  for (i = 0; i < len; i++) {
     sprintf(str + (2 * i), "%02x", digest[i]);
   }
 
@@ -611,7 +612,8 @@ bool write_file(const uint8_t *buf, size_t buf_len, FILE *fp, format_t format) {
     if (data == NULL) {
       return false;
     }
-    for (size_t i = 0; i < buf_len; i++) {
+    size_t i;
+    for (i = 0; i < buf_len; i++) {
       sprintf((char *) data + i * 2, "%02x", buf[i]);
     }
     p = data;
@@ -732,7 +734,8 @@ bool split_hmac_key(yh_algorithm algorithm, uint8_t *in, size_t in_len,
 
   memcpy(key, in, in_len);
 
-  for (uint8_t i = 0; i < block_size; i++) {
+  uint8_t i;
+  for (i = 0; i < block_size; i++) {
     out[i] = key[i] ^ 0x36;
     out[i + block_size] = key[i] ^ 0x5c;
   }

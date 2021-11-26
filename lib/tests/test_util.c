@@ -48,7 +48,8 @@ static void test_status(void) {
      {NULL, NULL, NULL, NULL, NULL, true, 2, 0, 0, "", 0, 0}},
   };
 
-  for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
+  size_t i;
+  for (i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
     yh_connector c = {NULL, NULL, NULL, NULL, NULL, false, 0, 0, 0, "", 0, 0};
     char *data = strdup(tests[i].data);
 

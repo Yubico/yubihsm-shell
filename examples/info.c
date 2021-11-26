@@ -80,7 +80,8 @@ int main(void) {
   printf("Serial: %d\n", serial);
   printf("Log: %d/%d (used/total)\n", log_used, log_total);
   printf("Supported algorithms:\n");
-  for (size_t i = 0; i < n_algorithms; i++) {
+  size_t i;
+  for (i = 0; i < n_algorithms; i++) {
     const char *str;
     yh_algo_to_string(algorithms[i], &str);
     printf("%s\n", str);

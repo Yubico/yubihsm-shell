@@ -62,7 +62,8 @@ static void test_pbkdf2_vectors(void) {
      16},
   };
 
-  for (size_t i = 0; i < sizeof(vectors) / sizeof(vectors[0]); i++) {
+  size_t i;
+  for (i = 0; i < sizeof(vectors) / sizeof(vectors[0]); i++) {
     uint8_t key[256];
     bool res = pkcs5_pbkdf2_hmac(vectors[i].password, vectors[i].password_len,
                                  vectors[i].salt, vectors[i].salt_len,

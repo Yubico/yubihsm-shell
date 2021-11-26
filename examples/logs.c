@@ -95,7 +95,8 @@ int main(void) {
 
   printf("Performing some operations\n");
 
-  for (uint16_t i = 0; i < N_OPERATIONS; i++) {
+  uint16_t  i;
+  for (i = 0; i < N_OPERATIONS; i++) {
     yh_object_descriptor descriptor;
     yrc = yh_util_get_object_info(session, authkey, YH_AUTHENTICATION_KEY,
                                   &descriptor);
@@ -125,7 +126,7 @@ int main(void) {
     fprintf(stdout, "Found %zu items\n", n_items);
   }
 
-  for (uint16_t i = 0; i < n_items; i++) {
+  for (i = 0; i < n_items; i++) {
     format_digest(logs[i].digest, digest_buf, YH_LOG_DIGEST_SIZE);
     fprintf(stdout,
             "item: %5u -- cmd: 0x%02x -- length: %4u -- session key: "
@@ -158,9 +159,10 @@ int main(void) {
 
   assert(option_len % 2 == 0);
   bool option_found = false;
-  for (size_t i = 0; i < option_len; i += 2) {
-    if (option[i] == YHC_SET_OPTION) {
-      assert(option[i + 1] == 0);
+  size_t j;
+  for (j = 0; j < option_len; j += 2) {
+    if (option[j] == YHC_SET_OPTION) {
+      assert(option[j + 1] == 0);
       option_found = true;
       break;
     }
@@ -181,9 +183,9 @@ int main(void) {
 
   assert(option_len % 2 == 0);
   option_found = false;
-  for (size_t i = 0; i < option_len; i += 2) {
-    if (option[i] == YHC_SET_OPTION) {
-      assert(option[i + 1] == 1);
+  for (j = 0; j < option_len; j += 2) {
+    if (option[j] == YHC_SET_OPTION) {
+      assert(option[j + 1] == 1);
       option_found = true;
       break;
     }

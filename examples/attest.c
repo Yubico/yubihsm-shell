@@ -98,8 +98,8 @@ static void print_extension(X509_EXTENSION *extension) {
   } else {
     printf("Unknown:");
   }
-
-  for (unsigned int i = 0; i < value_len; i++) {
+  unsigned int i;
+  for (i = 0; i < value_len; i++) {
     printf(" %02x", value[i]);
   }
   printf("\n");
@@ -253,7 +253,8 @@ int main(void) {
   const STACK_OF(X509_EXTENSION) *extensions_list = X509_get0_extensions(x509);
   assert(sk_X509_EXTENSION_num(extensions_list) >= 6);
 
-  for (int i = 0; i < sk_X509_EXTENSION_num(extensions_list); i++) {
+  int i;
+  for (i = 0; i < sk_X509_EXTENSION_num(extensions_list); i++) {
     X509_EXTENSION *extension = sk_X509_EXTENSION_value(extensions_list, i);
     print_extension(extension);
   }
@@ -284,7 +285,7 @@ int main(void) {
   extensions_list = X509_get0_extensions(x509);
   assert(sk_X509_EXTENSION_num(extensions_list) >= 6);
 
-  for (int i = 0; i < sk_X509_EXTENSION_num(extensions_list); i++) {
+  for (i = 0; i < sk_X509_EXTENSION_num(extensions_list); i++) {
     X509_EXTENSION *extension = sk_X509_EXTENSION_value(extensions_list, i);
     print_extension(extension);
   }
@@ -316,7 +317,7 @@ int main(void) {
   extensions_list = X509_get0_extensions(x509);
   assert(sk_X509_EXTENSION_num(extensions_list) >= 6);
 
-  for (int i = 0; i < sk_X509_EXTENSION_num(extensions_list); i++) {
+  for (i = 0; i < sk_X509_EXTENSION_num(extensions_list); i++) {
     X509_EXTENSION *extension = sk_X509_EXTENSION_value(extensions_list, i);
     print_extension(extension);
   }

@@ -70,7 +70,8 @@ static const uint8_t oid_brainpool512r1[] = {ASN1_OID, 0x09, 0x2b, 0x24,
 
 static void add_mech(CK_MECHANISM_TYPE *buf, CK_ULONG_PTR count,
                      CK_MECHANISM_TYPE item) {
-  for (CK_ULONG i = 0; i < *count; i++) {
+  CK_ULONG i;
+  for (i = 0; i < *count; i++) {
     if (buf[i] == item) {
       return;
     }
@@ -97,7 +98,8 @@ CK_RV get_mechanism_list(yubihsm_pkcs11_slot *slot,
   // than what we might add below.
   CK_ULONG items = 0;
 
-  for (size_t i = 0; i < slot->n_algorithms; i++) {
+  size_t i;
+  for (i = 0; i < slot->n_algorithms; i++) {
     switch (slot->algorithms[i]) {
       case YH_ALGO_RSA_PKCS1_SHA1:
         add_mech(buffer, &items, CKM_RSA_PKCS);
@@ -247,8 +249,8 @@ static void find_minmax_rsa_key_length_in_bits(yh_algorithm *algorithms,
 
   *min = 0;
   *max = 0;
-
-  for (size_t i = 0; i < n_algorithms; i++) {
+  size_t i;
+  for (i = 0; i < n_algorithms; i++) {
     CK_ULONG size;
 
     switch (algorithms[i]) {
@@ -282,8 +284,8 @@ static void find_minmax_ec_key_length_in_bits(yh_algorithm *algorithms,
 
   *min = 0;
   *max = 0;
-
-  for (size_t i = 0; i < n_algorithms; i++) {
+  size_t i;
+  for (i = 0; i < n_algorithms; i++) {
     CK_ULONG size;
     switch (algorithms[i]) {
       case YH_ALGO_EC_P224:
@@ -1521,8 +1523,8 @@ void delete_object_from_cache(yubihsm_pkcs11_object_desc *objects,
   uint16_t id = objHandle & 0xffff;
   uint8_t type = objHandle >> 16;
   uint8_t sequence = objHandle >> 24;
-
-  for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
+  uint16_t i;
+  for (i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
     if (objects[i].object.id == id &&
         (objects[i].object.type & 0x7f) == (type & 0x7f) &&
         objects[i].object.sequence == sequence) {
@@ -1540,8 +1542,8 @@ yubihsm_pkcs11_object_desc *get_object_desc(yh_session *session,
   uint16_t id = objHandle & 0xffff;
   uint8_t type = objHandle >> 16;
   uint8_t sequence = objHandle >> 24;
-
-  for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
+  uint16_t i;
+  for (i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
     if (objects[i].object.id == id &&
         (objects[i].object.type & 0x7f) == (type & 0x7f) &&
         objects[i].object.sequence == sequence) {
@@ -1554,7 +1556,7 @@ yubihsm_pkcs11_object_desc *get_object_desc(yh_session *session,
     uint16_t low;
     struct timeval *low_time = NULL;
 
-    for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
+    for (i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
       if (objects[i].tv.tv_sec == 0) {
         low = i;
         low_time = &objects[i].tv;
@@ -1606,8 +1608,8 @@ bool check_sign_mechanism(yubihsm_pkcs11_slot *slot,
   if (get_mechanism_list(slot, mechanisms, &count) != CKR_OK) {
     return false;
   }
-
-  for (CK_ULONG i = 0; i < count; i++) {
+  CK_ULONG i;
+  for (i = 0; i < count; i++) {
     if (pMechanism->mechanism == mechanisms[i]) {
       return true;
     }
@@ -1630,8 +1632,8 @@ bool check_decrypt_mechanism(yubihsm_pkcs11_slot *slot,
   if (get_mechanism_list(slot, mechanisms, &count) != CKR_OK) {
     return false;
   }
-
-  for (CK_ULONG i = 0; i < count; i++) {
+  CK_ULONG i;
+  for (i = 0; i < count; i++) {
     if (pMechanism->mechanism == mechanisms[i]) {
       return true;
     }
@@ -1668,8 +1670,8 @@ bool check_wrap_mechanism(yubihsm_pkcs11_slot *slot,
   if (get_mechanism_list(slot, mechanisms, &count) != CKR_OK) {
     return false;
   }
-
-  for (CK_ULONG i = 0; i < count; i++) {
+  CK_ULONG i;
+  for (i = 0; i < count; i++) {
     if (pMechanism->mechanism == mechanisms[i]) {
       return true;
     }
@@ -3118,8 +3120,8 @@ void set_native_locking(yubihsm_pkcs11_context *ctx) {
 bool add_connectors(yubihsm_pkcs11_context *ctx, int n_connectors,
                     char **connector_names, yh_connector **connectors) {
   list_create(&ctx->slots, sizeof(yubihsm_pkcs11_slot), free_pkcs11_slot);
-
-  for (int i = 0; i < n_connectors; i++) {
+  int i;
+  for (i = 0; i < n_connectors; i++) {
     yubihsm_pkcs11_slot slot;
     memset(&slot, 0, sizeof(yubihsm_pkcs11_slot));
     slot.id = i;
@@ -3171,8 +3173,8 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
   uint8_t *e = NULL;
   uint16_t primelen = 0;
   CK_RV rv;
-
-  for (CK_ULONG i = 0; i < ulCount; i++) {
+  CK_ULONG i;
+  for (i = 0; i < ulCount; i++) {
     switch (pTemplate[i].type) {
 
       case CKA_PRIME_1:
@@ -3345,8 +3347,8 @@ CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
   uint8_t *ecparams = NULL;
   uint16_t ecparams_len = 0;
   CK_RV rv;
-
-  for (CK_ULONG i = 0; i < ulCount; i++) {
+  CK_ULONG i;
+  for (i = 0; i < ulCount; i++) {
     switch (pTemplate[i].type) {
 
       case CKA_VALUE:
@@ -3423,7 +3425,8 @@ CK_RV parse_hmac_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
 
   CK_RV rv;
 
-  for (CK_ULONG i = 0; i < ulCount; i++) {
+  CK_ULONG i;
+  for (i = 0; i < ulCount; i++) {
     switch (pTemplate[i].type) {
 
       case CKA_VALUE:
@@ -3504,8 +3507,8 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
   CK_RV rv;
 
   memset(template->label, 0, sizeof(template->label));
-
-  for (CK_ULONG i = 0; i < ulPublicKeyAttributeCount; i++) {
+  CK_ULONG i;
+  for (i = 0; i < ulPublicKeyAttributeCount; i++) {
     switch (pPublicKeyTemplate[i].type) {
       case CKA_CLASS:
         if (*((CK_ULONG_PTR) pPublicKeyTemplate[i].pValue) != CKO_PUBLIC_KEY) {
@@ -3624,7 +3627,7 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
     }
   }
 
-  for (CK_ULONG i = 0; i < ulPrivateKeyAttributeCount; i++) {
+  for (i = 0; i < ulPrivateKeyAttributeCount; i++) {
     switch (pPrivateKeyTemplate[i].type) {
       case CKA_CLASS:
         if (*((CK_ULONG_PTR) pPrivateKeyTemplate[i].pValue) !=
@@ -3772,8 +3775,8 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
   CK_RV rv;
 
   memset(template->label, 0, sizeof(template->label));
-
-  for (CK_ULONG i = 0; i < ulPublicKeyAttributeCount; i++) {
+  CK_ULONG i;
+  for (i = 0; i < ulPublicKeyAttributeCount; i++) {
     switch (pPublicKeyTemplate[i].type) {
       case CKA_CLASS:
         if (*((CK_ULONG_PTR) pPublicKeyTemplate[i].pValue) != CKO_PUBLIC_KEY) {
@@ -3865,7 +3868,7 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
     }
   }
 
-  for (CK_ULONG i = 0; i < ulPrivateKeyAttributeCount; i++) {
+  for (i = 0; i < ulPrivateKeyAttributeCount; i++) {
     switch (pPrivateKeyTemplate[i].type) {
       case CKA_CLASS:
         if (*((CK_ULONG_PTR) pPrivateKeyTemplate[i].pValue) !=
@@ -3998,8 +4001,8 @@ CK_RV parse_wrap_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
                           bool generate) {
 
   CK_RV rv;
-
-  for (CK_ULONG i = 0; i < ulCount; i++) {
+  CK_ULONG i;
+  for (i = 0; i < ulCount; i++) {
     switch (pTemplate[i].type) {
 
       case CKA_VALUE:
@@ -4069,8 +4072,8 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
 
   CK_RV rv = CKR_OK;
   CK_BYTE tmp[8192];
-
-  for (CK_ULONG i = 0; i < ulCount; i++) {
+  CK_ULONG i;
+  for (i = 0; i < ulCount; i++) {
     DBG_INFO("Getting attribute 0x%lx", pTemplate[i].type);
     CK_ULONG len = sizeof(tmp);
     CK_RV attribute_rc;

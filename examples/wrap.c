@@ -112,7 +112,8 @@ int main(void) {
   assert(yrc == YHR_SUCCESS);
 
   printf("Public key before (%zu bytes) is:", public_key_before_len);
-  for (unsigned int i = 0; i < public_key_before_len; i++) {
+  unsigned int i;
+  for (i = 0; i < public_key_before_len; i++) {
     printf(" %02x", public_key_before[i]);
   }
   printf("\n");
@@ -126,7 +127,7 @@ int main(void) {
   assert(yrc == YHR_SUCCESS);
 
   printf("Wrapped object (%zu bytes) is:", wrapped_object_len);
-  for (unsigned int i = 0; i < wrapped_object_len; i++) {
+  for (i = 0; i < wrapped_object_len; i++) {
     printf(" %02x", wrapped_object[i]);
   }
   printf("\n");
@@ -169,7 +170,7 @@ int main(void) {
   assert(yrc == YHR_SUCCESS);
 
   printf("Public key after (%zu bytes) is:", public_key_after_len);
-  for (unsigned int i = 0; i < public_key_after_len; i++) {
+  for (i = 0; i < public_key_after_len; i++) {
     printf(" %02x", public_key_after[i]);
   }
   printf("\n");

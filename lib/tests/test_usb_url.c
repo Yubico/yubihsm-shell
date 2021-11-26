@@ -44,7 +44,8 @@ static void test_urls(void) {
     {"yhusb://serial=", 0, false},
   };
 
-  for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
+  size_t i;
+  for (i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
     unsigned long serial = 0;
     assert(parse_usb_url(tests[i].string, &serial) == tests[i].ret);
     if (tests[i].ret) {
