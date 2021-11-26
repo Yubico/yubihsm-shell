@@ -2548,28 +2548,47 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
     goto c_e_out;
   }
 
-  if (session->operation.mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
-    CK_ULONG datalen = YH_CCM_WRAP_OVERHEAD + ulDataLen;
-    DBG_INFO("The size of the data will be %lu", datalen);
-
-    if (pEncryptedData == NULL) {
-      // NOTE: if data is NULL, just return size we'll need
-      *pulEncryptedDataLen = datalen;
-      rv = CKR_OK;
-      terminate = false;
-
+  // Calculate exact output size
+  CK_ULONG datalen = 0;
+  switch (session->operation.mechanism.mechanism) {
+    case CKM_RSA_PKCS:
+    case CKM_RSA_PKCS_OAEP:
+      datalen = (session->operation.op.encrypt.key_len + 7) / 8;
+      break;
+    case CKM_YUBICO_AES_CCM_WRAP:
+      if (ULONG_MAX - YH_CCM_WRAP_OVERHEAD < ulDataLen) {
+        rv = CKR_DATA_LEN_RANGE;
+        goto c_e_out;
+      }
+      datalen = YH_CCM_WRAP_OVERHEAD + ulDataLen;
+      break;
+    default:
+      DBG_ERR("Mechanism %lu not supported",
+              session->operation.mechanism.mechanism);
+      rv = CKR_MECHANISM_INVALID;
       goto c_e_out;
-    }
+  }
 
-    if (*pulEncryptedDataLen < datalen) {
-      DBG_ERR("pulEncryptedDataLen too small, expected = %lu, got %lu)",
-              datalen, *pulEncryptedDataLen);
-      rv = CKR_BUFFER_TOO_SMALL;
-      *pulEncryptedDataLen = datalen;
-      terminate = false;
+  DBG_INFO("Approximated output size is %lu", datalen);
 
-      goto c_e_out;
-    }
+  if (pEncryptedData == NULL) {
+    // NOTE: if data is NULL just return size we'll need
+    *pulEncryptedDataLen = datalen;
+    rv = CKR_OK;
+    terminate = false;
+
+    goto c_e_out;
+  }
+
+  // Output size is accurately calculated above, we can stop here.
+  if (*pulEncryptedDataLen < datalen) {
+    DBG_ERR("pulEncryptedDataLen too small, expected = %lu, got %lu", datalen,
+            *pulEncryptedDataLen);
+    rv = CKR_BUFFER_TOO_SMALL;
+    *pulEncryptedDataLen = datalen;
+    terminate = false;
+
+    goto c_e_out;
   }
 
   if (pEncryptedData) {
@@ -2974,29 +2993,32 @@ CK_DEFINE_FUNCTION(CK_RV, C_Decrypt)
     goto c_d_out;
   }
 
-  // NOTE: datalen is just an approximation here since the data is encrypted
+  // Approximate output size
   CK_ULONG datalen = 0;
-  if (session->operation.mechanism.mechanism == CKM_RSA_PKCS) {
-    datalen = (session->operation.op.decrypt.key_len + 7) / 8 - 11;
-  } else if (session->operation.mechanism.mechanism == CKM_RSA_PKCS_OAEP) {
-    datalen = (session->operation.op.decrypt.key_len + 7) / 8 -
-              session->operation.mechanism.oaep.label_len * 2 - 2;
-  } else if (session->operation.mechanism.mechanism ==
-             CKM_YUBICO_AES_CCM_WRAP) {
-    if (ulEncryptedDataLen <= YH_CCM_WRAP_OVERHEAD) {
-      DBG_ERR("Encrypted data is to short to possibly come from aes-ccm-wrap");
-      rv = CKR_ENCRYPTED_DATA_INVALID;
+  switch (session->operation.mechanism.mechanism) {
+    case CKM_RSA_PKCS:
+      datalen = (session->operation.op.decrypt.key_len + 7) / 8 - 11;
+      break;
+    case CKM_RSA_PKCS_OAEP:
+      datalen = (session->operation.op.decrypt.key_len + 7) / 8 -
+                session->operation.mechanism.oaep.label_len * 2 - 2;
+      break;
+    case CKM_YUBICO_AES_CCM_WRAP:
+      if (ulEncryptedDataLen <= YH_CCM_WRAP_OVERHEAD) {
+        DBG_ERR("Encrypted data is too short for AES-CCM-WRAP");
+        rv = CKR_ENCRYPTED_DATA_INVALID;
+        goto c_d_out;
+      }
+      datalen = ulEncryptedDataLen - YH_CCM_WRAP_OVERHEAD;
+      break;
+    default:
+      DBG_ERR("Mechanism %lu not supported",
+              session->operation.mechanism.mechanism);
+      rv = CKR_MECHANISM_INVALID;
       goto c_d_out;
-    }
-    datalen = ulEncryptedDataLen - YH_CCM_WRAP_OVERHEAD;
-  } else {
-    DBG_ERR("Mechanism %lu not supported",
-            session->operation.mechanism.mechanism);
-    rv = CKR_MECHANISM_INVALID;
-    goto c_d_out;
   }
 
-  DBG_INFO("The size of the data will be %lu", datalen);
+  DBG_INFO("Approximated output size is %lu", datalen);
 
   if (pData == NULL) {
     // NOTE(adma): Just return the size of the data
