@@ -2385,24 +2385,23 @@ CK_RV apply_decrypt_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
   return CKR_OK;
 }
 
-CK_RV apply_encrypt_mechanism_finalize(yubihsm_pkcs11_session *session,
+CK_RV apply_encrypt_mechanism_finalize(yh_session *session,
+                                       yubihsm_pkcs11_op_info *op_info,
                                        CK_BYTE_PTR pEncryptedData,
                                        CK_ULONG_PTR pulEncryptedDataLen) {
 
   CK_RV rv = CKR_MECHANISM_INVALID;
-  if (session->operation.mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
-    rv =
-      perform_wrap_encrypt(session->slot->device_session, &session->operation,
-                           pEncryptedData, (uint16_t *) pulEncryptedDataLen);
+  if (op_info->mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
+    rv = perform_wrap_encrypt(session, op_info, pEncryptedData,
+                              (uint16_t *) pulEncryptedDataLen);
     if (rv != CKR_OK) {
       DBG_ERR("Unable to AES wrap data");
     }
-  } else if (session->operation.mechanism.mechanism == CKM_RSA_PKCS ||
-             session->operation.mechanism.mechanism == CKM_RSA_PKCS_OAEP) {
+  } else if (op_info->mechanism.mechanism == CKM_RSA_PKCS ||
+             op_info->mechanism.mechanism == CKM_RSA_PKCS_OAEP) {
 
-    rv = perform_rsa_encrypt(session->slot->device_session, &session->operation,
-                             session->operation.buffer,
-                             session->operation.buffer_length, pEncryptedData,
+    rv = perform_rsa_encrypt(session, op_info, op_info->buffer,
+                             op_info->buffer_length, pEncryptedData,
                              pulEncryptedDataLen);
     if (rv != CKR_OK) {
       DBG_ERR("Unable to RSA encrypt data");

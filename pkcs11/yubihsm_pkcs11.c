@@ -2599,7 +2599,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
     }
   }
 
-  rv = apply_encrypt_mechanism_finalize(session, pEncryptedData,
+  rv = apply_encrypt_mechanism_finalize(session->slot->device_session,
+                                        &session->operation, pEncryptedData,
                                         pulEncryptedDataLen);
   if (rv == CKR_BUFFER_TOO_SMALL || (rv == CKR_OK && pEncryptedData == NULL)) {
     terminate = false;
@@ -2739,7 +2740,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptFinal)
     }
   }
 
-  rv = apply_encrypt_mechanism_finalize(session, pLastEncryptedPart,
+  rv = apply_encrypt_mechanism_finalize(session->slot->device_session,
+                                        &session->operation, pLastEncryptedPart,
                                         pulLastEncryptedPartLen);
   if (rv == CKR_BUFFER_TOO_SMALL ||
       (rv == CKR_OK && pLastEncryptedPart == NULL)) {

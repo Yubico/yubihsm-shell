@@ -70,7 +70,8 @@ void decrypt_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info);
 CK_RV apply_encrypt_mechanism_init(yubihsm_pkcs11_session *session,
                                    CK_MECHANISM_PTR pMechanism,
                                    CK_OBJECT_HANDLE hKey);
-CK_RV apply_encrypt_mechanism_finalize(yubihsm_pkcs11_session *session,
+CK_RV apply_encrypt_mechanism_finalize(yh_session *session,
+                                       yubihsm_pkcs11_op_info *op_info,
                                        CK_BYTE_PTR pEncryptedData,
                                        CK_ULONG_PTR pulEncryptedDataLen);
 CK_RV perform_wrap_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
