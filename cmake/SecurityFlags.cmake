@@ -1,5 +1,7 @@
 include(CheckCCompilerFlag)
-include(CheckLinkerFlag)
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    include(CheckLinkerFlag)
+endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -8,8 +10,10 @@ if (CMAKE_C_COMPILER_ID STREQUAL "Clang" OR
     CMAKE_C_COMPILER_ID STREQUAL "GNU")
 
     check_c_compiler_flag("-fstack-protector-all" HAVE_STACK_PROTECTOR_ALL)
-    check_linker_flag(C "-Wl,-z,relro,-z,now" HAVE_RELRO)
-    check_linker_flag(C "-Wl,-z,noexecstack" HAVE_NOEXECSTACK)
+    if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+        check_linker_flag(C "-Wl,-z,relro,-z,now" HAVE_RELRO)
+        check_linker_flag(C "-Wl,-z,noexecstack" HAVE_NOEXECSTACK)
+    endif()
 
     add_compile_options (-Wall -Wextra -Werror)
     add_compile_options (-Wformat -Wformat-nonliteral -Wformat-security)

@@ -198,7 +198,7 @@ string(REPLACE ";" ":" SKIPPED_TESTS_STR "${SKIPPED_TESTS}")
 if (DEFINED ENV{PKCS11TEST_PATH})
   if (NOT EXISTS $ENV{PKCS11TEST_PATH}/pkcs11test)
     message(FATAL_ERROR "PKCS11TEST_PATH defined, but $ENV{PKCS11TEST_PATH}/pkcs11test doesn't exist")
-    endif ()
+  endif ()
 else ()
   message(WARNING "PKCS11TEST_PATH not defined, assuming that pkcs11test is in PATH")
 endif ()
@@ -258,16 +258,18 @@ add_test (
   COMMAND ${CMAKE_CURRENT_BINARY_DIR}/ecdh_derive_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
   )
 
-add_executable (rsa_enc_test ${SOURCE_RSA_ENC_TEST})
+if (NOT ${LIBCRYPTO_VERSION} VERSION_LESS 1.1)
+  add_executable (rsa_enc_test ${SOURCE_RSA_ENC_TEST})
 
-target_link_libraries (
-        rsa_enc_test
-        ${LIBCRYPTO_LDFLAGS}
-        "-ldl")
+  target_link_libraries (
+          rsa_enc_test
+          ${LIBCRYPTO_LDFLAGS}
+          "-ldl")
 
-add_test (
-        NAME rsa_enc_test
-        COMMAND ${CMAKE_CURRENT_BINARY_DIR}/rsa_enc_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
-)
+  add_test (
+          NAME rsa_enc_test
+          COMMAND ${CMAKE_CURRENT_BINARY_DIR}/rsa_enc_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
+  )
+endif(LIBCRYPTO_VERSION VERSION_GREATER_EQUAL 1.1)
 
-endif()
+endif(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
