@@ -2264,20 +2264,39 @@ CK_RV apply_verify_mechanism_update(yubihsm_pkcs11_op_info *op_info,
   return CKR_OK;
 }
 
-CK_RV apply_decrypt_mechanism_update(yubihsm_pkcs11_op_info *op_info,
-                                     CK_BYTE_PTR in, CK_ULONG in_len) {
+static CK_RV op_info_buffer_append(yubihsm_pkcs11_op_info *op_info,
+                                   CK_BYTE_PTR ptr, CK_ULONG len) {
+  if (op_info->buffer_length > sizeof(op_info->buffer) ||
+      sizeof(op_info->buffer) - op_info->buffer_length < len) {
+    return CKR_DATA_LEN_RANGE;
+  }
+
+  memcpy(op_info->buffer + op_info->buffer_length, ptr, len);
+  op_info->buffer_length += len;
+
+  return CKR_OK;
+}
+
+CK_RV apply_decrypt_mechanism_update(yh_session *session,
+                                     yubihsm_pkcs11_op_info *op_info,
+                                     CK_BYTE_PTR pEncryptedPart,
+                                     CK_ULONG ulEncryptedPartLen,
+                                     CK_BYTE_PTR pPart,
+                                     CK_ULONG_PTR pulPartLen) {
+  UNUSED(session);
+  UNUSED(pPart);
 
   switch (op_info->mechanism.mechanism) {
     case CKM_RSA_PKCS:
     case CKM_RSA_PKCS_OAEP:
     case CKM_YUBICO_AES_CCM_WRAP:
-      if (op_info->buffer_length + in_len > sizeof(op_info->buffer)) {
-        return CKR_DATA_LEN_RANGE;
-      }
+      *pulPartLen = 0;
+      // Only append to the buffer if the user has provided an output
+      // buffer. Otherwise, they're just querying the output size.
+      return pPart ? op_info_buffer_append(op_info, pEncryptedPart,
+                                           ulEncryptedPartLen)
+                   : CKR_OK;
 
-      memcpy(op_info->buffer + op_info->buffer_length, in, in_len);
-      op_info->buffer_length += in_len;
-      break;
 
     default:
       return CKR_FUNCTION_FAILED;
@@ -2415,6 +2434,7 @@ CK_RV apply_decrypt_mechanism_finalize(yh_session *session,
     return CKR_BUFFER_TOO_SMALL;
   }
 
+  *pulDataLen = outlen;
   return CKR_OK;
 }
 

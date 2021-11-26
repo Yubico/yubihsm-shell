@@ -60,8 +60,12 @@ void verify_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info);
 CK_RV check_decrypt_mechanism(yubihsm_pkcs11_slot *slot,
                               CK_MECHANISM_PTR pMechanism);
 CK_RV apply_decrypt_mechanism_init(yubihsm_pkcs11_op_info *op_info);
-CK_RV apply_decrypt_mechanism_update(yubihsm_pkcs11_op_info *op_info,
-                                     CK_BYTE_PTR in, CK_ULONG in_len);
+CK_RV apply_decrypt_mechanism_update(yh_session *session,
+                                     yubihsm_pkcs11_op_info *op_info,
+                                     CK_BYTE_PTR pEncryptedPart,
+                                     CK_ULONG ulEncryptedPartLen,
+                                     CK_BYTE_PTR pPart,
+                                     CK_ULONG_PTR pulPartLen);
 CK_RV apply_decrypt_mechanism_finalize(yh_session *session,
                                        yubihsm_pkcs11_op_info *op_info,
                                        CK_BYTE_PTR pData,

@@ -2591,24 +2591,37 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
     goto c_e_out;
   }
 
-  if (pEncryptedData) {
-    rv = apply_decrypt_mechanism_update(&session->operation, pData, ulDataLen);
-    if (rv != CKR_OK) {
-      DBG_ERR("Unable to perform encrypt operation step");
-      return rv;
-    }
-  }
-
-  rv = apply_encrypt_mechanism_finalize(session->slot->device_session,
-                                        &session->operation, pEncryptedData,
-                                        pulEncryptedDataLen);
-  if (rv == CKR_BUFFER_TOO_SMALL || (rv == CKR_OK && pEncryptedData == NULL)) {
-    terminate = false;
-    goto c_e_out;
-  } else if (rv != CKR_OK) {
+  // Both update and finalize may modify the output. We'll have to calculate
+  // the completed size ourselves by summarizing the two operations.
+  CK_ULONG ulRemainingSize = *pulEncryptedDataLen;
+  CK_BYTE_PTR pPtr = pEncryptedData;
+  rv = apply_decrypt_mechanism_update(session->slot->device_session,
+                                      &session->operation, pData, ulDataLen,
+                                      pPtr, pulEncryptedDataLen);
+  if (rv != CKR_OK) {
+    // Buffer too small should have been handled above.
+    // Translate into a non-recoverable error.
+    rv = rv == CKR_BUFFER_TOO_SMALL ? CKR_FUNCTION_FAILED : rv;
     DBG_ERR("Unable to perform encrypt operation step");
     goto c_e_out;
   }
+
+  ulRemainingSize -= *pulEncryptedDataLen;
+  pPtr += *pulEncryptedDataLen;
+  rv = apply_encrypt_mechanism_finalize(session->slot->device_session,
+                                        &session->operation, pPtr,
+                                        &ulRemainingSize);
+  if (rv != CKR_OK) {
+    // Buffer too small should have been handled above.
+    // Translate into a non-recoverable error.
+    rv = rv == CKR_BUFFER_TOO_SMALL ? CKR_FUNCTION_FAILED : rv;
+    DBG_ERR("Unable to perform encrypt operation step");
+    goto c_e_out;
+  }
+
+  // Calculate final size.
+  *pulEncryptedDataLen += ulRemainingSize;
+  DBG_INFO("Got %lu butes back", *pulEncryptedDataLen);
 
   rv = CKR_OK;
 
@@ -2659,15 +2672,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptUpdate)
 
   DBG_INFO("Encrypt update with %lu bytes", ulPartLen);
 
-  if (pEncryptedPart) {
-    rv = apply_decrypt_mechanism_update(&session->operation, pPart, ulPartLen);
-    if (rv != CKR_OK) {
-      DBG_ERR("Unable to perform encryption operation step");
-      goto c_eu_out;
-    }
+  rv = apply_decrypt_mechanism_update(session->slot->device_session,
+                                      &session->operation, pPart, ulPartLen,
+                                      pEncryptedPart, pulEncryptedPartLen);
+  if (rv != CKR_OK) {
+    DBG_ERR("Unable to perform encryption operation step");
+    goto c_eu_out;
   }
-
-  *pulEncryptedPartLen = 0;
 
   DOUT;
 
@@ -3039,23 +3050,41 @@ CK_DEFINE_FUNCTION(CK_RV, C_Decrypt)
   DBG_INFO("Sending %lu bytes to decrypt using key %04x", ulEncryptedDataLen,
            session->operation.op.decrypt.key_id);
 
-  rv = apply_decrypt_mechanism_update(&session->operation, pEncryptedData,
-                                      ulEncryptedDataLen);
+  CK_ULONG ulRemainingSize = *pulDataLen;
+  CK_BYTE_PTR pPtr = pData;
+  rv = apply_decrypt_mechanism_update(session->slot->device_session,
+                                      &session->operation, pEncryptedData,
+                                      ulEncryptedDataLen, pPtr, pulDataLen);
   if (rv != CKR_OK) {
-    DBG_ERR("Unable to perform decrypt operation step");
+    if (rv == CKR_BUFFER_TOO_SMALL) {
+      // PKCS11 specifications wants this to be the _exact_ size; which we
+      // cannot know until we call apply_decrypt_mechanism_finalize(). We'll
+      // have to use our best guess for what the final length will be.
+      DBG_ERR("Update failed, use best guess for actual output size");
+      *pulDataLen = datalen;
+      terminate = false;
+    } else {
+      DBG_ERR("Unable to perform decrypt update");
+    }
     goto c_d_out;
   }
 
+  ulRemainingSize -= *pulDataLen;
+  pPtr += *pulDataLen;
+
   rv = apply_decrypt_mechanism_finalize(session->slot->device_session,
-                                        &session->operation, pData, pulDataLen);
+                                        &session->operation,
+                                        pPtr, &ulRemainingSize);
   if (rv != CKR_OK) {
     DBG_ERR("Unable to decrypt data");
     if (rv == CKR_BUFFER_TOO_SMALL) {
+      *pulDataLen += ulRemainingSize;
       terminate = false;
     }
     goto c_d_out;
   }
 
+  *pulDataLen += ulRemainingSize;
   DBG_INFO("Got %lu bytes back", *pulDataLen);
 
   rv = CKR_OK;
@@ -3116,17 +3145,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptUpdate)
 
   DBG_INFO("Decrypt update with %lu bytes", ulEncryptedPartLen);
 
-  rv = apply_decrypt_mechanism_update(&session->operation, pEncryptedPart,
-                                      ulEncryptedPartLen);
+  rv = apply_decrypt_mechanism_update(session->slot->device_session,
+                                      &session->operation, pEncryptedPart,
+                                      ulEncryptedPartLen, pPart, pulPartLen);
   if (rv != CKR_OK) {
     DBG_ERR("Unable to perform decryption operation step");
     goto c_du_out;
   }
-
-  // NOTE(adma): we don't really do anything here, just store this current chunk
-  // of data
-  UNUSED(pPart);
-  *pulPartLen = 0;
 
   DOUT;
 
