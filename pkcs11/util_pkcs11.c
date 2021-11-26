@@ -1994,6 +1994,15 @@ CK_RV apply_encrypt_mechanism_init(yubihsm_pkcs11_session *session,
   session->operation.op.encrypt.oaep_label = NULL;
   session->operation.op.encrypt.oaep_md = NULL;
   session->operation.op.encrypt.mgf1_md = NULL;
+  session->operation.op.encrypt.key_len = 0;
+
+  size_t key_length;
+  if (yh_get_key_bitlength(object->object.algorithm, &key_length) !=
+      YHR_SUCCESS) {
+    DBG_ERR("Unable to get key length");
+    return CKR_FUNCTION_FAILED;
+  }
+  session->operation.op.encrypt.key_len = key_length;
 
   if (pMechanism->mechanism == CKM_YUBICO_AES_CCM_WRAP) {
     if (object->object.type != YH_WRAP_KEY) {

@@ -88,6 +88,7 @@ typedef struct {
 
 typedef struct {
   uint16_t key_id;
+  CK_ULONG key_len; // Length in bits
   CK_ULONG padding; // RSA padding, 0 for EC
   const EVP_MD *oaep_md;
   const EVP_MD *mgf1_md;
