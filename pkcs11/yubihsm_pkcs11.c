@@ -1689,7 +1689,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
       DBG_INFO("No ECDH session key with ID %08lx was found", hObject);
     }
   } else {
-    if (((uint8_t)(hObject >> 16)) == YH_PUBLIC_KEY) {
+    if (((uint8_t) (hObject >> 16)) == YH_PUBLIC_KEY) {
       DBG_INFO("Trying to delete public key, returning success with noop");
       goto c_do_out;
     }
@@ -2013,7 +2013,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           break;
 
         case CKA_CLASS: {
-          uint32_t value = *((CK_ULONG_PTR)(pTemplate[i].pValue));
+          uint32_t value = *((CK_ULONG_PTR) (pTemplate[i].pValue));
           switch (value) {
             case CKO_CERTIFICATE:
               DBG_INFO("Filtering for certificate");
@@ -2486,10 +2486,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
     }
   }
 
-  rv = apply_decrypt_mechanism_update(&session->operation, pData, ulDataLen);
-  if (rv != CKR_OK) {
-    DBG_ERR("Unable to perform encrypt operation step");
-    return rv;
+  if (pEncryptedData) {
+    rv = apply_decrypt_mechanism_update(&session->operation, pData, ulDataLen);
+    if (rv != CKR_OK) {
+      DBG_ERR("Unable to perform encrypt operation step");
+      return rv;
+    }
   }
 
   rv = apply_encrypt_mechanism_finalize(session, pEncryptedData,
@@ -2497,7 +2499,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
   if (rv == CKR_BUFFER_TOO_SMALL || (rv == CKR_OK && pEncryptedData == NULL)) {
     terminate = false;
     goto c_e_out;
-  } else {
+  } else if (rv != CKR_OK) {
     DBG_ERR("Unable to perform encrypt operation step");
     goto c_e_out;
   }
@@ -2553,10 +2555,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptUpdate)
 
   DBG_INFO("Encrypt update with %lu bytes", ulPartLen);
 
-  rv = apply_decrypt_mechanism_update(&session->operation, pPart, ulPartLen);
-  if (rv != CKR_OK) {
-    DBG_ERR("Unable to perform encryption operation step");
-    goto c_eu_out;
+  if (pEncryptedPart) {
+    rv = apply_decrypt_mechanism_update(&session->operation, pPart, ulPartLen);
+    if (rv != CKR_OK) {
+      DBG_ERR("Unable to perform encryption operation step");
+      goto c_eu_out;
+    }
   }
 
   UNUSED(pEncryptedPart);
@@ -2633,7 +2637,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptFinal)
       (rv == CKR_OK && pLastEncryptedPart == NULL)) {
     terminate = false;
     goto c_ef_out;
-  } else {
+  } else if (rv != CKR_OK) {
     DBG_ERR("Unable to perform encrypt operation step");
     goto c_ef_out;
   }
@@ -2761,6 +2765,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
           session->operation.mechanism.oaep.mgf1Algo = YH_ALGO_MGF1_SHA512;
           break;
         default:
+          DBG_ERR("Unknown value in parameter mgf");
           rv = CKR_MECHANISM_PARAM_INVALID;
           goto c_di_out;
       };
@@ -2781,6 +2786,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
           md = EVP_sha512();
           break;
         default:
+          DBG_ERR("Unknown value in parameter hashAlg");
           rv = CKR_MECHANISM_PARAM_INVALID;
           goto c_di_out;
       }

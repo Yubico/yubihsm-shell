@@ -2194,19 +2194,14 @@ CK_RV apply_encrypt_mechanism_finalize(yubihsm_pkcs11_session *session,
                                        CK_BYTE_PTR pEncryptedData,
                                        CK_ULONG_PTR pulEncryptedDataLen) {
 
-  CK_RV rv;
+  CK_RV rv = CKR_MECHANISM_INVALID;
   if (session->operation.mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
     rv =
       perform_wrap_encrypt(session->slot->device_session, &session->operation,
                            pEncryptedData, (uint16_t *) pulEncryptedDataLen);
     if (rv != CKR_OK) {
-      DBG_ERR("Unable to encrypt data");
-      return rv;
+      DBG_ERR("Unable to AES wrap data");
     }
-
-    DBG_INFO("Got %lu butes back", *pulEncryptedDataLen);
-
-    return CKR_OK;
   } else if (session->operation.mechanism.mechanism == CKM_RSA_PKCS ||
              session->operation.mechanism.mechanism == CKM_RSA_PKCS_OAEP) {
 
@@ -2216,11 +2211,10 @@ CK_RV apply_encrypt_mechanism_finalize(yubihsm_pkcs11_session *session,
                              pulEncryptedDataLen);
     if (rv != CKR_OK) {
       DBG_ERR("Unable to RSA encrypt data");
-      return rv;
     }
   }
 
-  return CKR_OK;
+  return rv;
 }
 
 CK_RV apply_digest_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
@@ -2619,7 +2613,7 @@ CK_RV perform_rsa_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
                           CK_BYTE_PTR data, CK_ULONG data_len, CK_BYTE_PTR enc,
                           CK_ULONG_PTR enc_len) {
 
-  if (data == NULL || data_len <= 0) {
+  if (data == NULL) {
     DBG_ERR("data is null");
   }
 
@@ -2660,7 +2654,7 @@ CK_RV perform_rsa_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
   }
   RSA_free(rsa);
 
-  DBG_INFO("Successfully retrieved RSA key 0x%4x for encryption",
+  DBG_INFO("Successfully retrieved RSA key 0x%04x for encryption",
            op_info->op.encrypt.key_id);
 
   CK_RV rv;
