@@ -1776,7 +1776,8 @@ CK_RV check_decrypt_mechanism(yubihsm_pkcs11_slot *slot,
   CK_ULONG count = 128;
 
   if (is_RSA_decrypt_mechanism(pMechanism->mechanism) == false &&
-      pMechanism->mechanism != CKM_YUBICO_AES_CCM_WRAP) {
+      pMechanism->mechanism != CKM_YUBICO_AES_CCM_WRAP &&
+      pMechanism->mechanism != CKM_AES_ECB) {
     return CKR_MECHANISM_INVALID;
   }
 
@@ -1967,6 +1968,7 @@ CK_RV apply_decrypt_mechanism_init(yubihsm_pkcs11_op_info *op_info) {
     case CKM_RSA_PKCS:
     case CKM_RSA_PKCS_OAEP:
     case CKM_YUBICO_AES_CCM_WRAP:
+    case CKM_AES_ECB:
       return CKR_OK;
     default:
       DBG_ERR("Mechanism %lu not supported", op_info->mechanism.mechanism);
@@ -2106,6 +2108,15 @@ CK_RV apply_encrypt_mechanism_init(yubihsm_pkcs11_session *session,
     } else {
       session->operation.op.encrypt.oaep_label = NULL;
       session->operation.op.encrypt.oaep_label_len = 0;
+    }
+  } else if (pMechanism->mechanism == CKM_AES_ECB) {
+    if (object->object.type != YH_SYMMETRIC_KEY ||
+        !yh_is_aes(object->object.algorithm)) {
+      DBG_ERR("Wrong key type for algorithm");
+      return CKR_KEY_TYPE_INCONSISTENT;
+    }
+    if (pMechanism->pParameter != NULL || pMechanism->ulParameterLen != 0) {
+      return CKR_MECHANISM_PARAM_INVALID;
     }
   }
   return CKR_OK;
@@ -2277,6 +2288,103 @@ static CK_RV op_info_buffer_append(yubihsm_pkcs11_op_info *op_info,
   return CKR_OK;
 }
 
+static CK_RV do_aes_encdec(yh_session *session, yubihsm_pkcs11_op_info *op_info,
+                           const uint8_t *in, size_t in_len, uint8_t *out,
+                           size_t *out_len) {
+  yh_rc yhr = YHR_GENERIC_ERROR;
+  bool encrypt = op_info->type == OPERATION_ENCRYPT;
+
+  if (in_len < 16) {
+    return CKR_FUNCTION_FAILED;
+  }
+
+  switch (op_info->mechanism.mechanism) {
+    case CKM_AES_ECB:
+      yhr = encrypt
+              ? yh_util_encrypt_aes_ecb(session, op_info->op.encrypt.key_id, in,
+                                        in_len, out, out_len)
+              : yh_util_decrypt_aes_ecb(session, op_info->op.decrypt.key_id, in,
+                                        in_len, out, out_len);
+      break;
+    default:
+      return CKR_FUNCTION_FAILED;
+  }
+
+  return yrc_to_rv(yhr);
+}
+
+static CK_RV perform_aes_update(yh_session *session,
+                                yubihsm_pkcs11_op_info *op_info, CK_BYTE_PTR in,
+                                CK_ULONG in_len, CK_BYTE_PTR out,
+                                CK_ULONG_PTR out_len) {
+  size_t prev = op_info->buffer_length;
+  if (SIZE_MAX - prev < in_len) {
+    return CKR_DATA_LEN_RANGE;
+  }
+  size_t size = prev + in_len;
+  size_t next = size % 16;
+
+  // Block-align the data.
+  size -= next;
+
+  if (out == NULL) {
+    DBG_INFO("User querying output size, returning %zu bytes", size);
+    *out_len = size;
+    return CKR_OK;
+  }
+
+  if (size > *out_len) {
+    DBG_ERR("Provided buffer is too small (%lu < %zu)", *out_len, size);
+    *out_len = size;
+    return CKR_BUFFER_TOO_SMALL;
+  }
+
+  if (!size) {
+    DBG_INFO("Nothing to do for this update, buffering all input");
+    *out_len = 0;
+    return op_info_buffer_append(op_info, in, in_len);
+  }
+
+  // Temporarily store next remainder.
+  uint8_t tmp[16];
+  memcpy(tmp, in + in_len - next, next);
+  // Move input into place (may overlap).
+  memmove(out + prev, in, size - prev);
+  // Move previous remainder into place.
+  memcpy(out, op_info->buffer, prev);
+  // Store the next remainder.
+  memcpy(op_info->buffer, tmp, next);
+  insecure_memzero(tmp, sizeof(tmp));
+  op_info->buffer_length = next;
+
+  CK_RV rv;
+  if ((rv = do_aes_encdec(session, op_info, out, size, out, &size)) != CKR_OK) {
+    DBG_ERR("Failed to encrypt/decrypt data");
+    return rv;
+  }
+
+  DBG_INFO("Returning %lu bytes (buffered %lu bytes)", size, next);
+  *out_len = size;
+
+  return CKR_OK;
+}
+
+static CK_RV perform_aes_final(yh_session *session,
+                               yubihsm_pkcs11_op_info *op_info, CK_BYTE_PTR out,
+                               CK_ULONG_PTR out_len) {
+  UNUSED(session);
+  UNUSED(out);
+
+  if (op_info->buffer_length != 0) {
+    DBG_ERR("Data not a multiple of block size");
+    return op_info->type == OPERATION_ENCRYPT ? CKR_DATA_LEN_RANGE
+                                              : CKR_ENCRYPTED_DATA_LEN_RANGE;
+  }
+
+  *out_len = 0;
+  return CKR_OK;
+}
+
 CK_RV apply_decrypt_mechanism_update(yh_session *session,
                                      yubihsm_pkcs11_op_info *op_info,
                                      CK_BYTE_PTR pEncryptedPart,
@@ -2297,6 +2405,9 @@ CK_RV apply_decrypt_mechanism_update(yh_session *session,
                                            ulEncryptedPartLen)
                    : CKR_OK;
 
+    case CKM_AES_ECB:
+      return perform_aes_update(session, op_info, pEncryptedPart,
+                                ulEncryptedPartLen, pPart, pulPartLen);
 
     default:
       return CKR_FUNCTION_FAILED;
@@ -2419,6 +2530,8 @@ CK_RV apply_decrypt_mechanism_finalize(yh_session *session,
     yrc =
       yh_util_unwrap_data(session, op_info->op.decrypt.key_id, op_info->buffer,
                           op_info->buffer_length, pData, &outlen);
+  } else if (op_info->mechanism.mechanism == CKM_AES_ECB) {
+    return perform_aes_final(session, op_info, pData, pulDataLen);
   } else {
     DBG_ERR("Mechanism %lu not supported", op_info->mechanism.mechanism);
     return CKR_MECHANISM_INVALID;
@@ -2459,6 +2572,9 @@ CK_RV apply_encrypt_mechanism_finalize(yh_session *session,
     if (rv != CKR_OK) {
       DBG_ERR("Unable to RSA encrypt data");
     }
+  } else if (op_info->mechanism.mechanism == CKM_AES_ECB) {
+    return perform_aes_final(session, op_info, pEncryptedData,
+                             pulEncryptedDataLen);
   }
 
   return rv;

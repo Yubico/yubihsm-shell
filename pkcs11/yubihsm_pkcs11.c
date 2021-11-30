@@ -2562,6 +2562,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
       }
       datalen = YH_CCM_WRAP_OVERHEAD + ulDataLen;
       break;
+    case CKM_AES_ECB:
+      datalen = ulDataLen;
+      break;
     default:
       DBG_ERR("Mechanism %lu not supported",
               session->operation.mechanism.mechanism);
@@ -2940,6 +2943,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
              pMechanism->mechanism == CKM_YUBICO_AES_CCM_WRAP) {
     // NOTE: is setup done for the data unwrap?
     rv = CKR_OK;
+  } else if (object->object.type == YH_SYMMETRIC_KEY &&
+             pMechanism->mechanism == CKM_AES_ECB) {
+    rv = CKR_OK;
   } else {
     rv = CKR_KEY_TYPE_INCONSISTENT;
     goto c_di_out;
@@ -3023,6 +3029,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_Decrypt)
         goto c_d_out;
       }
       datalen = ulEncryptedDataLen - YH_CCM_WRAP_OVERHEAD;
+      break;
+    case CKM_AES_ECB:
+      datalen = ulEncryptedDataLen;
       break;
     default:
       DBG_ERR("Mechanism %lu not supported",
@@ -3216,6 +3225,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptFinal)
       goto c_df_out;
     }
     datalen = session->operation.buffer_length - YH_CCM_WRAP_OVERHEAD;
+  } else if (session->operation.mechanism.mechanism == CKM_AES_ECB) {
+    datalen = 0;
   } else {
     DBG_ERR("Mechanism %lu not supported",
             session->operation.mechanism.mechanism);
