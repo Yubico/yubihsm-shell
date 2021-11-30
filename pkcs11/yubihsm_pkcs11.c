@@ -2566,6 +2566,14 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
     case CKM_AES_CBC:
       datalen = ulDataLen;
       break;
+    case CKM_AES_CBC_PAD:
+      datalen = ulDataLen / 16 * 16;
+      if (ULONG_MAX - 16 < datalen) {
+        rv = CKR_DATA_LEN_RANGE;
+        goto c_e_out;
+      }
+      datalen += 16;
+      break;
     default:
       DBG_ERR("Mechanism %lu not supported",
               session->operation.mechanism.mechanism);
@@ -2947,7 +2955,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
   } else if (object->object.type == YH_SYMMETRIC_KEY &&
              pMechanism->mechanism == CKM_AES_ECB) {
     rv = CKR_OK;
-  } else if (pMechanism->mechanism == CKM_AES_CBC) {
+  } else if (pMechanism->mechanism == CKM_AES_CBC ||
+             pMechanism->mechanism == CKM_AES_CBC_PAD) {
     if (object->object.type != YH_SYMMETRIC_KEY ||
         !yh_is_aes(object->object.algorithm)) {
       DBG_ERR("Wrong key type for algorithm");
@@ -3046,6 +3055,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Decrypt)
       break;
     case CKM_AES_ECB:
     case CKM_AES_CBC:
+    case CKM_AES_CBC_PAD:
       datalen = ulEncryptedDataLen;
       break;
     default:
@@ -3243,6 +3253,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptFinal)
   } else if (session->operation.mechanism.mechanism == CKM_AES_ECB ||
              session->operation.mechanism.mechanism == CKM_AES_CBC) {
     datalen = 0;
+  } else if (session->operation.mechanism.mechanism == CKM_AES_CBC_PAD) {
+    datalen = 16;
   } else {
     DBG_ERR("Mechanism %lu not supported",
             session->operation.mechanism.mechanism);
