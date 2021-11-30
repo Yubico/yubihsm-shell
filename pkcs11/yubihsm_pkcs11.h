@@ -31,6 +31,9 @@
 #define MAX_ECDH_SESSION_KEYS 255
 #define ECDH_KEY_BUF_SIZE 128
 #define ECDH_KEY_TYPE 0x00FF
+#ifndef AES_BLOCK_SIZE
+#define AES_BLOCK_SIZE 16
+#endif
 
 typedef enum {
   SESSION_RESERVED_RO = 1 << 0,
@@ -127,6 +130,9 @@ typedef struct {
       uint16_t salt_len;
       yh_algorithm mgf1Algo;
     } pss;
+    struct {
+      uint8_t iv[AES_BLOCK_SIZE];
+    } cbc;
   };
 } mechanism;
 

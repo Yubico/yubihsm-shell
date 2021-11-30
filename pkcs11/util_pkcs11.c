@@ -1788,7 +1788,8 @@ CK_RV check_decrypt_mechanism(yubihsm_pkcs11_slot *slot,
 
   if (is_RSA_decrypt_mechanism(pMechanism->mechanism) == false &&
       pMechanism->mechanism != CKM_YUBICO_AES_CCM_WRAP &&
-      pMechanism->mechanism != CKM_AES_ECB) {
+      pMechanism->mechanism != CKM_AES_ECB &&
+      pMechanism->mechanism != CKM_AES_CBC) {
     return CKR_MECHANISM_INVALID;
   }
 
@@ -1980,6 +1981,7 @@ CK_RV apply_decrypt_mechanism_init(yubihsm_pkcs11_op_info *op_info) {
     case CKM_RSA_PKCS_OAEP:
     case CKM_YUBICO_AES_CCM_WRAP:
     case CKM_AES_ECB:
+    case CKM_AES_CBC:
       return CKR_OK;
     default:
       DBG_ERR("Mechanism %lu not supported", op_info->mechanism.mechanism);
@@ -2129,6 +2131,20 @@ CK_RV apply_encrypt_mechanism_init(yubihsm_pkcs11_session *session,
     if (pMechanism->pParameter != NULL || pMechanism->ulParameterLen != 0) {
       return CKR_MECHANISM_PARAM_INVALID;
     }
+  } else if (pMechanism->mechanism == CKM_AES_CBC) {
+    if (object->object.type != YH_SYMMETRIC_KEY ||
+        !yh_is_aes(object->object.algorithm)) {
+      DBG_ERR("Wrong key type for algorithm");
+      return CKR_KEY_TYPE_INCONSISTENT;
+    }
+    if (pMechanism->pParameter == NULL ||
+        pMechanism->ulParameterLen !=
+          sizeof(session->operation.mechanism.cbc.iv)) {
+      DBG_ERR("IV invalid");
+      return CKR_MECHANISM_PARAM_INVALID;
+    }
+    memcpy(session->operation.mechanism.cbc.iv, pMechanism->pParameter,
+           sizeof(session->operation.mechanism.cbc.iv));
   }
   return CKR_OK;
 }
@@ -2305,7 +2321,10 @@ static CK_RV do_aes_encdec(yh_session *session, yubihsm_pkcs11_op_info *op_info,
   yh_rc yhr = YHR_GENERIC_ERROR;
   bool encrypt = op_info->type == OPERATION_ENCRYPT;
 
-  if (in_len < 16) {
+  if (in_len < AES_BLOCK_SIZE) {
+    // This function should only be called internally when there is
+    // enough data to encrypt/decrypt at least one block. This is
+    // required for correct IV handling.
     return CKR_FUNCTION_FAILED;
   }
 
@@ -2316,6 +2335,27 @@ static CK_RV do_aes_encdec(yh_session *session, yubihsm_pkcs11_op_info *op_info,
                                         in_len, out, out_len)
               : yh_util_decrypt_aes_ecb(session, op_info->op.decrypt.key_id, in,
                                         in_len, out, out_len);
+      break;
+    case CKM_AES_CBC:
+      if (encrypt) {
+        if ((yhr = yh_util_encrypt_aes_cbc(session, op_info->op.encrypt.key_id,
+                                           op_info->mechanism.cbc.iv, in,
+                                           in_len, out, out_len)) ==
+            YHR_SUCCESS) {
+          memcpy(op_info->mechanism.cbc.iv, out + *out_len - AES_BLOCK_SIZE,
+                 AES_BLOCK_SIZE);
+        }
+      } else {
+        // `in` and `out` may overlap.
+        uint8_t iv[AES_BLOCK_SIZE];
+        memcpy(iv, in + in_len - AES_BLOCK_SIZE, AES_BLOCK_SIZE);
+        if ((yhr = yh_util_decrypt_aes_cbc(session, op_info->op.encrypt.key_id,
+                                           op_info->mechanism.cbc.iv, in,
+                                           in_len, out, out_len)) ==
+            YHR_SUCCESS) {
+          memcpy(op_info->mechanism.cbc.iv, iv, AES_BLOCK_SIZE);
+        }
+      }
       break;
     default:
       return CKR_FUNCTION_FAILED;
@@ -2333,7 +2373,7 @@ static CK_RV perform_aes_update(yh_session *session,
     return CKR_DATA_LEN_RANGE;
   }
   size_t size = prev + in_len;
-  size_t next = size % 16;
+  size_t next = size % AES_BLOCK_SIZE;
 
   // Block-align the data.
   size -= next;
@@ -2357,7 +2397,7 @@ static CK_RV perform_aes_update(yh_session *session,
   }
 
   // Temporarily store next remainder.
-  uint8_t tmp[16];
+  uint8_t tmp[AES_BLOCK_SIZE];
   memcpy(tmp, in + in_len - next, next);
   // Move input into place (may overlap).
   memmove(out + prev, in, size - prev);
@@ -2417,6 +2457,7 @@ CK_RV apply_decrypt_mechanism_update(yh_session *session,
                    : CKR_OK;
 
     case CKM_AES_ECB:
+    case CKM_AES_CBC:
       return perform_aes_update(session, op_info, pEncryptedPart,
                                 ulEncryptedPartLen, pPart, pulPartLen);
 
@@ -2541,7 +2582,8 @@ CK_RV apply_decrypt_mechanism_finalize(yh_session *session,
     yrc =
       yh_util_unwrap_data(session, op_info->op.decrypt.key_id, op_info->buffer,
                           op_info->buffer_length, pData, &outlen);
-  } else if (op_info->mechanism.mechanism == CKM_AES_ECB) {
+  } else if (op_info->mechanism.mechanism == CKM_AES_ECB ||
+             op_info->mechanism.mechanism == CKM_AES_CBC) {
     return perform_aes_final(session, op_info, pData, pulDataLen);
   } else {
     DBG_ERR("Mechanism %lu not supported", op_info->mechanism.mechanism);
@@ -2583,7 +2625,8 @@ CK_RV apply_encrypt_mechanism_finalize(yh_session *session,
     if (rv != CKR_OK) {
       DBG_ERR("Unable to RSA encrypt data");
     }
-  } else if (op_info->mechanism.mechanism == CKM_AES_ECB) {
+  } else if (op_info->mechanism.mechanism == CKM_AES_ECB ||
+             op_info->mechanism.mechanism == CKM_AES_CBC) {
     return perform_aes_final(session, op_info, pEncryptedData,
                              pulEncryptedDataLen);
   }
