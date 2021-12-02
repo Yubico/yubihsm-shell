@@ -242,13 +242,30 @@ set (
   )
 
 set (
+  SOURCE_AES_ENCRYPT
+  aes_encrypt_test.c
+  common.c
+  )
+
+set (
   SOURCE_RSA_ENC_TEST
   rsa_enc_test.c
   common.c
   )
 
 if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+add_executable (aes_encrypt_test ${SOURCE_AES_ENCRYPT})
 add_executable (ecdh_derive_test ${SOURCE_ECDH_DERIVE})
+
+target_link_libraries(
+  aes_encrypt_test
+  "-ldl")
+
+add_test (
+  NAME aes_encrypt_test
+  COMMAND ${CMAKE_CURRENT_BINARY_DIR}/aes_encrypt_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
+  )
+set_tests_properties(aes_encrypt_test PROPERTIES SKIP_RETURN_CODE 64)
 
 target_link_libraries (
   ecdh_derive_test
