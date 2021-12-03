@@ -3,144 +3,86 @@ name: Build and Test
 on: [push, pull_request]
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
+  build_debian_derivatives:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-22.04
-            cc: gcc-11
-            libext: so
-            test: true
-          - os: ubuntu-22.04
-            cc: clang-14
-            libext: so
-            test: false
-          - os: ubuntu-20.04
-            cc: gcc-10
-            libext: so
-            test: false
-          - os: ubuntu-20.04
-            cc: clang-10
-            libext: so
-            test: true
-          - os: macos-latest
-            cc: clang
-            libext: dylib
-            test: false
-    steps:
-    - uses: actions/checkout@v1
-    - name: Dependencies
-      env:
-        CC: ${{ matrix.cc }}
-        OS: ${{ matrix.os }}
-      run: |
-        if [ "$OS" = "macos-latest" ]; then
-        # no update - no upgrade
-          brew install gengetopt help2man libedit
-        else
-          sudo apt -q update
-          sudo apt install -q -y cmake gengetopt help2man lcov libcurl4-openssl-dev libedit-dev libengine-pkcs11-openssl libpcsclite-dev libusb-1.0-0-dev opensc python3-pip python3-setuptools pkg-config swig libssl-dev libffi-dev
-          if [ "${CC%-*}" == "clang" ]; then
-            sudo apt install -q -y ${CC%-*}-tools-${CC#clang-}
-          else
-            sudo apt install -q -y "${CC}"
-          fi
-          dpkg -l | grep libssl
-        fi
-    - name: Prep
-      if: ${{ matrix.test }}
-      env:
-        tlspwd: ${{ secrets.TLSKEY }}
-      run: |
-        git clone https://github.com/YubicoLabs/python-pkcs11tester.git /tmp/python-pkcs11tester
-        git clone https://github.com/YubicoLabs/pkcs11test.git /tmp/pkcs11test
-        git clone https://github.com/YubicoLabs/yubihsm_sunpkcs11_tests.git /tmp/yubihsm_sunpkcs11_tests
-        pushd /tmp/pkcs11test
-        make
-        echo "PKCS11TEST_PATH=/tmp/pkcs11test" >> $GITHUB_ENV
-        popd
-        wget -q https://github.com/square/ghostunnel/releases/download/v1.3.1/ghostunnel-v1.3.1-$(uname -s | tr '[:upper:]' '[:lower:]')-amd64-with-pkcs11 -O /tmp/ghostunnel
-        chmod +x /tmp/ghostunnel
-        openssl aes-256-cbc -k "$tlspwd" -md sha256 -in ./.ci/client-combined.pem.enc -out ./.ci/client-combined.pem -d
-        /tmp/ghostunnel client --listen localhost:12345 --target hsm-connector01.sthlm.in.yubico.org:8443 --keystore ./.ci/client-combined.pem --cacert ./.ci/server-crt.pem &
-        sleep 3
-        DEFAULT_CONNECTOR_URL=$(curl -s http://localhost:12345/dispatcher/request)
-        test -n "$DEFAULT_CONNECTOR_URL" || (echo "Unable to obtain a connector URL, aborting"; exit 1)
-        echo $DEFAULT_CONNECTOR_URL
-        echo "DEFAULT_CONNECTOR_URL=$DEFAULT_CONNECTOR_URL" >> $GITHUB_ENV
-    - name: Build
-      env:
-        CC: ${{ matrix.cc }}
-        LIBEXT: ${{ matrix.libext }}
-      run: |
-        export PKG_CONFIG_PATH=/usr/local/opt/openssl@1.1/lib/pkgconfig:PKG_CONFIG_PATH
-        cmake -Bbuild -H. -DDEFAULT_CONNECTOR_URL="$DEFAULT_CONNECTOR_URL"
-        cmake --build build -- --jobs=2
-        test -e ./build/src/yubihsm-shell
-        test -e ./build/lib/libyubihsm.$LIBEXT
-        test -e ./build/pkcs11/yubihsm_pkcs11.$LIBEXT
-        test -e ./build/yhwrap/yubihsm-wrap
-    - name: Test
-      if: ${{ matrix.test }}
-      env:
-        OS: ${{ matrix.os }}
-      run: |
-        pushd build
-        ./src/yubihsm-shell --connector "$DEFAULT_CONNECTOR_URL" -p password -a reset
-        sleep 3
-        if [ "$OS" = "ubuntu-20.04" ]; then
-          # on 20.04 we skip the engine tests (for now) since it ships with a broken curl version
-          ctest --output-on-failure -E engine
-        else
-          ctest --output-on-failure
-        fi
-        popd
+        environment: [
+          "ubuntu:21.10",
+          "ubuntu:20.04"
+        ]
+        cc: [
+          "gcc",
+          "clang"
+        ]
 
-        echo connector=$DEFAULT_CONNECTOR_URL
-        curl "$DEFAULT_CONNECTOR_URL/connector/status"
-        pushd resources/tests/bash
-          ./cmdline_test.sh $GITHUB_WORKSPACE/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
-        popd
-    - name: Python PKCS11 Test
-      if: ${{ matrix.test }}
-      env:
-        LIBEXT: ${{ matrix.libext }}
-        OS: ${{ matrix.os }}
-      run: |
-        export YUBIHSM_PKCS11_MODULE="`pwd`/build/pkcs11/yubihsm_pkcs11.$LIBEXT"
-        pushd /tmp/python-pkcs11tester
-        echo "connector=$DEFAULT_CONNECTOR_URL" >yubihsm_pkcs11.conf
-        if [ "$OS" = "macos-latest" ]; then
-          export PATH="$(brew --prefix python3)/bin:$PATH"
-        fi
-        pip3 install --upgrade pip==20.3.4
-        python3 -m pip install 'pykcs11' 'cryptography>=1.4.0'
-        python3 setup.py test
-        popd
-    - name: SunPKCS11 Test
-      if: ${{ matrix.test }}
-      env:
-        LIBEXT: ${{ matrix.libext }}
-        OS: ${{ matrix.os }}
-      run: |
-        if [ "$OS" != "ubuntu-20.04" ]; then
-          export YUBIHSM_PKCS11_MODULE="`pwd`/build/pkcs11/yubihsm_pkcs11.$LIBEXT"
-          echo "connector=$DEFAULT_CONNECTOR_URL" >yubihsm_pkcs11.conf
-          export YUBIHSM_PKCS11_CONF=`pwd`/yubihsm_pkcs11.conf
-          pushd /tmp/yubihsm_sunpkcs11_tests
-            pushd src/main/resources
-              ./test_setup.sh $GITHUB_WORKSPACE/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
-            popd
-            pwd
-            ./gradlew build
-            ./gradlew runMain -Pargs=$YUBIHSM_PKCS11_MODULE
-          popd
-        fi
-    - name: Cleanup
-      if: ${{ always() }}
-      run: |
-        if [ -n "$DEFAULT_CONNECTOR_URL" ]; then
-          curl -s http://localhost:12345/dispatcher/release?connector=$DEFAULT_CONNECTOR_URL
-        fi
+    runs-on: ubuntu-latest
+    container: ${{ matrix.environment }}
+
+    steps:
+
+      - name: install dependencies from package management
+        env:
+          DEBIAN_FRONTEND: noninteractive
+          CC: ${{ matrix.cc }}
+        run: |
+          apt update
+          apt install -q -y build-essential cmake pkg-config gengetopt help2man libcurl4-openssl-dev libedit-dev libpcsclite-dev libusb-1.0-0-dev libssl-dev
+          if [ "$CC" = "clang" ]; then
+            apt install -q -y clang llvm lld
+          fi
+
+      - name: clone the Yubico/yubihsm-shell repository
+        uses: actions/checkout@v2
+        with:
+          path: yubihsm-shell
+
+      - name: clone the YubicoLabs/pkcs11test repository
+        uses: actions/checkout@v2
+        with:
+          repository: YubicoLabs/pkcs11test
+          path: pkcs11test
+
+      - name: build the pkcs11test binary
+        working-directory: pkcs11test
+        run: make
+
+      - name: clone the YubicoLabs/python-pkcs11tester repository
+        uses: actions/checkout@v2
+        with:
+          repository: YubicoLabs/python-pkcs11tester
+          path: python-pkcs11tester
+
+      - name: do vanilla build
+        working-directory: yubihsm-shell
+        env:
+          CC: ${{ matrix.cc }}
+          VERBOSE: 1
+          PKCS11TEST_PATH: ..
+        run: |
+          if [ "$CC" = "gcc" ]; then
+            cmake -B build-vanilla
+          else
+            cmake -B build-vanilla \
+              -DCMAKE_AR=/usr/bin/llvm-ar \
+              -DCMAKE_RALIB=/usr/bin/llvm-ranlib \
+              -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld"
+          fi
+          cmake --build build-vanilla
+
+      - name: do static build
+        working-directory: yubihsm-shell
+        env:
+          CC: ${{ matrix.cc }}
+          VERBOSE: 1
+          PKCS11TEST_PATH: ..
+        run: |
+          if [ "$CC" = "gcc" ]; then
+            cmake -DENABLE_STATIC=ON -B build-static
+          else
+            cmake -DENABLE_STATIC=ON -B build-static \
+              -DCMAKE_AR=/usr/bin/llvm-ar \
+              -DCMAKE_RALIB=/usr/bin/llvm-ranlib \
+              -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld"
+          fi
+          cmake --build build-static
