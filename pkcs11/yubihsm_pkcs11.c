@@ -2469,6 +2469,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
     goto c_e_out;
   }
 
+  if (pData == NULL || pulEncryptedDataLen == NULL) {
+    DBG_ERR("Invalid argument");
+    rv = CKR_ARGUMENTS_BAD;
+    goto c_e_out;
+  }
+
   if (session->operation.mechanism.mechanism == CKM_YUBICO_AES_CCM_WRAP) {
     CK_ULONG datalen = YH_CCM_WRAP_OVERHEAD + ulDataLen;
     DBG_INFO("The size of the data will be %lu", datalen);
@@ -2554,8 +2560,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptUpdate)
     goto c_eu_out;
   }
 
-  if (pPart == NULL) {
-    DBG_ERR("No data provided");
+  if (pPart == NULL || pulEncryptedPartLen == NULL) {
+    DBG_ERR("Invalid argument");
     rv = CKR_ARGUMENTS_BAD;
     goto c_eu_out;
   }
@@ -2612,6 +2618,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptFinal)
   if (session->operation.type != OPERATION_ENCRYPT) {
     DBG_ERR("Encrypt operation not initialized");
     rv = CKR_OPERATION_NOT_INITIALIZED;
+    goto c_ef_out;
+  }
+
+  if (pulLastEncryptedPartLen == NULL) {
+    DBG_ERR("Invalid argument");
+    rv = CKR_ARGUMENTS_BAD;
     goto c_ef_out;
   }
 
@@ -2888,6 +2900,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_Decrypt)
     goto c_d_out;
   }
 
+  if (pEncryptedData == NULL || pulDataLen == NULL) {
+    DBG_ERR("Invalid argument");
+    rv = CKR_ARGUMENTS_BAD;
+    goto c_d_out;
+  }
+
   // NOTE: datalen is just an approximation here since the data is encrypted
   CK_ULONG datalen = 0;
   if (session->operation.mechanism.mechanism == CKM_RSA_PKCS) {
@@ -3005,8 +3023,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptUpdate)
     goto c_du_out;
   }
 
-  if (pEncryptedPart == NULL) {
-    DBG_ERR("No data provided");
+  if (pEncryptedPart == NULL || pulPartLen == NULL) {
+    DBG_ERR("Invalid argument");
     rv = CKR_ARGUMENTS_BAD;
     goto c_du_out;
   }
@@ -3065,6 +3083,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptFinal)
   if (session->operation.type != OPERATION_DECRYPT) {
     DBG_ERR("Decrypt operation not initialized");
     rv = CKR_OPERATION_NOT_INITIALIZED;
+    goto c_df_out;
+  }
+
+  if (pulLastPartLen == NULL) {
+    DBG_ERR("Invalid argument");
+    rv = CKR_ARGUMENTS_BAD;
     goto c_df_out;
   }
 
