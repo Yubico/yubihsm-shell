@@ -58,7 +58,9 @@ int main(void) {
   printf("Successfully established session %02d\n", session_id);
 
   yh_capabilities capabilities = {{0}};
-  yrc = yh_string_to_capabilities("encrypt-ecb,decrypt-ecb", &capabilities);
+  yrc =
+    yh_string_to_capabilities("encrypt-ecb,decrypt-ecb,encrypt-cbc,decrypt-cbc",
+                              &capabilities);
   assert(yrc == YHR_SUCCESS);
 
   uint16_t domain_five = 0;
@@ -89,6 +91,27 @@ int main(void) {
   assert(memcmp(data, plaintext, sizeof(plaintext)) == 0);
 
   printf("AES-ECB decryption successful\n");
+
+  uint8_t iv[16];
+  size_t iv_len = sizeof(iv);
+  yrc = yh_util_get_pseudo_random(session, 16, iv, &iv_len);
+  assert(yrc == YHR_SUCCESS);
+
+  yrc = yh_util_encrypt_aes_cbc(session, aes_key_id, iv, plaintext,
+                                sizeof(plaintext), data, &data_len);
+  assert(yrc == YHR_SUCCESS);
+  assert(memcmp(data, plaintext, sizeof(plaintext)) != 0);
+
+  printf("AES-CBC encryption successful\n");
+
+  yrc = yh_util_decrypt_aes_cbc(session, aes_key_id, iv, data, data_len, data,
+                                &data_len);
+  assert(yrc == YHR_SUCCESS);
+
+  assert(data_len == sizeof(plaintext));
+  assert(memcmp(data, plaintext, sizeof(plaintext)) == 0);
+
+  printf("AES-CBC decryption successful\n");
 
   yrc = yh_util_close_session(session);
   assert(yrc == YHR_SUCCESS);
