@@ -15,7 +15,7 @@ jobs:
           "gcc",
           "clang"
         ]
-
+    name: build on ${{ matrix.environment }} with ${{ matrix.cc }}
     runs-on: ubuntu-latest
     container: ${{ matrix.environment }}
 
@@ -24,7 +24,6 @@ jobs:
       - name: install dependencies from package management
         env:
           DEBIAN_FRONTEND: noninteractive
-          CC: ${{ matrix.cc }}
         run: |
           apt update
           apt install -q -y build-essential cmake pkg-config gengetopt help2man libcurl4-openssl-dev libedit-dev libpcsclite-dev libusb-1.0-0-dev libssl-dev
@@ -35,6 +34,74 @@ jobs:
       - name: clone the Yubico/yubihsm-shell repository
         uses: actions/checkout@v2
         with:
+          path: yubihsm-shell
+
+      - name: do build
+        working-directory: yubihsm-shell
+        env:
+          CC: ${{ matrix.cc }}
+          VERBOSE: 1
+        run: |
+          if [ "$CC" = "gcc" ]; then
+            cmake -B build
+          else
+            cmake -B build \
+              -DCMAKE_AR=/usr/bin/llvm-ar \
+              -DCMAKE_RANLIB=/usr/bin/llvm-ranlib \
+              -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld"
+          fi
+          cmake --build build
+
+      - name: do static build
+        working-directory: yubihsm-shell
+        env:
+          CC: ${{ matrix.cc }}
+          VERBOSE: 1
+        run: |
+          if [ "$CC" = "gcc" ]; then
+            cmake -DENABLE_STATIC=ON -B build-static
+          else
+            cmake -DENABLE_STATIC=ON -B build-static \
+              -DCMAKE_AR=/usr/bin/llvm-ar \
+              -DCMAKE_RANLIB=/usr/bin/llvm-ranlib \
+              -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld"
+          fi
+          cmake --build build-static
+
+      - name: prepare name for upload-artifact action
+        env:
+          DOCKER_IMAGE: ${{ matrix.environment }}
+          CC: ${{ matrix.cc }}
+        run: |
+          ESCAPED_IMAGE=$(echo -n "$DOCKER_IMAGE" | sed -e 's/[ \t:\/\\"<>|*?]/-/g' -e 's/--*/-/g')
+          echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_${CC}" >> $GITHUB_ENV
+
+      - name: upload artifacts for the test job
+        if: ${{ matrix.environment == 'ubuntu:21.10' && matrix.cc == 'gcc' }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: "${{ env.ARTIFACT_NAME }}"
+          path: yubihsm-shell
+
+  test:
+    name: run unit tests
+    runs-on: ubuntu-latest
+    container: ubuntu:21.10
+    needs: build_debian_derivatives
+
+    steps:
+
+      - name: install dependencies from package management
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt update
+          apt install -q -y build-essential python3 python3-pip python3-setuptools
+
+      - name: download artifacts from the build job
+        uses: actions/download-artifact@v2
+        with:
+          name: yubihsm-shell_ubuntu-21.10_gcc
           path: yubihsm-shell
 
       - name: clone the YubicoLabs/pkcs11test repository
@@ -52,37 +119,3 @@ jobs:
         with:
           repository: YubicoLabs/python-pkcs11tester
           path: python-pkcs11tester
-
-      - name: do vanilla build
-        working-directory: yubihsm-shell
-        env:
-          CC: ${{ matrix.cc }}
-          VERBOSE: 1
-          PKCS11TEST_PATH: ..
-        run: |
-          if [ "$CC" = "gcc" ]; then
-            cmake -B build-vanilla
-          else
-            cmake -B build-vanilla \
-              -DCMAKE_AR=/usr/bin/llvm-ar \
-              -DCMAKE_RALIB=/usr/bin/llvm-ranlib \
-              -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld"
-          fi
-          cmake --build build-vanilla
-
-      - name: do static build
-        working-directory: yubihsm-shell
-        env:
-          CC: ${{ matrix.cc }}
-          VERBOSE: 1
-          PKCS11TEST_PATH: ..
-        run: |
-          if [ "$CC" = "gcc" ]; then
-            cmake -DENABLE_STATIC=ON -B build-static
-          else
-            cmake -DENABLE_STATIC=ON -B build-static \
-              -DCMAKE_AR=/usr/bin/llvm-ar \
-              -DCMAKE_RALIB=/usr/bin/llvm-ranlib \
-              -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld"
-          fi
-          cmake --build build-static
