@@ -4,11 +4,14 @@ Uploaders: Klas Lindfors <klas@yubico.com>, Alessio Di Mauro <alessio@yubico.com
 Section: utils
 Priority: optional
 Build-Depends: debhelper (>= 9),
+               chrpath,
                cmake,
                pkg-config,
                libedit-dev,
                libssl-dev,
                libcurl4-openssl-dev,
+               libpcsclite-dev,
+               libusb-1.0-0-dev,
                gengetopt,
                help2man,
                dh-exec,
