@@ -77,14 +77,14 @@ if (NOT DISABLE_LTO)
 endif ()
 
 if (CMAKE_C_COMPILER_ID STREQUAL AppleClang)
-  set (CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -fPIE")
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-nullability-completeness -Wno-nullability-extension -Wno-expansion-to-defined")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-nullability-completeness -Wno-nullability-extension -Wno-expansion-to-defined -Wno-undef-prefix")
 else()
   # -Wl,--strip-all is dependent on linker not compiler...
-  set (CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -Wl,--strip-all -fPIE -pie")
+  set (CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -Wl,--strip-all")
 endif ()
 
 set (CMAKE_C_STANDARD 11)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set (yubihsm_shell_VERSION_MAJOR 2)
 set (yubihsm_shell_VERSION_MINOR 2)
@@ -145,14 +145,27 @@ else()
 
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pedantic")
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror")
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-format-zero-length -Wno-implicit-fallthrough")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-implicit-fallthrough")
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wformat -Wformat-security")
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wmissing-prototypes")
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wbad-function-cast")
+#  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wwrite-strings")
+#  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wshadow")
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector-all")
   if (NOT CMAKE_C_COMPILER_ID MATCHES Clang)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-z,relro,-z,now")
   endif ()
+
+  set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g2")
+  set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -fno-omit-frame-pointer")
+
+  include(CheckCCompilerFlag)
+
+  # Use -Wshorten-64-to-32 if available.
+  check_c_compiler_flag("-Wshorten-64-to-32" HAVE_SHORTEN_64_TO_32)
+  if(HAVE_SHORTEN_64_TO_32)
+#      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wshorten-64-to-32")
+  endif()
 
   include(CheckFunctionExists)
 
@@ -258,6 +271,11 @@ message("        Compiler ID:      ${CMAKE_C_COMPILER_ID}")
 message("        Compiler version: ${CMAKE_C_COMPILER_VERSION}")
 message("        CMake version:    ${CMAKE_VERSION}")
 message("        CFLAGS:           ${CMAKE_C_FLAGS}")
+message("        CFLAGS_RELEASE:   ${CMAKE_C_FLAGS_RELEASE}")
+message("        CFLAGS_DEBUG:     ${CMAKE_C_FLAGS_DEBUG}")
+message("        LDFLAGS:          ${CMAKE_EXE_LINKER_FLAGS}")
+message("        LDFLAGS_RELEASE:  ${CMAKE_EXE_LINKER_FLAGS_RELEASE}")
+message("        LDFLAGS_DEBUG:    ${CMAKE_EXE_LINKER_FLAGS_DEBUG}")
 message("        CPPFLAGS:         ${CMAKE_CXX_FLAGS}")
 message("        Warnings:         ${WARN_FLAGS}")
 message("        Build type:       ${CMAKE_BUILD_TYPE}")
