@@ -913,7 +913,7 @@ static void find_lcp(const char *items[], int n_items, const char **lcp,
   }
 
   *lcp = items[min];
-  for (size_t i = 0; i < strlen(items[min]) && i < strlen(items[max]); j++) {
+  for (size_t i = 0; i < strlen(items[min]) && i < strlen(items[max]); i++) {
     if (items[min][i] != items[max][i]) {
       *lcp_len = i;
 
