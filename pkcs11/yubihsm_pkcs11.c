@@ -5753,37 +5753,34 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetInterface)
   }
   size_t i;
   for (i = 0; i < sizeof(interfaces_list) / sizeof(interfaces_list[0]); i++) {
-    CK_FUNCTION_LIST_PTR function_list =
+    CK_FUNCTION_LIST_PTR func_list =
       (CK_FUNCTION_LIST_PTR) interfaces_list[i].pFunctionList;
     if ((flags & interfaces_list[i].flags) != flags) {
       DBG_INFO("C_GetInterface skipped interface %zu (%s %u.%u) because flags "
                "was %lu",
-               i, interfaces_list[i].pInterfaceName,
-               function_list->version.major, function_list->version.minor,
-               flags);
+               i, interfaces_list[i].pInterfaceName, func_list->version.major,
+               func_list->version.minor, flags);
       continue;
     }
-    if (pVersion && (pVersion->major != function_list->version.major ||
-                     pVersion->minor != function_list->version.minor)) {
+    if (pVersion && (pVersion->major != func_list->version.major ||
+                     pVersion->minor != func_list->version.minor)) {
       DBG_INFO("C_GetInterface skipped interface %zu (%s %u.%u) because "
                "pVersion was %u.%u",
-               i, interfaces_list[i].pInterfaceName,
-               function_list->version.major, function_list->version.minor,
-               pVersion->major, pVersion->minor);
+               i, interfaces_list[i].pInterfaceName, func_list->version.major,
+               func_list->version.minor, pVersion->major, pVersion->minor);
       continue;
     }
     if (pInterfaceName && strcmp((char *) pInterfaceName,
                                  (char *) interfaces_list[i].pInterfaceName)) {
       DBG_INFO("C_GetInterface skipped interface %zu (%s %u.%u) because "
                "pInterfacename was %s",
-               i, interfaces_list[i].pInterfaceName,
-               function_list->version.major, function_list->version.minor,
-               pInterfaceName);
+               i, interfaces_list[i].pInterfaceName, func_list->version.major,
+               func_list->version.minor, pInterfaceName);
       continue;
     }
     DBG_INFO("C_GetInterface selected interface %zu (%s %u.%u)", i,
-             interfaces_list[i].pInterfaceName, function_list->version.major,
-             function_list->version.minor);
+             interfaces_list[i].pInterfaceName, func_list->version.major,
+             func_list->version.minor);
     *ppInterface = (CK_INTERFACE_PTR) &interfaces_list[i];
     rv = CKR_OK;
     break;
