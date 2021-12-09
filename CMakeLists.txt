@@ -14,14 +14,12 @@
 # limitations under the License.
 #
 
-cmake_minimum_required (VERSION 2.8)
-if (CMAKE_VERSION VERSION_GREATER 3.0.0)
-  # policy CMP0025 is to get AppleClang identifier rather than Clang for both
-  # this matters since the apple compiler accepts different flags.
-  cmake_policy(SET CMP0025 NEW)
-  cmake_policy(SET CMP0042 NEW)
-  cmake_policy(SET CMP0054 NEW)
-endif ()
+cmake_minimum_required (VERSION 3.5)
+# policy CMP0025 is to get AppleClang identifier rather than Clang for both
+# this matters since the apple compiler accepts different flags.
+cmake_policy(SET CMP0025 NEW)
+cmake_policy(SET CMP0042 NEW)
+cmake_policy(SET CMP0054 NEW)
 
 project (yubihsm-shell)
 
@@ -112,7 +110,6 @@ if(WIN32)
 endif()
 
 if(MSVC)
-  message("win32")
   set(_MSVC 1)
 
   if(SUPRESS_MSVC_WARNINGS)
@@ -140,10 +137,6 @@ if(MSVC)
     set (WIN32_BCRYPT 1)
   endif()
 else()
-  message(STATUS "not win32")
-
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-format-zero-length")
-
   include(CheckFunctionExists)
 
   check_function_exists(memset_s HAVE_MEMSET_S)
