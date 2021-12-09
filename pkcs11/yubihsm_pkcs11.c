@@ -2517,8 +2517,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
     goto c_e_out;
   }
 
-  DBG_INFO("Got %lu butes back", *pulEncryptedDataLen);
-
   rv = CKR_OK;
 
   DOUT;
@@ -2576,7 +2574,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptUpdate)
     }
   }
 
-  UNUSED(pEncryptedPart);
   *pulEncryptedPartLen = 0;
 
   DOUT;
