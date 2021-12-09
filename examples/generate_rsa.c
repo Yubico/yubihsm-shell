@@ -101,8 +101,7 @@ int main(void) {
   EVP_MD_CTX_destroy(mdctx);
 
   printf("Hash of data (%d bytes) is:", EVP_MD_size(EVP_sha256()));
-  unsigned int i;
-  for (i = 0; i < hashed_data_len; i++) {
+  for (unsigned int i = 0; i < hashed_data_len; i++) {
     printf(" %02x", hashed_data[i]);
   }
   printf("\n");
@@ -114,7 +113,7 @@ int main(void) {
   assert(yrc == YHR_SUCCESS);
 
   printf("Signature (%zu bytes) is:", signature_len);
-  for (i = 0; i < signature_len; i++) {
+  for (unsigned int i = 0; i < signature_len; i++) {
     printf(" %02x", signature[i]);
   }
   printf("\n");
@@ -126,7 +125,7 @@ int main(void) {
   assert(yrc == YHR_SUCCESS);
 
   printf("Public key (%zu bytes) is:", public_key_len);
-  for (i = 0; i < public_key_len; i++) {
+  for (unsigned int i = 0; i < public_key_len; i++) {
     printf(" %02x", public_key[i]);
   }
   printf("\n");

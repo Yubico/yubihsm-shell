@@ -34,7 +34,7 @@ bool set_component(unsigned char *in_ptr, const BIGNUM *bn, int element_len) {
     return false;
   }
 
-  memset(in_ptr, 0, (size_t) (element_len - real_len));
+  memset(in_ptr, 0, (size_t)(element_len - real_len));
   in_ptr += element_len - real_len;
   return BN_bn2bin(bn, in_ptr) > 0;
 }
@@ -371,8 +371,7 @@ cleanup:
 
 void format_digest(uint8_t *digest, char *str, uint16_t len) {
 
-  uint32_t i;
-  for (i = 0; i < len; i++) {
+  for (uint32_t i = 0; i < len; i++) {
     sprintf(str + (2 * i), "%02x", digest[i]);
   }
 
@@ -612,8 +611,7 @@ bool write_file(const uint8_t *buf, size_t buf_len, FILE *fp, format_t format) {
     if (data == NULL) {
       return false;
     }
-    size_t i;
-    for (i = 0; i < buf_len; i++) {
+    for (size_t i = 0; i < buf_len; i++) {
       sprintf((char *) data + i * 2, "%02x", buf[i]);
     }
     p = data;
@@ -667,7 +665,7 @@ bool write_ed25519_key(uint8_t *buf, size_t buf_len, FILE *fp,
 
     if (sizeof(ed25519public_oid) + buf_len < buf_len ||
         sizeof(ed25519public_oid) + buf_len > sizeof(asn1)) {
-        return false;
+      return false;
     }
     memcpy(asn1, ed25519public_oid, sizeof(ed25519public_oid));
     memcpy(asn1 + sizeof(ed25519public_oid), buf, buf_len);
@@ -734,8 +732,7 @@ bool split_hmac_key(yh_algorithm algorithm, uint8_t *in, size_t in_len,
 
   memcpy(key, in, in_len);
 
-  uint8_t i;
-  for (i = 0; i < block_size; i++) {
+  for (uint8_t i = 0; i < block_size; i++) {
     out[i] = key[i] ^ 0x36;
     out[i + block_size] = key[i] ^ 0x5c;
   }

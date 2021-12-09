@@ -145,9 +145,8 @@ static yh_rc compute_cryptogram_ex(aes_context *aes_ctx, uint8_t type,
   }
 
   uint8_t result[2 * SCP_PRF_LEN] = {0};
-  uint8_t i;
 
-  for (i = 0; i < n_iterations; i++) {
+  for (uint8_t i = 0; i < n_iterations; i++) {
     if (aes_cmac_encrypt(&ctx, input, ptr - input,
                          result + (i * SCP_PRF_LEN))) {
       DBG_ERR("aes_cmac_encrypt failed");
@@ -1066,8 +1065,7 @@ static bool x9_63_sha256_kdf(const uint8_t *shsee, size_t shsee_len,
   }
   bool ok = false;
   uint8_t cnt[4] = {0};
-  uint8_t *end;
-  for (end = dst + dst_len; dst < end; dst += dst_len) {
+  for (uint8_t *end = dst + dst_len; dst < end; dst += dst_len) {
     increment_ctr(cnt, sizeof(cnt));
     if (!hash_init(hashctx)) {
       goto err_out;
@@ -1415,8 +1413,7 @@ yh_rc yh_util_get_device_info(yh_connector *connector, uint8_t *major,
       DBG_ERR("Algorithms buffer too small");
       return YHR_BUFFER_TOO_SMALL;
     }
-    size_t i;
-    for (i = 0; i < items; i++) {
+    for (size_t i = 0; i < items; i++) {
       algorithms[i] = response.algorithms[i];
     }
     *n_algorithms = items;
@@ -1478,8 +1475,7 @@ yh_rc yh_util_list_objects(yh_session *session, uint16_t id,
   }
 
   bool send_capabilities = false;
-  uint16_t i;
-  for (i = 0; i < YH_CAPABILITIES_LEN; i++) {
+  for (uint16_t i = 0; i < YH_CAPABILITIES_LEN; i++) {
     if (capabilities->capabilities[i]) {
       send_capabilities = true;
       break;
@@ -1488,7 +1484,7 @@ yh_rc yh_util_list_objects(yh_session *session, uint16_t id,
 
   if (send_capabilities == true) {
     *dataptr++ = LIST_CAPABILITIES;
-    for (i = 0; i < YH_CAPABILITIES_LEN; i++) {
+    for (uint16_t i = 0; i < YH_CAPABILITIES_LEN; i++) {
       *dataptr++ = capabilities->capabilities[i];
     }
   }
@@ -1511,13 +1507,12 @@ yh_rc yh_util_list_objects(yh_session *session, uint16_t id,
   }
 
   *n_objects = response_len / 4;
-  size_t j;
-  for (j = 0; j < *n_objects; j++) {
+  for (size_t i = 0; i < *n_objects; i++) {
     // NOTE: clear the fields that we didn't set
-    memset(&objects[j], 0, sizeof(yh_object_descriptor));
-    objects[j].id = ntohs(*((uint16_t *) (response + j * 4)));
-    objects[j].type = response[j * 4 + 2];
-    objects[j].sequence = response[j * 4 + 3];
+    memset(&objects[i], 0, sizeof(yh_object_descriptor));
+    objects[i].id = ntohs(*((uint16_t *) (response + i * 4)));
+    objects[i].type = response[i * 4 + 2];
+    objects[i].sequence = response[i * 4 + 3];
   }
 
   DBG_INFO("Found %zu objects", *n_objects);
@@ -2799,21 +2794,19 @@ yh_rc yh_util_get_log_entries(yh_session *session, uint16_t *unlogged_boot,
     return yrc;
   }
 
-  if (response_len <
-    sizeof(response.log_overflow_boot) +
-    sizeof(response.log_overflow_auth) +
-    sizeof(response.items)) {
-      return YHR_WRONG_LENGTH;
+  if (response_len < sizeof(response.log_overflow_boot) +
+                       sizeof(response.log_overflow_auth) +
+                       sizeof(response.items)) {
+    return YHR_WRONG_LENGTH;
   }
 
-  size_t logs_size = response_len -
-    sizeof(response.log_overflow_boot) -
-    sizeof(response.log_overflow_auth) -
-    sizeof(response.items);
+  size_t logs_size = response_len - sizeof(response.log_overflow_boot) -
+                     sizeof(response.log_overflow_auth) -
+                     sizeof(response.items);
 
   if (logs_size % sizeof(yh_log_entry) != 0 ||
       logs_size / sizeof(yh_log_entry) != response.items) {
-      return YHR_WRONG_LENGTH;
+    return YHR_WRONG_LENGTH;
   }
 
   if (unlogged_boot) {
@@ -2839,8 +2832,7 @@ yh_rc yh_util_get_log_entries(yh_session *session, uint16_t *unlogged_boot,
   *n_items = response.items;
 
   yh_log_entry *ptr = (yh_log_entry *) response.data;
-  size_t i;
-  for (i = 0; i < *n_items; i++) {
+  for (size_t i = 0; i < *n_items; i++) {
     out[i].number = ntohs(ptr[i].number);
     out[i].command = ptr[i].command;
     out[i].length = ntohs(ptr[i].length);
@@ -4256,8 +4248,7 @@ yh_rc yh_string_to_capabilities(const char *capability,
   strncpy(tmp, capability, sizeof(tmp) - 1);
 
   while ((str = strtok_r(str ? NULL : tmp, LIST_SEPARATORS, &saveptr))) {
-    size_t i;
-    for (i = 0; i < sizeof(yh_capability) / sizeof(yh_capability[0]);
+    for (size_t i = 0; i < sizeof(yh_capability) / sizeof(yh_capability[0]);
          i++) {
       if (strcasecmp(str, yh_capability[i].name) == 0) {
         result
@@ -4282,8 +4273,8 @@ yh_rc yh_capabilities_to_strings(const yh_capabilities *num,
   }
 
   size_t matching = 0;
-  size_t i;
-  for (i = 0; i < sizeof(yh_capability) / sizeof(yh_capability[0]);
+
+  for (size_t i = 0; i < sizeof(yh_capability) / sizeof(yh_capability[0]);
        i++) {
     if (((1ULL << (yh_capability[i].bit % 8)) &
          num->capabilities[YH_CAPABILITIES_LEN - 1 -
@@ -4313,8 +4304,7 @@ bool yh_check_capability(const yh_capabilities *capabilities,
     return false;
   }
 
-  int i;
-  for (i = 0; i < YH_CAPABILITIES_LEN; i++) {
+  for (int i = 0; i < YH_CAPABILITIES_LEN; i++) {
     if (check_capabilities.capabilities[i] != 0 &&
         (check_capabilities.capabilities[i] & capabilities->capabilities[i]) !=
           0) {
@@ -4331,8 +4321,7 @@ yh_rc yh_merge_capabilities(const yh_capabilities *a, const yh_capabilities *b,
     return YHR_INVALID_PARAMETERS;
   }
 
-  int i;
-  for (i = 0; i < YH_CAPABILITIES_LEN; i++) {
+  for (int i = 0; i < YH_CAPABILITIES_LEN; i++) {
     result->capabilities[i] = a->capabilities[i] | b->capabilities[i];
   }
   return YHR_SUCCESS;
@@ -4345,8 +4334,7 @@ yh_rc yh_filter_capabilities(const yh_capabilities *capabilities,
     return YHR_INVALID_PARAMETERS;
   }
 
-  int i;
-  for (i = 0; i < YH_CAPABILITIES_LEN; i++) {
+  for (int i = 0; i < YH_CAPABILITIES_LEN; i++) {
     result->capabilities[i] =
       capabilities->capabilities[i] & filter->capabilities[i];
   }
@@ -4499,8 +4487,7 @@ yh_rc yh_algo_to_string(yh_algorithm algo, char const **result) {
     return YHR_INVALID_PARAMETERS;
   }
 
-  size_t i;
-  for (i = 0; i < sizeof(yh_algorithms) / sizeof(yh_algorithms[0]);
+  for (size_t i = 0; i < sizeof(yh_algorithms) / sizeof(yh_algorithms[0]);
        i++) {
     if (algo == yh_algorithms[i].algorithm) {
       *result = yh_algorithms[i].name;
@@ -4522,8 +4509,7 @@ yh_rc yh_string_to_algo(const char *string, yh_algorithm *algo) {
     *algo = 0;
     return YHR_SUCCESS;
   }
-  size_t i;
-  for (i = 0; i < sizeof(yh_algorithms) / sizeof(yh_algorithms[0]);
+  for (size_t i = 0; i < sizeof(yh_algorithms) / sizeof(yh_algorithms[0]);
        i++) {
     if (strcasecmp(string, yh_algorithms[i].name) == 0) {
       *algo = yh_algorithms[i].algorithm;
@@ -4541,8 +4527,7 @@ yh_rc yh_type_to_string(yh_object_type type, char const **result) {
     return YHR_INVALID_PARAMETERS;
   }
 
-  size_t i;
-  for (i = 0; i < sizeof(yh_types) / sizeof(yh_types[0]); i++) {
+  for (size_t i = 0; i < sizeof(yh_types) / sizeof(yh_types[0]); i++) {
     if (type == yh_types[i].type) {
       *result = yh_types[i].name;
       return YHR_SUCCESS;
@@ -4564,8 +4549,7 @@ yh_rc yh_string_to_type(const char *string, yh_object_type *type) {
     *type = 0;
     return YHR_SUCCESS;
   }
-  size_t i;
-  for (i = 0; i < sizeof(yh_types) / sizeof(yh_types[0]); i++) {
+  for (size_t i = 0; i < sizeof(yh_types) / sizeof(yh_types[0]); i++) {
     if (strcasecmp(string, yh_types[i].name) == 0) {
       *type = yh_types[i].type;
       return YHR_SUCCESS;
@@ -4582,8 +4566,7 @@ yh_rc yh_string_to_option(const char *string, yh_option *option) {
     return YHR_INVALID_PARAMETERS;
   }
 
-  size_t i;
-  for (i = 0; i < sizeof(yh_options) / sizeof(yh_options[0]); i++) {
+  for (size_t i = 0; i < sizeof(yh_options) / sizeof(yh_options[0]); i++) {
     if (strcasecmp(string, yh_options[i].name) == 0) {
       *option = yh_options[i].option;
       return YHR_SUCCESS;
@@ -4617,8 +4600,7 @@ bool yh_verify_logs(yh_log_entry *logs, size_t n_items,
     start = 1;
   }
 
-  size_t i;
-  for (i = start; i < n_items; i++) {
+  for (size_t i = start; i < n_items; i++) {
     yh_log_entry inverted;
     inverted.number = htons(logs[i].number);
     inverted.command = logs[i].command;
@@ -4704,8 +4686,7 @@ out:
 yh_rc yh_domains_to_string(uint16_t domains, char *string, size_t max_len) {
   char *ptr = string;
   *ptr = '\0';
-  uint16_t i;
-  for (i = 0; i < YH_MAX_DOMAINS; i++) {
+  for (uint16_t i = 0; i < YH_MAX_DOMAINS; i++) {
     if (domains & (1 << i)) {
       size_t wrote = snprintf(ptr, max_len, "%d:", i + 1);
       if (wrote >= max_len) {

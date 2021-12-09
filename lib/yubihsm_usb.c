@@ -84,8 +84,7 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
 
   (void) identifier;
 
-  int i;
-  for (i = 0; i <= 1; i++) {
+  for (int i = 0; i <= 1; i++) {
     if (ret != YHR_GENERIC_ERROR) {
       DBG_INFO("Reconnecting device");
       usb_close(connection);

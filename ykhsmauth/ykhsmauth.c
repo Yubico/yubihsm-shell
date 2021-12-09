@@ -136,8 +136,7 @@ ykhsmauth_rc ykhsmauth_disconnect(ykhsmauth_state *state) {
 }
 
 static void dump_hex(const unsigned char *buf, DWORD len) {
-  DWORD i;
-  for (i = 0; i < len; i++) {
+  for (DWORD i = 0; i < len; i++) {
     fprintf(stderr, "%02x ", buf[i]);
   }
 }
@@ -194,8 +193,7 @@ ykhsmauth_rc ykhsmauth_connect(ykhsmauth_state *state, const char *wanted) {
 
     return ret;
   }
-  char *reader_ptr;
-  for (reader_ptr = readers; *reader_ptr != '\0';
+  for (char *reader_ptr = readers; *reader_ptr != '\0';
        reader_ptr += strlen(reader_ptr) + 1) {
     if (wanted) {
       bool found = false;

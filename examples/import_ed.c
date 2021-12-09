@@ -119,8 +119,7 @@ int main(void) {
   assert(yrc == YHR_SUCCESS);
 
   printf("Signature (%zu bytes) is:", signature_len);
-  unsigned int i;
-  for (i = 0; i < signature_len; i++) {
+  for (unsigned int i = 0; i < signature_len; i++) {
     printf(" %02x", signature[i]);
   }
   printf("\n");
@@ -138,7 +137,7 @@ int main(void) {
   assert(memcmp(public_key, expected_public_key, 32) == 0);
 
   printf("Public key (%zu bytes) is:", public_key_len);
-  for (i = 0; i < public_key_len; i++) {
+  for (unsigned int i = 0; i < public_key_len; i++) {
     printf(" %02x", public_key[i]);
   }
   printf("\n");

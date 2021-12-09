@@ -262,8 +262,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     goto c_i_failure;
   }
   size_t n_connectors = 0;
-  unsigned int i;
-  for (i = 0; i < args_info.connector_given; i++) {
+  for (unsigned int i = 0; i < args_info.connector_given; i++) {
     if (yh_init_connector(args_info.connector_arg[i], &connector_list[i]) !=
         YHR_SUCCESS) {
       DBG_ERR("Failed to init connector");
@@ -320,7 +319,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
   }
 
   list_create(&g_ctx.device_pubkeys, YH_EC_P256_PUBKEY_LEN, NULL);
-  for (i = 0; i < args_info.device_pubkey_given; i++) {
+  for (unsigned int i = 0; i < args_info.device_pubkey_given; i++) {
     uint8_t pk[80] = {0};
     size_t pk_len = sizeof(pk);
     if (hex_decode(args_info.device_pubkey_arg[i], pk, &pk_len) == false ||
@@ -354,7 +353,7 @@ c_i_failure:
   list_destroy(&g_ctx.device_pubkeys);
 
   if (connector_list) {
-    for (i = 0; i < args_info.connector_given; i++) {
+    for (unsigned int i = 0; i < args_info.connector_given; i++) {
       yh_disconnect(connector_list[i]);
     }
   }
@@ -480,8 +479,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetSlotList)
     *pulCount = 0;
     // NOTE(adma) just return the number of slots
     if (tokenPresent == CK_TRUE) {
-      ListItem *item;
-      for (item = g_ctx.slots.head; item != NULL; item = item->next) {
+      for (ListItem *item = g_ctx.slots.head; item != NULL; item = item->next) {
         yubihsm_pkcs11_slot *slot = (yubihsm_pkcs11_slot *) item->data;
         if (yh_connector_has_device(slot->connector) == true) {
           *pulCount += 1;
@@ -506,8 +504,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetSlotList)
   uint16_t j = 0;
   bool full = false;
   bool overflow = false;
-  ListItem *item;
-  for (item = g_ctx.slots.head; item != NULL; item = item->next) {
+  for (ListItem *item = g_ctx.slots.head; item != NULL; item = item->next) {
     if (j == *pulCount) {
       full = true;
     }
@@ -1191,8 +1188,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
     }
 
     int hits = 0;
-    ListItem *item;
-    for (item = g_ctx.device_pubkeys.head; item != NULL;
+    for (ListItem *item = g_ctx.device_pubkeys.head; item != NULL;
          item = item->next) {
       if (!memcmp(item->data, pk_sd, YH_EC_P256_PUBKEY_LEN)) {
         hits++;
@@ -1320,8 +1316,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     CK_ULONG d;
   } class = {0}, key_type = {0}, id = {0};
   yubihsm_pkcs11_object_template template = {0};
-  CK_ULONG i;
-  for (i = 0; i < ulCount; i++) {
+  for (CK_ULONG i = 0; i < ulCount; i++) {
     switch (pTemplate[i].type) {
       case CKA_CLASS:
         if (class.set == false) {
@@ -1583,7 +1578,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     } else {
       algo = YH_ALGO_OPAQUE_DATA;
     }
-    for (i = 0; i < ulCount; i++) {
+    for (CK_ULONG i = 0; i < ulCount; i++) {
       switch (pTemplate[i].type) {
         case CKA_VALUE:
           if (template.obj.buf == NULL) {
@@ -1692,7 +1687,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
       DBG_INFO("No ECDH session key with ID %08lx was found", hObject);
     }
   } else {
-    if (((uint8_t) (hObject >> 16)) == YH_PUBLIC_KEY) {
+    if (((uint8_t)(hObject >> 16)) == YH_PUBLIC_KEY) {
       DBG_INFO("Trying to delete public key, returning success with noop");
       goto c_do_out;
     }
@@ -1891,8 +1886,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
     rv = CKR_FUNCTION_FAILED;
     goto c_sav_out;
   }
-  CK_ULONG i;
-  for (i = 0; i < ulCount; i++) {
+  for (CK_ULONG i = 0; i < ulCount; i++) {
     switch (pTemplate[i].type) {
       case CKA_ID: {
         int new_id =
@@ -2003,8 +1997,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
 
   DBG_INFO("find with %lu attributes", ulCount);
   if (ulCount != 0) {
-    CK_ULONG i;
-    for (i = 0; i < ulCount; i++) {
+    for (CK_ULONG i = 0; i < ulCount; i++) {
       switch (pTemplate[i].type) {
         case CKA_ID:
           id = parse_id_value(pTemplate[i].pValue, pTemplate[i].ulValueLen);
@@ -2017,7 +2010,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           break;
 
         case CKA_CLASS: {
-          uint32_t value = *((CK_ULONG_PTR) (pTemplate[i].pValue));
+          uint32_t value = *((CK_ULONG_PTR)(pTemplate[i].pValue));
           switch (value) {
             case CKO_CERTIFICATE:
               DBG_INFO("Filtering for certificate");
@@ -2182,8 +2175,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
         rv = CKR_FUNCTION_FAILED;
         goto c_foi_out;
       }
-      size_t i;
-      for (i = 0; i < tmp_n_objects; i++) {
+      for (size_t i = 0; i < tmp_n_objects; i++) {
         if (tmp_objects[i].type == YH_WRAP_KEY ||
             tmp_objects[i].type == YH_HMAC_KEY) {
           memcpy(session->operation.op.find.objects + found_objects,
@@ -2206,8 +2198,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
       found_objects = session->operation.op.find.n_objects;
 
       if (pub) {
-        size_t i;
-        for (i = 0; i < session->operation.op.find.n_objects; i++) {
+        for (size_t i = 0; i < session->operation.op.find.n_objects; i++) {
           if (session->operation.op.find.objects[i].type == YH_ASYMMETRIC_KEY) {
             session->operation.op.find.objects[i].type |= 0x80;
           }
@@ -2219,8 +2210,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
         should_include_sessionkeys(secret_key, extractable_set,
                                    session->operation.op.find.only_private,
                                    id)) {
-      ListItem *item;
-      for (item = session->ecdh_session_keys.head; item != NULL;
+      for (ListItem *item = session->ecdh_session_keys.head; item != NULL;
            item = item->next) {
         ecdh_session_key *key = (ecdh_session_key *) item->data;
 
@@ -2294,8 +2284,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjects)
   DBG_INFO("Can return %lu object(s)", ulMaxObjectCount);
 
   *pulObjectCount = 0;
-  CK_ULONG i;
-  for (i = 0;
+  for (CK_ULONG i = 0;
        i < ulMaxObjectCount && session->operation.op.find.current_object <
                                  session->operation.op.find.n_objects;
        session->operation.op.find.current_object++) {
@@ -4421,8 +4410,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
     bool set;
     CK_ULONG d;
   } class = {0}, key_type = {0}, id = {0};
-  CK_ULONG i;
-  for (i = 0; i < ulCount; i++) {
+  for (CK_ULONG i = 0; i < ulCount; i++) {
     switch (pTemplate[i].type) {
       case CKA_CLASS:
         if (class.set == false) {
@@ -5009,8 +4997,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
   char *label_buf = NULL;
   size_t label_len = 0;
   size_t expected_key_length = 0;
-  CK_ULONG i;
-  for (i = 0; i < ulAttributeCount; i++) {
+  for (CK_ULONG i = 0; i < ulAttributeCount; i++) {
     switch (pTemplate[i].type) {
       case CKA_VALUE_LEN:
         expected_key_length = *((CK_ULONG *) pTemplate[i].pValue);
