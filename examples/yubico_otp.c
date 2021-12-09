@@ -142,8 +142,7 @@ int main(void) {
                                     sizeof(otp_key));
   assert(yrc == YHR_SUCCESS);
 
-  size_t i;
-  for (i = 0; i < sizeof(test_vectors) / sizeof(test_vectors[0]); i++) {
+  for (size_t i = 0; i < sizeof(test_vectors) / sizeof(test_vectors[0]); i++) {
     uint8_t aead[512];
     size_t aead_len = sizeof(aead);
     yrc = yh_util_create_otp_aead(session, key_id, test_vectors[i].key,

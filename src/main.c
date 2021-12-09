@@ -185,8 +185,7 @@ static CommandList msort_list(CommandList list) {
 
       right = left;
       left_size = 0;
-      int i;
-      for (i = 0; i < in_size; i++) {
+      for (int i = 0; i < in_size; i++) {
         left_size++;
         right = right->next;
 
@@ -644,8 +643,7 @@ static void create_command_list(CommandList *c) {
 #endif
 
   *c = msort_list(*c);
-  Command *t;
-  for (t = *c; t != NULL; t = t->next) {
+  for (Command *t = *c; t != NULL; t = t->next) {
     if (t->subcommands != NULL) {
       t->subcommands = msort_list(t->subcommands);
     }
@@ -684,8 +682,7 @@ int yh_com_history(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 }
 
 static const char *fmt_to_string(cmd_format fmt) {
-  size_t i;
-  for (i = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
+  for (size_t i = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
     if (formats[i].format == fmt) {
       return formats[i].name;
     }
@@ -706,8 +703,7 @@ int yh_com_help(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   bool match = false;
 
   // TODO(adma): once we have optional commands we can have a real help
-  Command *command;
-  for (command = g_commands; command; command = command->next) {
+  for (Command *command = g_commands; command; command = command->next) {
     if (strncmp(argv[0].s, command->name, strlen(argv[0].s)) == 0) {
       match = true;
       printf("%-25s%s\n", command->name, command->doc);
@@ -720,8 +716,7 @@ int yh_com_help(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
           }
           printf("\n");
         }
-        Command *subcommand;
-        for (subcommand = command->subcommands; subcommand;
+        for (Command *subcommand = command->subcommands; subcommand;
              subcommand = subcommand->next) {
           printf("%-5s%-25s%s", "", subcommand->name, subcommand->doc);
           if (subcommand->args) {
@@ -793,8 +788,8 @@ static void timer_handler(int signo __attribute__((unused))) {
   if (calling_device == true || g_ctx.connector == NULL) {
     return;
   }
-  size_t i;
-  for (i = 0; i < sizeof(g_ctx.sessions) / sizeof(g_ctx.sessions[0]); i++) {
+  for (size_t i = 0; i < sizeof(g_ctx.sessions) / sizeof(g_ctx.sessions[0]);
+       i++) {
     probe_session(&g_ctx, i);
   }
 }
@@ -869,8 +864,7 @@ int yh_com_set_informat(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  size_t i;
-  for (i = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
+  for (size_t i = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
     if (strcasecmp(argv[0].s, formats[i].name) == 0) {
       g_in_fmt = formats[i].format;
       return 0;
@@ -886,8 +880,7 @@ int yh_com_set_outformat(yubihsm_context *ctx, Argument *argv,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  size_t i;
-  for (i = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
+  for (size_t i = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
     if (strcasecmp(argv[0].s, formats[i].name) == 0) {
       if (formats[i].format == fmt_password) {
         break;
@@ -911,8 +904,7 @@ static void find_lcp(const char *items[], int n_items, const char **lcp,
     *lcp_len = 0;
   }
 
-  int i;
-  for (i = 1; i < n_items; i++) {
+  for (int i = 1; i < n_items; i++) {
     if (strcmp(items[i], items[min]) < 0) {
       min = i;
     } else if (strcmp(items[i], items[max]) > 0) {
@@ -921,10 +913,9 @@ static void find_lcp(const char *items[], int n_items, const char **lcp,
   }
 
   *lcp = items[min];
-  size_t j;
-  for (j = 0; j < strlen(items[min]) && j < strlen(items[max]); j++) {
-    if (items[min][j] != items[max][j]) {
-      *lcp_len = j;
+  for (size_t i = 0; i < strlen(items[min]) && i < strlen(items[max]); i++) {
+    if (items[min][i] != items[max][i]) {
+      *lcp_len = i;
 
       return;
     }
@@ -936,7 +927,6 @@ static void find_lcp(const char *items[], int n_items, const char **lcp,
 static int tokenize(char *line, char **toks, int max_toks, int *cursorc,
                     int *cursoro, const char *space) {
   int i;
-  size_t j;
   int tok = 0;
   int length = strlen(line);
   int start_of_word = 0;
@@ -963,7 +953,7 @@ static int tokenize(char *line, char **toks, int max_toks, int *cursorc,
     switch (state) {
       case SPACE: {
         bool found = false;
-        for (j = 0; j < strlen(space); j++) {
+        for (size_t j = 0; j < strlen(space); j++) {
           if (c == space[j]) {
             found = true;
             break;
@@ -990,7 +980,7 @@ static int tokenize(char *line, char **toks, int max_toks, int *cursorc,
         }
         break;
       case WORD:
-        for (j = 0; j < strlen(space); j++) {
+        for (size_t j = 0; j < strlen(space); j++) {
           if (c == space[j]) {
             line[i] = '\0';
             state = SPACE;
@@ -1017,7 +1007,6 @@ static unsigned char complete_arg(EditLine *el, const char *arg, char *line,
   ioctl(fileno(stdout), TIOCGWINSZ, &w);
   int lines = (li->cursor - li->buffer + strlen(PROMPT)) / w.ws_col;
 
-  size_t i;
   switch (arg[0]) {
     case 'u':
       printf("\nnumber");
@@ -1072,7 +1061,7 @@ static unsigned char complete_arg(EditLine *el, const char *arg, char *line,
       if (cursorc == num_toks) {
         toks[cursorc] = "";
       }
-      for (i = 0; i < sizeof(yh_capability) / sizeof(yh_capability[0]);
+      for (size_t i = 0; i < sizeof(yh_capability) / sizeof(yh_capability[0]);
            i++) {
         if (strncasecmp(toks[cursorc], yh_capability[i].name,
                         strlen(toks[cursorc])) == 0) {
@@ -1083,7 +1072,7 @@ static unsigned char complete_arg(EditLine *el, const char *arg, char *line,
     } break;
 
     case 'a':
-      for (i = 0; i < sizeof(yh_algorithms) / sizeof(yh_algorithms[0]);
+      for (size_t i = 0; i < sizeof(yh_algorithms) / sizeof(yh_algorithms[0]);
            i++) {
         if (strncasecmp(line, yh_algorithms[i].name, strlen(line)) == 0) {
           candidates[n_candidates++] = yh_algorithms[i].name;
@@ -1094,7 +1083,7 @@ static unsigned char complete_arg(EditLine *el, const char *arg, char *line,
       break;
 
     case 't':
-      for (i = 0; i < sizeof(yh_types) / sizeof(yh_types[0]); i++) {
+      for (size_t i = 0; i < sizeof(yh_types) / sizeof(yh_types[0]); i++) {
         if (strncasecmp(line, yh_types[i].name, strlen(line)) == 0) {
           candidates[n_candidates++] = yh_types[i].name;
           assert(n_candidates < COMPLETION_CANDIDATES);
@@ -1104,7 +1093,7 @@ static unsigned char complete_arg(EditLine *el, const char *arg, char *line,
       break;
 
     case 'o':
-      for (i = 0; i < sizeof(yh_options) / sizeof(yh_options[0]); i++) {
+      for (size_t i = 0; i < sizeof(yh_options) / sizeof(yh_options[0]); i++) {
         if (strncasecmp(line, yh_options[i].name, strlen(line)) == 0) {
           candidates[n_candidates++] = yh_options[i].name;
           assert(n_candidates < COMPLETION_CANDIDATES);
@@ -1114,7 +1103,7 @@ static unsigned char complete_arg(EditLine *el, const char *arg, char *line,
       break;
 
     case 'I':
-      for (i = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
+      for (size_t i = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
         if (strncasecmp(line, formats[i].name, strlen(line)) == 0) {
           candidates[n_candidates++] = formats[i].name;
           assert(n_candidates < COMPLETION_CANDIDATES);
@@ -1136,16 +1125,15 @@ static unsigned char complete_arg(EditLine *el, const char *arg, char *line,
       break;
   }
 
-  int j;
   switch (n_candidates) {
     case 0: {
-      j = 1;
+      int i = 1;
 
-      while (arg[j] != '\0' && arg[j] != ',') {
-        j++;
+      while (arg[i] != '\0' && arg[i] != ',') {
+        i++;
       }
 
-      printf("%*.*s\n", j, j - 1, arg + 1);
+      printf("%*.*s\n", i, i - 1, arg + 1);
     } break;
 
     case 1:
@@ -1165,8 +1153,8 @@ static unsigned char complete_arg(EditLine *el, const char *arg, char *line,
         // NOTE(adma): we already have lcp_len characters typed on
         // the prompt, display all the possible matches
         printf("\n");
-        for (j = 0; j < n_candidates; j++) {
-          printf("%s\n", candidates[j]);
+        for (int i = 0; i < n_candidates; i++) {
+          printf("%s\n", candidates[i]);
         }
       } else {
         // NOTE(adma): we found an lcp, autocomplete with that
@@ -1180,7 +1168,7 @@ static unsigned char complete_arg(EditLine *el, const char *arg, char *line,
     }
   }
 
-  for (j = 0; j < lines; j++) {
+  for (int i = 0; i < lines; i++) {
     printf("\n");
   }
   return CC_REDISPLAY;
@@ -1193,8 +1181,7 @@ static unsigned char complete_command(EditLine *el, Command *to_complete,
   int n_candidates = 0;
 
   // NOTE(adma): try to autocomplete the current command/subcomand
-  Command *command;
-  for (command = to_complete; command; command = command->next) {
+  for (Command *command = to_complete; command; command = command->next) {
     if (strncmp(line, command->name, strlen(line)) == 0) {
       // printf("%s\n", command->name);
 
@@ -1231,8 +1218,7 @@ static unsigned char complete_command(EditLine *el, Command *to_complete,
         // NOTE(adma): we already have lcp_len characters typed on
         // the prompt, display all the possible matches
         printf("\n");
-        int i;
-        for (i = 0; i < n_candidates; i++) {
+        for (int i = 0; i < n_candidates; i++) {
           printf("%s\n", candidates[i]);
         }
       } else {
@@ -1274,8 +1260,7 @@ static unsigned char yubihsm_complete(EditLine *el, int ch) {
     // NOTE(adma): no prompt, don't even bother with finding a match,
     // just show all commands, one per line
     printf("\n");
-    Command *command;
-    for (command = g_commands; command; command = command->next) {
+    for (Command *command = g_commands; command; command = command->next) {
       printf("%s\n", command->name);
     }
     return CC_REDISPLAY;
@@ -1344,8 +1329,7 @@ static unsigned char yubihsm_complete(EditLine *el, int ch) {
         // NOTE(adma): cursor is after a command but there is no more
         // text to match, show all subcommands
         printf("\n");
-        Command *iter;
-        for (iter = to_complete; iter; iter = iter->next) {
+        for (Command *iter = to_complete; iter; iter = iter->next) {
           printf("%s\n", iter->name);
         }
         return CC_REDISPLAY;
@@ -1694,8 +1678,7 @@ static int validate_and_call(yubihsm_context *ctx, CommandList l,
             int num_args = tokenize(arg_data, arg_toks, 64, NULL, NULL, ",");
             if (num_args + 1 + i !=
                 argc) { // some arguments might have default values
-              int j;
-              for (j = 0; j < num_args; j++) {
+              for (int j = 0; j < num_args; j++) {
                 if (j < argc - 1 - i) {
                   continue;
                 }
@@ -1789,8 +1772,7 @@ static int validate_and_call(yubihsm_context *ctx, CommandList l,
 
 static void free_configured_connectors(yubihsm_context *ctx) {
   if (ctx->connector_list) {
-    int i;
-    for (i = 0; ctx->connector_list[i]; i++) {
+    for (int i = 0; ctx->connector_list[i]; i++) {
       free(ctx->connector_list[i]);
     }
     free(ctx->connector_list);
@@ -1805,8 +1787,7 @@ static int parse_configured_connectors(yubihsm_context *ctx, char **connectors,
   if (ctx->connector_list == NULL) {
     return -1;
   }
-  int i;
-  for (i = 0; i < n_connectors; i++) {
+  for (int i = 0; i < n_connectors; i++) {
     ctx->connector_list[i] = strdup(connectors[i]);
     if (ctx->connector_list[i] == NULL) {
       free_configured_connectors(ctx);
@@ -2025,8 +2006,7 @@ int main(int argc, char *argv[]) {
     yh_com_connect(&g_ctx, NULL, fmt_nofmt, fmt_nofmt);
 
     bool requires_session = false;
-    unsigned i;
-    for (i = 0; i < args_info.action_given; i++) {
+    for (unsigned i = 0; i < args_info.action_given; i++) {
       switch (args_info.action_arg[i]) {
         case action_arg_getMINUS_deviceMINUS_info:
         case action_arg_getMINUS_deviceMINUS_pubkey:
@@ -2076,16 +2056,16 @@ int main(int argc, char *argv[]) {
         goto main_exit;
       }
     }
-    size_t j;
-    for (j = 0; j < sizeof(g_ctx.sessions) / sizeof(g_ctx.sessions[0]); j++) {
-      if (g_ctx.sessions[j] != NULL) {
-        arg[0].e = g_ctx.sessions[j];
+    for (size_t i = 0; i < sizeof(g_ctx.sessions) / sizeof(g_ctx.sessions[0]);
+         i++) {
+      if (g_ctx.sessions[i] != NULL) {
+        arg[0].e = g_ctx.sessions[i];
       }
     }
 
     calling_device = true;
 
-    for (i = 0; i < args_info.action_given; i++) {
+    for (unsigned i = 0; i < args_info.action_given; i++) {
       switch (args_info.action_arg[i]) {
         case action_arg_decryptMINUS_pkcs1v15: {
           arg[1].w = args_info.object_id_arg;
@@ -2240,7 +2220,8 @@ int main(int argc, char *argv[]) {
 
           arg[6].d = args_info.nonce_arg;
 
-          comrc = yh_com_generate_otp_aead_key(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
+          comrc =
+            yh_com_generate_otp_aead_key(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to generate otp key");
         } break;
 
@@ -2927,8 +2908,8 @@ int main(int argc, char *argv[]) {
 main_exit:
 
   calling_device = true;
-  size_t i;
-  for (i = 0; i < sizeof(g_ctx.sessions) / sizeof(g_ctx.sessions[0]); i++) {
+  for (size_t i = 0; i < sizeof(g_ctx.sessions) / sizeof(g_ctx.sessions[0]);
+       i++) {
     if (g_ctx.sessions[i]) {
       yh_util_close_session(g_ctx.sessions[i]);
       yh_destroy_session(&g_ctx.sessions[i]);

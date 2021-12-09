@@ -29,8 +29,7 @@ static const uint8_t zero[AES_BLOCK_SIZE];
 
 static void do_pad(uint8_t *data, uint8_t len) {
 
-  uint8_t i;
-  for (i = len; i < AES_BLOCK_SIZE; i++)
+  for (uint8_t i = len; i < AES_BLOCK_SIZE; i++)
     if (i == len)
       data[i] = 0x80;
     else
@@ -39,16 +38,14 @@ static void do_pad(uint8_t *data, uint8_t len) {
 
 static void do_xor(const uint8_t *a, uint8_t *b) {
 
-  uint8_t i;
-  for (i = 0; i < AES_BLOCK_SIZE; i++) {
+  for (uint8_t i = 0; i < AES_BLOCK_SIZE; i++) {
     b[i] ^= a[i];
   }
 }
 
 static void do_shift_one_bit_left(const uint8_t *a, uint8_t *b,
                                   uint8_t *carry) {
-  int8_t i;
-  for (i = AES_BLOCK_SIZE - 1; i >= 0; i--) {
+  for (int8_t i = AES_BLOCK_SIZE - 1; i >= 0; i--) {
     b[i] = (a[i] << 1) | *carry;
 
     *carry = a[i] >> 7;
@@ -80,8 +77,7 @@ int aes_cmac_encrypt(aes_cmac_context_t *ctx, const uint8_t *message,
 
   uint8_t remaining_bytes = (message_len % AES_BLOCK_SIZE);
 
-  uint8_t i;
-  for (i = 0; i < n_blocks; i++) {
+  for (uint8_t i = 0; i < n_blocks; i++) {
     do_xor(ptr, mac);
     int rc = aes_encrypt(mac, mac, ctx->aes_ctx);
     if (rc) {

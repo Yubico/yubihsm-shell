@@ -208,8 +208,7 @@ static bool list_credentials(ykhsmauth_state *state) {
 
   fprintf(stdout, "Found %zu item(s)\n", list_items);
   fprintf(stdout, "Algo\tTouch\tCounter\tLabel\n");
-  size_t i;
-  for (i = 0; i < list_items; i++) {
+  for (size_t i = 0; i < list_items; i++) {
     fprintf(stdout, "%d\t%d\t%d\t%s\n", list[i].algo, list[i].touch,
             list[i].ctr, list[i].label);
   }
@@ -352,8 +351,7 @@ static bool get_mgmkey_retries(ykhsmauth_state *state) {
 
 static void print_key(char *prompt, uint8_t *key, size_t len) {
   fprintf(stdout, "%s: ", prompt);
-  size_t i;
-  for (i = 0; i < len; i++) {
+  for (size_t i = 0; i < len; i++) {
     fprintf(stdout, "%02x", key[i]);
   }
   fprintf(stdout, "\n");

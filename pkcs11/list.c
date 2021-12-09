@@ -108,8 +108,7 @@ bool list_append(List *list, void *item) {
 }
 
 ListItem *list_get(List *list, void *data, CompareItemFn compare_item_fn) {
-  ListItem *item;
-  for (item = list->head; item != NULL; item = item->next) {
+  for (ListItem *item = list->head; item != NULL; item = item->next) {
     if (compare_item_fn(data, item->data) == true) {
 
       return item;
@@ -141,8 +140,7 @@ void list_delete(List *list, ListItem *item) {
     free(item->data);
     free(item);
   } else if (item == list->tail) {
-    ListItem *i;
-    for (i = list->head; i != NULL; i = i->next) {
+    for (ListItem *i = list->head; i != NULL; i = i->next) {
       if (i->next == list->tail) {
         list->tail = i;
         i->next = NULL;
@@ -179,8 +177,7 @@ void list_delete(List *list, ListItem *item) {
 }
 
 void list_iterate(List *list, IteratorFn iterator_fn) {
-  ListItem *item;
-  for (item = list->head; item != NULL; item = item->next) {
+  for (ListItem *item = list->head; item != NULL; item = item->next) {
     iterator_fn(item->data);
   }
 }

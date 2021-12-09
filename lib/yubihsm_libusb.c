@@ -83,8 +83,7 @@ bool usb_open_device(yh_backend *backend) {
     return NULL;
   }
 
-  ssize_t i;
-  for (i = 0; i < cnt; i++) {
+  for (ssize_t i = 0; i < cnt; i++) {
     struct libusb_device_descriptor desc;
     int ret = libusb_get_device_descriptor(list[i], &desc);
     if (ret != 0) {

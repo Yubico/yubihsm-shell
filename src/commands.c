@@ -105,8 +105,7 @@ int yh_com_audit(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   switch (fmt) {
     case fmt_hex:
       fprintf(ctx->out, "%04x%04x", unlogged_boot, unlogged_auth);
-      size_t i;
-      for (i = 0; i < n_items; i++) {
+      for (size_t i = 0; i < n_items; i++) {
         format_digest(logs[i].digest, digest_buf, YH_LOG_DIGEST_SIZE);
         fprintf(ctx->out, "%04x%02x%04x%04x%04x%04x%02x%08lx%s", logs[i].number,
                 logs[i].command, logs[i].length, logs[i].session_key,
@@ -130,7 +129,7 @@ int yh_com_audit(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
         fprintf(ctx->out, "Found %zu items\n", n_items);
       }
 
-      for (i = 0; i < n_items; i++) {
+      for (size_t i = 0; i < n_items; i++) {
         format_digest(logs[i].digest, digest_buf, YH_LOG_DIGEST_SIZE);
         fprintf(ctx->out,
                 "item: %5u -- cmd: 0x%02x -- length: %4u -- session key: "
@@ -230,8 +229,7 @@ int yh_com_connect(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
   ctx->connector = NULL;
 
-  int i;
-  for (i = 0; ctx->connector_list[i]; i++) {
+  for (int i = 0; ctx->connector_list[i]; i++) {
     if (ctx->connector) {
       yh_disconnect(ctx->connector);
       ctx->connector = NULL;
@@ -574,8 +572,7 @@ int yh_com_disconnect(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
   yh_rc yrc = YHR_SUCCESS;
 
-  size_t i;
-  for (i = 0; i < sizeof(ctx->sessions) / sizeof(ctx->sessions[0]);
+  for (size_t i = 0; i < sizeof(ctx->sessions) / sizeof(ctx->sessions[0]);
        i++) {
     if (ctx->sessions[i]) {
       yrc = yh_util_close_session(ctx->sessions[i]);
@@ -642,8 +639,7 @@ int yh_com_echo(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   }
 
   fprintf(ctx->out, "Response (%zu bytes):\n", response_len);
-  size_t i;
-  for (i = 0; i < response_len; i++) {
+  for (size_t i = 0; i < response_len; i++) {
     if (i && !(i % 64))
       fprintf(ctx->out, "\n");
     else if (i && !(i % 8))
@@ -825,8 +821,7 @@ int yh_com_get_option(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   }
 
   fprintf(ctx->out, "Option value is: ");
-  size_t i;
-  for (i = 0; i < response_len; i++) {
+  for (size_t i = 0; i < response_len; i++) {
     fprintf(ctx->out, "%02x", response[i]);
   }
   fprintf(ctx->out, "\n");
@@ -1077,8 +1072,7 @@ int yh_com_get_device_pubkey(yubihsm_context *ctx, Argument *argv,
   }
 
   if (fmt == fmt_hex) {
-    size_t i;
-    for (i = 0; i < response_len; i++) {
+    for (size_t i = 0; i < response_len; i++) {
       fprintf(ctx->out, "%02x", response[i]);
     }
     fprintf(ctx->out, "\n");
@@ -1181,8 +1175,7 @@ int yh_com_get_object_info(yubihsm_context *ctx, Argument *argv,
   }
   yh_domains_to_string(object.domains, domains, 255);
 
-  size_t i;
-  for (i = 0; i < label_len; i++) {
+  for (size_t i = 0; i < label_len; i++) {
     if (isprint(label[i]) == 0) {
       label[i] = '.';
     }
@@ -1207,12 +1200,12 @@ int yh_com_get_object_info(yubihsm_context *ctx, Argument *argv,
   fprintf(ctx->out, ", capabilities: ");
   if (yh_capabilities_to_strings(&object.capabilities, cap, &n_cap) !=
       YHR_SUCCESS) {
-    for (i = 0; i < YH_CAPABILITIES_LEN; i++) {
+    for (size_t i = 0; i < YH_CAPABILITIES_LEN; i++) {
       fprintf(ctx->out, "0x%02x%s", object.capabilities.capabilities[i],
               i < YH_CAPABILITIES_LEN - 1 ? " " : "");
     }
   } else {
-    for (i = 0; i < n_cap; i++) {
+    for (size_t i = 0; i < n_cap; i++) {
       fprintf(ctx->out, "%s%s", cap[i], i < n_cap - 1 ? ":" : "");
     }
   }
@@ -1221,13 +1214,13 @@ int yh_com_get_object_info(yubihsm_context *ctx, Argument *argv,
     n_cap = sizeof(yh_capability) / sizeof(yh_capability[0]);
     if (yh_capabilities_to_strings(&object.delegated_capabilities, cap,
                                    &n_cap) != YHR_SUCCESS) {
-      for (i = 0; i < YH_CAPABILITIES_LEN; i++) {
+      for (size_t i = 0; i < YH_CAPABILITIES_LEN; i++) {
         fprintf(ctx->out, "0x%02x%s",
                 object.delegated_capabilities.capabilities[i],
                 i < YH_CAPABILITIES_LEN - 1 ? " " : "");
       }
     } else {
-      for (i = 0; i < n_cap; i++) {
+      for (size_t i = 0; i < n_cap; i++) {
         fprintf(ctx->out, "%s%s", cap[i], i < n_cap - 1 ? ":" : "");
       }
     }
@@ -1313,8 +1306,7 @@ int yh_com_list_capabilities(yubihsm_context *ctx, Argument *argv,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  size_t i;
-  for (i = 0; i < sizeof(yh_capability) / sizeof(yh_capability[0]);
+  for (size_t i = 0; i < sizeof(yh_capability) / sizeof(yh_capability[0]);
        i++) {
     fprintf(ctx->out, "%-30s (%016llx)\n", yh_capability[i].name,
             1ULL << yh_capability[i].bit);
@@ -1333,8 +1325,7 @@ int yh_com_list_algorithms(yubihsm_context *ctx, Argument *argv,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  size_t i;
-  for (i = 0; i < sizeof(yh_algorithms) / sizeof(yh_algorithms[0]);
+  for (size_t i = 0; i < sizeof(yh_algorithms) / sizeof(yh_algorithms[0]);
        i++) {
     fprintf(ctx->out, "%s\n", yh_algorithms[i].name);
   }
@@ -1352,8 +1343,7 @@ int yh_com_list_types(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  uint16_t i;
-  for (i = 0; i < sizeof(yh_types) / sizeof(yh_types[0]); i++) {
+  for (uint16_t i = 0; i < sizeof(yh_types) / sizeof(yh_types[0]); i++) {
     fprintf(ctx->out, "%s\n", yh_types[i].name);
   }
 
@@ -1374,8 +1364,7 @@ int yh_com_list_sessions(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
-  size_t i;
-  for (i = 0; i < sizeof(ctx->sessions) / sizeof(ctx->sessions[0]);
+  for (size_t i = 0; i < sizeof(ctx->sessions) / sizeof(ctx->sessions[0]);
        i++) {
     if (ctx->sessions[i] != NULL) {
       fprintf(stderr, "Session %zu\n", i);
@@ -1428,8 +1417,7 @@ int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   qsort(objects, num_objects, sizeof(yh_object_descriptor), compare_objects);
 
   fprintf(ctx->out, "Found %zu object(s)\n", num_objects);
-  size_t i;
-  for (i = 0; i < num_objects; i++) {
+  for (size_t i = 0; i < num_objects; i++) {
     const char *type = "";
     yh_type_to_string(objects[i].type, &type);
     fprintf(ctx->out, "id: 0x%04x, type: %s, sequence: %hhu\n", objects[i].id,
@@ -1782,8 +1770,7 @@ int yh_com_pecho(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   }
 
   fprintf(ctx->out, "Response (%zu bytes):\n", response_len);
-  size_t i;
-  for (i = 0; i < response_len; i++) {
+  for (size_t i = 0; i < response_len; i++) {
     if (i && !(i % 64))
       fprintf(ctx->out, "\n");
     else if (i && !(i % 8))
@@ -2385,8 +2372,7 @@ int yh_com_get_device_info(yubihsm_context *ctx, Argument *argv,
   fprintf(ctx->out, "Log used:\t\t%d/%d\n", log_used, log_total);
 
   fprintf(ctx->out, "Supported algorithms:\t");
-  size_t i;
-  for (i = 0; i < n_algorithms; i++) {
+  for (size_t i = 0; i < n_algorithms; i++) {
     const char *algo_str;
     yh_algo_to_string(algorithms[i], &algo_str);
     fprintf(ctx->out, "%s, ", algo_str);
@@ -2681,8 +2667,7 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     return -1;
   }
 
-  size_t i;
-  for (i = 0; i < sizeof(benchmarks) / sizeof(benchmarks[0]); i++) {
+  for (size_t i = 0; i < sizeof(benchmarks) / sizeof(benchmarks[0]); i++) {
     struct timeval total = {0, 0};
     struct timeval avg = {0, 0};
     struct timeval max = {0, 0};
@@ -2855,8 +2840,7 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     }
 
     memset(&min, 0x7f, sizeof(min));
-    uint32_t j;
-    for (j = 0; j < argv[1].d; j++) {
+    for (uint32_t j = 0; j < argv[1].d; j++) {
       uint8_t data[1024];
       uint8_t out[1024];
       size_t out_len = sizeof(out);

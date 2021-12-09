@@ -87,8 +87,7 @@ bool hex_decode(const char *in, uint8_t *out, size_t *len) {
     return false;
   }
 
-  size_t i;
-  for (i = 0; i < in_len / 2; i++) {
+  for (size_t i = 0; i < in_len / 2; i++) {
     char *endptr = NULL;
     char buf[3] = {0};
     long num;

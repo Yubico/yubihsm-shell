@@ -37,8 +37,7 @@ static void test_domains1(void) {
     {"2", 2},          {"2:4", 10},
   };
 
-  size_t i;
-  for (i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
+  for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
     uint16_t d = 0;
     assert(yh_string_to_domains(tests[i].string, &d) == YHR_SUCCESS);
     assert(d == tests[i].domains);
@@ -56,8 +55,7 @@ static void test_domains2(void) {
     {0xffff, "1:2:3:4:5:6:7:8:9:10:11:12:13:14:15:16"},
   };
 
-  size_t i;
-  for (i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
+  for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
     char s[256];
     assert(yh_domains_to_string(tests[i].domains, s, 255) == YHR_SUCCESS);
     assert(strcmp(s, tests[i].string) == 0);
@@ -77,8 +75,7 @@ static void test_capabilities1(void) {
     {"0xffffffffffffffff", {"\xff\xff\xff\xff\xff\xff\xff\xff"}},
   };
 
-  size_t i;
-  for (i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
+  for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
     yh_capabilities c = {{0}};
     assert(yh_string_to_capabilities(tests[i].string, &c) == YHR_SUCCESS);
     assert(memcmp(&c, &tests[i].capabilities, sizeof(c)) == 0);
@@ -98,8 +95,7 @@ static void test_capabilities2(void) {
   char capabilities_string[1024];
 
   size_t len = 0;
-  size_t i;
-  for (i = 0;
+  for (size_t i = 0;
        i < sizeof(capabilities_list) / sizeof(capabilities_list[0]); i++) {
     sprintf(capabilities_string + len, "%s:", capabilities_list[i]);
     len += strlen(capabilities_list[i]) + 1;
@@ -133,7 +129,7 @@ static void test_capabilities2(void) {
   yrc = yh_capabilities_to_strings(&capabilities, capabilities_array,
                                    &capabilities_array_len);
   assert(yrc == YHR_SUCCESS);
-  for (i = 0;
+  for (size_t i = 0;
        i < sizeof(capabilities_list) / sizeof(capabilities_list[0]); i++) {
     size_t j;
     for (j = 0; j < capabilities_array_len; j++) {
