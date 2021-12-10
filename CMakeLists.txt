@@ -217,7 +217,7 @@ endif()
 add_custom_target (
   cppcheck
   COMMENT "Running cppcheck"
-  COMMAND /usr/bin/cppcheck
+  COMMAND cppcheck
   --enable=warning,style,unusedFunction,missingInclude
   --template="[{severity}][{id}] {message} {callstack} \(On {file}:{line}\)"
   -i ${CMAKE_SOURCE_DIR}/src/cmdline.c
