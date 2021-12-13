@@ -32,7 +32,7 @@ macro (add_cppcheck_target _cc_target _cc_directories _cc_ignore)
 
   add_custom_target (
     ${_cc_target}
-    COMMAND /usr/bin/cppcheck
+    COMMAND cppcheck
     --enable=all
     --template="[{severity}][{id}] {message} {callstack} \(On {file}:{line}\)"
     --suppress="unusedStructMember"
