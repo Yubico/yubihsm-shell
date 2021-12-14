@@ -125,6 +125,7 @@ if(MSVC)
             "C4201" # nonstandard extension used: nameless struct/union
             "C4295" # array is too small to include a terminating null character. They arrays it's complaining about aren't meant to include terminating null character (triggered in tests and examples only)
             "C4127" # conditional expression is constant
+            "C5105" # macro expansion producing 'defined' has undefined behavior
             )
     # The construction in the following 3 lines was taken from LibreSSL's
     # CMakeLists.txt.
