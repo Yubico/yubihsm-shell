@@ -24,7 +24,9 @@
 #define DEFAULT_CONNECTOR_URL "http://127.0.0.1:12345"
 #endif
 
-CK_FUNCTION_LIST_PTR get_function_list(char *argv[]);
+void *open_module(const char *path);
+void close_module(void *handle);
+CK_FUNCTION_LIST_PTR get_function_list(void *handle);
 CK_SESSION_HANDLE open_session(CK_FUNCTION_LIST_PTR p11);
 void close_session(CK_FUNCTION_LIST_PTR p11, CK_SESSION_HANDLE session);
 void print_session_state(CK_FUNCTION_LIST_PTR p11, CK_SESSION_HANDLE session);

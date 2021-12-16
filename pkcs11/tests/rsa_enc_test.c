@@ -221,7 +221,8 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  p11 = get_function_list(argv);
+  void *handle = open_module(argv[1]);
+  p11 = get_function_list(handle);
   session = open_session(p11);
   print_session_state(p11, session);
 
@@ -230,5 +231,6 @@ int main(int argc, char **argv) {
   test_encrypt_RSA(4096, 512);
 
   close_session(p11, session);
+  close_module(handle);
   return (EXIT_SUCCESS);
 }

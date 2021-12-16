@@ -25,11 +25,20 @@
 
 #include "common.h"
 
-CK_FUNCTION_LIST_PTR get_function_list(char *argv[]) {
-  void *handle = dlopen(argv[1], RTLD_NOW | RTLD_GLOBAL);
+void *open_module(const char *path) {
+  void *handle = dlopen(path, RTLD_NOW | RTLD_GLOBAL);
   assert(handle != NULL);
-  CK_C_GetFunctionList fn;
+  return handle;
+}
 
+void close_module(void *handle) {
+  assert(handle != NULL);
+  int r = dlclose(handle);
+  assert(r == 0);
+}
+
+CK_FUNCTION_LIST_PTR get_function_list(void *handle) {
+  CK_C_GetFunctionList fn;
   *(void **) (&fn) = dlsym(handle, "C_GetFunctionList");
   assert(fn != NULL);
 
