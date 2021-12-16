@@ -42,7 +42,7 @@ CK_FUNCTION_LIST_PTR get_function_list(void *handle) {
   *(void **) (&fn) = dlsym(handle, "C_GetFunctionList");
   assert(fn != NULL);
 
-  CK_FUNCTION_LIST_PTR p11;
+  CK_FUNCTION_LIST_PTR p11 = NULL;
   CK_RV rv = fn(&p11);
   assert(rv == CKR_OK);
 
@@ -50,19 +50,17 @@ CK_FUNCTION_LIST_PTR get_function_list(void *handle) {
 }
 
 CK_SESSION_HANDLE open_session(CK_FUNCTION_LIST_PTR p11) {
-  CK_SESSION_HANDLE session;
-  CK_C_INITIALIZE_ARGS initArgs;
-  memset(&initArgs, 0, sizeof(initArgs));
+  CK_SESSION_HANDLE session = 0;
+  CK_C_INITIALIZE_ARGS initArgs = {0};
 
-  const char *connector_url;
-  connector_url = getenv("DEFAULT_CONNECTOR_URL");
-  if (connector_url == NULL) {
-    connector_url = DEFAULT_CONNECTOR_URL;
+  char config[256] = {0};
+  const char *connector_url = getenv("DEFAULT_CONNECTOR_URL");
+  if (connector_url) {
+    assert(strlen(connector_url) + strlen("connector=") < 256);
+    sprintf(config, "connector=%s", connector_url);
+    initArgs.pReserved = (void *) config;
   }
-  char config[256];
-  assert(strlen(connector_url) + strlen("connector=") < 256);
-  sprintf(config, "connector=%s", connector_url);
-  initArgs.pReserved = (void *) config;
+
   CK_RV rv = p11->C_Initialize(&initArgs);
   assert(rv == CKR_OK);
 

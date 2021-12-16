@@ -31,18 +31,27 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
-  CK_C_GetFunctionList fn;
   void *handle = dlopen(argv[1], RTLD_NOW | RTLD_GLOBAL);
   assert(handle != NULL);
 
+  CK_C_GetFunctionList fn;
   *(void **) (&fn) = dlsym(handle, "C_GetFunctionList");
   assert(fn != NULL);
 
-  CK_FUNCTION_LIST_PTR p11;
+  CK_FUNCTION_LIST_PTR p11 = NULL;
   CK_RV rv = fn(&p11);
   assert(rv == CKR_OK);
 
-  rv = p11->C_Initialize(NULL_PTR);
+  char config[256] = {0};
+  CK_C_INITIALIZE_ARGS initArgs = {0};
+  const char *connector_url = getenv("DEFAULT_CONNECTOR_URL");
+  if (connector_url) {
+    assert(strlen(connector_url) + strlen("connector=") < 256);
+    sprintf(config, "connector=%s", connector_url);
+    initArgs.pReserved = (void *) config;
+  }
+
+  rv = p11->C_Initialize(&initArgs);
   assert(rv == CKR_OK);
 
   CK_SESSION_HANDLE session;
