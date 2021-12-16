@@ -83,6 +83,9 @@ void close_session(CK_FUNCTION_LIST_PTR p11, CK_SESSION_HANDLE session) {
   CK_RV rv = p11->C_Logout(session);
   assert(rv == CKR_OK);
 
+  rv = p11->C_CloseSession(session);
+  assert(rv == CKR_OK);
+
   rv = p11->C_Finalize(NULL);
   assert(rv == CKR_OK);
 }
