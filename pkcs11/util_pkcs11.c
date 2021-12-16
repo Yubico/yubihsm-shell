@@ -1051,6 +1051,9 @@ static bool load_public_key(yh_session *session, uint16_t id, EVP_PKEY *key) {
       goto l_p_k_failure;
     }
 
+    n = NULL;
+    e = NULL;
+
     if (EVP_PKEY_assign_RSA(key, rsa) == 0) {
       goto l_p_k_failure;
     }
@@ -1099,25 +1102,13 @@ static bool load_public_key(yh_session *session, uint16_t id, EVP_PKEY *key) {
   return true;
 
 l_p_k_failure:
-  if (ec_point != NULL) {
-    EC_POINT_free(ec_point);
-  }
-
-  if (ec_group != NULL) {
-    EC_GROUP_free(ec_group);
-  }
-
-  if (ec_key != NULL) {
-    EC_KEY_free(ec_key);
-  }
-
-  if (rsa != NULL) {
-    RSA_free(rsa);
-  }
-
-  if (key != NULL) {
-    EVP_PKEY_free(key);
-  }
+  EC_POINT_free(ec_point);
+  EC_GROUP_free(ec_group);
+  EC_KEY_free(ec_key);
+  RSA_free(rsa);
+  EVP_PKEY_free(key);
+  BN_free(n);
+  BN_free(e);
 
   return false;
 }
@@ -2608,52 +2599,30 @@ CK_RV perform_rsa_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
 
   if (data == NULL) {
     DBG_ERR("data is null");
+    return CKR_ARGUMENTS_BAD;
   }
 
-  uint8_t response[2048] = {0};
-  size_t response_len = sizeof(response);
-  yh_algorithm algo;
-  if (yh_util_get_public_key(session, op_info->op.encrypt.key_id, response,
-                             &response_len, &algo) != YHR_SUCCESS) {
-    DBG_ERR("Failed to get public key with ObjectId 0x%4x",
-            op_info->op.encrypt.key_id);
-    return CKR_FUNCTION_FAILED;
-  }
-
-  EVP_PKEY *public_key = NULL;
-  public_key = EVP_PKEY_new();
+  EVP_PKEY *public_key = EVP_PKEY_new();
   if (public_key == NULL) {
     DBG_ERR("Failed to create EVP_PKEY object for public key");
     return CKR_FUNCTION_FAILED;
   }
 
-  RSA *rsa = RSA_new();
-  if (rsa == NULL) {
-    DBG_ERR("Failed to create RSA object for public key");
-    return CKR_FUNCTION_FAILED;
-  }
-  BIGNUM *e = BN_new();
-  BIGNUM *n = BN_bin2bn(response, response_len, NULL);
-  BN_hex2bn(&e, "10001");
-  if (RSA_set0_key(rsa, n, e, NULL) != 1) {
-    RSA_free(rsa);
-    DBG_ERR("Failed to set RSA key for encryption");
-    return CKR_FUNCTION_FAILED;
-  }
-  if (EVP_PKEY_set1_RSA(public_key, rsa) != 1) {
-    RSA_free(rsa);
-    DBG_ERR("Failed to set RSA public key for encryption");
-    return CKR_FUNCTION_FAILED;
-  }
-  RSA_free(rsa);
+  CK_RV rv = CKR_OK;
+  EVP_PKEY_CTX *ctx = NULL;
 
-  DBG_INFO("Successfully retrieved RSA key 0x%04x for encryption",
-           op_info->op.encrypt.key_id);
+  if (load_public_key(session, op_info->op.encrypt.key_id, public_key) ==
+      false) {
+    DBG_ERR("Failed to load public key");
+    rv = CKR_FUNCTION_FAILED;
+    goto rsa_enc_cleanup;
+  }
 
-  CK_RV rv;
-  EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(public_key, NULL);
+  ctx = EVP_PKEY_CTX_new(public_key, NULL);
   if (ctx == NULL) {
-    return CKR_FUNCTION_FAILED;
+    DBG_ERR("Failed to create EVP_PKEY_CTX object for public key");
+    rv = CKR_FUNCTION_FAILED;
+    goto rsa_enc_cleanup;
   }
 
   if (EVP_PKEY_encrypt_init(ctx) <= 0) {
@@ -2718,6 +2687,7 @@ rsa_enc_cleanup:
     free(op_info->op.encrypt.oaep_label);
   }
   EVP_PKEY_CTX_free(ctx);
+  EVP_PKEY_free(public_key);
   return rv;
 }
 

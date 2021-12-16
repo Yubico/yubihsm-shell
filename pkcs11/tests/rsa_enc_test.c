@@ -18,7 +18,6 @@
 #undef NDEBUG
 #endif
 #include <assert.h>
-#include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,99 +29,12 @@
 #include <openssl/err.h>
 
 #include "../pkcs11.h"
-
-#ifndef DEFAULT_CONNECTOR_URL
-#define DEFAULT_CONNECTOR_URL "http://127.0.0.1:12345"
-#endif
+#include "common.h"
 
 #define BUFSIZE 1024
 
-CK_FUNCTION_LIST_PTR p11;
-CK_SESSION_HANDLE session;
-
-static void get_function_list(char *argv[]) {
-  void *handle = dlopen(argv[1], RTLD_NOW | RTLD_GLOBAL);
-  assert(handle != NULL);
-  CK_C_GetFunctionList fn;
-
-  *(void **) (&fn) = dlsym(handle, "C_GetFunctionList");
-  assert(fn != NULL);
-
-  CK_RV rv = fn(&p11);
-  assert(rv == CKR_OK);
-}
-
-static void open_session() {
-  CK_C_INITIALIZE_ARGS initArgs;
-  memset(&initArgs, 0, sizeof(initArgs));
-
-  const char *connector_url;
-  connector_url = getenv("DEFAULT_CONNECTOR_URL");
-  if (connector_url == NULL) {
-    connector_url = DEFAULT_CONNECTOR_URL;
-  }
-  char config[256];
-  assert(strlen(connector_url) + strlen("connector=") < 256);
-  sprintf(config, "connector=%s", connector_url);
-  initArgs.pReserved = (void *) config;
-  CK_RV rv = p11->C_Initialize(&initArgs);
-  assert(rv == CKR_OK);
-
-  rv = p11->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, NULL, NULL,
-                          &session);
-  assert(rv == CKR_OK);
-
-  char password[] = "0001password";
-  rv = p11->C_Login(session, CKU_USER, (CK_UTF8CHAR_PTR) password,
-                    (CK_ULONG) strlen(password));
-  assert(rv == CKR_OK);
-  printf("Session open and authenticated\n");
-}
-
-static void close_session() {
-  CK_RV rv = p11->C_Logout(session);
-  assert(rv == CKR_OK);
-
-  rv = p11->C_Finalize(NULL);
-  assert(rv == CKR_OK);
-}
-
-static void print_session_state() {
-  CK_SESSION_INFO pInfo;
-  CK_RV rv = p11->C_GetSessionInfo(session, &pInfo);
-  assert(rv == CKR_OK);
-  CK_STATE state = pInfo.state;
-
-  printf("session state: ");
-  switch (state) {
-    case 0:
-      printf("read-only public session\n");
-      break;
-    case 1:
-      printf("read-only user functions\n");
-      break;
-    case 2:
-      printf("read-write public session\n");
-      break;
-    case 3:
-      printf("read-write user functions\n");
-      break;
-    case 4:
-      printf("read-write so functions\n");
-      break;
-    default:
-      printf("unknown state\n");
-      break;
-  }
-}
-
-static bool destroy_object(CK_OBJECT_HANDLE key) {
-  if ((p11->C_DestroyObject(session, key)) != CKR_OK) {
-    printf("WARN. Failed to destroy object 0x%lx on HSM. FAIL\n", key);
-    return false;
-  }
-  return true;
-}
+static CK_FUNCTION_LIST_PTR p11;
+static CK_SESSION_HANDLE session;
 
 static void import_rsa_key(int keylen, EVP_PKEY **evp, RSA **rsak,
                            CK_OBJECT_HANDLE_PTR keyid) {
@@ -299,7 +211,7 @@ static void test_encrypt_RSA(int keysize, CK_ULONG expected_enc_len) {
 
   RSA_free(rsak);
   EVP_PKEY_free(evp);
-  destroy_object(keyid);
+  destroy_object(p11, session, keyid);
 }
 
 int main(int argc, char **argv) {
@@ -309,14 +221,16 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  get_function_list(argv);
-  open_session();
-  print_session_state();
+  void *handle = open_module(argv[1]);
+  p11 = get_function_list(handle);
+  session = open_session(p11);
+  print_session_state(p11, session);
 
   test_encrypt_RSA(2048, 256);
   test_encrypt_RSA(3072, 384);
   test_encrypt_RSA(4096, 512);
 
-  close_session();
+  close_session(p11, session);
+  close_module(handle);
   return (EXIT_SUCCESS);
 }

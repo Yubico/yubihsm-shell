@@ -18,7 +18,6 @@
 #undef NDEBUG
 #endif
 #include <assert.h>
-#include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,10 +27,7 @@
 #include <openssl/x509.h>
 
 #include "../pkcs11.h"
-
-#ifndef DEFAULT_CONNECTOR_URL
-#define DEFAULT_CONNECTOR_URL "http://127.0.0.1:12345"
-#endif
+#include "common.h"
 
 #define BUFSIZE 1024
 
@@ -41,8 +37,8 @@ CK_BYTE P256_PARAMS[] = {0x06, 0x08, 0x2a, 0x86, 0x48,
 CK_BYTE P384_PARAMS[] = {0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x22};
 CK_BYTE P521_PARAMS[] = {0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x23};
 
-CK_FUNCTION_LIST_PTR p11;
-CK_SESSION_HANDLE session;
+static CK_FUNCTION_LIST_PTR p11;
+static CK_SESSION_HANDLE session;
 
 char *CURVES[] = {"secp224r1", "prime256v1", "secp384r1", "secp521r1"};
 CK_BYTE *CURVE_PARAMS[] = {P224_PARAMS, P256_PARAMS, P384_PARAMS, P521_PARAMS};
@@ -50,93 +46,9 @@ CK_ULONG CURVE_LENS[] = {sizeof(P224_PARAMS), sizeof(P256_PARAMS),
                          sizeof(P384_PARAMS), sizeof(P521_PARAMS)};
 int CURVE_COUNT = sizeof(CURVE_PARAMS) / sizeof(CURVE_PARAMS[0]);
 
-static void get_function_list(char *argv[]) {
-  void *handle = dlopen(argv[1], RTLD_NOW | RTLD_GLOBAL);
-  assert(handle != NULL);
-  CK_C_GetFunctionList fn;
-
-  *(void **) (&fn) = dlsym(handle, "C_GetFunctionList");
-  assert(fn != NULL);
-
-  CK_RV rv = fn(&p11);
-  assert(rv == CKR_OK);
-}
-
-static void open_session() {
-  CK_C_INITIALIZE_ARGS initArgs;
-  memset(&initArgs, 0, sizeof(initArgs));
-
-  const char *connector_url;
-  connector_url = getenv("DEFAULT_CONNECTOR_URL");
-  if (connector_url == NULL) {
-    connector_url = DEFAULT_CONNECTOR_URL;
-  }
-  char config[256];
-  assert(strlen(connector_url) + strlen("connector=") < 256);
-  sprintf(config, "connector=%s", connector_url);
-  initArgs.pReserved = (void *) config;
-  CK_RV rv = p11->C_Initialize(&initArgs);
-  assert(rv == CKR_OK);
-
-  rv = p11->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, NULL, NULL,
-                          &session);
-  assert(rv == CKR_OK);
-
-  char password[] = "0001password";
-  rv = p11->C_Login(session, CKU_USER, (CK_UTF8CHAR_PTR) password,
-                    (CK_ULONG) strlen(password));
-  assert(rv == CKR_OK);
-  printf("Session open and authenticated\n");
-}
-
-static void close_session() {
-  CK_RV rv = p11->C_Logout(session);
-  assert(rv == CKR_OK);
-
-  rv = p11->C_Finalize(NULL);
-  assert(rv == CKR_OK);
-}
-
-static void print_session_state() {
-  CK_SESSION_INFO pInfo;
-  CK_RV rv = p11->C_GetSessionInfo(session, &pInfo);
-  assert(rv == CKR_OK);
-  CK_STATE state = pInfo.state;
-
-  printf("session state: ");
-  switch (state) {
-    case 0:
-      printf("read-only public session\n");
-      break;
-    case 1:
-      printf("read-only user functions\n");
-      break;
-    case 2:
-      printf("read-write public session\n");
-      break;
-    case 3:
-      printf("read-write user functions\n");
-      break;
-    case 4:
-      printf("read-write so functions\n");
-      break;
-    default:
-      printf("unknown state\n");
-      break;
-  }
-}
-
 static void success(const char *message) { printf("%s. OK\n", message); }
 
 static void fail(const char *message) { printf("%s. FAIL!\n", message); }
-
-static bool destroy_object(CK_OBJECT_HANDLE key) {
-  if ((p11->C_DestroyObject(session, key)) != CKR_OK) {
-    printf("WARN. Failed to destroy object 0x%lx on HSM. FAIL\n", key);
-    return false;
-  }
-  return true;
-}
 
 static void generate_keypair_yh(CK_BYTE *curve, CK_ULONG curve_len,
                                 CK_OBJECT_HANDLE_PTR publicKeyPtr,
@@ -928,9 +840,10 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  get_function_list(argv);
-  open_session();
-  print_session_state();
+  void *handle = open_module(argv[1]);
+  p11 = get_function_list(handle);
+  session = open_session(p11);
+  print_session_state(p11, session);
 
   int exit_status = EXIT_SUCCESS;
 
@@ -1076,7 +989,7 @@ int main(int argc, char **argv) {
     // ------- End C_FindObjects functions test
 
     printf("Destroying ECDH key 1... ");
-    destroy_object(ecdh1);
+    destroy_object(p11, session, ecdh1);
     if (find_secret_extractable_keys(&ecdh1, &ecdh2, &ecdh3, 2)) {
       printf("OK!\n");
     } else {
@@ -1086,7 +999,7 @@ int main(int argc, char **argv) {
     }
 
     printf("Destroying ECDH key 2... ");
-    destroy_object(ecdh3);
+    destroy_object(p11, session, ecdh3);
     if (find_secret_extractable_keys(&ecdh1, &ecdh2, &ecdh3, 1)) {
       printf("OK!\n");
     } else {
@@ -1114,7 +1027,7 @@ int main(int argc, char **argv) {
     }
 
     printf("Destroying ECDH key 3... ");
-    destroy_object(ecdh2);
+    destroy_object(p11, session, ecdh2);
     if (find_secret_extractable_keys(&ecdh1, &ecdh2, &ecdh3, 0)) {
       printf("OK!\n");
     } else {
@@ -1123,13 +1036,14 @@ int main(int argc, char **argv) {
       goto c_clean;
     }
 
-    destroy_object(yh_privkey);
+    destroy_object(p11, session, yh_privkey);
   }
 
 c_clean:
   if (exit_status == EXIT_FAILURE) {
-    destroy_object(yh_privkey);
+    destroy_object(p11, session, yh_privkey);
   }
-  close_session();
+  close_session(p11, session);
+  close_module(handle);
   return (exit_status);
 }

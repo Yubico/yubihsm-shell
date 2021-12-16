@@ -238,11 +238,13 @@ set_property(
 set (
   SOURCE_ECDH_DERIVE
   ecdh_derive_test.c
+  common.c
   )
 
 set (
   SOURCE_RSA_ENC_TEST
   rsa_enc_test.c
+  common.c
   )
 
 if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
