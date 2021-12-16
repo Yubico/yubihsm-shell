@@ -55,8 +55,6 @@
 #include <fcntl.h>
 #include <io.h>
 
-// TODO: cheat on windows, cheat better?
-#define S_ISLNK S_ISREG
 #else
 #include <strings.h>
 #include <unistd.h>
@@ -68,6 +66,7 @@ History *g_hist;
 #endif
 
 #ifdef _MSVC
+#define S_ISLNK S_ISREG
 #define S_ISREG(m) (((m) &S_IFMT) == S_IFREG)
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp
@@ -1854,10 +1853,9 @@ int main(int argc, char *argv[]) {
   g_ctx.out = stdout;
 
   cmdline_parser_params_init(&params);
-  params.initialize = 1;
   params.check_required = 0;
 
-  if (cmdline_parser(argc, argv, &args_info) != 0) {
+  if (cmdline_parser_ext(argc, argv, &args_info, &params) != 0) {
     return EXIT_FAILURE;
   }
 

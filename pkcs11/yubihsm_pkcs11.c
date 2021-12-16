@@ -39,6 +39,8 @@
 #endif
 
 #ifdef _MSVC
+#define S_ISLNK S_ISREG
+#define S_ISREG(m) (((m) &S_IFMT) == S_IFREG)
 #define strtok_r strtok_s
 #endif
 
@@ -112,9 +114,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
 
   CK_C_INITIALIZE_ARGS_PTR init_args = pInitArgs;
 
-  yh_dbg_init(false, false, 0, "stderr");
+  yh_dbg_init(0, 0, 0, "stderr");
 
-  if (pInitArgs != NULL) {
+  if (init_args != NULL) {
     if ((init_args->flags & CKF_OS_LOCKING_OK) == 0 &&
         init_args->CreateMutex == NULL && init_args->DestroyMutex == NULL &&
         init_args->LockMutex == NULL && init_args->UnlockMutex == NULL) {
@@ -163,157 +165,179 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     g_ctx.mutex = NULL;
   }
 
-  struct cmdline_parser_params params = {0};
+  int argc = 1;
+  char *argv[128] = {"yubihsm_pkcs11"};
+  char *args = 0;
 
+  if (init_args && init_args->pReserved) {
+    char *str = args = strdup(init_args->pReserved);
+    char *save = 0;
+    char *part = 0;
+    while (argc < (int) (sizeof(argv) / sizeof(argv[0])) &&
+           (part = strtok_r(str, " \r\n\t", &save))) {
+      size_t len = strlen(part) + 8;
+      argv[argc] = malloc(len);
+      snprintf(argv[argc], len, "--%s", part);
+      DBG_INFO("Option '%s' added from pReserved", argv[argc]);
+      argc++;
+      str = 0;
+    }
+  }
+
+  struct cmdline_parser_params params = {0};
   struct gengetopt_args_info args_info = {0};
 
   cmdline_parser_params_init(&params);
+  params.check_required = 0;
 
-  params.initialize = 1;
-  params.check_required = 1;
+  int rc = cmdline_parser_ext(argc, argv, &args_info, &params);
 
-  char *tmp = "";
+  for (int i = 1; i < argc; i++) {
+    free(argv[i]);
+    argv[i] = 0;
+  }
 
-  if (cmdline_parser(0, &tmp, &args_info) != 0) {
-    DBG_ERR("Unable to initialize ggo structure");
+  if (rc) {
+    DBG_ERR("Unable to parse pReserved command line");
     return CKR_FUNCTION_FAILED;
   }
 
   params.initialize = 0;
   params.override = 1;
 
-  char *args = NULL;
-  char *args_parsed = NULL;
-
-  yh_connector **connector_list = NULL;
-
-  if (init_args != NULL && init_args->pReserved != NULL) {
-    args = strdup(init_args->pReserved);
-    if (args == NULL) {
-      DBG_ERR("Failed copying reserved string");
+  const char *opts = getenv("YUBIHSM_PKCS11_OPTS");
+  if (opts) {
+    if (cmdline_parser_string_ext(opts, &args_info, argv[0], &params) != 0) {
+      DBG_ERR("Unable to parse YUBIHSM_PKCS11_OPTS");
       return CKR_FUNCTION_FAILED;
     }
-
-    char *str = args;
-    char *save = NULL;
-    char *part;
-    while ((part = strtok_r(str, " \r\n\t", &save))) {
-      str = NULL;
-      size_t len = args_parsed ? strlen(args_parsed) : 0;
-      char *new_args = realloc(args_parsed, len + strlen(part) + 4);
-      if (new_args) {
-        args_parsed = new_args;
-        sprintf(args_parsed + len, "--%s ", part);
-      } else {
-        DBG_ERR("Failed allocating memory for args");
-        goto c_i_failure;
-      }
-    }
-
-    DBG_INFO("Now parsing supplied init args as '%s'", args_parsed);
-
-    if (cmdline_parser_string_ext(args_parsed, &args_info,
-                                  "yubihsm_pkcs11 module", &params) != 0) {
-      DBG_ERR("Parsing of the reserved init args '%s' failed", args);
-      goto c_i_failure;
-    }
-
-    free(args);
-    args = NULL;
-    free(args_parsed);
-    args_parsed = NULL;
   }
 
-  // NOTE(thorduri): #TOCTOU
-  char *config_file = args_info.config_file_arg;
-  struct stat sb = {0};
-  if (stat(config_file, &sb) == -1) {
-    config_file = getenv("YUBIHSM_PKCS11_CONF");
+  const char *conf = getenv("YUBIHSM_PKCS11_CONF");
+  if (conf) {
+    char opt[1024];
+    snprintf(opt, sizeof(opt), "--config-file=%s", conf);
+    if (cmdline_parser_string_ext(opt, &args_info, argv[0], &params) != 0) {
+      DBG_ERR("Unable to parse YUBIHSM_PKCS11_CONF");
+      return CKR_FUNCTION_FAILED;
+    }
   }
 
   params.override = 0;
 
-  if (config_file != NULL &&
-      cmdline_parser_config_file(config_file, &args_info, &params) != 0) {
-    DBG_ERR("Unable to parse configuration file");
+  struct stat sb = {0};
+  if (stat(args_info.config_file_arg, &sb) == 0) {
+    if (S_ISREG(sb.st_mode) || S_ISLNK(sb.st_mode)) {
+      DBG_INFO("Using config file '%s'", args_info.config_file_arg);
+      if (cmdline_parser_config_file(args_info.config_file_arg, &args_info,
+                                     &params) != 0) {
+        DBG_ERR("Unable to parse configuration file '%s'",
+                args_info.config_file_arg);
+        return CKR_FUNCTION_FAILED;
+      }
+    } else {
+      DBG_WARN("Config file '%s' is not a regular file",
+               args_info.config_file_arg);
+    }
+  } else {
+    DBG_WARN("Couldn't stat config file '%s'", args_info.config_file_arg);
+  }
+
+  if (!args_info.connector_given) {
+    if (cmdline_parser_string_ext("--connector=" YH_USB_URL_SCHEME, &args_info,
+                                  argv[0], &params) != 0) {
+      DBG_ERR("Unable to parse default connector command line '%s'", argv[1]);
+      return CKR_FUNCTION_FAILED;
+    }
+  }
+
+  if (cmdline_parser_required(&args_info, argv[0]) != 0) {
+    DBG_ERR("Required configuration options missing");
     return CKR_FUNCTION_FAILED;
   }
 
   yh_dbg_init(args_info.debug_flag, args_info.dinout_flag,
               args_info.libdebug_flag, args_info.debug_file_arg);
 
+  DBG_INFO("Found %u configured connector(s)", args_info.connector_given);
+
   // NOTE(adma): it's better to set the argument optional and check its presence
   // here
-  if (args_info.connector_given == 0) {
-    DBG_ERR("No connector defined");
-    return CKR_FUNCTION_FAILED;
-  }
-
   if (yh_init() != YHR_SUCCESS) {
     DBG_ERR("Unable to initialize libyubihsm");
     return CKR_FUNCTION_FAILED;
   }
 
-  DBG_INFO("Found %u configured connector(s)", args_info.connector_given);
-
-  connector_list = calloc(args_info.connector_given, sizeof(yh_connector *));
+  yh_connector **connector_list =
+    calloc(args_info.connector_given, sizeof(yh_connector *));
   if (connector_list == NULL) {
     DBG_ERR("Failed allocating memory");
     goto c_i_failure;
   }
-  size_t n_connectors = 0;
+
+  char **name_list = calloc(args_info.connector_given, sizeof(char *));
+  if (name_list == NULL) {
+    DBG_ERR("Failed allocating memory");
+    goto c_i_failure;
+  }
+
+  unsigned int n = 0;
   for (unsigned int i = 0; i < args_info.connector_given; i++) {
-    if (yh_init_connector(args_info.connector_arg[i], &connector_list[i]) !=
+    if (yh_init_connector(args_info.connector_arg[i], &connector_list[n]) !=
         YHR_SUCCESS) {
-      DBG_ERR("Failed to init connector");
-      goto c_i_failure;
+      DBG_ERR("Failed to init connector '%s'", args_info.connector_arg[i]);
+      continue;
     }
     if (args_info.cacert_given) {
-      if (yh_set_connector_option(connector_list[i], YH_CONNECTOR_HTTPS_CA,
+      if (yh_set_connector_option(connector_list[n], YH_CONNECTOR_HTTPS_CA,
                                   args_info.cacert_arg) != YHR_SUCCESS) {
         DBG_ERR("Failed to set HTTPS CA option");
         goto c_i_failure;
       }
     }
     if (args_info.cert_given) {
-      if (yh_set_connector_option(connector_list[i], YH_CONNECTOR_HTTPS_CERT,
+      if (yh_set_connector_option(connector_list[n], YH_CONNECTOR_HTTPS_CERT,
                                   args_info.cert_arg) != YHR_SUCCESS) {
         DBG_ERR("Failed to set HTTPS cert option");
         goto c_i_failure;
       }
     }
     if (args_info.key_given) {
-      if (yh_set_connector_option(connector_list[i], YH_CONNECTOR_HTTPS_KEY,
+      if (yh_set_connector_option(connector_list[n], YH_CONNECTOR_HTTPS_KEY,
                                   args_info.key_arg) != YHR_SUCCESS) {
         DBG_ERR("Failed to set HTTPS key option");
         goto c_i_failure;
       }
     }
     if (args_info.proxy_given) {
-      if (yh_set_connector_option(connector_list[i], YH_CONNECTOR_PROXY_SERVER,
+      if (yh_set_connector_option(connector_list[n], YH_CONNECTOR_PROXY_SERVER,
                                   args_info.proxy_arg) != YHR_SUCCESS) {
         DBG_ERR("Failed to set proxy server option");
         goto c_i_failure;
       }
     }
     if (args_info.noproxy_given) {
-      if (yh_set_connector_option(connector_list[i], YH_CONNECTOR_NOPROXY,
+      if (yh_set_connector_option(connector_list[n], YH_CONNECTOR_NOPROXY,
                                   args_info.noproxy_arg) != YHR_SUCCESS) {
         DBG_ERR("Failed to set noproxy option");
         goto c_i_failure;
       }
     }
 
-    if (yh_connect(connector_list[i], args_info.timeout_arg) != YHR_SUCCESS) {
+    if (yh_connect(connector_list[n], args_info.timeout_arg) != YHR_SUCCESS) {
       DBG_ERR("Failed to connect '%s'", args_info.connector_arg[i]);
-      continue;
+      yh_disconnect(connector_list[n]);
     } else {
-      n_connectors++;
+      name_list[n++] = args_info.connector_arg[i];
     }
   }
 
-  if (add_connectors(&g_ctx, args_info.connector_given, args_info.connector_arg,
-                     connector_list) == false) {
+  if (n == 0) {
+    DBG_ERR("No usable connector found");
+    goto c_i_failure;
+  }
+
+  if (add_connectors(&g_ctx, n, name_list, connector_list) == false) {
     DBG_ERR("Failed building connectors list");
     goto c_i_failure;
   }
@@ -330,10 +354,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     list_append(&g_ctx.device_pubkeys, pk);
   }
 
+  free(args);
+
   cmdline_parser_free(&args_info);
   free(connector_list);
+  free(name_list);
 
-  DBG_INFO("Found %zu usable connector(s)", n_connectors);
+  DBG_INFO("Found %u usable connector(s)", n);
 
   DBG_INFO("Found %d configured device public key(s)",
            g_ctx.device_pubkeys.length);
@@ -345,7 +372,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
 
 c_i_failure:
 
-  free(args_parsed);
   free(args);
 
   list_iterate(&g_ctx.slots, destroy_slot_mutex);
@@ -353,13 +379,14 @@ c_i_failure:
   list_destroy(&g_ctx.device_pubkeys);
 
   if (connector_list) {
-    for (unsigned int i = 0; i < args_info.connector_given; i++) {
+    for (unsigned int i = 0; i < n; i++) {
       yh_disconnect(connector_list[i]);
     }
   }
 
   cmdline_parser_free(&args_info);
   free(connector_list);
+  free(name_list);
 
   if (g_ctx.mutex != NULL) {
     g_ctx.destroy_mutex(g_ctx.mutex);
@@ -441,7 +468,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetInfo)(CK_INFO_PTR pInfo) {
 
 CK_DEFINE_FUNCTION(CK_RV, C_GetFunctionList)
 (CK_FUNCTION_LIST_PTR_PTR ppFunctionList) {
-  yh_dbg_init(false, false, 0, "stderr");
+  yh_dbg_init(0, 0, 0, "stderr");
 
   DIN;
 
