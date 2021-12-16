@@ -1051,6 +1051,9 @@ static bool load_public_key(yh_session *session, uint16_t id, EVP_PKEY *key) {
       goto l_p_k_failure;
     }
 
+    n = NULL;
+    e = NULL;
+
     if (EVP_PKEY_assign_RSA(key, rsa) == 0) {
       goto l_p_k_failure;
     }
@@ -1099,25 +1102,13 @@ static bool load_public_key(yh_session *session, uint16_t id, EVP_PKEY *key) {
   return true;
 
 l_p_k_failure:
-  if (ec_point != NULL) {
-    EC_POINT_free(ec_point);
-  }
-
-  if (ec_group != NULL) {
-    EC_GROUP_free(ec_group);
-  }
-
-  if (ec_key != NULL) {
-    EC_KEY_free(ec_key);
-  }
-
-  if (rsa != NULL) {
-    RSA_free(rsa);
-  }
-
-  if (key != NULL) {
-    EVP_PKEY_free(key);
-  }
+  EC_POINT_free(ec_point);
+  EC_GROUP_free(ec_group);
+  EC_KEY_free(ec_key);
+  RSA_free(rsa);
+  EVP_PKEY_free(key);
+  BN_free(n);
+  BN_free(e);
 
   return false;
 }
