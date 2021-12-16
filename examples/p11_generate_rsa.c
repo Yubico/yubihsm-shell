@@ -110,8 +110,13 @@ int main(int argc, char *argv[]) {
   rv = p11->C_Logout(session);
   assert(rv == CKR_OK);
 
+  rv = p11->C_CloseSession(session);
+  assert(rv == CKR_OK);
+
   rv = p11->C_Finalize(NULL);
   assert(rv == CKR_OK);
+
+  dlclose(handle);
 
   return 0;
 }
