@@ -1932,6 +1932,10 @@ static yh_rc import_key(yh_cmd cmd, yh_session *session, uint16_t *key_id,
                         const yh_capabilities *capabilities,
                         yh_algorithm algorithm, const uint8_t *key,
                         uint16_t key_len) {
+  if (cmd != YHC_PUT_ASYMMETRIC_KEY && cmd != YHC_PUT_SYMMETRIC_KEY) {
+    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
 #pragma pack(push, 1)
   union {
     struct {
