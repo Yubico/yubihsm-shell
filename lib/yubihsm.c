@@ -2201,6 +2201,11 @@ static yh_rc generate_key(yh_cmd cmd, yh_session *session, uint16_t *key_id,
     return YHR_INVALID_PARAMETERS;
   }
 
+  if (cmd != YHC_GENERATE_ASYMMETRIC_KEY && cmd != YHC_GENERATE_SYMMETRIC_KEY) {
+    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
+
 #pragma pack(push, 1)
   union {
     struct {
