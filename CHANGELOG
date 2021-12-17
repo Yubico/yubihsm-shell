@@ -1,3 +1,7 @@
+=== Version 2.3.0a
+
+build: Enable more hardening when building on CMake < 3.14
+
 === Version 2.3.0
 
 lib: Security update for https://www.yubico.com/support/security-advisories/ysa-2021-04/[YSA-2021-04]
