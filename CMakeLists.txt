@@ -14,14 +14,12 @@
 # limitations under the License.
 #
 
-cmake_minimum_required (VERSION 2.8)
-if (CMAKE_VERSION VERSION_GREATER 3.0.0)
-  # policy CMP0025 is to get AppleClang identifier rather than Clang for both
-  # this matters since the apple compiler accepts different flags.
-  cmake_policy(SET CMP0025 NEW)
-  cmake_policy(SET CMP0042 NEW)
-  cmake_policy(SET CMP0054 NEW)
-endif ()
+cmake_minimum_required (VERSION 3.1)
+# policy CMP0025 is to get AppleClang identifier rather than Clang for both
+# this matters since the apple compiler accepts different flags.
+cmake_policy(SET CMP0025 NEW)
+cmake_policy(SET CMP0042 NEW)
+cmake_policy(SET CMP0054 NEW)
 
 project (yubihsm-shell)
 
