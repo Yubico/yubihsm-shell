@@ -1950,18 +1950,43 @@ int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                       cmd_format fmt) {
 
   UNUSED(ctx);
-  UNUSED(in_fmt);
   UNUSED(fmt);
+  unsigned char buf[YH_MSG_BUF_SIZE], *data = argv[6].x;
+  size_t len = argv[6].len;
 
-  yh_rc yrc =
-    yh_util_import_opaque(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
-                          &argv[4].c, argv[5].a, argv[6].x, argv[6].len);
+  if (in_fmt == fmt_PEM) {
+    BIO *bio = BIO_new_mem_buf(data, len);
+    if (!bio) {
+      fprintf(stderr, "Couldn't wrap PEM-encoded certificate data\n");
+      return 0;
+    }
+    X509 *cert = PEM_read_bio_X509(bio, NULL, NULL, NULL);
+    if (!cert) {
+      fprintf(stderr, "Couldn't parse PEM-encoded certificate\n");
+      BIO_free(bio);
+      return 0;
+    }
+    BIO_free(bio);
+    len = i2d_X509(cert, 0);
+    if (len > sizeof(buf)) {
+      fprintf(stderr, "Decoded certificate is too large: %zu\n", len);
+      X509_free(cert);
+      return 0;
+    }
+    data = buf;
+    i2d_X509(cert, &data);
+    data = buf;
+    X509_free(cert);
+  }
+
+  yh_rc yrc = yh_util_import_opaque(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
+                                    &argv[4].c, argv[5].a, data, len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to store opaque object: %s\n", yh_strerror(yrc));
     return -1;
   }
 
-  fprintf(stderr, "Stored Opaque object 0x%04x\n", argv[1].w);
+  fprintf(stderr, "Stored %zu bytes to Opaque object 0x%04x\n", len, argv[1].w);
 
   return 0;
 }
