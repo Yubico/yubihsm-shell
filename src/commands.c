@@ -1955,6 +1955,8 @@ int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   size_t len = argv[6].len;
 
   if (in_fmt == fmt_PEM) {
+    // Decode X.509 Certificate regardless of algorithm in case fmt_PEM is
+    // explicitly set
     BIO *bio = BIO_new_mem_buf(data, len);
     if (!bio) {
       fprintf(stderr, "Couldn't wrap PEM-encoded certificate data\n");
@@ -1976,6 +1978,15 @@ int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     data = buf;
     i2d_X509(cert, &data);
     data = buf;
+    X509_free(cert);
+  } else if (argv[5].a == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
+    // Enforce valid X.509 certificate
+    const unsigned char *p = data;
+    X509 *cert = d2i_X509(NULL, &p, len);
+    if (!cert) {
+      fprintf(stderr, "Couldn't parse DER-encoded certificate\n");
+      return 0;
+    }
     X509_free(cert);
   }
 
