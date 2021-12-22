@@ -27,10 +27,7 @@
 #include <openssl/x509.h>
 
 #include "../pkcs11y.h"
-
-#ifndef DEFAULT_CONNECTOR_URL
-#define DEFAULT_CONNECTOR_URL "http://127.0.0.1:12345"
-#endif
+#include "common.h"
 
 #define BUFSIZE 1024
 
