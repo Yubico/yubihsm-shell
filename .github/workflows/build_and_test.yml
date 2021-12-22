@@ -9,12 +9,29 @@ jobs:
       matrix:
         environment: [
           "ubuntu:21.10",
-          "ubuntu:20.04"
+          "ubuntu:21.04",
+          "ubuntu:20.04",
+          "ubuntu:18.04",
+          "ubuntu:16.04",
+          "ubuntu:14.04",
+          "debian:11",
+          "debian:10",
+          "debian:9"
         ]
-        cc: [
-          "gcc",
-          "clang"
-        ]
+        # perform gcc builds for all environments
+        cc: [ "gcc" ]
+        # debian 9 has a different version of openssl in libcurl4-openssl-dev
+        # as such, for that environment in particular we install libcurl4-nss-dev
+        # for all other environments we use the standard libcurl4-openssl-dev
+        libcurl_package: [ "libcurl4-openssl-dev" ]
+        exclude:
+          - environment: "debian:9"
+            cc: "gcc"
+            libcurl_package: "libcurl4-openssl-dev"
+        include:
+          - environment: "debian:9"
+            cc: "gcc"
+            libcurl_package: "libcurl4-nss-dev"
     name: build on ${{ matrix.environment }} with ${{ matrix.cc }}
     runs-on: ubuntu-latest
     container: ${{ matrix.environment }}
@@ -25,9 +42,10 @@ jobs:
         env:
           CC: ${{ matrix.cc }}
           DEBIAN_FRONTEND: noninteractive
+          LIBCURL_PACKAGE: ${{ matrix.libcurl_package }}
         run: |
           apt update
-          apt install -q -y build-essential cmake pkg-config gengetopt help2man libcurl4-openssl-dev libedit-dev libpcsclite-dev libusb-1.0-0-dev libssl-dev
+          apt install -q -y build-essential cmake pkg-config gengetopt help2man $LIBCURL_PACKAGE libedit-dev libpcsclite-dev libusb-1.0-0-dev libssl-dev
           if [ "$CC" = "clang" ]; then
             apt install -q -y clang llvm lld
           fi
@@ -37,21 +55,36 @@ jobs:
         with:
           path: yubihsm-shell
 
+      - name: apply environment specific changes to CMakeLists.txt
+        working-directory: yubihsm-shell
+        env:
+          BUILD_ENVIRONMENT: ${{ matrix.environment }}
+        run: |
+          if [ $BUILD_ENVIRONMENT = "ubuntu:14.04" ]; then
+            # remove the following flags: -pedantic -pedantic-errors
+            sed -i 's/add_compile_options (-pedantic -pedantic-errors)/#&/' cmake/SecurityFlags.cmake
+            # append the following flags: -Wno-missing-braces -Wno-missing-field-initializers -Wno-implicit-function-declaration
+            sed -i 's/-Wall -Wextra -Werror/-Wall -Wextra -Werror -Wno-missing-braces -Wno-missing-field-initializers -Wno-implicit-function-declaration/' cmake/SecurityFlags.cmake
+          fi
+
       - name: do build
         working-directory: yubihsm-shell
         env:
           CC: ${{ matrix.cc }}
           VERBOSE: 1
         run: |
+          mkdir build
+          cd build
           if [ "$CC" = "gcc" ]; then
-            cmake -B build
+            cmake -DCMAKE_BUILD_TYPE=Release ..
           else
-            cmake -B build \
+            cmake -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_AR=/usr/bin/llvm-ar \
               -DCMAKE_RANLIB=/usr/bin/llvm-ranlib \
-              -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld"
+              -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" \
+              ..
           fi
-          cmake --build build
+          cmake --build .
 
       - name: do static build
         working-directory: yubihsm-shell
@@ -59,15 +92,18 @@ jobs:
           CC: ${{ matrix.cc }}
           VERBOSE: 1
         run: |
+          mkdir build-static
+          cd build-static
           if [ "$CC" = "gcc" ]; then
-            cmake -DENABLE_STATIC=ON -B build-static
+            cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release ..
           else
-            cmake -DENABLE_STATIC=ON -B build-static \
+            cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_AR=/usr/bin/llvm-ar \
               -DCMAKE_RANLIB=/usr/bin/llvm-ranlib \
-              -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld"
+              -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" \
+              ..
           fi
-          cmake --build build-static
+          cmake --build .
 
       - name: prepare name for upload-artifact action
         env:
@@ -84,86 +120,86 @@ jobs:
           name: "${{ env.ARTIFACT_NAME }}"
           path: yubihsm-shell
 
-  test:
-    name: run unit tests
-    runs-on: ubuntu-latest
-    container: ubuntu:21.10
-    needs: build_debian_derivatives
-
-    steps:
-
-      - name: install dependencies from package management
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          apt update
-          apt install -q -y build-essential python3 python3-pip python3-setuptools curl
-
-      - name: download artifacts from the build job
-        uses: actions/download-artifact@v2
-        with:
-          name: yubihsm-shell_ubuntu-21.10_gcc
-          path: yubihsm-shell
-
-      - name: prepare ghostunnel
-        env:
-          TLSPWD: ${{ secrets.TLSKEY }}
-        run: |
-          curl -o ghostunnel -L https://github.com/ghostunnel/ghostunnel/releases/download/v1.6.0/ghostunnel-v1.6.0-linux-amd64
-          chmod + ghostunnel
-          openssl aes-256-cbc \
-            -k "$TLSPWD" \
-            -md sha256 \
-            -in yubihsm-shell/.ci/client-combined.pem.enc \
-            -out yubihsm-shell/.ci/client-combined.pem \
-            -d
-          ghostunnel client \
-            --listen localhost:12345 \
-            --target hsm-connector01.sthlm.in.yubico.org:8443 \
-            --keystore yubihsm-shell/.ci/client-combined.pem \
-            --cacert yubihsm-shell/.ci/server-crt.pem \
-            2>/dev/null &
-          sleep 3
-          DEFAULT_CONNECTOR_URL=$(curl -s http://localhost:12345/dispatcher/request)
-          test -n "$DEFAULT_CONNECTOR_URL" || (echo "Unable to obtain a connector URL, aborting"; exit 1)
-          echo "DEFAULT_CONNECTOR_URL=$DEFAULT_CONNECTOR_URL" >> $GITHUB_ENV
-
-      - name: reset the hsm
-        working-directory: yubihsm-shell/build/src
-        run: |
-          yubihsm-shell --connector "$DEFAULT_CONNECTOR_URL" -p password -a reset
-          sleep 3
-
-      - name: clone the YubicoLabs/pkcs11test repository
-        uses: actions/checkout@v2
-        with:
-          repository: YubicoLabs/pkcs11test
-          path: pkcs11test
-
-      - name: build the pkcs11test binary
-        working-directory: pkcs11test
-        run: |
-          make
-          echo "PKCS11TEST_PATH=`pwd`/pkcs11test" >> $GITHUB_ENV
-
-      - name: run tests with ctest
-        working-directory: yubihsm-shell/build
-        run: ctest --output-on-failure
-
-      - name: run yubihsm-shell tests
-        working-directory: yubihsm-shell/resources/tests/bash
-        run: cmdline_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
-
-      - name: clone the YubicoLabs/python-pkcs11tester repository
-        uses: actions/checkout@v2
-        with:
-          repository: YubicoLabs/python-pkcs11tester
-          path: python-pkcs11tester
-
-      - name: run python-pkcs11tester
-        env:
-          YUBIHSM_PKCS11_MODULE: yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so
-        run: |
-          echo "connector=$DEFAULT_CONNECTOR_URL" > yubihsm_pkcs11.conf
-          python3 -m pip install 'pykcs11' 'cryptography>=1.4.0'
-          python3 setup.py test
+#  test:
+#    name: run unit tests
+#    runs-on: ubuntu-latest
+#    container: ubuntu:21.10
+#    needs: build_debian_derivatives
+#
+#    steps:
+#
+#      - name: install dependencies from package management
+#        env:
+#          DEBIAN_FRONTEND: noninteractive
+#        run: |
+#          apt update
+#          apt install -q -y build-essential python3 python3-pip python3-setuptools curl
+#
+#      - name: download artifacts from the build job
+#        uses: actions/download-artifact@v2
+#        with:
+#          name: yubihsm-shell_ubuntu-21.10_gcc
+#          path: yubihsm-shell
+#
+#      - name: prepare ghostunnel
+#        env:
+#          TLSPWD: ${{ secrets.TLSKEY }}
+#        run: |
+#          curl -o ghostunnel -L https://github.com/ghostunnel/ghostunnel/releases/download/v1.6.0/ghostunnel-v1.6.0-linux-amd64
+#          chmod + ghostunnel
+#          openssl aes-256-cbc \
+#            -k "$TLSPWD" \
+#            -md sha256 \
+#            -in yubihsm-shell/.ci/client-combined.pem.enc \
+#            -out yubihsm-shell/.ci/client-combined.pem \
+#            -d
+#          ghostunnel client \
+#            --listen localhost:12345 \
+#            --target hsm-connector01.sthlm.in.yubico.org:8443 \
+#            --keystore yubihsm-shell/.ci/client-combined.pem \
+#            --cacert yubihsm-shell/.ci/server-crt.pem \
+#            2>/dev/null &
+#          sleep 3
+#          DEFAULT_CONNECTOR_URL=$(curl -s http://localhost:12345/dispatcher/request)
+#          test -n "$DEFAULT_CONNECTOR_URL" || (echo "Unable to obtain a connector URL, aborting"; exit 1)
+#          echo "DEFAULT_CONNECTOR_URL=$DEFAULT_CONNECTOR_URL" >> $GITHUB_ENV
+#
+#      - name: reset the hsm
+#        working-directory: yubihsm-shell/build/src
+#        run: |
+#          yubihsm-shell --connector "$DEFAULT_CONNECTOR_URL" -p password -a reset
+#          sleep 3
+#
+#      - name: clone the YubicoLabs/pkcs11test repository
+#        uses: actions/checkout@v2
+#        with:
+#          repository: YubicoLabs/pkcs11test
+#          path: pkcs11test
+#
+#      - name: build the pkcs11test binary
+#        working-directory: pkcs11test
+#        run: |
+#          make
+#          echo "PKCS11TEST_PATH=`pwd`/pkcs11test" >> $GITHUB_ENV
+#
+#      - name: run tests with ctest
+#        working-directory: yubihsm-shell/build
+#        run: ctest --output-on-failure
+#
+#      - name: run yubihsm-shell tests
+#        working-directory: yubihsm-shell/resources/tests/bash
+#        run: cmdline_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
+#
+#      - name: clone the YubicoLabs/python-pkcs11tester repository
+#        uses: actions/checkout@v2
+#        with:
+#          repository: YubicoLabs/python-pkcs11tester
+#          path: python-pkcs11tester
+#
+#      - name: run python-pkcs11tester
+#        env:
+#          YUBIHSM_PKCS11_MODULE: yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so
+#        run: |
+#          echo "connector=$DEFAULT_CONNECTOR_URL" > yubihsm_pkcs11.conf
+#          python3 -m pip install 'pykcs11' 'cryptography>=1.4.0'
+#          python3 setup.py test
