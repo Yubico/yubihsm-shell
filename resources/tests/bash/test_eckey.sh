@@ -99,26 +99,18 @@ test "openssl dgst -sha512 -verify ecp224-import.pubkey -signature data.ecp224sh
 
 #-- Get attestation certificate and a selfsigned certificate
 echo "Get attestation certificate and a selfsigned certificate:"
-#set +e
-#$BIN -p password -a sign-attestation-certificate -i $keydid --attestation-id 0 2>&1 > /dev/null
-#ret=$?
-#set -e
-#if [ $ret -eq 0 ]; then # Some YubiHSMs does not have default attestation certificate
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default key"
-  test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
-  test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem" "   Sign attestation with same key (aka. get selfsigned cert)"
-  test "$BIN -p password -a delete-object -i $keyid -t opaque" "   Delete template cert"
-  test "$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem" "   Import selfsigned cert with same key ID"
-  test "rm selfsigned_cert.pem" "   Cleaning up"
-  #-- Sign attestation certificate
-  test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as imported key)"
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
-  test "rm cert.der" "   Cleaning up"
-  test "rm selfsigned_cert.der" "   Cleaning up"
-#else
-#  echo "Unable to sign attestation certificate using attestation ID 0. Maybe not present on HSM. Skipping test"
-#fi
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default key"
+test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
+test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem" "   Sign attestation with same key (aka. get selfsigned cert)"
+test "$BIN -p password -a delete-object -i $keyid -t opaque" "   Delete template cert"
+test "$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem" "   Import selfsigned cert with same key ID"
+test "rm selfsigned_cert.pem" "   Cleaning up"
+#-- Sign attestation certificate
+test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as imported key)"
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
+test "rm cert.der" "   Cleaning up"
+test "rm selfsigned_cert.der" "   Cleaning up"
 
 #-- Derive ECDH
 echo "Derive ECDH:"
@@ -165,26 +157,18 @@ test "openssl dgst -sha512 -verify ecp256-import.pubkey -signature data.ecp256sh
 
 #-- Get attestation certificate and a selfsigned certificate
 echo "Get attestation certificate and a selfsigned certificate:"
-#set +e
-#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 2>&1 > /dev/null
-#ret=$?
-#set -e
-#if [ $ret -eq 0 ]; then
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default cert"
-  test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
-  test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem" "   Sign attestation cert with same key (aka get selfsigned cert)"
-  test "$BIN -p password -a delete-object -i $keyid -t opaque" "   Delete template cert"
-  test "$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem" "   Import selfsigned cert with same key ID"
-  test "rm selfsigned_cert.pem" "   Cleaning up"
-  #-- Sign attestation certificate
-  test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as imported key)"
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
-  test "rm cert.der" "   Cleaning up"
-  test "rm selfsigned_cert.der" "   Cleaning up"
-#else
-#  echo "No default attestation certificate present on HSM. Skipping test"
-#fi
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default cert"
+test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
+test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem" "   Sign attestation cert with same key (aka get selfsigned cert)"
+test "$BIN -p password -a delete-object -i $keyid -t opaque" "   Delete template cert"
+test "$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem" "   Import selfsigned cert with same key ID"
+test "rm selfsigned_cert.pem" "   Cleaning up"
+#-- Sign attestation certificate
+test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as imported key)"
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
+test "rm cert.der" "   Cleaning up"
+test "rm selfsigned_cert.der" "   Cleaning up"
 
 #-- Derive ECDH
 echo "Derive ECDH:"
@@ -231,26 +215,18 @@ test "openssl dgst -sha512 -verify ecp384-import.pubkey -signature data.ecp384sh
 
 #-- Get attestation certificate and a selfsigned certificate
 echo "Get attestation certificate and a selfsigned certificate:"
-#set +e
-#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 2>&1 > /dev/null
-#ret=$?
-#set -e
-#if [ $ret -eq 0 ]; then
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default cert"
-  test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
-  test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem" "   Sign attestation cert with same key (aka get selfsigned cert)"
-  test "$BIN -p password -a delete-object -i $keyid -t opaque" "   Delete template cert"
-  test "$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem" "   Import selfsigned cert with same key ID"
-  test "rm selfsigned_cert.pem" "   Cleaning up"
-  #-- Sign attestation certificate
-  test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as imported key)"
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
-  test "rm cert.der" "   Cleaning up"
-  test "rm selfsigned_cert.der" "   Cleaning up"
-#else
-#  echo "No default attestation certificate present on HSM. Skipping test"
-#fi
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default cert"
+test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
+test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem" "   Sign attestation cert with same key (aka get selfsigned cert)"
+test "$BIN -p password -a delete-object -i $keyid -t opaque" "   Delete template cert"
+test "$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem" "   Import selfsigned cert with same key ID"
+test "rm selfsigned_cert.pem" "   Cleaning up"
+#-- Sign attestation certificate
+test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as imported key)"
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
+test "rm cert.der" "   Cleaning up"
+test "rm selfsigned_cert.der" "   Cleaning up"
 
 #-- Derive ECDH
 echo "Derive ECDH:"
@@ -297,26 +273,18 @@ test "openssl dgst -sha512 -verify ecp521-import.pubkey -signature data.ecp521sh
 
 #-- Get attestation certificate and a selfsigned certificate
 echo "Get attestation certificate and a selfsigned certificate:"
-#set +e
-#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 2>&1 > /dev/null
-#ret=$?
-#set -e
-#if [ $ret -eq 0 ]; then
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default cert"
-  test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
-  test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem" "   Sign attestation cert with same key (aka get selfsigned cert)"
-  test "$BIN -p password -a delete-object -i $keyid -t opaque" "   Delete template cert"
-  test "$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem" "   Import selfsigned cert with same key ID"
-  test "rm selfsigned_cert.pem" "   Cleaning up"
-  #-- Sign attestation certificate
-  test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as imported key)"
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
-  test "rm cert.der" "   Cleaning up"
-  test "rm selfsigned_cert.der" "   Cleaning up"
-#else
-#  echo "No default attestation certificate present on HSM. Skipping test"
-#fi
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default cert"
+test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
+test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem" "   Sign attestation cert with same key (aka get selfsigned cert)"
+test "$BIN -p password -a delete-object -i $keyid -t opaque" "   Delete template cert"
+test "$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem" "   Import selfsigned cert with same key ID"
+test "rm selfsigned_cert.pem" "   Cleaning up"
+#-- Sign attestation certificate
+test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as imported key)"
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
+test "rm cert.der" "   Cleaning up"
+test "rm selfsigned_cert.der" "   Cleaning up"
 
 #-- Derive ECDH
 echo "Derive ECDH:"
@@ -363,26 +331,18 @@ test "openssl dgst -sha512 -verify eck256-import.pubkey -signature data.eck256sh
 
 #-- Get attestation certificate and a selfsigned certificate
 echo "Get attestation certificate and a selfsigned certificate:"
-#set +e
-#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 2>&1 > /dev/null
-#ret=$?
-#set -e
-#if [ $ret -eq 0 ]; then
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default cert"
-  test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
-  test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem" "   Sign attestation cert with same key (aka get selfsigned cert)"
-  test "$BIN -p password -a delete-object -i $keyid -t opaque" "Delete template cert"
-  test "$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem" "   Import selfsigned cert with same key ID"
-  test "rm selfsigned_cert.pem" "   Cleaning up"
-  #-- Sign attestation certificate
-  test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as imported key)"
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
-  test "rm cert.der" "   Cleaning up"
-  test "rm selfsigned_cert.der" "   Cleaning up"
-#else
-#  echo "No default attestation certificate present on HSM. Skipping test"
-#fi
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default cert"
+test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
+test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem" "   Sign attestation cert with same key (aka get selfsigned cert)"
+test "$BIN -p password -a delete-object -i $keyid -t opaque" "Delete template cert"
+test "$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem" "   Import selfsigned cert with same key ID"
+test "rm selfsigned_cert.pem" "   Cleaning up"
+#-- Sign attestation certificate
+test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as imported key)"
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
+test "rm cert.der" "   Cleaning up"
+test "rm selfsigned_cert.der" "   Cleaning up"
 
 #-- Derive ECDH
 echo "Derive ECDH:"
@@ -429,26 +389,18 @@ test "openssl dgst -sha512 -verify bp256-import.pubkey -signature data.bp256sha5
 
 #-- Get attestation certificate and a selfsigned certificate
 echo "Get attestation certificate and a selfsigned certificate:"
-#set +e
-#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 2>&1 > /dev/null
-#ret=$?
-#set -e
-#if [ $ret -eq 0 ]; then
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default cert"
-  test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
-  test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem" "   Sign attestation cert with same key (aka get selfsigned cert)"
-  test "$BIN -p password -a delete-object -i $keyid -t opaque" "   Delete template cert"
-  test "$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem" "   Import selfsigned cert with same key ID"
-  test "rm selfsigned_cert.pem" "   Cleaning up"
-  #-- Sign attestation certificate
-  test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as imported key)"
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
-  test "rm cert.der" "   Cleaning up"
-  test "rm selfsigned_cert.der" "   Cleaning up"
-#else
-#  echo "No default attestation certificate present on HSM. Skipping test"
-#fi
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default cert"
+test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
+test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem" "   Sign attestation cert with same key (aka get selfsigned cert)"
+test "$BIN -p password -a delete-object -i $keyid -t opaque" "   Delete template cert"
+test "$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem" "   Import selfsigned cert with same key ID"
+test "rm selfsigned_cert.pem" "   Cleaning up"
+#-- Sign attestation certificate
+test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as imported key)"
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
+test "rm cert.der" "   Cleaning up"
+test "rm selfsigned_cert.der" "   Cleaning up"
 
 #-- Derive ECDH
 echo "Derive ECDH:"
@@ -495,26 +447,18 @@ test "openssl dgst -sha512 -verify bp384-import.pubkey -signature data.bp384sha5
 
 #-- Get attestation certificate and a selfsigned certificate
 echo "Get attestation certificate and a selfsigned certificate:"
-#set +e
-#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 2>&1 > /dev/null
-#ret=$?
-#set -e
-#if [ $ret -eq 0 ]; then
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default cert"
-  test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
-  test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem" "   Sign attestation cert with same key (aka get selfsigned cert)"
-  test "$BIN -p password -a delete-object -i $keyid -t opaque" "   Delete template cert"
-  test "$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem" "   Import selfsigned cert with same key ID"
-  test "rm selfsigned_cert.pem" "   Cleaning up"
-  #-- Sign attestation certificate
-  test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as imported key)"
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
-  test "rm cert.der" "   Cleaning up"
-  test "rm selfsigned_cert.der" "   Cleaning up"
-#else
-#  echo "No default attestation certificate present on HSM. Skipping test"
-#fi
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default cert"
+test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
+test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem" "   Sign attestation cert with same key (aka get selfsigned cert)"
+test "$BIN -p password -a delete-object -i $keyid -t opaque" "   Delete template cert"
+test "$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem" "   Import selfsigned cert with same key ID"
+test "rm selfsigned_cert.pem" "   Cleaning up"
+#-- Sign attestation certificate
+test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as imported key)"
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
+test "rm cert.der" "   Cleaning up"
+test "rm selfsigned_cert.der" "   Cleaning up"
 
 #-- Derive ECDH
 echo "Derive ECDH:"
@@ -561,26 +505,18 @@ test "openssl dgst -sha512 -verify bp512-import.pubkey -signature data.bp512sha5
 
 #-- Get attestation certificate and a selfsigned certificate
 echo "Get attestation certificate and a selfsigned certificate:"
-#set +e
-#$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 2>&1 > /dev/null
-#ret=$?
-#set -e
-#if [ $ret -eq 0 ]; then
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default cert"
-  test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
-  test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem" "   Sign attestation cert with same key (aka get selfsigned cert)"
-  test "$BIN -p password -a delete-object -i $keyid -t opaque" "   Delete template cert"
-  test "$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem" "   Import selfsigned cert with same key ID"
-  test "rm selfsigned_cert.pem" "Cleaning up"
-  #-- Sign attestation certificate
-  test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as imported key)"
-  test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
-  test "rm cert.der" "Cleaning up"
-  test "rm selfsigned_cert.der" "Cleaning up"
-#else
-#  echo "No default attestation certificate present on HSM. Skipping test"
-#fi
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default cert"
+test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
+test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$keyid --out selfsigned_cert.pem" "   Sign attestation cert with same key (aka get selfsigned cert)"
+test "$BIN -p password -a delete-object -i $keyid -t opaque" "   Delete template cert"
+test "$BIN -p password -a put-opaque -i $keyid -l java_cert -A opaque-x509-certificate --in selfsigned_cert.pem" "   Import selfsigned cert with same key ID"
+test "rm selfsigned_cert.pem" "Cleaning up"
+#-- Sign attestation certificate
+test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as imported key)"
+test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
+test "rm cert.der" "Cleaning up"
+test "rm selfsigned_cert.der" "Cleaning up"
 
 #-- Derive ECDH
 echo "Derive ECDH:"
