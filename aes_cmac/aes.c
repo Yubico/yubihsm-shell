@@ -320,9 +320,9 @@ int aes_encrypt(const uint8_t *in, uint8_t *out, aes_context *ctx) {
   NTSTATUS status = STATUS_SUCCESS;
   ULONG cbResult = 0;
 
-  if (!BCRYPT_SUCCESS(status = BCryptEncrypt(ctx->hKeyECB, in, AES_BLOCK_SIZE,
-                                             NULL, NULL, 0, out, AES_BLOCK_SIZE,
-                                             &cbResult, 0))) {
+  if (!BCRYPT_SUCCESS(status = BCryptEncrypt(ctx->hKeyECB, (PUCHAR) in,
+                                             AES_BLOCK_SIZE, NULL, NULL, 0, out,
+                                             AES_BLOCK_SIZE, &cbResult, 0))) {
     return -1;
   }
 
@@ -345,9 +345,9 @@ int aes_decrypt(const uint8_t *in, uint8_t *out, aes_context *ctx) {
   NTSTATUS status = STATUS_SUCCESS;
   ULONG cbResult = 0;
 
-  if (!BCRYPT_SUCCESS(status = BCryptDecrypt(ctx->hKeyECB, in, AES_BLOCK_SIZE,
-                                             NULL, NULL, 0, out, AES_BLOCK_SIZE,
-                                             &cbResult, 0))) {
+  if (!BCRYPT_SUCCESS(status = BCryptDecrypt(ctx->hKeyECB, (PUCHAR) in,
+                                             AES_BLOCK_SIZE, NULL, NULL, 0, out,
+                                             AES_BLOCK_SIZE, &cbResult, 0))) {
     return -1;
   }
 
@@ -374,9 +374,9 @@ int aes_cbc_encrypt(const uint8_t *in, uint8_t *out, uint16_t len,
   UCHAR _iv[AES_BLOCK_SIZE];
   memcpy(_iv, iv, AES_BLOCK_SIZE);
 
-  if (!BCRYPT_SUCCESS(status = BCryptEncrypt(ctx->hKeyCBC, in, len, NULL, _iv,
-                                             AES_BLOCK_SIZE, out, len,
-                                             &cbResult, 0))) {
+  if (!BCRYPT_SUCCESS(status = BCryptEncrypt(ctx->hKeyCBC, (PUCHAR) in, len,
+                                             NULL, _iv, AES_BLOCK_SIZE, out,
+                                             len, &cbResult, 0))) {
     return -1;
   }
 
@@ -402,9 +402,9 @@ int aes_cbc_decrypt(const uint8_t *in, uint8_t *out, uint16_t len,
   UCHAR _iv[AES_BLOCK_SIZE];
   memcpy(_iv, iv, AES_BLOCK_SIZE);
 
-  if (!BCRYPT_SUCCESS(status = BCryptDecrypt(ctx->hKeyCBC, in, len, NULL, _iv,
-                                             AES_BLOCK_SIZE, out, len,
-                                             &cbResult, 0))) {
+  if (!BCRYPT_SUCCESS(status = BCryptDecrypt(ctx->hKeyCBC, (PUCHAR) in, len,
+                                             NULL, _iv, AES_BLOCK_SIZE, out,
+                                             len, &cbResult, 0))) {
     return -1;
   }
 
