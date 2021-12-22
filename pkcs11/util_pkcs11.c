@@ -1534,7 +1534,7 @@ yubihsm_pkcs11_object_desc *get_object_desc(yh_session *session,
   }
 
   if (!object) {
-    uint16_t low;
+    uint16_t low = 0;
     struct timeval *low_time = NULL;
 
     for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
