@@ -90,10 +90,7 @@ set (yubihsm_shell_VERSION_MINOR 3)
 set (yubihsm_shell_VERSION_PATCH 0)
 set (VERSION "${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}")
 
-if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-  set(ENV{PKG_CONFIG_PATH} "/usr/local/opt/openssl@1.1/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}")
-  set(ENV{PKG_CONFIG_PATH} "/usr/local/opt/libedit/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}")
-elseif (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+if (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
   set(ENV{PKG_CONFIG_PATH} "/usr/libdata/pkgconfig:$ENV{PKG_CONFIG_PATH}")
 endif ()
 
@@ -103,6 +100,8 @@ endif()
 
 enable_testing()
 find_package(codecov)
+
+add_definitions(-DOPENSSL_API_COMPAT=0x10000000L)
 
 if(WIN32)
   add_definitions(-DWIN32_LEAN_AND_MEAN=1)
