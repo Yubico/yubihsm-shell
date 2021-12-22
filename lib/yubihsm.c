@@ -3927,7 +3927,7 @@ static yh_rc encrypt_ecb(yh_cmd cmd, yh_session *session, size_t block_size,
   union {
     struct {
       uint16_t key_id;
-      uint8_t bytes[2016];
+      uint8_t bytes[2026];
     };
     uint8_t buf[1];
   } data = {0};
@@ -4007,7 +4007,7 @@ static yh_rc encrypt_cbc(yh_cmd cmd, yh_session *session, uint16_t key_id,
   union {
     struct {
       uint16_t key_id;
-      uint8_t bytes[2016];
+      uint8_t bytes[2026];
     };
     uint8_t buf[1];
   } data = {0};
