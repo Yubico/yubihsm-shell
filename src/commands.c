@@ -2905,6 +2905,12 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     {YH_ALGO_AES128_YUBICO_OTP, 0, 0, ""},
     {YH_ALGO_AES192_YUBICO_OTP, 0, 0, ""},
     {YH_ALGO_AES256_YUBICO_OTP, 0, 0, ""},
+    {YH_ALGO_AES128, YH_ALGO_AES_ECB, 128, ""},
+    {YH_ALGO_AES192, YH_ALGO_AES_ECB, 128, ""},
+    {YH_ALGO_AES256, YH_ALGO_AES_ECB, 128, ""},
+    {YH_ALGO_AES128, YH_ALGO_AES_CBC, 128, ""},
+    {YH_ALGO_AES192, YH_ALGO_AES_CBC, 128, ""},
+    {YH_ALGO_AES256, YH_ALGO_AES_CBC, 128, ""},
     {0, 0, 8, "Random 8 bytes"},
     {0, 0, 16, "Random 16 bytes"},
     {0, 0, 32, "Random 32 bytes"},
@@ -3084,6 +3090,12 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
         yrc = yh_util_create_otp_aead(argv[0].e, id, otp_key, otp_id, algo_data,
                                       &algo_len);
       }
+    } else if (yh_is_aes(benchmarks[i].algo)) {
+      type = YH_SYMMETRIC_KEY;
+      yh_string_to_capabilities(
+        "decrypt-ecb,encrypt-ecb,decrypt-cbc,encrypt-cbc", &capabilities);
+      yrc = yh_util_generate_aes_key(argv[0].e, &id, label, 0xffff,
+                                     &capabilities, benchmarks[i].algo);
     } else if (strncmp(benchmarks[i].special, "Random ", 7) == 0) {
       str1 = benchmarks[i].special;
     } else if (benchmarks[i].algo == YH_ALGO_AES128_YUBICO_AUTHENTICATION) {
@@ -3176,6 +3188,17 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                  benchmarks[i].algo == YH_ALGO_AES256_YUBICO_OTP) {
         yrc = yh_util_decrypt_otp(argv[0].e, id, algo_data, algo_len, otp, NULL,
                                   NULL, NULL, NULL);
+      } else if (yh_is_aes(benchmarks[i].algo)) {
+        if (benchmarks[i].algo2 == YH_ALGO_AES_ECB) {
+          yrc = yh_util_encrypt_aes_ecb(argv[0].e, id, data,
+                                        benchmarks[i].bytes, out, &out_len);
+        } else if (benchmarks[i].algo2 == YH_ALGO_AES_CBC) {
+          yrc = yh_util_encrypt_aes_cbc(argv[0].e, id, data, data,
+                                        benchmarks[i].bytes, out, &out_len);
+        } else {
+          fprintf(stderr, "Unknown benchmark algorithms\n");
+          return -1;
+        }
       } else if (strncmp(benchmarks[i].special, "Random ", 7) == 0) {
         yrc = yh_util_get_pseudo_random(argv[0].e, benchmarks[i].bytes, out,
                                         &out_len);
