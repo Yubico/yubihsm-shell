@@ -2836,6 +2836,15 @@ static bool time_less(struct timeval *a, struct timeval *b) {
   }
 }
 
+static int compare_algorithm(const void *a, const void *b) {
+  return (*(const yh_algorithm *) a - *(const yh_algorithm *) b);
+}
+
+static yh_algorithm *algorithm_search(yh_algorithm key, const yh_algorithm *arr,
+                                      size_t count) {
+  return bsearch(&key, arr, count, sizeof(key), compare_algorithm);
+}
+
 // NOTE: Run a set of benchmarks
 // argc = 3
 // arg 0: e:session
@@ -2923,6 +2932,14 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     return -1;
   }
 
+  yh_algorithm algorithms[YH_MAX_ALGORITHM_COUNT];
+  size_t n_algorithms = sizeof(algorithms) / sizeof(algorithms[0]);
+  if (yh_util_get_device_info(ctx->connector, NULL, NULL, NULL, NULL, NULL,
+                              NULL, algorithms, &n_algorithms) != YHR_SUCCESS) {
+    fprintf(stderr, "Could not fetch supported algorithms\n");
+    return -1;
+  }
+
   for (size_t i = 0; i < sizeof(benchmarks) / sizeof(benchmarks[0]); i++) {
     struct timeval total = {0, 0};
     struct timeval avg = {0, 0};
@@ -2959,6 +2976,15 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     }
     if (str1) {
       snprintf(label, YH_OBJ_LABEL_LEN, "Benchmark: %s%s%s", str1, str2, str3);
+    }
+
+    if ((benchmarks[i].algo &&
+         !algorithm_search(benchmarks[i].algo, algorithms, n_algorithms)) ||
+        (benchmarks[i].algo2 &&
+         !algorithm_search(benchmarks[i].algo2, algorithms, n_algorithms))) {
+      fprintf(stderr, "%s%s%s skipped (disabled or unsupported)\n", str1,
+              str2, str3);
+      continue;
     }
 
     if (str1) {
