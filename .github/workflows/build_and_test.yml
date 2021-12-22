@@ -23,6 +23,7 @@ jobs:
 
       - name: install dependencies from package management
         env:
+          CC: ${{ matrix.cc }}
           DEBIAN_FRONTEND: noninteractive
         run: |
           apt update
@@ -96,13 +97,42 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           apt update
-          apt install -q -y build-essential python3 python3-pip python3-setuptools
+          apt install -q -y build-essential python3 python3-pip python3-setuptools curl
 
       - name: download artifacts from the build job
         uses: actions/download-artifact@v2
         with:
           name: yubihsm-shell_ubuntu-21.10_gcc
           path: yubihsm-shell
+
+      - name: prepare ghostunnel
+        env:
+          TLSPWD: ${{ secrets.TLSKEY }}
+        run: |
+          curl -o ghostunnel -L https://github.com/ghostunnel/ghostunnel/releases/download/v1.6.0/ghostunnel-v1.6.0-linux-amd64
+          chmod + ghostunnel
+          openssl aes-256-cbc \
+            -k "$TLSPWD" \
+            -md sha256 \
+            -in yubihsm-shell/.ci/client-combined.pem.enc \
+            -out yubihsm-shell/.ci/client-combined.pem \
+            -d
+          ghostunnel client \
+            --listen localhost:12345 \
+            --target hsm-connector01.sthlm.in.yubico.org:8443 \
+            --keystore yubihsm-shell/.ci/client-combined.pem \
+            --cacert yubihsm-shell/.ci/server-crt.pem \
+            2>/dev/null &
+          sleep 3
+          DEFAULT_CONNECTOR_URL=$(curl -s http://localhost:12345/dispatcher/request)
+          test -n "$DEFAULT_CONNECTOR_URL" || (echo "Unable to obtain a connector URL, aborting"; exit 1)
+          echo "DEFAULT_CONNECTOR_URL=$DEFAULT_CONNECTOR_URL" >> $GITHUB_ENV
+
+      - name: reset the hsm
+        working-directory: yubihsm-shell/build/src
+        run: |
+          yubihsm-shell --connector "$DEFAULT_CONNECTOR_URL" -p password -a reset
+          sleep 3
 
       - name: clone the YubicoLabs/pkcs11test repository
         uses: actions/checkout@v2
@@ -112,10 +142,28 @@ jobs:
 
       - name: build the pkcs11test binary
         working-directory: pkcs11test
-        run: make
+        run: |
+          make
+          echo "PKCS11TEST_PATH=`pwd`/pkcs11test" >> $GITHUB_ENV
+
+      - name: run tests with ctest
+        working-directory: yubihsm-shell/build
+        run: ctest --output-on-failure
+
+      - name: run yubihsm-shell tests
+        working-directory: yubihsm-shell/resources/tests/bash
+        run: cmdline_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
 
       - name: clone the YubicoLabs/python-pkcs11tester repository
         uses: actions/checkout@v2
         with:
           repository: YubicoLabs/python-pkcs11tester
           path: python-pkcs11tester
+
+      - name: run python-pkcs11tester
+        env:
+          YUBIHSM_PKCS11_MODULE: yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so
+        run: |
+          echo "connector=$DEFAULT_CONNECTOR_URL" > yubihsm_pkcs11.conf
+          python3 -m pip install 'pykcs11' 'cryptography>=1.4.0'
+          python3 setup.py test
