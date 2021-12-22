@@ -18,7 +18,7 @@
 #define YUBIHSM_PKCS11_TESTS_COMMON_H
 
 #include <stdbool.h>
-#include "../pkcs11.h"
+#include "../pkcs11y.h"
 
 #ifndef DEFAULT_CONNECTOR_URL
 #define DEFAULT_CONNECTOR_URL "http://127.0.0.1:12345"
