@@ -61,10 +61,9 @@ jobs:
           BUILD_ENVIRONMENT: ${{ matrix.environment }}
         run: |
           if [ $BUILD_ENVIRONMENT = "ubuntu:14.04" ]; then
-            # remove the following flags: -pedantic -pedantic-errors
-            sed -i 's/add_compile_options (-pedantic -pedantic-errors)/#&/' cmake/SecurityFlags.cmake
             # append the following flags: -Wno-missing-braces -Wno-missing-field-initializers -Wno-implicit-function-declaration
             sed -i 's/-Wall -Wextra -Werror/-Wall -Wextra -Werror -Wno-missing-braces -Wno-missing-field-initializers -Wno-implicit-function-declaration/' cmake/SecurityFlags.cmake
+            cat cmake/SecurityFlags.cmake
           fi
 
       - name: do build
