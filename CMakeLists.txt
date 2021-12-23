@@ -117,17 +117,17 @@ if(MSVC)
 
   if(SUPRESS_MSVC_WARNINGS)
   set(MSVC_DISABLED_WARNINGS_LIST
-            "C4200" # nonstandard extension used: zero-sized array in struct/union;
-            "C4204" # nonstandard extension used: non-constant aggregate initializer;
             "C4706" # assignment within conditional expression;
             "C4996" # The POSIX name for this item is deprecated. Instead, use the ISO C and C++ conformant name
-
             "C4005" # redefinition of micros. Status codes are defined in winnt.h and then redefined in ntstatus.h with the same values
+            "C4244" # conversion of size_t to other types. Since we don't have sizes that occupy more than 2 bytes, this should be safe to ignore
             "C4267" # conversion of size_t to other types. Since we don't have sizes that occupy more than 2 bytes, this should be safe to ignore
             "C4100" # unreferenced formal parameter
             "C4201" # nonstandard extension used: nameless struct/union
             "C4295" # array is too small to include a terminating null character. They arrays it's complaining about aren't meant to include terminating null character (triggered in tests and examples only)
             "C4127" # conditional expression is constant
+            "C5105" # macro expansion producing 'defined' has undefined behavior
+            "C4018" # signed/unsigned mismatch
             )
     # The construction in the following 3 lines was taken from LibreSSL's
     # CMakeLists.txt.

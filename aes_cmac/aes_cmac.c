@@ -25,7 +25,7 @@
 #include "aes_cmac.h"
 #include "../common/insecure_memzero.h"
 
-static const uint8_t zero[AES_BLOCK_SIZE];
+static const uint8_t zero[AES_BLOCK_SIZE] = {0};
 
 static void do_pad(uint8_t *data, uint8_t len) {
 

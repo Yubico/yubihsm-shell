@@ -42,10 +42,6 @@
 #include "../common/openssl-compat.h"
 #include "../common/insecure_memzero.h"
 
-#ifdef _MSVC
-#define gettimeofday(a, b) gettimeofday_win(a)
-#endif
-
 #define UNUSED(x) (void) (x)
 #define ASN1_OID 0x06
 static const uint8_t oid_secp224r1[] = {ASN1_OID, 0x05, 0x2b, 0x81,
@@ -1538,7 +1534,7 @@ yubihsm_pkcs11_object_desc *get_object_desc(yh_session *session,
   }
 
   if (!object) {
-    uint16_t low;
+    uint16_t low = 0;
     struct timeval *low_time = NULL;
 
     for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {

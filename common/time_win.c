@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include "time_win.h"
 #include <winsock2.h>
+#include "time_win.h"
 
-int gettimeofday_win(struct timeval *tv) {
+int gettimeofday(struct timeval *tv, void *tzp) {
   // There's no equivalent implementation of gettimeofday() on Window
-  struct timespec ts;
+  struct timespec ts = {0};
   if (timespec_get(&ts, TIME_UTC)) {
     tv->tv_sec = (long) ts.tv_sec;
     tv->tv_usec = ts.tv_nsec / 1000;
