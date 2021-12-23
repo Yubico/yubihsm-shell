@@ -293,6 +293,7 @@ CK_RV get_mechanism_list(yubihsm_pkcs11_slot *slot,
 
       case YH_ALGO_AES_CBC:
         add_mech(buffer, &items, CKM_AES_CBC);
+        add_mech(buffer, &items, CKM_AES_CBC_PAD);
         break;
 
         // NOTE: there are algorithms don't have corresponding mechanisms
@@ -585,6 +586,7 @@ CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
 
     case CKM_AES_ECB:
     case CKM_AES_CBC:
+    case CKM_AES_CBC_PAD:
       find_minmax_aes_key_length_in_bytes(slot->algorithms, slot->n_algorithms,
                                           &pInfo->ulMinKeySize,
                                           &pInfo->ulMaxKeySize);
