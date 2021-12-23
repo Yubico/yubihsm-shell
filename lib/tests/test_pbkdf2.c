@@ -73,4 +73,7 @@ static void test_pbkdf2_vectors(void) {
   }
 }
 
-int main(void) { test_pbkdf2_vectors(); }
+int main(void) {
+    test_pbkdf2_vectors();
+    return 0;
+}

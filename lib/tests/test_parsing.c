@@ -263,4 +263,5 @@ int main(void) {
   test_algorithms();
   test_options();
   test_types();
+  return 0;
 }
