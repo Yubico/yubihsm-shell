@@ -168,6 +168,7 @@ bool parse_usb_url(const char *url, unsigned long *serial) {
             *endptr != '\0' || (errno != 0 && *serial == 0)) {
           *serial = 0;
           DBG_ERR("Failed to parse serial argument: '%s'.", str);
+          free(copy);
           return false;
         }
       } else {
