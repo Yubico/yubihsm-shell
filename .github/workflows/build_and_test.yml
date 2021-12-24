@@ -45,7 +45,7 @@ jobs:
           LIBCURL_PACKAGE: ${{ matrix.libcurl_package }}
         run: |
           apt update
-          apt install -q -y build-essential cmake pkg-config gengetopt help2man $LIBCURL_PACKAGE libedit-dev libpcsclite-dev libusb-1.0-0-dev libssl-dev
+          apt install -q -y build-essential cmake pkg-config gengetopt help2man $LIBCURL_PACKAGE libedit-dev libpcsclite-dev libusb-1.0-0-dev libssl-dev file curl jq
           if [ "$CC" = "clang" ]; then
             apt install -q -y clang llvm lld
           fi
@@ -110,7 +110,22 @@ jobs:
           fi
           cmake --build .
 
+      - name: check binaries for hardening
+        working-directory: yubihsm-shell
+        run: |
+          curl -o checksec.sh-2.5.0.tar.gz -L https://github.com/slimm609/checksec.sh/archive/refs/tags/2.5.0.tar.gz
+          tar xfz checksec.sh-2.5.0.tar.gz
+          cs() {
+            checksec.sh-2.5.0/checksec --file=build/src/yubihsm-shell --format=json | jq -r ".[] | .$1"
+          }
+          if [ "`cs relro`" != "full" ]; then echo "relro is `cs relro`"; exit 1; fi
+          if [ "`cs canary`" != "yes" ]; then echo "canary is `cs canary`"; exit 1; fi
+          if [ "`cs nx`" != "yes" ]; then echo "nx is `cs nx`"; exit 1; fi
+          if [ "`cs pie`" != "yes" ]; then echo "pie is `cs pie`"; exit 1; fi
+          if [ "`cs fortify_source`" != "yess" ]; then echo "fortify_source is `cs fortify_source`"; exit 1; fi
+
       - name: prepare name for upload-artifact action
+        if: ${{ matrix.environment == 'ubuntu:21.10' && matrix.cc == 'gcc' }}
         env:
           DOCKER_IMAGE: ${{ matrix.environment }}
           CC: ${{ matrix.cc }}
