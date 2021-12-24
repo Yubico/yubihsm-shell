@@ -90,11 +90,17 @@ jobs:
         env:
           CC: ${{ matrix.cc }}
           VERBOSE: 1
+          BUILD_ENVIRONMENT: ${{ matrix.environment }}
         run: |
           mkdir build-static
           cd build-static
           if [ "$CC" = "gcc" ]; then
-            cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release ..
+            # lto breaks static builds on debian:9 so we disable it
+            if [ $BUILD_ENVIRONMENT = "debian:9" ]; then
+              cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release -DDISABLE_LTO=ON ..
+            else
+              cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release ..
+            fi
           else
             cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_AR=/usr/bin/llvm-ar \
