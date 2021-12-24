@@ -20,18 +20,28 @@ jobs:
         ]
         # perform gcc builds for all environments
         cc: [ "gcc" ]
-        # debian 9 has a different version of openssl in libcurl4-openssl-dev
-        # as such, for that environment in particular we install libcurl4-nss-dev
-        # for all other environments we use the standard libcurl4-openssl-dev
         libcurl_package: [ "libcurl4-openssl-dev" ]
+        include:
+          # debian 9 has a different version of openssl in libcurl4-openssl-dev
+          # as such, for that environment in particular we install libcurl4-nss-dev
+          # for all other environments we use the standard libcurl4-openssl-dev
+          - environment: "debian:9"
+            cc: "gcc"
+            libcurl_package: "libcurl4-nss-dev"
+          # we do not perform clang builds for all environments, only some newer ones
+          - environment: "ubuntu:21.10"
+            libcurl_package: "libcurl4-openssl-dev"
+            cc: "clang"
+          - environment: "ubuntu:21.04"
+            libcurl_package: "libcurl4-openssl-dev"
+            cc: "clang"
+          - environment: "debian:11"
+            libcurl_package: "libcurl4-openssl-dev"
+            cc: "clang"
         exclude:
           - environment: "debian:9"
             cc: "gcc"
             libcurl_package: "libcurl4-openssl-dev"
-        include:
-          - environment: "debian:9"
-            cc: "gcc"
-            libcurl_package: "libcurl4-nss-dev"
     name: build on ${{ matrix.environment }} with ${{ matrix.cc }}
     runs-on: ubuntu-latest
     container: ${{ matrix.environment }}
