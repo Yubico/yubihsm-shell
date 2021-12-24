@@ -150,6 +150,128 @@ jobs:
           name: "${{ env.ARTIFACT_NAME }}"
           path: yubihsm-shell
 
+  build_centos_fedora:
+    strategy:
+      matrix:
+        environment: [
+          "fedora:34",
+          "fedora:33",
+          "fedora:32",
+          "centos:8",
+          "centos:7"
+        ]
+        cc: [ "gcc" ]
+        include:
+          # we do not perform clang builds for all environments, only fedora
+          - environment: "fedora:34"
+            cc: "clang"
+          - environment: "fedora:33"
+            cc: "clang"
+          - environment: "fedora:32"
+            cc: "clang"
+    name: build on ${{ matrix.environment }} with ${{ matrix.cc }}
+    runs-on: ubuntu-latest
+    container: ${{ matrix.environment }}
+
+    steps:
+
+      - name: install dependencies from package management
+        env:
+          CC: ${{ matrix.cc }}
+          BUILD_ENVIRONMENT: ${{ matrix.environment }}
+        run: |
+          if [ $BUILD_ENVIRONMENT = "centos:7" ] || [ $BUILD_ENVIRONMENT = "centos:8" ]; then
+            # enable the epel repository for centos
+            yum install -y epel-release
+          fi
+          if [ $BUILD_ENVIRONMENT = "centos:8" ]; then
+            # enable the powertools repository for centos 8
+            dnf install -y dnf-plugins-core
+            dnf config-manager --set-enabled powertools
+          fi
+          # the name of the libusb package in centos:7 is libusbx-devel
+          if [ $BUILD_ENVIRONMENT = "centos:7" ]; then
+            LIBUSB_PACKAGE="libusbx-devel"
+          else
+            LIBUSB_PACKAGE="libusb-devel"
+          fi
+          yum install -y gcc gcc-c++ cmake gengetopt openssl openssl-devel libedit-devel libcurl-devel $LIBUSB_PACKAGE pcsc-lite-devel help2man chrpath checksec procps-ng jq file which curl
+          if [ "$CC" = "clang" ]; then
+            yum install -y clang llvm lld
+          fi
+
+      - name: clone the Yubico/yubihsm-shell repository
+        uses: actions/checkout@v2
+        with:
+          path: yubihsm-shell
+
+      - name: apply environment specific changes to CMakeLists.txt
+        working-directory: yubihsm-shell
+        env:
+          BUILD_ENVIRONMENT: ${{ matrix.environment }}
+        run: |
+          if [ $BUILD_ENVIRONMENT = "centos:7" ]; then
+            # append the following flags: -Wno-missing-braces -Wno-missing-field-initializers -Wno-implicit-function-declaration
+            sed -i 's/-Wall -Wextra -Werror/-Wall -Wextra -Werror -Wno-missing-braces -Wno-missing-field-initializers/' cmake/SecurityFlags.cmake
+            cat cmake/SecurityFlags.cmake
+          fi
+
+      - name: do build
+        working-directory: yubihsm-shell
+        env:
+          CC: ${{ matrix.cc }}
+          VERBOSE: 1
+        run: |
+          mkdir build
+          cd build
+          if [ "$CC" = "gcc" ]; then
+            cmake -DCMAKE_BUILD_TYPE=Release ..
+          else
+            cmake -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_AR=/usr/bin/llvm-ar \
+              -DCMAKE_RANLIB=/usr/bin/llvm-ranlib \
+              -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" \
+              ..
+          fi
+          cmake --build .
+
+      - name: do static build
+        working-directory: yubihsm-shell
+        env:
+          CC: ${{ matrix.cc }}
+          VERBOSE: 1
+          BUILD_ENVIRONMENT: ${{ matrix.environment }}
+        run: |
+          mkdir build-static
+          cd build-static
+          if [ "$CC" = "gcc" ]; then
+            # lto breaks static builds on centos 7 and 8 so we disable it
+            if [ $BUILD_ENVIRONMENT = "centos:7" ] || [ $BUILD_ENVIRONMENT = "centos:8" ]; then
+              cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release -DDISABLE_LTO=ON ..
+            else
+              cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release ..
+            fi
+          else
+            cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_AR=/usr/bin/llvm-ar \
+              -DCMAKE_RANLIB=/usr/bin/llvm-ranlib \
+              -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" \
+              ..
+          fi
+          cmake --build .
+
+      - name: check binaries for hardening
+        working-directory: yubihsm-shell
+        run: |
+          cs() {
+            checksec --file=build/src/yubihsm-shell --format=json | jq -r ".[] | .$1"
+          }
+          if [ "`cs relro`" != "full" ]; then echo "relro is `cs relro`"; exit 1; fi
+          if [ "`cs canary`" != "yes" ]; then echo "canary is `cs canary`"; exit 1; fi
+          if [ "`cs nx`" != "yes" ]; then echo "nx is `cs nx`"; exit 1; fi
+          if [ "`cs pie`" != "yes" ]; then echo "pie is `cs pie`"; exit 1; fi
+          if [ "`cs fortify_source`" != "yes" ]; then echo "fortify_source is `cs fortify_source`"; exit 1; fi
+
 #  test:
 #    name: run unit tests
 #    runs-on: ubuntu-latest
