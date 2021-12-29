@@ -3315,10 +3315,10 @@ int yh_com_set_proxy(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  ctx->proxy = strdup(argv[0].s);
   if (ctx->proxy) {
     free(ctx->proxy);
   }
+  ctx->proxy = strdup(argv[0].s);
 
   return 0;
 }
