@@ -137,6 +137,7 @@ typedef struct {
     } pss;
     struct {
       uint8_t iv[AES_BLOCK_SIZE];
+      uint8_t orig[AES_BLOCK_SIZE];
     } cbc;
   };
 } mechanism;

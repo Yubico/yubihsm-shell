@@ -2493,6 +2493,16 @@ static CK_RV perform_aes_final(yh_session *session,
     goto daf_out;
   }
 
+  // For single part encryption; reaching this point means the
+  // internal IV may have been modified by an earlier call to
+  // `perform_aes_update()` (used internally). Restore the original
+  // IV so that the user can try again for return values that do not
+  // terminate the operation.
+  if (op_info->part == PART_SINGLE) {
+    memcpy(op_info->mechanism.cbc.iv, op_info->mechanism.cbc.orig,
+           sizeof(op_info->mechanism.cbc.iv));
+  }
+
   if (out == NULL) {
     *out_len = len;
     rv = CKR_OK;

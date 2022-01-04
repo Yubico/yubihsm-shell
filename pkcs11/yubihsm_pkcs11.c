@@ -2986,8 +2986,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
           sizeof(session->operation.mechanism.cbc.iv)) {
       return CKR_MECHANISM_PARAM_INVALID;
     }
+    // We need to save two copies to be able to reset the padding
+    // mechanisms in case of a CKR_BUFFER_TOO_SMALL return.
     memcpy(session->operation.mechanism.cbc.iv, pMechanism->pParameter,
            sizeof(session->operation.mechanism.cbc.iv));
+    memcpy(session->operation.mechanism.cbc.orig, pMechanism->pParameter,
+           sizeof(session->operation.mechanism.cbc.orig));
   } else {
     rv = CKR_KEY_TYPE_INCONSISTENT;
     goto c_di_out;
