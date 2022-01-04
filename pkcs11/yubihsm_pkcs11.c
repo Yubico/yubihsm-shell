@@ -2688,7 +2688,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptUpdate)
 c_eu_out:
   if (session != NULL) {
     release_session(&g_ctx, session);
-    if (rv != CKR_OK) {
+    if (rv != CKR_OK && rv != CKR_BUFFER_TOO_SMALL) {
       session->operation.type = OPERATION_NOOP;
       decrypt_mechanism_cleanup(&session->operation);
     }
@@ -3167,7 +3167,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptUpdate)
 c_du_out:
   if (session != NULL) {
     release_session(&g_ctx, session);
-    if (rv != CKR_OK) {
+    if (rv != CKR_OK && rv != CKR_BUFFER_TOO_SMALL) {
       session->operation.type = OPERATION_NOOP;
       decrypt_mechanism_cleanup(&session->operation);
     }
