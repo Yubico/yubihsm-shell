@@ -2506,6 +2506,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptInit)
   session->operation.op.encrypt.key_id = hKey;
   session->operation.type = OPERATION_ENCRYPT;
   session->operation.buffer_length = 0;
+  set_operation_part(&session->operation, PART_INIT);
 
   DOUT;
 
@@ -2539,6 +2540,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
   if (session->operation.type != OPERATION_ENCRYPT) {
     DBG_ERR("Encryption operation not initialized");
     rv = CKR_OPERATION_NOT_INITIALIZED;
+    goto c_e_out;
+  }
+
+  rv = set_operation_part(&session->operation, PART_SINGLE);
+  if (rv != CKR_OK) {
+    DBG_ERR("Another encrypt operation is already active");
     goto c_e_out;
   }
 
@@ -2676,6 +2683,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptUpdate)
     goto c_eu_out;
   }
 
+  rv = set_operation_part(&session->operation, PART_MULTIPLE);
+  if (rv != CKR_OK) {
+    DBG_ERR("Another encrypt operation is already active");
+    goto c_eu_out;
+  }
+
   if (pPart == NULL || pulEncryptedPartLen == NULL) {
     DBG_ERR("Invalid argument");
     rv = CKR_ARGUMENTS_BAD;
@@ -2731,6 +2744,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptFinal)
   if (session->operation.type != OPERATION_ENCRYPT) {
     DBG_ERR("Encrypt operation not initialized");
     rv = CKR_OPERATION_NOT_INITIALIZED;
+    goto c_ef_out;
+  }
+
+  rv = set_operation_part(&session->operation, PART_MULTIPLE);
+  if (rv != CKR_OK) {
+    DBG_ERR("Another encrypt operation is already active");
     goto c_ef_out;
   }
 
@@ -2986,6 +3005,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
   }
 
   session->operation.type = OPERATION_DECRYPT;
+  set_operation_part(&session->operation, PART_INIT);
 
   DOUT;
 
@@ -3026,6 +3046,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_Decrypt)
   if (session->operation.type != OPERATION_DECRYPT) {
     DBG_ERR("Decryption operation not initialized");
     rv = CKR_OPERATION_NOT_INITIALIZED;
+    goto c_d_out;
+  }
+
+  rv = set_operation_part(&session->operation, PART_SINGLE);
+  if (rv != CKR_OK) {
+    DBG_ERR("Another decrypt operation is already active");
     goto c_d_out;
   }
 
@@ -3148,9 +3174,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptUpdate)
 
   CK_RV rv = CKR_OK;
 
-  // TODO(adma): somebody should check that this is a proper mult-part
-  // mechanism/operation
-
   yubihsm_pkcs11_session *session = NULL;
 
   if (g_yh_initialized == false) {
@@ -3168,6 +3191,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptUpdate)
   if (session->operation.type != OPERATION_DECRYPT) {
     DBG_ERR("Decrypt operation not initialized");
     rv = CKR_OPERATION_NOT_INITIALIZED;
+    goto c_du_out;
+  }
+
+  rv = set_operation_part(&session->operation, PART_MULTIPLE);
+  if (rv != CKR_OK) {
+    DBG_ERR("Another decrypt operation is already active");
     goto c_du_out;
   }
 
@@ -3227,6 +3256,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptFinal)
   if (session->operation.type != OPERATION_DECRYPT) {
     DBG_ERR("Decrypt operation not initialized");
     rv = CKR_OPERATION_NOT_INITIALIZED;
+    goto c_df_out;
+  }
+
+  rv = set_operation_part(&session->operation, PART_MULTIPLE);
+  if (rv != CKR_OK) {
+    DBG_ERR("Another decrypt operation is already active");
     goto c_df_out;
   }
 
@@ -3385,9 +3420,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_Digest)
     goto c_d_out;
   }
 
-  if (session->operation.op.digest.is_multipart == true) {
+  rv = set_operation_part(&session->operation, PART_SINGLE);
+  if (rv != CKR_OK) {
     DBG_ERR("Another digest operation is already active");
-    rv = CKR_OPERATION_ACTIVE;
     goto c_d_out;
   }
 
@@ -3491,6 +3526,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_DigestUpdate)
     goto c_du_out;
   }
 
+  rv = set_operation_part(&session->operation, PART_MULTIPLE);
+  if (rv != CKR_OK) {
+    DBG_ERR("Another digest operation is already active");
+    goto c_du_out;
+  }
+
   if (pPart == NULL) {
     DBG_ERR("No data provided");
     rv = CKR_ARGUMENTS_BAD;
@@ -3504,8 +3545,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_DigestUpdate)
     DBG_ERR("Unable to perform digest operation step");
     goto c_du_out;
   }
-
-  session->operation.op.digest.is_multipart = true;
 
   DOUT;
 
@@ -3567,9 +3606,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_DigestFinal)
     goto c_df_out;
   }
 
-  if (session->operation.op.digest.is_multipart == false) {
+  rv = set_operation_part(&session->operation, PART_MULTIPLE);
+  if (rv != CKR_OK) {
     DBG_ERR("Another digest operation is already active");
-    rv = CKR_OPERATION_ACTIVE;
     goto c_df_out;
   }
 

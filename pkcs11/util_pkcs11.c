@@ -146,6 +146,17 @@ static void add_mech(CK_MECHANISM_TYPE *buf, CK_ULONG_PTR count,
   *count = *count + 1;
 }
 
+CK_RV set_operation_part(yubihsm_pkcs11_op_info *op_info,
+                         yubihsm_pkcs11_part_type part) {
+  if (part == PART_INIT || op_info->part == PART_INIT ||
+      op_info->part == part) {
+    op_info->part = part;
+    return CKR_OK;
+  }
+
+  return CKR_OPERATION_ACTIVE;
+}
+
 CK_RV get_mechanism_list(yubihsm_pkcs11_slot *slot,
                          CK_MECHANISM_TYPE_PTR pMechanismList,
                          CK_ULONG_PTR count) {
@@ -2191,13 +2202,14 @@ CK_RV apply_digest_mechanism_init(yubihsm_pkcs11_op_info *op_info) {
   if (op_info->op.digest.md_ctx == NULL) {
     return CKR_HOST_MEMORY;
   }
-  op_info->op.digest.is_multipart = false;
 
   if (EVP_DigestInit_ex(op_info->op.digest.md_ctx, md, NULL) == 0) {
     EVP_MD_CTX_destroy(op_info->op.digest.md_ctx);
     op_info->op.digest.md_ctx = NULL;
     return CKR_FUNCTION_FAILED;
   }
+
+  set_operation_part(op_info, PART_INIT);
 
   return CKR_OK;
 }

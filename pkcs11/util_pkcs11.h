@@ -22,6 +22,8 @@
 
 #include "yubihsm_pkcs11.h"
 
+CK_RV set_operation_part(yubihsm_pkcs11_op_info *op_info,
+                         yubihsm_pkcs11_part_type part);
 CK_RV get_mechanism_list(yubihsm_pkcs11_slot *slot,
                          CK_MECHANISM_TYPE_PTR pMechanismList,
                          CK_ULONG_PTR count);

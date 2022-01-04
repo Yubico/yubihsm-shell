@@ -63,6 +63,12 @@ typedef enum {
   OPERATION_ENCRYPT
 } yubihsm_pkcs11_op_type;
 
+typedef enum {
+  PART_INIT,
+  PART_SINGLE,
+  PART_MULTIPLE,
+} yubihsm_pkcs11_part_type;
+
 typedef struct {
   yh_object_descriptor objects[YH_MAX_ITEMS_COUNT];
   size_t current_object;
@@ -80,7 +86,6 @@ typedef struct {
 typedef struct {
   EVP_MD_CTX *md_ctx;  // Digest context
   CK_ULONG digest_len; // Length in bits
-  bool is_multipart;
 } digest_info;
 
 typedef struct {
@@ -149,6 +154,7 @@ typedef struct {
 
 typedef struct {
   yubihsm_pkcs11_op_type type;
+  yubihsm_pkcs11_part_type part;
   mechanism mechanism;
   op op;
   uint8_t buffer[YUBIHSM_PKCS11_OP_BUFSIZE];
