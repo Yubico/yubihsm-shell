@@ -1583,14 +1583,15 @@ int ecdh_load_module(const char *module, FILE *out) {
   if (strcmp(module, "-")) {
     module_handle = dlopen(module, RTLD_NOW | RTLD_GLOBAL);
     if (module_handle == 0) {
-      fprintf(out, "Can't open shared library '%s'\n", module);
+      fprintf(out, "Can't open shared library '%s': %s\n", module, dlerror());
       return CKR_ARGUMENTS_BAD;
     }
 
     CK_C_GetFunctionList fn = 0;
     *(void **) (&fn) = dlsym(module_handle, "C_GetFunctionList");
     if (fn == 0) {
-      fprintf(out, "Can't find symbol 'C_GetFunctionList' in '%s'\n", module);
+      fprintf(out, "Can't find symbol 'C_GetFunctionList' in '%s': %s\n",
+              module, dlerror());
       dlclose(module_handle);
       module_handle = 0;
       return CKR_GENERAL_ERROR;
