@@ -19,6 +19,12 @@
 
 #include <time.h>
 
-int gettimeofday_win(struct timeval *tv);
+#ifdef _MSVC
+
+struct timeval;
+
+int gettimeofday(struct timeval *tv, void *tzp);
+
+#endif
 
 #endif // YUBIHSM_SHELL_TIME_WIN_H

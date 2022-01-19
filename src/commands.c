@@ -45,10 +45,6 @@
 #include <openssl/bio.h>
 #include <time.h>
 
-#ifdef _MSVC
-#define gettimeofday(a, b) gettimeofday_win(a)
-#endif
-
 static format_t fmt_to_fmt(cmd_format fmt) {
   switch (fmt) {
     case fmt_base64:
@@ -3319,10 +3315,10 @@ int yh_com_set_proxy(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  ctx->proxy = strdup(argv[0].s);
   if (ctx->proxy) {
     free(ctx->proxy);
   }
+  ctx->proxy = strdup(argv[0].s);
 
   return 0;
 }

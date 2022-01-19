@@ -394,10 +394,14 @@ static yh_rc send_authenticated_msg(Scp_ctx *session, Msg *msg, Msg *resp,
     resp->st.len = htons(len);
 
     if (memcmp(host_mac, resp->st.data + len, SCP_MAC_LEN)) {
+      DBG_ERR("Bad MAC received");
       yrc = YHR_MAC_MISMATCH;
     }
   } else if (require_resp) {
-    yrc = YHR_MAC_MISMATCH;
+    if (len != 1 || resp->st.cmd != YHC_ERROR) {
+      DBG_ERR("No MAC received");
+      yrc = YHR_MAC_MISMATCH;
+    }
   }
 
   DBG_NET(resp, dump_response);
