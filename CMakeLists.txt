@@ -140,6 +140,7 @@ else()
   message(STATUS "not win32")
 
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-format-zero-length")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-missing-braces")
 
   include(CheckFunctionExists)
 
