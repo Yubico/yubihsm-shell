@@ -2450,7 +2450,7 @@ int main(int argc, char *argv[]) {
             break;
           }
 
-          comrc = yh_com_put_opaque(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
+          comrc = yh_com_put_opaque(&g_ctx, arg, g_in_fmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to store opaque object");
         } break;
 
