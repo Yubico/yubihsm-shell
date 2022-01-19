@@ -39,7 +39,6 @@ jobs:
         if [ "$OS" = "macos-latest" ]; then
         # no update - no upgrade
           brew install cmake gengetopt help2man libedit libusb openssl@1.1 pkg-config swig truncate
-          PKG_CONFIG_PATH=/usr/local/opt/openssl@1.1/lib/pkgconfig
         else
           sudo apt -q update
           sudo apt install -q -y cmake gengetopt help2man lcov libcurl4-openssl-dev libedit-dev libengine-pkcs11-openssl libpcsclite-dev libusb-1.0-0-dev opensc python3-pip python3-setuptools pkg-config swig libssl-dev libffi-dev
