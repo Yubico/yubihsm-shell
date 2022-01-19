@@ -141,7 +141,8 @@ else()
 
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-format-zero-length")
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-missing-braces")
-
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-missing-field-initializers")
+  
   include(CheckFunctionExists)
 
   check_function_exists(memset_s HAVE_MEMSET_S)
