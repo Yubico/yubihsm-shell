@@ -1,64 +1,64 @@
-yubihsm-shell (2.3.0-1) unstable; urgency=medium
+yubihsm-shell (2.3.0) unstable; urgency=medium
 
   * 2.3.0 release
 
  -- Aveen Ismail <aveen.ismail@yubico.com>  Wed, 24 Nov 2021 19:28:09 +0100
 
-yubihsm-shell (2.1.0-1) unstable; urgency=medium
+yubihsm-shell (2.1.0) unstable; urgency=medium
 
   * 2.1.0 release
 
  -- Aveen Ismail <aveen.ismail@yubico.com>  Mon, 1 Mar 2021 16:28:03 +0100
 
-yubihsm-shell (2.0.3-1) unstable; urgency=medium
+yubihsm-shell (2.0.3) unstable; urgency=medium
 
   * 2.0.3 release
 
  -- Aveen Ismail <aveen.ismail@yubico.com>  Tue, 13 Oct 2020 13:37:10 +0100
 
-yubihsm-shell (2.0.2-1) unstable; urgency=medium
+yubihsm-shell (2.0.2) unstable; urgency=medium
 
   * 2.0.2 release
 
  -- Aveen Ismail <aveen.ismail@yubico.com>  Wed, 20 Nov 2019 12:18:56 +0000
 
-yubihsm-shell (2.0.1-1) unstable; urgency=medium
+yubihsm-shell (2.0.1) unstable; urgency=medium
 
   * 2.0.1 release. 
 
  -- Aveen Ismail <aveen.ismail@yubico.com>  Thu, 28 Mar 2019 08:10:37 +0000
 
-yubihsm-shell (2.0.0-1) unstable; urgency=medium
+yubihsm-shell (2.0.0) unstable; urgency=medium
 
   * 2.0.0 release.
 
  -- Klas Lindfors <klas@yubico.com>  Mon, 05 Nov 2018 12:02:23 +0100
 
-yubihsm-shell (1.0.4-1) unstable; urgency=medium
+yubihsm-shell (1.0.4) unstable; urgency=medium
 
   * 1.0.4 release.
 
  -- Klas Lindfors <klas@yubico.com>  Tue, 29 May 2018 12:39:05 +0200
 
-yubihsm-shell (1.0.3-1) unstable; urgency=medium
+yubihsm-shell (1.0.3) unstable; urgency=medium
 
   * 1.0.3 release.
 
  -- Klas Lindfors <klas@yubico.com>  Wed, 25 Apr 2018 08:12:54 +0200
 
-yubihsm-shell (1.0.2-1) unstable; urgency=medium
+yubihsm-shell (1.0.2) unstable; urgency=medium
 
   * 1.0.2 release.
 
  -- Klas Lindfors <klas@yubico.com>  Wed, 04 Apr 2018 13:55:59 +0200
 
-yubihsm-shell (1.0.1-1) unstable; urgency=medium
+yubihsm-shell (1.0.1) unstable; urgency=medium
 
   * 1.0.1 release.
 
  -- Klas Lindfors <klas@yubico.com>  Fri, 19 Jan 2018 14:12:32 +0100
 
-yubihsm-shell (1.0.0-1) unstable; urgency=low
+yubihsm-shell (1.0.0) unstable; urgency=low
 
   * Initial release.
 
