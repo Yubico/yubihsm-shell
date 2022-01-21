@@ -1,0 +1,108 @@
+#! /usr/bin/env bash
+
+### CONSTANTS
+
+YUM_PACKAGES_LIST=misc_files/packages.yum
+PACKAGES_DIRECTORY=packages
+CMAKE_EXTRACT_DIRECTORY=${PACKAGES_DIRECTORY}/cmake
+LIB64_DIRECTORY=/usr/lib64
+PKGCONFIG_DIRECTORY=${LIB64_DIRECTORY}/pkgconfig
+PC_FILES_DIRECTORY=misc_files
+HEADER_FILES_DIRECTORY=misc_files
+INCLUDE_DIRECTORY=/usr/include
+
+add_pc_files(){
+  message "Adding .pc files to ${PKGCONFIG_DIRECTORY}"
+  cp ${PC_FILES_DIRECTORY}/libedit.pc ${PKGCONFIG_DIRECTORY}
+  cp ${PC_FILES_DIRECTORY}/libpcsclite.pc ${PKGCONFIG_DIRECTORY}
+  message ".pc files added"
+}
+
+add_header_files(){
+  mkdir ${INCLUDE_DIRECTORY}/PCSC
+  mkdir ${INCLUDE_DIRECTORY}/editline
+  message "Adding Header files to ${INCLUDE_DIRECTORY}"
+  cp ${HEADER_FILES_DIRECTORY}/wintypes.h ${INCLUDE_DIRECTORY}/PCSC
+  cp ${HEADER_FILES_DIRECTORY}/winscard.h ${INCLUDE_DIRECTORY}/PCSC
+  cp ${HEADER_FILES_DIRECTORY}/readline.h ${INCLUDE_DIRECTORY}/editline
+  cp ${HEADER_FILES_DIRECTORY}/pcsclite.h ${INCLUDE_DIRECTORY}
+  cp ${HEADER_FILES_DIRECTORY}/wintypes.h ${INCLUDE_DIRECTORY}
+  cp ${HEADER_FILES_DIRECTORY}/histedit.h ${INCLUDE_DIRECTORY}
+  message "Header files added"
+}
+
+create_symbolic_links(){
+  message "Creating Symbolic Links for .so files"
+  ln -s ${LIB64_DIRECTORY}/libpcsclite.so.1 ${LIB64_DIRECTORY}/libpcsclite.so
+  ln -s ${LIB64_DIRECTORY}/libedit.so.0 ${LIB64_DIRECTORY}/libedit.so
+  message "Symbolic Links created"
+}
+
+exit_with_error(){
+    echo 1>&2 "build_hsm_tools: ERROR: ${2}"
+    exit ${1}
+}
+
+install_cmake(){
+  message "Installing CMake"
+  mkdir $CMAKE_EXTRACT_DIRECTORY
+  tar -xzvf ${PACKAGES_DIRECTORY}/cmake-3.22.1-linux-x86_64.tar.gz --directory $CMAKE_EXTRACT_DIRECTORY
+  cp ${CMAKE_EXTRACT_DIRECTORY}/cmake-3.22.1-linux-x86_64/bin/* /bin
+  cp -r ${CMAKE_EXTRACT_DIRECTORY}/cmake-3.22.1-linux-x86_64/share/cmake-3.22 /usr/share
+  rm -rf $CMAKE_EXTRACT_DIRECTORY
+  message "CMake Installation Complete"   
+}
+
+install_packages_from_list(){
+  message "Installing Yum Package"
+  while IFS= read -r package
+  do
+    [ -z "$package" ] && continue # Ignore empty newlines
+    yum install ${package} -y || exit_with_error 1 "${package} failed to install. Check if EPEL Repo is added to /etc/yum.repos.d/lucid.repo"
+  done < ${YUM_PACKAGES_LIST}
+  message "Complete Yum Packages installation"
+}
+
+install_help2man(){
+  message "Installing help2man"
+  rpm -i ${PACKAGES_DIRECTORY}/help2man-1.47.6-1.el8.noarch.rpm || exit_with_error 1 "Failed to install help2man"
+  message "help2man installation complete"
+}
+
+message(){
+  echo "build_hsm_tools: ${@}"
+}
+
+perform_build(){
+  mkdir build
+  cd build && cmake ..
+  make
+  make install
+}
+
+update_and_install_packages(){
+  message "Running updates"
+  yum update -y
+  install_cmake
+  install_packages_from_list
+  install_help2man
+}
+
+warn(){
+  echo 1>&2 "[+] WARN: ${@}"
+}
+
+main(){
+  if [ "$EUID" -ne 0 ]
+  then
+    exit_with_error 1 "Please run script as root"
+  fi
+  update_and_install_packages
+  add_pc_files || exit_with_error 1 "Failed to add pc files"
+  add_header_files || exit_with_error 1 "Failed to add header files"
+  create_symbolic_links || exit_with_error 1 "Failed to create symbolic links"
+  perform_build || exit_with_error 1 "Failed to build YubiHSM tools"
+  exit 0
+}
+
+main
