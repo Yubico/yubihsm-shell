@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
-  <?define ProductVersion="2.3.0" ?>
+  <?define ProductVersion="2.3.1" ?>
   <?define ProductName="YubiHSM Shell (x64)" ?>
 
    <Product Id="*" UpgradeCode="af3c0c04-a974-4077-a29f-7651b546d770" Name="$(var.ProductName)" Version="$(var.ProductVersion)" Manufacturer="Yubico AB" Language="1033">
