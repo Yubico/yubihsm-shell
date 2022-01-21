@@ -142,6 +142,9 @@ else()
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-format-zero-length")
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-missing-braces")
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-missing-field-initializers")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-variable")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-switch")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-implicit-function-declaration")
   
   include(CheckFunctionExists)
 
