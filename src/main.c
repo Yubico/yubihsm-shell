@@ -931,7 +931,7 @@ static int tokenize(char *line, char **toks, int max_toks, int *cursorc,
   int tok = 0;
   int length = strlen(line);
   int start_of_word = 0;
-  enum states{ Space, WORD, QUOTE } state = Space;
+  enum states{ SPACE, WORD, QUOTE } state = SPACE;
 
   for (i = 0; i <= length; i++) {
     char c = line[i];
@@ -951,7 +951,7 @@ static int tokenize(char *line, char **toks, int max_toks, int *cursorc,
       return -1;
     }
     switch (state) {
-      case Space: {
+      case SPACE: {
         bool found = false;
         for (size_t j = 0; j < strlen(space); j++) {
           if (c == space[j]) {
@@ -976,14 +976,14 @@ static int tokenize(char *line, char **toks, int max_toks, int *cursorc,
       case QUOTE:
         if (c == '"') {
           line[i] = '\0';
-          state = Space;
+          state = SPACE;
         }
         break;
       case WORD:
         for (size_t j = 0; j < strlen(space); j++) {
           if (c == space[j]) {
             line[i] = '\0';
-            state = Space;
+            state = SPACE;
           }
         }
         break;
