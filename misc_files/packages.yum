@@ -1,0 +1,10 @@
+gcc
+gcc-c++
+openssl-devel
+readline-devel
+editline-devel
+libcurl-devel
+libusbx-devel
+gengetopt
+pcsc-lite-libs
+pcsc-tools
