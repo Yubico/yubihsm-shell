@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -930,13 +931,12 @@ static int tokenize(char *line, char **toks, int max_toks, int *cursorc,
   int tok = 0;
   int length = strlen(line);
   int start_of_word = 0;
-  enum states { SPACE, WORD, QUOTE } state = SPACE;
-  toks[0] = line; // set up as fall-through
+  enum states{ Space, WORD, QUOTE } state = Space;
 
   for (i = 0; i <= length; i++) {
     char c = line[i];
     if (cursorc && i == *cursorc && tok > 0) {
-      if (state == SPACE) {
+      if (state == Space) {
         *cursoro = 0;
         *cursorc = tok;
       } else {
@@ -951,7 +951,7 @@ static int tokenize(char *line, char **toks, int max_toks, int *cursorc,
       return -1;
     }
     switch (state) {
-      case SPACE: {
+      case Space: {
         bool found = false;
         for (size_t j = 0; j < strlen(space); j++) {
           if (c == space[j]) {
@@ -976,14 +976,14 @@ static int tokenize(char *line, char **toks, int max_toks, int *cursorc,
       case QUOTE:
         if (c == '"') {
           line[i] = '\0';
-          state = SPACE;
+          state = Space;
         }
         break;
       case WORD:
         for (size_t j = 0; j < strlen(space); j++) {
           if (c == space[j]) {
             line[i] = '\0';
-            state = SPACE;
+            state = Space;
           }
         }
         break;
