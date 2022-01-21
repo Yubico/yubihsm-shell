@@ -936,7 +936,7 @@ static int tokenize(char *line, char **toks, int max_toks, int *cursorc,
   for (i = 0; i <= length; i++) {
     char c = line[i];
     if (cursorc && i == *cursorc && tok > 0) {
-      if (state == Space) {
+      if (state == SPACE) {
         *cursoro = 0;
         *cursorc = tok;
       } else {
