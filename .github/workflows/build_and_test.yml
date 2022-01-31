@@ -157,7 +157,6 @@ jobs:
           "fedora:34",
           "fedora:33",
           "fedora:32",
-          "centos:8",
           "centos:7"
         ]
         cc: [ "gcc" ]
@@ -180,14 +179,9 @@ jobs:
           CC: ${{ matrix.cc }}
           BUILD_ENVIRONMENT: ${{ matrix.environment }}
         run: |
-          if [ $BUILD_ENVIRONMENT = "centos:7" ] || [ $BUILD_ENVIRONMENT = "centos:8" ]; then
+          if [ $BUILD_ENVIRONMENT = "centos:7" ]; then
             # enable the epel repository for centos
             yum install -y epel-release
-          fi
-          if [ $BUILD_ENVIRONMENT = "centos:8" ]; then
-            # enable the powertools repository for centos 8
-            dnf install -y dnf-plugins-core
-            dnf config-manager --set-enabled powertools
           fi
           # the name of the libusb package in centos:7 is libusbx-devel
           if [ $BUILD_ENVIRONMENT = "centos:7" ]; then
@@ -245,8 +239,8 @@ jobs:
           mkdir build-static
           cd build-static
           if [ "$CC" = "gcc" ]; then
-            # lto breaks static builds on centos 7 and 8 so we disable it
-            if [ $BUILD_ENVIRONMENT = "centos:7" ] || [ $BUILD_ENVIRONMENT = "centos:8" ]; then
+            # lto breaks static builds on centos 7 so we disable it
+            if [ $BUILD_ENVIRONMENT = "centos:7" ]; then
               cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release -DDISABLE_LTO=ON ..
             else
               cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release ..
