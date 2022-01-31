@@ -143,12 +143,16 @@ jobs:
           ESCAPED_IMAGE=$(echo -n "$DOCKER_IMAGE" | sed -e 's/[ \t:\/\\"<>|*?]/-/g' -e 's/--*/-/g')
           echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_${CC}" >> $GITHUB_ENV
 
+      - name: create compressed tar file
+        if: ${{ matrix.environment == 'ubuntu:21.10' && matrix.cc == 'gcc' }}
+        run: tar cfz yubihsm-shell.tar.gz yubihsm-shell
+
       - name: upload artifacts for the test job
         if: ${{ matrix.environment == 'ubuntu:21.10' && matrix.cc == 'gcc' }}
         uses: actions/upload-artifact@v2
         with:
           name: "${{ env.ARTIFACT_NAME }}"
-          path: yubihsm-shell
+          path: yubihsm-shell.tar.gz
 
   build_centos_fedora:
     strategy:
@@ -380,32 +384,35 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           apt update
-          apt install -q -y build-essential python3 python3-pip python3-setuptools curl
+          apt install -q -y build-essential cmake python3 python3-pip python3-setuptools curl libedit2 libssl1.1 libpcsclite1 libengine-pkcs11-openssl opensc swig
 
       - name: download artifacts from the build job
         uses: actions/download-artifact@v2
         with:
           name: yubihsm-shell_ubuntu-21.10_gcc
-          path: yubihsm-shell
+
+      - name: decompress yubihsm-shell.tar.gz
+        run: tar xfz yubihsm-shell.tar.gz
 
       - name: prepare ghostunnel
         env:
           TLSPWD: ${{ secrets.TLSKEY }}
+          # GODEBUG required for ghostunnel to temporarily enable Common Name matching
+          GODEBUG: x509ignoreCN=0
         run: |
-          curl -o ghostunnel -L https://github.com/ghostunnel/ghostunnel/releases/download/v1.6.0/ghostunnel-v1.6.0-linux-amd64
-          chmod + ghostunnel
+          curl -o /tmp/ghostunnel -L https://github.com/ghostunnel/ghostunnel/releases/download/v1.6.0/ghostunnel-v1.6.0-linux-amd64
+          chmod +x /tmp/ghostunnel
           openssl aes-256-cbc \
             -k "$TLSPWD" \
             -md sha256 \
             -in yubihsm-shell/.ci/client-combined.pem.enc \
             -out yubihsm-shell/.ci/client-combined.pem \
             -d
-          ghostunnel client \
+          /tmp/ghostunnel client \
             --listen localhost:12345 \
             --target hsm-connector01.sthlm.in.yubico.org:8443 \
             --keystore yubihsm-shell/.ci/client-combined.pem \
-            --cacert yubihsm-shell/.ci/server-crt.pem \
-            2>/dev/null &
+            --cacert yubihsm-shell/.ci/server-crt.pem > /dev/null 2>&1 &
           sleep 3
           DEFAULT_CONNECTOR_URL=$(curl -s http://localhost:12345/dispatcher/request)
           test -n "$DEFAULT_CONNECTOR_URL" || (echo "Unable to obtain a connector URL, aborting"; exit 1)
@@ -414,7 +421,7 @@ jobs:
       - name: reset the hsm
         working-directory: yubihsm-shell/build/src
         run: |
-          yubihsm-shell --connector "$DEFAULT_CONNECTOR_URL" -p password -a reset
+          ./yubihsm-shell --connector "$DEFAULT_CONNECTOR_URL" -p password -a reset
           sleep 3
 
       - name: clone the YubicoLabs/pkcs11test repository
@@ -427,7 +434,7 @@ jobs:
         working-directory: pkcs11test
         run: |
           make
-          echo "PKCS11TEST_PATH=`pwd`/pkcs11test" >> $GITHUB_ENV
+          echo "PKCS11TEST_PATH=`pwd`" >> $GITHUB_ENV
 
       - name: run tests with ctest
         working-directory: yubihsm-shell/build
@@ -435,7 +442,7 @@ jobs:
 
       - name: run yubihsm-shell tests
         working-directory: yubihsm-shell/resources/tests/bash
-        run: cmdline_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
+        run: ./cmdline_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
 
       - name: clone the YubicoLabs/python-pkcs11tester repository
         uses: actions/checkout@v2
@@ -444,9 +451,9 @@ jobs:
           path: python-pkcs11tester
 
       - name: run python-pkcs11tester
-        env:
-          YUBIHSM_PKCS11_MODULE: yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so
         run: |
+          export YUBIHSM_PKCS11_MODULE=`pwd`/yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so
+          cd python-pkcs11tester
           echo "connector=$DEFAULT_CONNECTOR_URL" > yubihsm_pkcs11.conf
           python3 -m pip install 'pykcs11' 'cryptography>=1.4.0'
           python3 setup.py test
