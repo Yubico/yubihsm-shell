@@ -85,9 +85,9 @@ jobs:
           mkdir build
           cd build
           if [ "$CC" = "gcc" ]; then
-            cmake -DCMAKE_BUILD_TYPE=Release ..
+            cmake -DRELEASE_BUILD=1 -DWITHOUT_YKYH=1 ..
           else
-            cmake -DCMAKE_BUILD_TYPE=Release \
+            cmake -DRELEASE_BUILD=1 -DWITHOUT_YKYH=1 \
               -DCMAKE_AR=/usr/bin/llvm-ar \
               -DCMAKE_RANLIB=/usr/bin/llvm-ranlib \
               -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" \
