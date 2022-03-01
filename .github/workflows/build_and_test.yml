@@ -135,7 +135,6 @@ jobs:
           if [ "`cs fortify_source`" != "yes" ]; then echo "fortify_source is `cs fortify_source`"; exit 1; fi
 
       - name: prepare name for upload-artifact action
-        if: ${{ matrix.environment == 'ubuntu:21.10' && matrix.cc == 'gcc' }}
         env:
           DOCKER_IMAGE: ${{ matrix.environment }}
           CC: ${{ matrix.cc }}
@@ -144,11 +143,11 @@ jobs:
           echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_${CC}" >> $GITHUB_ENV
 
       - name: create compressed tar file
-        if: ${{ matrix.environment == 'ubuntu:21.10' && matrix.cc == 'gcc' }}
+        if: ${{ (matrix.environment == 'ubuntu:21.10' || matrix.environment == 'debian:11') && matrix.cc == 'gcc' }}
         run: tar cfz yubihsm-shell.tar.gz yubihsm-shell
 
       - name: upload artifacts for the test job
-        if: ${{ matrix.environment == 'ubuntu:21.10' && matrix.cc == 'gcc' }}
+        if: ${{ (matrix.environment == 'ubuntu:21.10' || matrix.environment == 'debian:11') && matrix.cc == 'gcc' }}
         uses: actions/upload-artifact@v2
         with:
           name: "${{ env.ARTIFACT_NAME }}"
@@ -270,6 +269,25 @@ jobs:
           if [ "`cs pie`" != "yes" ]; then echo "pie is `cs pie`"; exit 1; fi
           if [ "`cs fortify_source`" != "yes" ]; then echo "fortify_source is `cs fortify_source`"; exit 1; fi
 
+      - name: prepare name for upload-artifact action
+        env:
+          DOCKER_IMAGE: ${{ matrix.environment }}
+          CC: ${{ matrix.cc }}
+        run: |
+          ESCAPED_IMAGE=$(echo -n "$DOCKER_IMAGE" | sed -e 's/[ \t:\/\\"<>|*?]/-/g' -e 's/--*/-/g')
+          echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_${CC}" >> $GITHUB_ENV
+
+      - name: create compressed tar file
+        if: ${{ (matrix.environment == 'fedora:34' || matrix.environment == 'centos:7') && matrix.cc == 'gcc' }}
+        run: tar cfz yubihsm-shell.tar.gz yubihsm-shell
+
+      - name: upload artifacts for the test job
+        if: ${{ (matrix.environment == 'fedora:34' || matrix.environment == 'centos:7') && matrix.cc == 'gcc' }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: "${{ env.ARTIFACT_NAME }}"
+          path: yubihsm-shell.tar.gz
+
   build_macos:
     name: build on macos
     runs-on: macos-latest
@@ -372,24 +390,50 @@ jobs:
           fi
 
   test:
+    strategy:
+      matrix:
+        environment: [
+          "ubuntu:21.10",
+          "debian:11",
+          "fedora:34",
+          "centos:7"
+        ]
     name: run unit tests
     runs-on: ubuntu-latest
-    container: ubuntu:21.10
-    needs: build_debian_derivatives
+    container: ${{ matrix.environment }}
+    needs: [build_debian_derivatives, build_centos_fedora]
 
     steps:
 
-      - name: install dependencies from package management
+      - name: install dependencies from package management (debian based)
         env:
           DEBIAN_FRONTEND: noninteractive
+        if: ${{ matrix.environment == 'ubuntu:21.10' || matrix.environment == 'debian:11' }}
         run: |
           apt update
           apt install -q -y build-essential cmake python3 python3-pip python3-setuptools curl libedit2 libssl1.1 libpcsclite1 libengine-pkcs11-openssl opensc swig
 
+      - name: install dependencies from package management (rpm based)
+        if: ${{ matrix.environment == 'fedora:34' || matrix.environment == 'centos:7' }}
+        run: |
+          if [ $BUILD_ENVIRONMENT = "centos:7" ]; then
+            # enable the epel repository for centos
+            yum install -y epel-release
+          fi
+          yum install -y gcc gcc-c++ cmake python3 python3-pip python3-setuptools curl libedit gengetopt openssl libcurl pcsc-lite
+
+      - name: prepare name for download-artifact action
+        env:
+          DOCKER_IMAGE: ${{ matrix.environment }}
+          CC: ${{ matrix.cc }}
+        run: |
+          ESCAPED_IMAGE=$(echo -n "$DOCKER_IMAGE" | sed -e 's/[ \t:\/\\"<>|*?]/-/g' -e 's/--*/-/g')
+          echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_gcc" >> $GITHUB_ENV
+
       - name: download artifacts from the build job
         uses: actions/download-artifact@v2
         with:
-          name: yubihsm-shell_ubuntu-21.10_gcc
+          name: "${{ env.ARTIFACT_NAME }}"
 
       - name: decompress yubihsm-shell.tar.gz
         run: tar xfz yubihsm-shell.tar.gz
@@ -418,12 +462,6 @@ jobs:
           test -n "$DEFAULT_CONNECTOR_URL" || (echo "Unable to obtain a connector URL, aborting"; exit 1)
           echo "DEFAULT_CONNECTOR_URL=$DEFAULT_CONNECTOR_URL" >> $GITHUB_ENV
 
-      - name: reset the hsm
-        working-directory: yubihsm-shell/build/src
-        run: |
-          ./yubihsm-shell --connector "$DEFAULT_CONNECTOR_URL" -p password -a reset
-          sleep 3
-
       - name: clone the YubicoLabs/pkcs11test repository
         uses: actions/checkout@v2
         with:
@@ -436,9 +474,26 @@ jobs:
           make
           echo "PKCS11TEST_PATH=`pwd`" >> $GITHUB_ENV
 
+      - name: reset the hsm
+        working-directory: yubihsm-shell/build/src
+        run: |
+          ./yubihsm-shell --connector "$DEFAULT_CONNECTOR_URL" -p password -a reset
+          sleep 3
+
       - name: run tests with ctest
         working-directory: yubihsm-shell/build
-        run: ctest --output-on-failure
+        env:
+          DOCKER_IMAGE: ${{ matrix.environment }}
+        run: |
+          if [ $DOCKER_IMAGE = "debian:11" ]; then
+            # we skip the engine tests (for now) since it ships with a broken curl version
+            ctest --output-on-failure -E engine
+          elif [ $DOCKER_IMAGE = "centos:7" ]; then
+            # we skip the ecdh_derive tests (for now) since there is an issue with generating secp224r1 keys
+            ctest --output-on-failure -E ecdh_derive
+          else
+            ctest --output-on-failure
+          fi
 
       - name: run yubihsm-shell tests
         working-directory: yubihsm-shell/resources/tests/bash
@@ -457,3 +512,10 @@ jobs:
           echo "connector=$DEFAULT_CONNECTOR_URL" > yubihsm_pkcs11.conf
           python3 -m pip install 'pykcs11' 'cryptography>=1.4.0'
           python3 setup.py test
+
+      - name: cleanup
+        if: ${{ always() }}
+        run: |
+          if [ -n "$DEFAULT_CONNECTOR_URL" ]; then
+            curl -s http://localhost:12345/dispatcher/release?connector=$DEFAULT_CONNECTOR_URL
+          fi
