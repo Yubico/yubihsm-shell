@@ -95,6 +95,11 @@ test "$BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha512 --in data.
 test "openssl dgst -sha512 -verify ecp224-import.pubkey -signature data.ecp224sha512import.sig data.txt" "   Verify signature with OpenSSL"
 
 echo "Get attestation certificate and a selfsigned certificate:"
+set +e
+$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 2>&1 > /dev/null # Some YubiHSMs does not have default attestation certificate
+skip_attestation=$?
+set -e
+if [ $skip_attestation -eq 0 ]; then
 test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default key"
 test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
 test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
@@ -107,6 +112,7 @@ test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque
 test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
 test "rm cert.der" "   Cleaning up"
 test "rm selfsigned_cert.der" "   Cleaning up"
+fi
 
 echo "Derive ECDH:"
 test "openssl ec -in secp224r1-keypair.pem -pubout -out secp224r1-pubkey.pem" "   Get imported key public key with OpenSSL"
@@ -149,6 +155,7 @@ test "$BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha512 --in data.
 test "openssl dgst -sha512 -verify ecp256-import.pubkey -signature data.ecp256sha512import.sig data.txt" "   Verify signature with OpenSSL"
 
 echo "Get attestation certificate and a selfsigned certificate:"
+if [ $skip_attestation -eq 0 ]; then
 test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default cert"
 test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
 test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
@@ -161,6 +168,7 @@ test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque
 test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
 test "rm cert.der" "   Cleaning up"
 test "rm selfsigned_cert.der" "   Cleaning up"
+fi
 
 echo "Derive ECDH:"
 test "openssl ec -in secp256r1-keypair.pem -pubout -out secp256r1-pubkey.pem" "   Get imported key public key with OpenSSL"
@@ -203,6 +211,7 @@ test "$BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha512 --in data.
 test "openssl dgst -sha512 -verify ecp384-import.pubkey -signature data.ecp384sha512import.sig data.txt" "   Verify signature with OpenSSL"
 
 echo "Get attestation certificate and a selfsigned certificate:"
+if [ $skip_attestation -eq 0 ]; then
 test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default cert"
 test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
 test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
@@ -215,6 +224,7 @@ test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque
 test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
 test "rm cert.der" "   Cleaning up"
 test "rm selfsigned_cert.der" "   Cleaning up"
+fi
 
 echo "Derive ECDH:"
 test "openssl ec -in secp384r1-keypair.pem -pubout -out secp384r1-pubkey.pem" "   Get imported key public key with OpenSSL"
@@ -257,6 +267,7 @@ test "$BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha512 --in data.
 test "openssl dgst -sha512 -verify ecp521-import.pubkey -signature data.ecp521sha512import.sig data.txt" "   Verify signature with OpenSSL"
 
 echo "Get attestation certificate and a selfsigned certificate:"
+if [ $skip_attestation -eq 0 ]; then
 test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default cert"
 test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
 test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
@@ -269,6 +280,7 @@ test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque
 test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
 test "rm cert.der" "   Cleaning up"
 test "rm selfsigned_cert.der" "   Cleaning up"
+fi
 
 echo "Derive ECDH:"
 test "openssl ec -in secp521r1-keypair.pem -pubout -out secp521r1-pubkey.pem" "   Get imported key public key with OpenSSL"
@@ -311,6 +323,7 @@ test "$BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha512 --in data.
 test "openssl dgst -sha512 -verify eck256-import.pubkey -signature data.eck256sha512import.sig data.txt" "   Verify signature with OpenSSL"
 
 echo "Get attestation certificate and a selfsigned certificate:"
+if [ $skip_attestation -eq 0 ]; then
 test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default cert"
 test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
 test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
@@ -323,6 +336,7 @@ test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque
 test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
 test "rm cert.der" "   Cleaning up"
 test "rm selfsigned_cert.der" "   Cleaning up"
+fi
 
 echo "Derive ECDH:"
 test "openssl ec -in secp256k1-keypair.pem -pubout -out secp256k1-pubkey.pem" "   Get imported key public key with OpenSSL"
@@ -334,8 +348,10 @@ echo "Clean up:"
 test "$BIN -p password -a delete-object -i $keyid -t asymmetric-key" "   Delete generated key"
 test "$BIN -p password -a delete-object -i $import_keyid -t asymmetric-key" "   Delete imported key"
 
+set +e
 cat /etc/os-release | grep 'Fedora'
 ret=$?
+set -e
 if [ $ret -ne 0 ]; then
 echo "------------- Brainpool256"
 echo "Generate key:"
@@ -368,6 +384,7 @@ test "$BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha512 --in data.
 test "openssl dgst -sha512 -verify bp256-import.pubkey -signature data.bp256sha512import.sig data.txt" "   Verify signature with OpenSSL"
 
 echo "Get attestation certificate and a selfsigned certificate:"
+if [ $skip_attestation -eq 0 ]; then
 test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default cert"
 test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
 test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
@@ -380,6 +397,7 @@ test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque
 test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
 test "rm cert.der" "   Cleaning up"
 test "rm selfsigned_cert.der" "   Cleaning up"
+fi
 
 echo "Derive ECDH:"
 test "openssl ec -in bp256r1-keypair.pem -pubout -out bp256r1-pubkey.pem" "   Get imported key public key with OpenSSL"
@@ -422,6 +440,7 @@ test "$BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha512 --in data.
 test "openssl dgst -sha512 -verify bp384-import.pubkey -signature data.bp384sha512import.sig data.txt" "   Verify signature with OpenSSL"
 
 echo "Get attestation certificate and a selfsigned certificate:"
+if [ $skip_attestation -eq 0 ]; then
 test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default cert"
 test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
 test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
@@ -434,6 +453,7 @@ test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque
 test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
 test "rm cert.der" "   Cleaning up"
 test "rm selfsigned_cert.der" "   Cleaning up"
+fi
 
 echo "Derive ECDH:"
 test "openssl ec -in bp384r1-keypair.pem -pubout -out bp384r1-pubkey.pem" "   Get imported key public key with OpenSSL"
@@ -476,6 +496,7 @@ test "$BIN -p password -a sign-ecdsa -i $import_keyid -A ecdsa-sha512 --in data.
 test "openssl dgst -sha512 -verify bp512-import.pubkey -signature data.bp512sha512import.sig data.txt" "   Verify signature with OpenSSL"
 
 echo "Get attestation certificate and a selfsigned certificate:"
+if [ $skip_attestation -eq 0 ]; then
 test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default cert"
 test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
 test "$BIN -p password -a put-opaque -i $keyid -l template_cert -A opaque-x509-certificate --in cert.der" "   Import attestation cert as template cert (same ID as generated key)"
@@ -488,6 +509,7 @@ test "$BIN -p password -a put-opaque -i $import_keyid -l template_cert -A opaque
 test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id=$import_keyid --out selfsigned_cert.der" "   Sign attestation cert with imported key"
 test "rm cert.der" "Cleaning up"
 test "rm selfsigned_cert.der" "Cleaning up"
+fi
 
 echo "Derive ECDH:"
 test "openssl ec -in bp512r1-keypair.pem -pubout -out bp512r1-pubkey.pem" "   Get imported key public key with OpenSSL"
