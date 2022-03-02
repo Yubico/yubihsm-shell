@@ -26,7 +26,7 @@
 #include "common.h"
 
 void *open_module(const char *path) {
-  void *handle = dlopen(path, RTLD_NOW | RTLD_GLOBAL);
+  void *handle = dlopen(path, RTLD_NOW);
   assert(handle != NULL);
   return handle;
 }

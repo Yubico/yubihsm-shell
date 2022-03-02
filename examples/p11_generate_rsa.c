@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
   }
 
   CK_C_GetFunctionList fn;
-  void *handle = dlopen(argv[1], RTLD_NOW | RTLD_GLOBAL);
+  void *handle = dlopen(argv[1], RTLD_NOW);
   assert(handle != NULL);
 
   *(void **) (&fn) = dlsym(handle, "C_GetFunctionList");
