@@ -56,6 +56,7 @@ jobs:
       run: |
         git clone https://github.com/YubicoLabs/python-pkcs11tester.git /tmp/python-pkcs11tester
         git clone https://github.com/YubicoLabs/pkcs11test.git /tmp/pkcs11test
+        git clone https://github.com/YubicoLabs/yubihsm_sunpkcs11_tests.git /tmp/yubihsm_sunpkcs11_tests
         pushd /tmp/pkcs11test
         make
         echo "PKCS11TEST_PATH=/tmp/pkcs11test" >> $GITHUB_ENV
@@ -117,6 +118,20 @@ jobs:
         pip3 install --upgrade pip==20.3.4
         python3 -m pip install 'pykcs11' 'cryptography>=1.4.0'
         python3 setup.py test
+        popd
+    - name: SunPKCS11 Test
+      if: ${{ matrix.test }}
+      env:
+        LIBEXT: ${{ matrix.libext }}
+        OS: ${{ matrix.os }}
+      run: |
+        export YUBIHSM_PKCS11_MODULE="`pwd`/build/pkcs11/yubihsm_pkcs11.$LIBEXT"
+        echo "connector=$DEFAULT_CONNECTOR_URL" >yubihsm_pkcs11.conf
+        export YUBIHSM_PKCS11_CONF=`pwd`/yubihsm_pkcs11.conf
+        pushd /tmp/yubihsm_sunpkcs11_tests
+        ./src/main/resources/test_setup.sh PATH/TO/yubishm-shell $DEFAULT_CONNECTOR_URL
+        ./gradlew build
+        ./gradlew runMain -Pargs=$YUBIHSM_PKCS11_MODULE
         popd
     - name: Cleanup
       if: ${{ always() }}
