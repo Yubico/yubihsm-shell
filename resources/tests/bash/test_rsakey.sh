@@ -47,7 +47,6 @@ set -e
 
 echo "====================== RSA keys ===================== "
 echo "------------- RSA2048"
-#-- Generate
 echo "Generate key:"
 test_with_resp "$BIN -p password -a generate-asymmetric-key -i 0 -l rsaKey -d 1 -c sign-pkcs,sign-pss,decrypt-pkcs,decrypt-oaep,sign-attestation-certificate -A rsa2048" "   Generate key"
 keyid=$(tail -1 resp.txt | awk '{print $4}')
@@ -62,7 +61,6 @@ test "echo $info | grep \"origin: generated\"" "   Object info contains correct 
 test "echo $info | grep \"capabilities: decrypt-oaep:decrypt-pkcs:sign-attestation-certificate:sign-pkcs:sign-pss\"" "   Object info contains correct capabilities"
 test "$BIN -p password -a get-public-key -i $keyid --outformat=PEM --out pubkey_rsa2048.pem" "   Get public key"
 
-#-- Import
 echo "Import key:"
 test "openssl genrsa -out rsa2048-keypair.pem 2048" "   Generate key with OpenSSL"
 test_with_resp "$BIN -p password -a put-asymmetric-key -i 0 -l rsaKeyImport -d 2 -c sign-pkcs,sign-pss,decrypt-pkcs,decrypt-oaep,sign-attestation-certificate --in=rsa2048-keypair.pem" "   Import key"
@@ -78,7 +76,6 @@ test "echo $info | grep \"origin: imported\"" "   Object info contains correct o
 test "echo $info | grep \"capabilities: decrypt-oaep:decrypt-pkcs:sign-attestation-certificate:sign-pkcs:sign-pss\"" "   Object info contains correct capabilities"
 test "$BIN -p password -a get-public-key -i $import_keyid --outformat=PEM --out pubkey_rsa2048_imported.pem" "   Get public key"
 
-#-- Sign
 echo "Signing with generated key:"
 test "$BIN -p password -a sign-pkcs1v15 -i $keyid -A rsa-pkcs1-sha1 --in data.txt --outformat binary --out data.2048pkcs1sha1gen.sig" "   Sign with rsa-pkcs1-sha1"
 test "openssl dgst -sha1 -verify pubkey_rsa2048.pem -signature data.2048pkcs1sha1gen.sig data.txt" "   Verify signature with OpenSSL"
@@ -97,6 +94,7 @@ test "$BIN -p password -a sign-pss -i $keyid -A rsa-pss-sha384 --in data.txt --o
 #test "openssl dgst -sha384 -verify pubkey_rsa2048.pem -signature data.2048psssha384gen.sig data.txt" "   Verify signature with OpenSSL"
 test "$BIN -p password -a sign-pss -i $keyid -A rsa-pss-sha512 --in data.txt --out data.2048psssha512gen.sig" "   Sign with rsa-pss-sha512"
 #test "openssl dgst -sha512 -verify pubkey_rsa2048.pem -signature data.2048psssha512gen.sig data.txt" "   Verify signature with OpenSSL"
+
 echo "Signing with imported key:"
 test "$BIN -p password -a sign-pkcs1v15 -i $import_keyid -A rsa-pkcs1-sha1 --in data.txt --outformat binary --out data.2048pkcs1sha1import.sig" "   Sign with rsa-pkcs1-sha1"
 test "openssl dgst -sha1 -verify pubkey_rsa2048_imported.pem -signature data.2048pkcs1sha1import.sig data.txt" "   Verify signature with OpenSSL"
@@ -115,7 +113,6 @@ test "$BIN -p password -a sign-pss -i $import_keyid -A rsa-pss-sha384 --in data.
 test "$BIN -p password -a sign-pss -i $import_keyid -A rsa-pss-sha512 --in data.txt --out data.2048psssha512import.sig" "   Sign with rsa-pss-sha512"
 #test "openssl dgst -sha512 -verify pubkey_rsa2048_imported.pem -signature data.2048psssha512import.sig data.txt" "   Verify signature with OpenSSL"
 
-#-- Get attestation certificate and a selfsigned certificate
 echo "Make self signed certificate:"
 test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default key"
 test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
@@ -132,19 +129,12 @@ echo "Decrypt with generated key and PKCS1v15:"
 test "openssl rsautl -encrypt -inkey pubkey_rsa2048.pem -pubin -in data.txt -out data.enc" "   Encryp with OpenSSL"
 test "$BIN -p password -a decrypt-pkcs1v15 -i $keyid --in data.enc --out data.dec" "   Decrypt with yubihsm-shell"
 test "cmp data.txt data.dec" "   Compare decrypted data with plain text data"
-#if [[ $(cat data.txt) != $(cat data.dec) ]]; then
-#  echo "Decrypt failed"
-#  exit 2
-#fi
 test "rm data.dec" "   Clean up"
+
 echo "Decrypt with imported key and PKCS1v15:"
 test "openssl rsautl -encrypt -inkey pubkey_rsa2048_imported.pem -pubin -in data.txt -out data.enc" "   Encryp with OpenSSL"
 test "$BIN -p password -a decrypt-pkcs1v15 -i $import_keyid --in data.enc --out data.dec" "   Decrypt with yubihsm-shell"
 test "cmp data.txt data.dec" "   Compare decrypted data with plain text data"
-#if [[ $(cat data.txt) != $(cat data.dec) ]]; then
-#  echo "Decrypt failed"
-#  exit 2
-#fi
 test "rm data.dec" "   Clean up"
 
 echo "Clean up:"
@@ -157,6 +147,7 @@ test_with_resp "$BIN -p password -a generate-asymmetric-key -i 0 -l rsaKey -d 1 
 keyid=$(tail -1 resp.txt | awk '{print $4}')
 test "$BIN -p password -a get-object-info -i $keyid -t asymmetric-key" "   Get object info"
 test "$BIN -p password -a get-public-key -i $keyid --outformat=PEM --out pubkey_rsa3072.pem" "   Get public key"
+
 echo "Import key:"
 test "openssl genrsa -out rsa3072-keypair.pem 3072" "   Generate key with OpenSSL"
 test_with_resp "$BIN -p password -a put-asymmetric-key -i 0 -l rsaKeyImport -d 2 -c sign-pkcs,sign-pss,decrypt-pkcs,decrypt-oaep,sign-attestation-certificate --in=rsa3072-keypair.pem" "   Import key"
@@ -164,7 +155,6 @@ import_keyid=$(tail -1 resp.txt | awk '{print $4}')
 test "$BIN -p password -a get-object-info -i $import_keyid -t asymmetric-key" "   Get object info"
 test "$BIN -p password -a get-public-key -i $import_keyid --outformat=PEM --out pubkey_rsa3072_imported.pem" "   Get public key"
 
-# --- Signing
 echo "Signing with generated key:"
 test "$BIN -p password -a sign-pkcs1v15 -i $keyid -A rsa-pkcs1-sha1 --in data.txt --outformat binary --out data.3072pkcs1sha1gen.sig" "   Sign with rsa-pkcs1-sha1"
 test "openssl dgst -sha1 -verify pubkey_rsa3072.pem -signature data.3072pkcs1sha1gen.sig data.txt" "   Verify signature with OpenSSL"
@@ -182,6 +172,7 @@ test "$BIN -p password -a sign-pss -i $keyid -A rsa-pss-sha384 --in data.txt --o
 #test "openssl dgst -sha384 -verify pubkey_rsa3072.pem -signature data.3072psssha384gen.sig data.txt" "   Verify signature with OpenSSL"
 test "$BIN -p password -a sign-pss -i $keyid -A rsa-pss-sha512 --in data.txt --out data.3072psssha512gen.sig" "   Sign with rsa-pss-sha512"
 #test "openssl dgst -sha512 -verify pubkey_rsa3072.pem -signature data.3072psssha512gen.sig data.txt" "   Verify signature with OpenSSL"
+
 echo "Signing with imported key:"
 test "$BIN -p password -a sign-pkcs1v15 -i $import_keyid -A rsa-pkcs1-sha1 --in data.txt --outformat binary --out data.3072pkcs1sha1import.sig" "   Sign with rsa-pkcs1-sha1"
 test "openssl dgst -sha1 -verify pubkey_rsa3072_imported.pem -signature data.3072pkcs1sha1import.sig data.txt" "   Verify signature with OpenSSL"
@@ -200,7 +191,6 @@ test "$BIN -p password -a sign-pss -i $import_keyid -A rsa-pss-sha384 --in data.
 test "$BIN -p password -a sign-pss -i $import_keyid -A rsa-pss-sha512 --in data.txt --out data.3072psssha512import.sig" "   Sign with rsa-pss-sha512"
 #test "openssl dgst -sha512 -verify pubkey_rsa3072_imported.pem -signature data.3072psssha512import.sig data.txt" "   Verify signature with OpenSSL"
 
-#-- Get attestation certificate and a selfsigned certificate
 echo "Make self signed certificate:"
 test "$BIN -p password -a sign-attestation-certificate -i $keyid --attestation-id 0 --out cert.pem" "   Sign attestation cert with default key"
 test "openssl x509 -in cert.pem -out cert.der -outform DER" "   Convert cert format"
@@ -217,19 +207,12 @@ echo "Decrypt with generated key and PKCS1v15:"
 test "openssl rsautl -encrypt -inkey pubkey_rsa3072.pem -pubin -in data.txt -out data.enc" "   Encryp with OpenSSL"
 test "$BIN -p password -a decrypt-pkcs1v15 -i $keyid --in data.enc --out data.dec" "   Decrypt with yubihsm-shell"
 test "cmp data.txt data.dec" "   Compare decrypted data with plain text data"
-#if [[ $(cat data.txt) != $(cat data.dec) ]]; then
-#  echo "Decrypt failed"
-#  exit 2
-#fi
 test "rm data.dec" "   Clean up"
+
 echo "Decrypt with imported key and PKCS1v15:"
 test "openssl rsautl -encrypt -inkey pubkey_rsa3072_imported.pem -pubin -in data.txt -out data.enc" "   Encryp with OpenSSL"
 test "$BIN -p password -a decrypt-pkcs1v15 -i $import_keyid --in data.enc --out data.dec" "   Decrypt with yubihsm-shell"
 test "cmp data.txt data.dec" "   Compare decrypted data with plain text data"
-#if [[ $(cat data.txt) != $(cat data.dec) ]]; then
-#  echo "Decrypt failed"
-#  exit 2
-#fi
 test "rm data.dec" "   Clean up"
 
 echo "Clean up:"
@@ -242,6 +225,7 @@ test_with_resp "$BIN -p password -a generate-asymmetric-key -i 0 -l rsaKey -d 1 
 keyid=$(tail -1 resp.txt | awk '{print $4}')
 test "$BIN -p password -a get-object-info -i $keyid -t asymmetric-key" "   Get object info"
 test "$BIN -p password -a get-public-key -i $keyid --outformat=PEM --out pubkey_rsa4096.pem" "   Get public key"
+
 echo "Import key:"
 test "openssl genrsa -out rsa4096-keypair.pem 4096" "   Generate key with OpenSSL"
 test_with_resp "$BIN -p password -a put-asymmetric-key -i 0 -l rsaKeyImport -d 2 -c sign-pkcs,sign-pss,decrypt-pkcs,decrypt-oaep,sign-attestation-certificate --in=rsa4096-keypair.pem" "   Import key"
@@ -266,6 +250,7 @@ test "$BIN -p password -a sign-pss -i $keyid -A rsa-pss-sha384 --in data.txt --o
 #test "openssl dgst -sha384 -verify pubkey_rsa4096.pem -signature data.4096psssha384gen.sig data.txt" "   Verify signature with OpenSSL"
 test "$BIN -p password -a sign-pss -i $keyid -A rsa-pss-sha512 --in data.txt --out data.4096psssha512gen.sig" "   Sign with rsa-pss-sha512"
 #test "openssl dgst -sha512 -verify pubkey_rsa4096.pem -signature data.4096psssha512gen.sig data.txt" "   Verify signature with OpenSSL"
+
 echo "Signing with imported key:"
 test "$BIN -p password -a sign-pkcs1v15 -i $import_keyid -A rsa-pkcs1-sha1 --in data.txt --outformat binary --out data.4096pkcs1sha1import.sig" "   Sign with rsa-pkcs1-sha1"
 test "openssl dgst -sha1 -verify pubkey_rsa4096_imported.pem -signature data.4096pkcs1sha1import.sig data.txt" "   Verify signature with OpenSSL"
@@ -300,19 +285,12 @@ echo "Decrypt with generated key and PKCS1v15:"
 test "openssl rsautl -encrypt -inkey pubkey_rsa4096.pem -pubin -in data.txt -out data.enc" "   Encryp with OpenSSL"
 test "$BIN -p password -a decrypt-pkcs1v15 -i $keyid --in data.enc --out data.dec" "   Decrypt with yubihsm-shell"
 test "cmp data.txt data.dec" "   Compare decrypted data with plain text data"
-#if [[ $(cat data.txt) != $(cat data.dec) ]]; then
-#  echo "Decrypt failed"
-#  exit 2
-#fi
 test "rm data.dec" "   Clean up"
+
 echo "Decrypt with imported key and PKCS1v15:"
 test "openssl rsautl -encrypt -inkey pubkey_rsa4096_imported.pem -pubin -in data.txt -out data.enc" "   Encryp with OpenSSL"
 test "$BIN -p password -a decrypt-pkcs1v15 -i $import_keyid --in data.enc --out data.dec" "   Decrypt with yubihsm-shell"
 test "cmp data.txt data.dec" "   Compare decrypted data with plain text data"
-#if [[ $(cat data.txt) != $(cat data.dec) ]]; then
-#  echo "Decrypt failed"
-#  exit 2
-#fi
 test "rm data.dec" "   Clean up"
 
 echo "Clean up:"
