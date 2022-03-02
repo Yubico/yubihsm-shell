@@ -18,7 +18,7 @@
 
 #ifdef _WIN32_BCRYPT
 #include <windows.h>
-#include <ncrypt.h>
+#include <bcrypt.h>
 #else
 #include <openssl/rand.h>
 #endif

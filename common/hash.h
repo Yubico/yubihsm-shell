@@ -61,7 +61,7 @@ bool YH_INTERNAL hash_destroy(hash_ctx ctx);
 const YH_INTERNAL EVP_MD *get_hash(hash_t hash);
 #else
 #include <windows.h>
-#include <ncrypt.h>
+#include <bcrypt.h>
 BCRYPT_ALG_HANDLE YH_INTERNAL get_hash(hash_t hash, bool hmac);
 #endif
 
