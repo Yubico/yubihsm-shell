@@ -497,6 +497,8 @@ jobs:
 
       - name: run yubihsm-shell tests
         working-directory: yubihsm-shell/resources/tests/bash
+        env:
+          DOCKER_IMAGE: ${{ matrix.environment }}
         run: ./cmdline_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
 
       - name: clone the YubicoLabs/python-pkcs11tester repository
