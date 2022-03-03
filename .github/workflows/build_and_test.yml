@@ -128,6 +128,7 @@ jobs:
         export YUBIHSM_PKCS11_MODULE="`pwd`/build/pkcs11/yubihsm_pkcs11.$LIBEXT"
         echo "connector=$DEFAULT_CONNECTOR_URL" >yubihsm_pkcs11.conf
         export YUBIHSM_PKCS11_CONF=`pwd`/yubihsm_pkcs11.conf
+        java --version
         pushd /tmp/yubihsm_sunpkcs11_tests
         ./src/main/resources/test_setup.sh $GITHUB_WORKSPACE/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
         ./gradlew build
