@@ -129,9 +129,12 @@ jobs:
         echo "connector=$DEFAULT_CONNECTOR_URL" >yubihsm_pkcs11.conf
         export YUBIHSM_PKCS11_CONF=`pwd`/yubihsm_pkcs11.conf
         pushd /tmp/yubihsm_sunpkcs11_tests
-        ./src/main/resources/test_setup.sh $GITHUB_WORKSPACE/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
-        ./gradlew build
-        ./gradlew runMain -Pargs=$YUBIHSM_PKCS11_MODULE
+          pushd src/main/resources
+            ./test_setup.sh $GITHUB_WORKSPACE/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
+          popd
+          pwd
+          ./gradlew build
+          ./gradlew runMain -Pargs=$YUBIHSM_PKCS11_MODULE
         popd
     - name: Cleanup
       if: ${{ always() }}
