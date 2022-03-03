@@ -125,17 +125,19 @@ jobs:
         LIBEXT: ${{ matrix.libext }}
         OS: ${{ matrix.os }}
       run: |
-        export YUBIHSM_PKCS11_MODULE="`pwd`/build/pkcs11/yubihsm_pkcs11.$LIBEXT"
-        echo "connector=$DEFAULT_CONNECTOR_URL" >yubihsm_pkcs11.conf
-        export YUBIHSM_PKCS11_CONF=`pwd`/yubihsm_pkcs11.conf
-        pushd /tmp/yubihsm_sunpkcs11_tests
-          pushd src/main/resources
-            ./test_setup.sh $GITHUB_WORKSPACE/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
+        if [ "$OS" != "ubuntu-18.04" ]; then
+          export YUBIHSM_PKCS11_MODULE="`pwd`/build/pkcs11/yubihsm_pkcs11.$LIBEXT"
+          echo "connector=$DEFAULT_CONNECTOR_URL" >yubihsm_pkcs11.conf
+          export YUBIHSM_PKCS11_CONF=`pwd`/yubihsm_pkcs11.conf
+          pushd /tmp/yubihsm_sunpkcs11_tests
+            pushd src/main/resources
+              ./test_setup.sh $GITHUB_WORKSPACE/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
+            popd
+            pwd
+            ./gradlew build
+            ./gradlew runMain -Pargs=$YUBIHSM_PKCS11_MODULE
           popd
-          pwd
-          ./gradlew build
-          ./gradlew runMain -Pargs=$YUBIHSM_PKCS11_MODULE
-        popd
+        fi
     - name: Cleanup
       if: ${{ always() }}
       run: |
