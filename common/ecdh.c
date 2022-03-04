@@ -1620,8 +1620,8 @@ int ecdh_load_module(const char *module, FILE *out) {
 
 int ecdh_list_providers(void *ctx,
                         int (*callback)(void *ctx, const char *key)) {
-  CK_SLOT_ID slot[128] = {0};
-  CK_ULONG slots = 128;
+  CK_SLOT_ID slot[64] = {0};
+  CK_ULONG slots = sizeof(slot) / sizeof(slot[0]);
   CK_RV rv = p11->C_GetSlotList(CK_TRUE, slot, &slots);
   if (rv) {
     return 0;
@@ -1646,7 +1646,7 @@ struct p11_ctx {
 
 static CK_RV p11_list_keys(int curve, struct p11_ctx *ctx,
                            int (*callback)(void *ctx, const char *key)) {
-  CK_SLOT_ID slot[256] = {0};
+  CK_SLOT_ID slot[64] = {0};
   CK_ULONG slots = sizeof(slot) / sizeof(slot[0]);
   CK_RV rv = p11->C_GetSlotList(CK_TRUE, slot, &slots);
   if (rv) {
