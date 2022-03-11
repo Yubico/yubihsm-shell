@@ -400,7 +400,8 @@ jobs:
           "ubuntu:21.10",
           "debian:11",
           "fedora:34",
-          "centos:7"
+          # centos 7 comes with cmake version 2.8, but the project requires 3.1
+          #"centos:7"
         ]
     name: run unit tests
     runs-on: ubuntu-latest
