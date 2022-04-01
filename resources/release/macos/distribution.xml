@@ -4,7 +4,7 @@
 <!--    <readme file="README.html" mime-type="text/html"/> -->
     <license file="license.html" mime-type="text/html" />
     <pkg-ref id="com.yubico.yubihsm2-sdk"/>
-    <options customize="never" require-scripts="false"/>
+    <options hostArchitectures="x86_64,arm64" customize="never" require-scripts="false"/>
     <choices-outline>
         <line choice="default">
             <line choice="com.yubico.yubihsm2-sdk"/>
