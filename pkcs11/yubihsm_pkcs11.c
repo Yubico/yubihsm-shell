@@ -1687,7 +1687,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
       DBG_INFO("No ECDH session key with ID %08lx was found", hObject);
     }
   } else {
-    if (((uint8_t)(hObject >> 16)) == YH_PUBLIC_KEY) {
+    if (((uint8_t) (hObject >> 16)) == YH_PUBLIC_KEY) {
       DBG_INFO("Trying to delete public key, returning success with noop");
       goto c_do_out;
     }
@@ -2010,7 +2010,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           break;
 
         case CKA_CLASS: {
-          uint32_t value = *((CK_ULONG_PTR)(pTemplate[i].pValue));
+          uint32_t value = *((CK_ULONG_PTR) (pTemplate[i].pValue));
           switch (value) {
             case CKO_CERTIFICATE:
               DBG_INFO("Filtering for certificate");
@@ -2146,6 +2146,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
         case CKA_DESTROYABLE:
         case CKA_KEY_TYPE:
         case CKA_APPLICATION:
+        case CKA_CERTIFICATE_TYPE:
           DBG_INFO("Got type %x, ignoring it for results",
                    (uint32_t) pTemplate[i].type);
           break;
