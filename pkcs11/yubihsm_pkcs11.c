@@ -2146,6 +2146,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
         case CKA_DESTROYABLE:
         case CKA_KEY_TYPE:
         case CKA_APPLICATION:
+        case CKA_CERTIFICATE_TYPE:
           DBG_INFO("Got type %x, ignoring it for results",
                    (uint32_t) pTemplate[i].type);
           break;
