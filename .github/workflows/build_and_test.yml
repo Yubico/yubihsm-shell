@@ -516,7 +516,14 @@ jobs:
           path: python-pkcs11tester
 
       - name: run python-pkcs11tester
+        env:
+          DOCKER_IMAGE: ${{ matrix.environment }}
         run: |
+          if [ $DOCKER_IMAGE = "centos:7" ]; then
+            # the pypi cryptography package requires an up-to-date version of pip
+            # https://github.com/pyca/cryptography/issues/5753
+            pip3 install --upgrade pip
+          fi
           export YUBIHSM_PKCS11_MODULE=`pwd`/yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so
           cd python-pkcs11tester
           echo "connector=$DEFAULT_CONNECTOR_URL" > yubihsm_pkcs11.conf
