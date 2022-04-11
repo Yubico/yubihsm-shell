@@ -532,17 +532,17 @@ jobs:
 
       - name: clone the YubicoLabs/yubihsm_sunpkcs11_tests repository
         uses: actions/checkout@v2
-        # fedora disabled since sun pkcs11 tests fail with
+        # fedora and centos disabled since sun pkcs11 tests fail with
         #   java.security.cert.CertificateParsingException: java.io.IOException: Unknown named curve: 1.3.132.0.33
-        if: ${{ ! contains(matrix.environment, 'fedora') }}
+        if: ${{ ! (contains(matrix.environment, 'fedora') || contains(matrix.environment, 'centos')) }}
         with:
           repository: YubicoLabs/yubihsm_sunpkcs11_tests
           path: yubihsm_sunpkcs11_tests
 
       - name: run sun pkcs11 tests
-        # fedora disabled since sun pkcs11 tests fail with
+        # fedora and centos disabled since sun pkcs11 tests fail with
         #   java.security.cert.CertificateParsingException: java.io.IOException: Unknown named curve: 1.3.132.0.33
-        if: ${{ ! contains(matrix.environment, 'fedora') }}
+        if: ${{ ! (contains(matrix.environment, 'fedora') || contains(matrix.environment, 'centos')) }}
         run: |
           export YUBIHSM_PKCS11_MODULE="`pwd`/yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so"
           cd yubihsm_sunpkcs11_tests
