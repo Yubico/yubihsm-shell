@@ -38,7 +38,7 @@
 
 #define PROMPT "yubihsm> "
 
-#define ARGS_BUFFER_SIZE 4096
+#define ARGS_BUFFER_SIZE 32768
 
 #define COMPLETION_CANDIDATES 256
 #define MAX_COMMAND_NAME 32
@@ -1994,7 +1994,7 @@ int main(int argc, char *argv[]) {
 #endif
 
   if (args_info.action_given) {
-    uint8_t buf[8192] = {0};
+    uint8_t buf[ARGS_BUFFER_SIZE] = {0};
 
     g_ctx.out = open_file(args_info.out_arg, false);
     if (g_ctx.out == NULL) {
