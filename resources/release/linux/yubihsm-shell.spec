@@ -40,7 +40,7 @@ make install
 chrpath -r %{_libdir} %{buildroot}/%{_bindir}/yubihsm-shell
 chrpath -r %{_libdir} %{buildroot}/%{_bindir}/yubihsm-wrap
 chrpath -r %{_libdir} %{buildroot}/%{_bindir}/yubihsm-auth
-chrpath -r %{_libdir} %{buildroot}/%{_libdir}/pkcs11/yubihsm_pkcs11.so
+chrpath -r %{_libdir} %{buildroot}/%{_libdir}/yubihsm_pkcs11.so
 mkdir -p %{buildroot}/%{_prefix}/share/licenses/%{name}
 install -m 0644 ../LICENSE %{buildroot}/%{_prefix}/share/licenses/%{name}
 
@@ -59,7 +59,7 @@ install -m 0644 ../LICENSE %{buildroot}/%{_prefix}/share/licenses/%{name}
 %{_libdir}/libykhsmauth.so.2
 %{_libdir}/libykhsmauth.so.2.*
 %dir %{_libdir}/pkcs11
-%{_libdir}/pkcs11/yubihsm_pkcs11.so
+%{_libdir}/yubihsm_pkcs11.so
 %files -n %{_yubihsm}-devel
 %{_libdir}/libyubihsm.so
 %{_libdir}/libyubihsm_http.so
