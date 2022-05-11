@@ -1403,20 +1403,26 @@ static FILE *open_file(const char *name, bool input) {
   }
 }
 
-static bool get_input_data(const char *name, uint8_t *out, size_t *len,
+static bool get_input_data(const char *name, uint8_t **out, size_t *len,
                            cmd_format fmt) {
-  size_t data_len;
-  struct stat sb;
-  int st_res = stat(name, &sb);
-  if (strcmp(name, "-") == 0 || strncasecmp(name, "file:", 5) == 0 ||
+  const char *fname = strncasecmp(name, "file:", 5) ? name : name + 5;
+  struct stat sb = {0};
+  int st_res = stat(fname, &sb);
+  if (st_res == 0 && S_ISREG(sb.st_mode)) {
+    *len = sb.st_size;
+  } else {
+    *len = ARGS_BUFFER_SIZE;
+  }
+  *out = calloc(*len, 1);
+  if (*out == 0) {
+    fprintf(stderr, "Failed to allocate %zu bytes memory for %s\n", *len,
+            fname);
+    return false;
+  }
+  if (!strcmp(name, "-") || fname != name ||
       (st_res == 0 && S_ISREG(sb.st_mode))) {
-    data_len = *len;
     bool ret = false;
-    FILE *file;
-    if (strncasecmp(name, "file:", 5) == 0) {
-      name += 5;
-    }
-    file = open_file(name, true);
+    FILE *file = open_file(fname, true);
     if (!file) {
       return false;
     }
@@ -1433,9 +1439,9 @@ static bool get_input_data(const char *name, uint8_t *out, size_t *len,
         return false;
       }
 #endif
-      if (EVP_read_pw_string((char *) out, *len - 1, "Enter password: ", 0) ==
+      if (EVP_read_pw_string((char *) *out, *len - 1, "Enter password: ", 0) ==
           0) {
-        data_len = strlen((char *) out);
+        *len = strlen((char *) *out);
         ret = true;
       }
 #ifndef __WIN32
@@ -1444,7 +1450,7 @@ static bool get_input_data(const char *name, uint8_t *out, size_t *len,
         return false;
       }
 #endif
-    } else if (read_file(file, out, &data_len)) {
+    } else if (read_file(file, *out, len)) {
       ret = true;
     }
     if (file != stdin) {
@@ -1455,8 +1461,8 @@ static bool get_input_data(const char *name, uint8_t *out, size_t *len,
     }
   } else {
     if (strlen(name) < *len) {
-      memcpy(out, name, strlen(name));
-      data_len = strlen(name);
+      memcpy(*out, name, strlen(name));
+      *len = strlen(name);
     } else {
       return false;
     }
@@ -1464,32 +1470,30 @@ static bool get_input_data(const char *name, uint8_t *out, size_t *len,
 
   switch (fmt) {
     case fmt_base64:
-      if (base64_decode((char *) out, out, len)) {
+      if (base64_decode((char *) *out, *out, len)) {
         return true;
       }
       break;
 
     case fmt_hex:
-      if (hex_decode((char *) out, out, len)) {
+      if (hex_decode((char *) *out, *out, len)) {
         return true;
       }
       break;
     case fmt_password:
       // If the password was read from a file, strip off \r\n
-      if (data_len > 0 && out[data_len - 1] == '\n') {
-        data_len--;
+      if (*len > 0 && (*out)[*len - 1] == '\n') {
+        (*len)--;
       }
-      if (data_len > 0 && out[data_len - 1] == '\r') {
-        data_len--;
+      if (*len > 0 && (*out)[*len - 1] == '\r') {
+        (*len)--;
       }
-      out[data_len] = '\0';
-      *len = data_len;
+      (*out)[*len] = '\0';
       return true;
 
     case fmt_binary: // these all require no extra work, just pass data on.
     case fmt_PEM:
     case fmt_ASCII:
-      *len = data_len;
       return true;
 
     case fmt_nofmt:
@@ -1558,12 +1562,7 @@ static int validate_arg(yubihsm_context *ctx, char type, const char *value,
       break;
 
     case 'i':
-      parsed->x = calloc(ARGS_BUFFER_SIZE + 1, 1);
-      if (parsed->x == NULL) {
-        return -1;
-      }
-      parsed->len = ARGS_BUFFER_SIZE;
-      if (get_input_data(value, parsed->x, &parsed->len, fmt) == false) {
+      if (get_input_data(value, &parsed->x, &parsed->len, fmt) == false) {
         return -1;
       }
       break;
@@ -1994,7 +1993,6 @@ int main(int argc, char *argv[]) {
 #endif
 
   if (args_info.action_given) {
-    uint8_t buf[8192] = {0};
 
     g_ctx.out = open_file(args_info.out_arg, false);
     if (g_ctx.out == NULL) {
@@ -2025,11 +2023,12 @@ int main(int argc, char *argv[]) {
     Argument arg[7];
 
     if (requires_session == true) {
-      size_t pw_len = sizeof(buf);
+      uint8_t *buf = 0;
+      size_t pw_len = 0;
       arg[0].w = args_info.authkey_arg;
       if (get_input_data(args_info.password_given ? args_info.password_arg
                                                   : "-",
-                         buf, &pw_len, fmt_password) == false) {
+                         &buf, &pw_len, fmt_password) == false) {
         fprintf(stderr, "Failed to get password\n");
         rc = EXIT_FAILURE;
         goto main_exit;
@@ -2050,6 +2049,7 @@ int main(int argc, char *argv[]) {
       }
 #endif
       insecure_memzero(buf, pw_len);
+      free(buf);
       if (comrc != 0) {
         fprintf(stderr, "Failed to open session\n");
         rc = EXIT_FAILURE;
@@ -2069,9 +2069,7 @@ int main(int argc, char *argv[]) {
       switch (args_info.action_arg[i]) {
         case action_arg_decryptMINUS_pkcs1v15: {
           arg[1].w = args_info.object_id_arg;
-          arg[2].x = buf;
-          arg[2].len = sizeof(buf);
-          if (get_input_data(args_info.in_arg, arg[2].x, &arg[2].len,
+          if (get_input_data(args_info.in_arg, &arg[2].x, &arg[2].len,
                              g_in_fmt == fmt_nofmt ? fmt_binary : g_in_fmt) ==
               false) {
             fprintf(stderr, "Failed to get input data\n");
@@ -2081,14 +2079,13 @@ int main(int argc, char *argv[]) {
           comrc = yh_com_decrypt_pkcs1v1_5(&g_ctx, arg, fmt_nofmt,
                                            g_out_fmt == fmt_nofmt ? fmt_binary
                                                                   : g_out_fmt);
+          free(arg[2].x);
           COM_SUCCEED_OR_DIE(comrc, "Unable to decrypt data");
         } break;
 
         case action_arg_deriveMINUS_ecdh: {
           arg[1].w = args_info.object_id_arg;
-          arg[2].x = buf;
-          arg[2].len = sizeof(buf);
-          if (get_input_data(args_info.in_arg, arg[2].x, &arg[2].len,
+          if (get_input_data(args_info.in_arg, &arg[2].x, &arg[2].len,
                              g_in_fmt == fmt_nofmt ? fmt_binary : g_in_fmt) ==
               false) {
             fprintf(stderr, "Failed to get input data\n");
@@ -2098,6 +2095,7 @@ int main(int argc, char *argv[]) {
           comrc =
             yh_com_derive_ecdh(&g_ctx, arg, fmt_nofmt,
                                g_out_fmt == fmt_nofmt ? fmt_hex : g_out_fmt);
+          free(arg[2].x);
           COM_SUCCEED_OR_DIE(comrc, "Unable to perform ECDH key exchange");
         } break;
 
@@ -2405,9 +2403,7 @@ int main(int argc, char *argv[]) {
             yh_string_to_capabilities(args_info.capabilities_arg, &arg[4].c);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse capabilities: ");
 
-          arg[5].x = buf;
-          arg[5].len = sizeof(buf);
-          if (get_input_data(args_info.in_arg, arg[5].x, &arg[5].len,
+          if (get_input_data(args_info.in_arg, &arg[5].x, &arg[5].len,
                              g_in_fmt == fmt_nofmt ? fmt_PEM : g_in_fmt) ==
               false) {
             fprintf(stderr, "Failed to get input data\n");
@@ -2415,6 +2411,7 @@ int main(int argc, char *argv[]) {
             break;
           }
           comrc = yh_com_put_asymmetric(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
+          free(arg[5].x);
           COM_SUCCEED_OR_DIE(comrc, "Unable to store asymmetric key");
         } break;
 
@@ -2440,9 +2437,7 @@ int main(int argc, char *argv[]) {
           yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[5].a);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
 
-          arg[6].x = buf;
-          arg[6].len = sizeof(buf);
-          if (get_input_data(args_info.in_arg, arg[6].x, &arg[6].len,
+          if (get_input_data(args_info.in_arg, &arg[6].x, &arg[6].len,
                              g_in_fmt == fmt_nofmt ? fmt_binary : g_in_fmt) ==
               false) {
             fprintf(stderr, "Failed to get input data\n");
@@ -2451,6 +2446,7 @@ int main(int argc, char *argv[]) {
           }
 
           comrc = yh_com_put_opaque(&g_ctx, arg, g_in_fmt, fmt_nofmt);
+          free(arg[6].x);
           COM_SUCCEED_OR_DIE(comrc, "Unable to store opaque object");
         } break;
 
@@ -2470,15 +2466,17 @@ int main(int argc, char *argv[]) {
           yrc = yh_string_to_option(args_info.opt_name_arg, &arg[1].o);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse option name: ");
 
-          arg[2].len = sizeof(buf);
-          if (hex_decode(args_info.opt_value_arg, buf, &arg[2].len) == false) {
+          arg[2].x = calloc(ARGS_BUFFER_SIZE, 1);
+          arg[2].len = ARGS_BUFFER_SIZE;
+          if (hex_decode(args_info.opt_value_arg, arg[2].x, &arg[2].len) ==
+              false) {
             fprintf(stderr, "Unable to decode option value\n");
             rc = EXIT_FAILURE;
             break;
           }
-          arg[2].x = buf;
 
           comrc = yh_com_put_option(&g_ctx, arg, fmt_hex, fmt_nofmt);
+          free(arg[2].x);
           COM_SUCCEED_OR_DIE(comrc, "Unable to put option");
         } break;
 
@@ -2525,9 +2523,7 @@ int main(int argc, char *argv[]) {
           yrc = yh_string_to_capabilities(args_info.delegated_arg, &arg[5].c);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse capabilities: ");
 
-          arg[6].x = buf;
-          arg[6].len = sizeof(buf);
-          if (get_input_data(args_info.in_arg, arg[6].x, &arg[6].len,
+          if (get_input_data(args_info.in_arg, &arg[6].x, &arg[6].len,
                              g_in_fmt == fmt_nofmt ? fmt_hex : g_in_fmt) ==
               false) {
             fprintf(stderr, "Failed to get input data\n");
@@ -2536,6 +2532,7 @@ int main(int argc, char *argv[]) {
           }
 
           comrc = yh_com_put_wrapkey(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
+          free(arg[6].x);
           COM_SUCCEED_OR_DIE(comrc, "Unable to put wrapkey");
         } break;
 
@@ -2547,9 +2544,7 @@ int main(int argc, char *argv[]) {
           }
 
           arg[1].w = args_info.wrap_id_arg;
-          arg[2].x = buf;
-          arg[2].len = sizeof(buf);
-          if (get_input_data(args_info.in_arg, arg[2].x, &arg[2].len,
+          if (get_input_data(args_info.in_arg, &arg[2].x, &arg[2].len,
                              g_in_fmt == fmt_nofmt ? fmt_base64 : g_in_fmt) ==
               false) {
             fprintf(stderr, "Failed to get input data\n");
@@ -2558,6 +2553,7 @@ int main(int argc, char *argv[]) {
           }
 
           comrc = yh_com_put_wrapped(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
+          free(arg[2].x);
           COM_SUCCEED_OR_DIE(comrc, "Unable to store wrapped object");
         } break;
 
@@ -2583,9 +2579,7 @@ int main(int argc, char *argv[]) {
           yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[5].a);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
 
-          arg[6].x = buf;
-          arg[6].len = sizeof(buf);
-          if (get_input_data(args_info.in_arg, arg[6].x, &arg[6].len,
+          if (get_input_data(args_info.in_arg, &arg[6].x, &arg[6].len,
                              g_in_fmt == fmt_nofmt ? fmt_binary : g_in_fmt) ==
               false) {
             fprintf(stderr, "Failed to get input data\n");
@@ -2594,6 +2588,7 @@ int main(int argc, char *argv[]) {
           }
 
           comrc = yh_com_put_template(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
+          free(arg[6].x);
           COM_SUCCEED_OR_DIE(comrc, "Unable to store template object");
         } break;
 
@@ -2613,9 +2608,7 @@ int main(int argc, char *argv[]) {
           yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[2].a);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
 
-          arg[3].x = buf;
-          arg[3].len = sizeof(buf);
-          if (get_input_data(args_info.in_arg, arg[3].x, &arg[3].len,
+          if (get_input_data(args_info.in_arg, &arg[3].x, &arg[3].len,
                              g_in_fmt == fmt_nofmt ? fmt_binary : g_in_fmt) ==
               false) {
             fprintf(stderr, "Failed to get input data\n");
@@ -2633,6 +2626,7 @@ int main(int argc, char *argv[]) {
                                                              : g_out_fmt);
           }
 
+          free(arg[3].x);
           COM_SUCCEED_OR_DIE(comrc, "Unable to sign data");
         } break;
 
@@ -2647,9 +2641,7 @@ int main(int argc, char *argv[]) {
           yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[2].a);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
 
-          arg[3].x = buf;
-          arg[3].len = sizeof(buf);
-          if (get_input_data(args_info.in_arg, arg[3].x, &arg[3].len,
+          if (get_input_data(args_info.in_arg, &arg[3].x, &arg[3].len,
                              g_in_fmt == fmt_nofmt ? fmt_binary : g_in_fmt) ==
               false) {
             fprintf(stderr, "Failed to get input data\n");
@@ -2660,6 +2652,7 @@ int main(int argc, char *argv[]) {
           comrc = yh_com_sign_pkcs1v1_5(&g_ctx, arg, fmt_nofmt,
                                         g_out_fmt == fmt_nofmt ? fmt_base64
                                                                : g_out_fmt);
+          free(arg[3].x);
           COM_SUCCEED_OR_DIE(comrc, "Unable to sign data");
         } break;
 
@@ -2674,9 +2667,7 @@ int main(int argc, char *argv[]) {
           yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[2].a);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
 
-          arg[3].x = buf;
-          arg[3].len = sizeof(buf);
-          if (get_input_data(args_info.in_arg, arg[3].x, &arg[3].len,
+          if (get_input_data(args_info.in_arg, &arg[3].x, &arg[3].len,
                              g_in_fmt == fmt_nofmt ? fmt_binary : g_in_fmt) ==
               false) {
             fprintf(stderr, "Failed to get input data\n");
@@ -2687,6 +2678,7 @@ int main(int argc, char *argv[]) {
           comrc =
             yh_com_sign_pss(&g_ctx, arg, fmt_nofmt,
                             g_out_fmt == fmt_nofmt ? fmt_base64 : g_out_fmt);
+          free(arg[3].x);
           COM_SUCCEED_OR_DIE(comrc, "Unable to sign data");
         } break;
 
@@ -2732,9 +2724,7 @@ int main(int argc, char *argv[]) {
           yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[3].a);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
 
-          arg[4].x = buf;
-          arg[4].len = sizeof(buf);
-          if (get_input_data(args_info.in_arg, arg[4].x, &arg[4].len,
+          if (get_input_data(args_info.in_arg, &arg[4].x, &arg[4].len,
                              g_in_fmt == fmt_nofmt ? fmt_binary : g_in_fmt) ==
               false) { // TODO: correct format?
             fprintf(stderr, "Failed to get input data\n");
@@ -2746,6 +2736,7 @@ int main(int argc, char *argv[]) {
             yh_com_sign_ssh_certificate(&g_ctx, arg, fmt_nofmt,
                                         g_out_fmt == fmt_nofmt ? fmt_binary
                                                                : g_out_fmt);
+          free(arg[4].x);
           COM_SUCCEED_OR_DIE(comrc, "Unable to get ssh certificate");
         } break;
 
