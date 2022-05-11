@@ -58,7 +58,6 @@ install -m 0644 ../LICENSE %{buildroot}/%{_prefix}/share/licenses/%{name}
 %{_libdir}/libyubihsm_usb.so.2.*
 %{_libdir}/libykhsmauth.so.2
 %{_libdir}/libykhsmauth.so.2.*
-%dir %{_libdir}/pkcs11
 %{_libdir}/yubihsm_pkcs11.so
 %files -n %{_yubihsm}-devel
 %{_libdir}/libyubihsm.so
