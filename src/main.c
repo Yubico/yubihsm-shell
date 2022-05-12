@@ -1413,7 +1413,7 @@ static bool get_input_data(const char *name, uint8_t **out, size_t *len,
   } else {
     *len = ARGS_BUFFER_SIZE;
   }
-  *out = calloc(*len, 1);
+  *out = calloc(*len + 1, 1);
   if (*out == 0) {
     fprintf(stderr, "Failed to allocate %zu bytes memory for %s\n", *len,
             fname);
