@@ -9,7 +9,6 @@ DEB_BUILD_OPTIONS=noddebs
 override_dh_install:
 	chrpath -d $(CURDIR)/debian/tmp/usr/bin/*
 	chrpath -d $(CURDIR)/debian/tmp/usr/lib/*.so*
-	chrpath -d $(CURDIR)/debian/tmp/usr/lib/pkcs11/*.so*
 	dh_install --fail-missing
 
 override_dh_auto_configure:
