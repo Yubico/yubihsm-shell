@@ -24,7 +24,7 @@ jobs:
       uses: github/codeql-action/init@v2
       with:
         languages: cpp
-        queries: +security-and-quality
+        config-file: ./.github/codeql/codeql-config.yml
 
     - name: Install dependencies from package management
       env:
