@@ -1,5 +1,6 @@
 Version 2.3.2
 
+shell: Remove limit on input file size
 shell: pkcs11: build: Minor improvements
 
 === Version 2.3.1
