@@ -9,7 +9,7 @@ jobs:
     name: Build dist with Linux
     runs-on: ubuntu-latest
     env:
-      VERSION: 2.3.1
+      VERSION: 2.3.2
     steps:
       - name: checkout
         uses: actions/checkout@v2
@@ -36,7 +36,7 @@ jobs:
     needs: source
     runs-on: windows-latest
     env:
-      VERSION: 2.3.1
+      VERSION: 2.3.2
     steps:
       - name: Download source from source job
         uses: actions/download-artifact@v1
@@ -76,7 +76,7 @@ jobs:
     needs: source
     runs-on: windows-latest
     env:
-      VERSION: 2.3.1
+      VERSION: 2.3.2
     steps:
       - name: Download source from source job
         uses: actions/download-artifact@v1
@@ -115,7 +115,7 @@ jobs:
     needs: source
     runs-on: macos-10.15
     env:
-      VERSION: 2.3.1
+      VERSION: 2.3.2
       SO_VERSION: 2
     steps:
       - name: Download source from source job

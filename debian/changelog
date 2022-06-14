@@ -1,3 +1,15 @@
+yubihsm-shell (2.3.2) unstable; urgency=medium
+
+  * 2.3.2 release
+
+ -- Aveen Ismail <aveen.ismail@yubico.com>  Tue, 14 Jun 2022 10:55:28 +0100
+
+yubihsm-shell (2.3.1) unstable; urgency=medium
+
+  * 2.3.1 release
+
+ -- Aveen Ismail <aveen.ismail@yubico.com>  Wed, 2 Feb 2022 10:28:21 +0100
+
 yubihsm-shell (2.3.0) unstable; urgency=medium
 
   * 2.3.0 release
