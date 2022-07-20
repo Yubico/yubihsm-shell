@@ -2039,6 +2039,14 @@ int main(int argc, char *argv[]) {
         arg[1].len = strlen(args_info.ykhsmauth_label_arg);
         arg[2].x = buf;
         arg[2].len = pw_len;
+        if (args_info.ykhsmauth_reader_given) {
+          arg[3].s = args_info.ykhsmauth_reader_arg;
+          arg[3].len = strlen(args_info.ykhsmauth_reader_arg);
+        }
+        else {
+          arg[3].s = NULL;
+          arg[3].len = 0;
+        }
         comrc = yh_com_open_yksession(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
       } else {
 #endif
