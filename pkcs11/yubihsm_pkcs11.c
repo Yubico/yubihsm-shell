@@ -1343,7 +1343,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
                                   template.algorithm, template.obj.rsa.p,
                                   template.obj.rsa.q);
       if (rc != YHR_SUCCESS) {
-        DBG_ERR("Failed writing RSA key to device: %s", yh_strerror(rc));
+        DBG_ERR("Failed importing RSA key to device: %s", yh_strerror(rc));
         rv = yrc_to_rv(rc);
         goto c_co_out;
       }
@@ -1376,7 +1376,33 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
                                  template.label, 0xffff, &capabilities,
                                  template.algorithm, template.obj.buf);
       if (rc != YHR_SUCCESS) {
-        DBG_ERR("Failed writing EC key to device: %s", yh_strerror(rc));
+        DBG_ERR("Failed importing EC key to device: %s", yh_strerror(rc));
+        rv = yrc_to_rv(rc);
+        goto c_co_out;
+      }
+    } else if (key_type.d == CKK_EC_EDWARDS) {
+      rv = parse_ed_template(pTemplate, ulCount, &template);
+      if (rv != CKR_OK) {
+        goto c_co_out;
+      }
+
+      DBG_INFO("parsed ED key, algorithm: %d, objlen: %d", template.algorithm,
+               template.objlen);
+
+      if (template.sign == ATTRIBUTE_TRUE) {
+        rc = yh_string_to_capabilities("sign-eddsa", &capabilities);
+        if (rc != YHR_SUCCESS) {
+          rv = yrc_to_rv(rc);
+          goto c_co_out;
+        }
+      }
+
+      rc = yh_util_import_ed_key(session->slot->device_session, &template.id,
+                                template.label, 0xffff, &capabilities,
+                                template.algorithm,
+                                template.obj.buf);
+      if(rc != YHR_SUCCESS) {
+        DBG_ERR("Failed importing ED key to device");
         rv = yrc_to_rv(rc);
         goto c_co_out;
       }
@@ -1963,24 +1989,31 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           uint32_t value = *((CK_ULONG_PTR) (pTemplate[i].pValue));
           switch (value) {
             case CKO_CERTIFICATE:
-              DBG_INFO("Filtering for certificate");
+              DBG_INFO("filtering for certificates");
               algorithm =
                 YH_ALGO_OPAQUE_X509_CERTIFICATE; // TODO: handle other certs?
+              type = YH_OPAQUE;
+              break;
+
             case CKO_DATA:
+              DBG_INFO("filtering for data objects");
               type = YH_OPAQUE;
               break;
 
             case CKO_PUBLIC_KEY:
+              DBG_INFO("filtering for public keys");
               pub = true;
               type = YH_ASYMMETRIC_KEY;
               break;
 
             case CKO_PRIVATE_KEY:
+              DBG_INFO("filtering for private keys");
               session->operation.op.find.only_private = true;
               type = YH_ASYMMETRIC_KEY;
               break;
 
             case CKO_SECRET_KEY:
+              DBG_INFO("filtering for secret keys");
               secret_key = true;
               break;
 
@@ -3486,8 +3519,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_SignInit)
 
   if (object->object.type == YH_ASYMMETRIC_KEY) {
     if (yh_is_rsa(object->object.algorithm)) {
-      if (is_RSA_sign_mechanism(session->operation.mechanism.mechanism) ==
-          true) {
+      if (is_RSA_sign_mechanism(session->operation.mechanism.mechanism)) {
         DBG_INFO("RSA signature requested");
         session->operation.op.sign.sig_len =
           (session->operation.op.sign.key_len + 7) / 8;
@@ -3535,9 +3567,19 @@ CK_DEFINE_FUNCTION(CK_RV, C_SignInit)
         rv = CKR_MECHANISM_INVALID;
         goto c_si_out;
       }
+    } else if (yh_is_ed(object->object.algorithm)) {
+      if (is_EDDSA_sign_mechanism(session->operation.mechanism.mechanism)) {
+        DBG_INFO("EDDSA signature requested");
+        session->operation.op.sign.sig_len =
+          ((session->operation.op.sign.key_len + 7) / 8) * 2;
+      } else {
+        DBG_ERR("Mechanism %lu not supported",
+                session->operation.mechanism.mechanism);
+        rv = CKR_MECHANISM_INVALID;
+        goto c_si_out;
+      }
     } else {
-      if (is_ECDSA_sign_mechanism(session->operation.mechanism.mechanism) ==
-          true) {
+      if (is_ECDSA_sign_mechanism(session->operation.mechanism.mechanism)) {
         DBG_INFO("ECDSA signature requested");
         session->operation.op.sign.sig_len =
           ((session->operation.op.sign.key_len + 7) / 8) * 2;
@@ -3977,7 +4019,33 @@ CK_DEFINE_FUNCTION(CK_RV, C_VerifyInit)
     } else if (is_PKCS1v1_5_sign_mechanism(
                  session->operation.mechanism.mechanism)) {
       session->operation.op.verify.padding = RSA_PKCS1_PADDING;
+    } else if (!is_RSA_sign_mechanism(session->operation.mechanism.mechanism)) {
+      DBG_ERR("Unsupported mechanism for RSA key");
+      rv = CKR_KEY_TYPE_INCONSISTENT;
+      goto c_vi_out;
     }
+  } else if (yh_is_ec(object->object.algorithm)) {
+    if (!is_ECDSA_sign_mechanism(session->operation.mechanism.mechanism)) {
+      DBG_ERR("Unsupported mechanism for EC key");
+      rv = CKR_KEY_TYPE_INCONSISTENT;
+      goto c_vi_out;
+    }
+  } else if (yh_is_ed(object->object.algorithm)) {
+    if (!is_EDDSA_sign_mechanism(session->operation.mechanism.mechanism)) {
+      DBG_ERR("Unsupported mechanism for ED key");
+      rv = CKR_KEY_TYPE_INCONSISTENT;
+      goto c_vi_out;
+    }
+  } else if (yh_is_hmac(object->object.algorithm)) {
+    if (!is_HMAC_sign_mechanism(session->operation.mechanism.mechanism)) {
+      DBG_ERR("Unsupported mechanism for HMAC key");
+      rv = CKR_KEY_TYPE_INCONSISTENT;
+      goto c_vi_out;
+    }
+  } else {
+    DBG_ERR("Unsupported key type");
+    rv = CKR_KEY_TYPE_INCONSISTENT;
+    goto c_vi_out;
   }
 
   session->operation.type = OPERATION_VERIFY;
@@ -4096,7 +4164,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_VerifyUpdate)
     goto c_vu_out;
   }
 
-  DBG_ERR("Verification update with %lu bytes", ulPartLen);
+  DBG_INFO("Verification update with %lu bytes", ulPartLen);
 
   rv = apply_verify_mechanism_update(&session->operation, pPart, ulPartLen);
   if (rv != CKR_OK) {
@@ -4552,6 +4620,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
       parse_ec_generate_template(pPublicKeyTemplate, ulPublicKeyAttributeCount,
                                  pPrivateKeyTemplate,
                                  ulPrivateKeyAttributeCount, &template);
+  } else if (pMechanism->mechanism == CKM_EC_EDWARDS_KEY_PAIR_GEN) {
+    rv =
+      parse_ed_generate_template(pPublicKeyTemplate, ulPublicKeyAttributeCount,
+                                 pPrivateKeyTemplate,
+                                 ulPrivateKeyAttributeCount, &template);
   } else {
     DBG_ERR("Invalid mechanism for key generation: %lu", pMechanism->mechanism);
     rv = CKR_MECHANISM_INVALID;
@@ -4600,6 +4673,25 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
                                   template.algorithm);
     if (rc != YHR_SUCCESS) {
       DBG_ERR("Failed generating RSA key on device: %s", yh_strerror(rc));
+      rv = yrc_to_rv(rc);
+      goto c_gkp_out;
+    }
+  } else if (yh_is_ed(template.algorithm)) {
+
+    if (template.sign == ATTRIBUTE_TRUE) {
+      rc = yh_string_to_capabilities("sign-eddsa", &capabilities);
+      if (rc != YHR_SUCCESS) {
+        rv = yrc_to_rv(rc);
+        goto c_gkp_out;
+      }
+    }
+
+    rc = yh_util_generate_ed_key(session->slot->device_session, &template.id,
+                                 template.label, 0xffff, &capabilities,
+                                 template.algorithm);
+
+    if (rc != YHR_SUCCESS) {
+      DBG_ERR("Failed generating ED key on device");
       rv = yrc_to_rv(rc);
       goto c_gkp_out;
     }

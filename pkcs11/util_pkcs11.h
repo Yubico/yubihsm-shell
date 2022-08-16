@@ -98,6 +98,7 @@ bool is_RSA_decrypt_mechanism(CK_MECHANISM_TYPE m);
 bool is_hashed_mechanism(CK_MECHANISM_TYPE m);
 bool is_PKCS1v1_5_sign_mechanism(CK_MECHANISM_TYPE m);
 bool is_ECDSA_sign_mechanism(CK_MECHANISM_TYPE m);
+bool is_EDDSA_sign_mechanism(CK_MECHANISM_TYPE m);
 bool is_PSS_sign_mechanism(CK_MECHANISM_TYPE m);
 bool is_HMAC_sign_mechanism(CK_MECHANISM_TYPE m);
 
@@ -120,6 +121,8 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
                          yubihsm_pkcs11_object_template *template);
 CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
                         yubihsm_pkcs11_object_template *template);
+CK_RV parse_ed_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
+                        yubihsm_pkcs11_object_template *template);
 CK_RV parse_hmac_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
                           yubihsm_pkcs11_object_template *template,
                           bool generate);
@@ -134,6 +137,12 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
                                   yubihsm_pkcs11_object_template *template);
 
 CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
+                                 CK_ULONG ulPublicKeyAttributeCount,
+                                 CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
+                                 CK_ULONG ulPrivateKeyAttributeCount,
+                                 yubihsm_pkcs11_object_template *template);
+
+CK_RV parse_ed_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
                                  CK_ULONG ulPublicKeyAttributeCount,
                                  CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
                                  CK_ULONG ulPrivateKeyAttributeCount,
