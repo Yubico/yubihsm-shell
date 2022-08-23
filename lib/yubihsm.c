@@ -4453,11 +4453,15 @@ yh_rc yh_get_key_bitlength(yh_algorithm algorithm, size_t *result) {
       break;
 
     case YH_ALGO_EC_BP384:
-      *result = 394;
+      *result = 384;
       break;
 
     case YH_ALGO_EC_BP512:
       *result = 512;
+      break;
+
+    case YH_ALGO_EC_ED25519:
+      *result = 256;
       break;
 
     case YH_ALGO_HMAC_SHA1:

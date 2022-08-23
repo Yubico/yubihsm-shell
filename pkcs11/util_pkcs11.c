@@ -2159,8 +2159,41 @@ CK_RV apply_sign_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
   return CKR_OK;
 }
 
-CK_RV apply_verify_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
-  UNUSED(op_info);
+CK_RV apply_verify_mechanism_finalize(yubihsm_pkcs11_op_info *op_info,
+                                      CK_ULONG sig_len) {
+  CK_ULONG siglen = 0;
+  if (is_HMAC_sign_mechanism(op_info->mechanism.mechanism) == true) {
+    switch (op_info->mechanism.mechanism) {
+      case CKM_SHA_1_HMAC:
+        siglen = 20;
+        break;
+
+      case CKM_SHA256_HMAC:
+        siglen = 32;
+        break;
+
+      case CKM_SHA384_HMAC:
+        siglen = 48;
+        break;
+
+      case CKM_SHA512_HMAC:
+        siglen = 64;
+        break;
+      default:
+        return CKR_MECHANISM_INVALID;
+    }
+  } else if (is_RSA_sign_mechanism(op_info->mechanism.mechanism)) {
+    siglen = (op_info->op.verify.key_len + 7) / 8;
+  } else if (is_ECDSA_sign_mechanism(op_info->mechanism.mechanism)) {
+    siglen = ((op_info->op.verify.key_len + 7) / 8) * 2;
+  } else {
+    return CKR_MECHANISM_INVALID;
+  }
+
+  if (sig_len != siglen) {
+    DBG_ERR("Wrong signature length, expected %lu, got %lu", siglen, sig_len);
+    return CKR_SIGNATURE_LEN_RANGE;
+  }
   return CKR_OK;
 }
 
@@ -2319,20 +2352,16 @@ CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
         goto pv_failure;
       }
     } else if (EVP_PKEY_base_id(key) == EVP_PKEY_RSA) {
-      const EVP_MD *md_type;
-      int di_len;
-
       if (op_info->mechanism.mechanism == CKM_RSA_PKCS_PSS) {
         md = op_info->buffer;
         md_len = op_info->buffer_length;
       } else {
-        parse_NID(op_info->buffer, op_info->buffer_length, &md_type, &di_len);
-        if (md_type == EVP_md_null()) {
+        int di_len = parse_NID(op_info->buffer, op_info->buffer_length,
+                               &op_info->op.verify.md);
+        if (di_len == 0) {
           rv = CKR_DATA_INVALID;
           goto pv_failure;
         }
-
-        op_info->op.verify.md = md_type;
         md = op_info->buffer + di_len;
         md_len = op_info->buffer_length - di_len;
       }

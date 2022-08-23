@@ -52,7 +52,8 @@ bool sign_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info);
 CK_RV apply_verify_mechanism_init(yubihsm_pkcs11_op_info *op_info);
 CK_RV apply_verify_mechanism_update(yubihsm_pkcs11_op_info *op_info,
                                     CK_BYTE_PTR in, CK_ULONG in_len);
-CK_RV apply_verify_mechanism_finalize(yubihsm_pkcs11_op_info *op_info);
+CK_RV apply_verify_mechanism_finalize(yubihsm_pkcs11_op_info *op_info,
+                                      CK_ULONG sig_len);
 CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
                      uint8_t *signature, uint16_t signature_len);
 bool verify_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info);
