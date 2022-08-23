@@ -1687,7 +1687,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
       DBG_INFO("No ECDH session key with ID %08lx was found", hObject);
     }
   } else {
-    if (((uint8_t)(hObject >> 16)) == YH_PUBLIC_KEY) {
+    if (((uint8_t) (hObject >> 16)) == YH_PUBLIC_KEY) {
       DBG_INFO("Trying to delete public key, returning success with noop");
       goto c_do_out;
     }
@@ -2010,7 +2010,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           break;
 
         case CKA_CLASS: {
-          uint32_t value = *((CK_ULONG_PTR)(pTemplate[i].pValue));
+          uint32_t value = *((CK_ULONG_PTR) (pTemplate[i].pValue));
           switch (value) {
             case CKO_CERTIFICATE:
               DBG_INFO("Filtering for certificate");
@@ -4082,53 +4082,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_Verify)
     goto c_v_out;
   }
 
-  CK_ULONG siglen = 0;
-  if (is_HMAC_sign_mechanism(session->operation.mechanism.mechanism) == true) {
-    switch (session->operation.mechanism.mechanism) {
-      case CKM_SHA_1_HMAC:
-        siglen = 20;
-        break;
-
-      case CKM_SHA256_HMAC:
-        siglen = 32;
-        break;
-
-      case CKM_SHA384_HMAC:
-        siglen = 48;
-        break;
-
-      case CKM_SHA512_HMAC:
-        siglen = 64;
-        break;
-      default:
-        rv = CKR_ARGUMENTS_BAD;
-        goto c_v_out;
-    }
-  } else if (is_RSA_sign_mechanism(session->operation.mechanism.mechanism) ==
-             true) {
-    siglen = (session->operation.op.verify.key_len + 7) / 8;
-  } else if (is_ECDSA_sign_mechanism(session->operation.mechanism.mechanism)) {
-    siglen = ((session->operation.op.verify.key_len + 7) / 8) * 2;
-  } else {
-    DBG_ERR("Mechanism %lu not supported",
-            session->operation.mechanism.mechanism);
-    rv = CKR_MECHANISM_INVALID;
-    goto c_v_out;
-  }
-
-  if (ulSignatureLen != siglen) {
-    DBG_ERR("Wrong data length, expected %lu, got %lu", siglen, ulSignatureLen);
-    rv = CKR_SIGNATURE_LEN_RANGE;
-    goto c_v_out;
-  }
-
   rv = apply_verify_mechanism_update(&session->operation, pData, ulDataLen);
   if (rv != CKR_OK) {
     DBG_ERR("Unable to perform verification operation step");
     goto c_v_out;
   }
 
-  rv = apply_verify_mechanism_finalize(&session->operation);
+  rv = apply_verify_mechanism_finalize(&session->operation, ulSignatureLen);
   if (rv != CKR_OK) {
     DBG_ERR("Unable to finalize verification operation");
     goto c_v_out;
@@ -4248,7 +4208,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_VerifyFinal)
     goto c_vf_out;
   }
 
-  rv = apply_verify_mechanism_finalize(&session->operation);
+  rv = apply_verify_mechanism_finalize(&session->operation, ulSignatureLen);
   if (rv != CKR_OK) {
     DBG_ERR("Unable to finalize verification operation");
     goto c_vf_out;

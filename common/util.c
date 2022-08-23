@@ -34,7 +34,7 @@ bool set_component(unsigned char *in_ptr, const BIGNUM *bn, int element_len) {
     return false;
   }
 
-  memset(in_ptr, 0, (size_t)(element_len - real_len));
+  memset(in_ptr, 0, (size_t) (element_len - real_len));
   in_ptr += element_len - real_len;
   return BN_bn2bin(bn, in_ptr) > 0;
 }
@@ -411,6 +411,11 @@ int algo2nid(yh_algorithm algo) {
       return NID_brainpoolP512r1;
 #endif
 
+#ifdef NID_ED25519
+    case YH_ALGO_EC_ED25519:
+      return NID_ED25519;
+#endif
+
     default:
       return 0;
   }
@@ -495,27 +500,26 @@ bool algo2type(yh_algorithm algorithm, yh_object_type *type) {
   return true;
 }
 
-void parse_NID(uint8_t *data, uint16_t data_len, const EVP_MD **md_type,
-               int *digestinfo_len) {
+int parse_NID(uint8_t *data, uint16_t data_len, const EVP_MD **md_type) {
   if (data_len >= sizeof(sha1oid) &&
       memcmp(sha1oid, data, sizeof(sha1oid)) == 0) {
     *md_type = EVP_sha1();
-    *digestinfo_len = sizeof(sha1oid);
+    return sizeof(sha1oid);
   } else if (data_len >= sizeof(sha256oid) &&
              memcmp(sha256oid, data, sizeof(sha256oid)) == 0) {
     *md_type = EVP_sha256();
-    *digestinfo_len = sizeof(sha256oid);
+    return sizeof(sha256oid);
   } else if (data_len >= sizeof(sha384oid) &&
              memcmp(sha384oid, data, sizeof(sha384oid)) == 0) {
     *md_type = EVP_sha384();
-    *digestinfo_len = sizeof(sha384oid);
+    return sizeof(sha384oid);
   } else if (data_len >= sizeof(sha512oid) &&
              memcmp(sha512oid, data, sizeof(sha512oid)) == 0) {
     *md_type = EVP_sha512();
-    *digestinfo_len = sizeof(sha512oid);
+    return sizeof(sha512oid);
   } else {
     *md_type = EVP_md_null();
-    *digestinfo_len = 0;
+    return 0;
   }
 }
 

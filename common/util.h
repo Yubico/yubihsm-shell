@@ -46,8 +46,8 @@ bool YH_INTERNAL read_private_key(uint8_t *buf, size_t len, yh_algorithm *algo,
 void YH_INTERNAL format_digest(uint8_t *digest, char *str, uint16_t len);
 int YH_INTERNAL algo2nid(yh_algorithm algo);
 bool YH_INTERNAL algo2type(yh_algorithm algorithm, yh_object_type *type);
-void YH_INTERNAL parse_NID(uint8_t *data, uint16_t data_len,
-                           const EVP_MD **md_type, int *digestinfo_len);
+int YH_INTERNAL parse_NID(uint8_t *data, uint16_t data_len,
+                          const EVP_MD **md_type);
 bool YH_INTERNAL read_file(FILE *fp, uint8_t *buf, size_t *buf_len);
 bool YH_INTERNAL write_file(const uint8_t *buf, size_t buf_len, FILE *fp,
                             format_t format);
