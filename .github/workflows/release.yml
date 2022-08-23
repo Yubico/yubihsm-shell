@@ -157,9 +157,9 @@ jobs:
           name: yubihsm-shell-darwin-amd64
           path: artifact
 
-  ubuntu1804:
-    name: Build Ubuntu 18.04 release
-    runs-on: ubuntu-18.04
+  ubuntu2204:
+    name: Build Ubuntu 22.04 release
+    runs-on: ubuntu-22.04
     steps:
       - name: checkout
         uses: actions/checkout@v2
@@ -167,7 +167,7 @@ jobs:
         run: |
           set -x
           sudo apt -q update
-          sudo apt install libpcsclite-dev gengetopt help2man libedit-dev libcurl4-openssl-dev libssl-dev libusb-1.0-0-dev debhelper dh-exec cmake
+          sudo apt install libpcsclite-dev gengetopt help2man libedit-dev libcurl4-openssl-dev libssl-dev libusb-1.0-0-dev debhelper dh-exec cmake chrpath
 
       - name: Build release package
         run: |
@@ -187,7 +187,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
-          name: yubihsm-shell-ubuntu1804-amd64
+          name: yubihsm-shell-ubuntu2204-amd64
           path: artifact
 
   ubuntu2004:
