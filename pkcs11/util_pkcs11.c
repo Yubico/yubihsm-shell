@@ -1102,7 +1102,6 @@ l_p_k_failure:
   EC_GROUP_free(ec_group);
   EC_KEY_free(ec_key);
   RSA_free(rsa);
-  EVP_PKEY_free(key);
   BN_free(n);
   BN_free(e);
 
