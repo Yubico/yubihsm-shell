@@ -24,7 +24,6 @@
 #include <winsock.h>
 #endif
 
-#ifdef __linux__
 #define ANSI_RED "\x1b[31m"
 #define ANSI_GREEN "\x1b[32m"
 #define ANSI_YELLOW "\x1b[33m"
@@ -32,21 +31,14 @@
 #define ANSI_MAGENTA "\x1b[35m"
 #define ANSI_CYAN "\x1b[36m"
 #define ANSI_RESET "\x1b[0m"
-#else
-#define ANSI_RED ""
-#define ANSI_GREEN ""
-#define ANSI_YELLOW ""
-#define ANSI_BLUE ""
-#define ANSI_MAGENTA ""
-#define ANSI_CYAN ""
-#define ANSI_RESET ""
-#endif
-
-#define __FILENAME__                                                           \
-  (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
 #ifdef _MSVC
 #define localtime_r(a, b) localtime_s(b, a)
+#define __FILENAME__                                                           \
+  (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
+#else
+#define __FILENAME__                                                           \
+  (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #endif
 
 #define D(var, file, col, who, lev, ...)                                       \
