@@ -268,6 +268,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     return CKR_FUNCTION_FAILED;
   }
 
+  unsigned int n = 0;
+  char **name_list = 0;
+
   yh_connector **connector_list =
     calloc(args_info.connector_given, sizeof(yh_connector *));
   if (connector_list == NULL) {
@@ -275,13 +278,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     goto c_i_failure;
   }
 
-  char **name_list = calloc(args_info.connector_given, sizeof(char *));
+  name_list = calloc(args_info.connector_given, sizeof(char *));
   if (name_list == NULL) {
     DBG_ERR("Failed allocating memory");
     goto c_i_failure;
   }
 
-  unsigned int n = 0;
   for (unsigned int i = 0; i < args_info.connector_given; i++) {
     if (yh_init_connector(args_info.connector_arg[i], &connector_list[n]) !=
         YHR_SUCCESS) {
