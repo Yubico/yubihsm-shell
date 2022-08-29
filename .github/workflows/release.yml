@@ -113,7 +113,7 @@ jobs:
   macos_amd64:
     name: Build MacOS amd64 release
     needs: source
-    runs-on: macos-10.15
+    runs-on: macos-latest
     env:
       VERSION: 2.3.2
       SO_VERSION: 2
