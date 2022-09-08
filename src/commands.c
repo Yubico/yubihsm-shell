@@ -243,10 +243,31 @@ int yh_com_connect(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
         break;
       }
     }
+    if (ctx->cert) {
+      if (yh_set_connector_option(ctx->connector, YH_CONNECTOR_HTTPS_CERT,
+                                  ctx->cert) != YHR_SUCCESS) {
+        fprintf(stderr, "Failed setting HTTPS cert\n");
+        break;
+      }
+    }
+    if (ctx->key) {
+      if (yh_set_connector_option(ctx->connector, YH_CONNECTOR_HTTPS_KEY,
+                                  ctx->key) != YHR_SUCCESS) {
+        fprintf(stderr, "Failed setting HTTPS key\n");
+        break;
+      }
+    }
     if (ctx->proxy) {
       if (yh_set_connector_option(ctx->connector, YH_CONNECTOR_PROXY_SERVER,
                                   ctx->proxy) != YHR_SUCCESS) {
         fprintf(stderr, "Failed setting proxy server\n");
+        break;
+      }
+    }
+    if (ctx->noproxy) {
+      if (yh_set_connector_option(ctx->connector, YH_CONNECTOR_NOPROXY,
+                                  ctx->noproxy) != YHR_SUCCESS) {
+        fprintf(stderr, "Failed setting noproxy\n");
         break;
       }
     }
@@ -3342,6 +3363,40 @@ int yh_com_set_cacert(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   return 0;
 }
 
+// NOTE: Set https client cert
+// argc = 1
+// arg 0: s:filename
+int yh_com_set_cert(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                    cmd_format fmt) {
+
+  UNUSED(in_fmt);
+  UNUSED(fmt);
+
+  if (ctx->cert) {
+    free(ctx->cert);
+  }
+  ctx->cert = strdup(argv[0].s);
+
+  return 0;
+}
+
+// NOTE: Set https client key
+// argc = 1
+// arg 0: s:filename
+int yh_com_set_key(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                   cmd_format fmt) {
+
+  UNUSED(in_fmt);
+  UNUSED(fmt);
+
+  if (ctx->key) {
+    free(ctx->key);
+  }
+  ctx->key = strdup(argv[0].s);
+
+  return 0;
+}
+
 // NOTE: Set proxy server to use for connector
 // argc = 1
 // arg 0: s:proxy
@@ -3355,6 +3410,23 @@ int yh_com_set_proxy(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     free(ctx->proxy);
   }
   ctx->proxy = strdup(argv[0].s);
+
+  return 0;
+}
+
+// NOTE: Set noproxy list to use for connector
+// argc = 1
+// arg 0: s:proxy
+int yh_com_set_noproxy(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                       cmd_format fmt) {
+
+  UNUSED(in_fmt);
+  UNUSED(fmt);
+
+  if (ctx->noproxy) {
+    free(ctx->noproxy);
+  }
+  ctx->noproxy = strdup(argv[0].s);
 
   return 0;
 }

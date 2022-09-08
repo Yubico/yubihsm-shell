@@ -92,7 +92,10 @@ option "outformat" - "Input and output format" values="default","base64","binary
 option "config-file" f "Configuration file to read" string optional default=""
 option "connector" C "List of connectors to use" string optional multiple
 option "cacert" - "HTTPS cacert for connector" string optional
+option "cert" - "HTTPS client certificate to authenticate with" string optional
+option "key" - "HTTPS client certificate key" string optional
 option "proxy" - "Proxy server to use for connector" string optional
+option "noproxy" - "Comma separated list of hosts ignore proxy for" string optional
 option "verbose" v "Print more information" int optional default="0"
 option "pre-connect" P "Connect immediately in interactive mode" flag off
 
