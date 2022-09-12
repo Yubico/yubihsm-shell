@@ -58,7 +58,10 @@ typedef struct {
 #endif
   FILE *out;
   char *cacert;
+  char *cert;
+  char *key;
   char *proxy;
+  char *noproxy;
 } yubihsm_context;
 
 int actions_run(struct gengetopt_args_info *args_info);

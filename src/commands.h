@@ -194,8 +194,14 @@ int yh_com_blink(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                  cmd_format fmt);
 int yh_com_set_cacert(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                       cmd_format fmt);
+int yh_com_set_cert(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                    cmd_format fmt);
+int yh_com_set_key(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                   cmd_format fmt);
 int yh_com_set_proxy(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                      cmd_format fmt);
+int yh_com_set_noproxy(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                       cmd_format fmt);
 
 int yh_com_change_authentication_key(yubihsm_context *ctx, Argument *argv,
                                      cmd_format in_fmt, cmd_format fmt);

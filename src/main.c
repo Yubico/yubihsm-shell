@@ -616,9 +616,23 @@ static void create_command_list(CommandList *c) {
                                     fmt_nofmt, fmt_nofmt,
                                     "Set CA cert to use for https to connector",
                                     NULL, NULL});
+  register_subcommand(*c,
+                      (Command){"cert", yh_com_set_cert, "s:file", fmt_nofmt,
+                                fmt_nofmt,
+                                "Set client cert to use for https to connector",
+                                NULL, NULL});
+  register_subcommand(*c,
+                      (Command){"key", yh_com_set_key, "s:file", fmt_nofmt,
+                                fmt_nofmt,
+                                "Set client key to use for https to connector",
+                                NULL, NULL});
   register_subcommand(*c, (Command){"proxy", yh_com_set_proxy, "s:proxy",
                                     fmt_nofmt, fmt_nofmt,
                                     "Set proxyserver to use for connector",
+                                    NULL, NULL});
+  register_subcommand(*c, (Command){"noproxy", yh_com_set_noproxy, "s:noproxy",
+                                    fmt_nofmt, fmt_nofmt,
+                                    "Set noproxy list to use for connector",
                                     NULL, NULL});
   *c =
     register_command(*c, (Command){"blink", yh_com_blink,
@@ -1975,8 +1989,17 @@ int main(int argc, char *argv[]) {
   if (args_info.cacert_given) {
     g_ctx.cacert = strdup(args_info.cacert_arg);
   }
+  if (args_info.cert_given) {
+    g_ctx.cert = strdup(args_info.cert_arg);
+  }
+  if (args_info.key_given) {
+    g_ctx.key = strdup(args_info.key_arg);
+  }
   if (args_info.proxy_given) {
     g_ctx.proxy = strdup(args_info.proxy_arg);
+  }
+  if (args_info.noproxy_given) {
+    g_ctx.noproxy = strdup(args_info.noproxy_arg);
   }
 
 #ifndef __WIN32
@@ -2918,8 +2941,17 @@ main_exit:
   if (g_ctx.cacert) {
     free(g_ctx.cacert);
   }
+  if (g_ctx.cert) {
+    free(g_ctx.cert);
+  }
+  if (g_ctx.key) {
+    free(g_ctx.key);
+  }
   if (g_ctx.proxy) {
     free(g_ctx.proxy);
+  }
+  if (g_ctx.noproxy) {
+    free(g_ctx.noproxy);
   }
 
   yh_exit();
