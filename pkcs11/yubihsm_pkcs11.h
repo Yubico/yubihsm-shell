@@ -34,6 +34,8 @@
 #ifndef AES_BLOCK_SIZE
 #define AES_BLOCK_SIZE 16
 #endif
+#define PKCS11_ID_SIZE 255
+#define PKCS11_LABEL_SIZE 255
 
 typedef enum {
   SESSION_RESERVED_RO = 1 << 0,
@@ -154,6 +156,25 @@ typedef struct {
 } ecdh_session_key;
 
 typedef struct {
+  // Value structure version
+  uint8_t version;
+  // The ObjectID of the opaque object containing the metadata
+  uint16_t opaque_id;
+  // The ObjectID of the asymmetric key
+  uint16_t object_id;
+  /// Object type
+  yh_object_type object_type;
+  /// The CKA_ID
+  uint8_t cka_id[PKCS11_ID_SIZE];
+  /// The CKA_ID length
+  size_t cka_id_len;
+  /// Object label
+  char cka_label[PKCS11_LABEL_SIZE];
+  /// The CKA_LABEL length
+  size_t cka_label_len;
+} pkcs11_meta_object;
+
+typedef struct {
   yubihsm_pkcs11_op_type type;
   yubihsm_pkcs11_part_type part;
   mechanism mechanism;
@@ -191,6 +212,7 @@ typedef struct {
   yubihsm_pkcs11_session_state session_state;
   yubihsm_pkcs11_slot *slot;
   List ecdh_session_keys;
+  List pkcs11_meta_objects;
 } yubihsm_pkcs11_session;
 
 typedef enum {

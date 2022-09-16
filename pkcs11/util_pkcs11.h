@@ -141,22 +141,40 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
                                   CK_ULONG ulPublicKeyAttributeCount,
                                   CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
                                   CK_ULONG ulPrivateKeyAttributeCount,
-                                  yubihsm_pkcs11_object_template *template);
+                                  yubihsm_pkcs11_object_template *template,
+                                  pkcs11_meta_object *pkcs11meta);
 
 CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
                                  CK_ULONG ulPublicKeyAttributeCount,
                                  CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
                                  CK_ULONG ulPrivateKeyAttributeCount,
-                                 yubihsm_pkcs11_object_template *template);
+                                 yubihsm_pkcs11_object_template *template,
+                                 pkcs11_meta_object *pkcs11meta);
 
 int parse_id_value(void *value, CK_ULONG len);
 
 CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
-                        CK_ULONG ulCount, yh_session *session);
+                        CK_ULONG ulCount, yubihsm_pkcs11_session *session);
 
 CK_RV validate_derive_key_attribute(CK_ATTRIBUTE_TYPE type, void *value);
 
 CK_RV check_bool_attribute(void *value, bool check);
 CK_RV yrc_to_rv(yh_rc rc);
+
+CK_RV populate_meta_objects(yubihsm_pkcs11_session *session);
+CK_RV write_meta_opaque(yubihsm_pkcs11_session *session,
+                        pkcs11_meta_object *meta_opaque, bool replace);
+void parse_pkcs11_opaque_value(uint8_t *opaque_value, size_t opaque_value_len,
+                               pkcs11_meta_object *meta_object);
+pkcs11_meta_object *find_meta_object_by_id(yubihsm_pkcs11_session *session,
+                                           uint8_t type, uint8_t *ckaid,
+                                           size_t ckaid_len);
+pkcs11_meta_object *find_meta_object_by_label(yubihsm_pkcs11_session *session,
+                                              uint8_t type, uint16_t object_id,
+                                              uint8_t *cka_label,
+                                              size_t cka_label_len);
+pkcs11_meta_object *find_meta_object(yubihsm_pkcs11_session *session,
+                                     u_int16_t origin_id, uint8_t type);
+bool is_meta_object(yh_object_descriptor *object);
 
 #endif
