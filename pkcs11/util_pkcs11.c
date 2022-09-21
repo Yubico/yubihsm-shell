@@ -2476,7 +2476,6 @@ static bool strip_DER_encoding_from_ECSIG(uint8_t *signature,
 
   ECDSA_SIG *sig;
   const unsigned char *pp = (const unsigned char *) signature;
-  int r_len, s_len;
   const BIGNUM *r, *s;
 
   sig = ECDSA_SIG_new();
@@ -2495,10 +2494,8 @@ static bool strip_DER_encoding_from_ECSIG(uint8_t *signature,
 
   ECDSA_SIG_get0(sig, &r, &s);
 
-  r_len = BN_num_bytes(r);
-  s_len = BN_num_bytes(s);
-  BN_bn2bin(r, signature + sig_len / 2 - r_len);
-  BN_bn2bin(s, signature + sig_len - s_len);
+  BN_bn2binpad(r, signature, sig_len / 2);
+  BN_bn2binpad(s, signature + sig_len / 2, sig_len / 2);
 
   *signature_len = sig_len;
 
