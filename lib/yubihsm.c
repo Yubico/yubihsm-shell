@@ -4481,6 +4481,18 @@ yh_rc yh_get_key_bitlength(yh_algorithm algorithm, size_t *result) {
       *result = 512;
       break;
 
+    case YH_ALGO_AES128_CCM_WRAP:
+      *result = 128;
+      break;
+
+    case YH_ALGO_AES192_CCM_WRAP:
+      *result = 192;
+      break;
+
+    case YH_ALGO_AES256_CCM_WRAP:
+      *result = 256;
+      break;
+
     default:
       *result = 0;
       return YHR_INVALID_PARAMETERS;

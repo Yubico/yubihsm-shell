@@ -680,6 +680,20 @@ static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
       *length = sizeof(CK_KEY_TYPE);
       break;
 
+    case CKA_VALUE_LEN:
+      if (object->type == YH_WRAP_KEY) {
+        size_t key_length = 0;
+        if (yh_get_key_bitlength(object->algorithm, &key_length) !=
+            YHR_SUCCESS) {
+          return CKR_ATTRIBUTE_TYPE_INVALID;
+        }
+        *(CK_ULONG_PTR) value = key_length / 8;
+      } else {
+        return CKR_ATTRIBUTE_TYPE_INVALID;
+      }
+      *length = sizeof(CK_ULONG);
+      break;
+
     case CKA_ID:
       get_id_attribute(object, value, length);
       break;
@@ -956,44 +970,57 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       memcpy(value, oid, *length);
     } break;
 
-    case CKA_MODULUS: {
-      switch (object->algorithm) {
-        case YH_ALGO_RSA_2048:
-        case YH_ALGO_RSA_3072:
-        case YH_ALGO_RSA_4096: {
-          uint8_t resp[2048];
-          size_t resp_len = sizeof(resp);
+    case CKA_EC_POINT:
+      if (yh_is_ec(object->algorithm)) {
+        uint8_t resp[2048];
+        size_t resplen = sizeof(resp);
 
-          if (yh_util_get_public_key(session, object->id, resp, &resp_len,
-                                     NULL) != YHR_SUCCESS) {
-            return CKR_ATTRIBUTE_TYPE_INVALID;
-          }
-
-          *length = resp_len;
-          memcpy(value, resp, *length);
-
-        } break;
-
-        default:
+        if (yh_util_get_public_key(session, object->id, resp, &resplen, NULL) !=
+            YHR_SUCCESS) {
           return CKR_ATTRIBUTE_TYPE_INVALID;
+        }
+
+        uint8_t *p = value;
+        *p++ = 0x04;
+        if (resplen + 1 >= 0x80) {
+          *p++ = 0x81;
+        }
+        *p++ = resplen + 1;
+        *p++ = 0x04;
+        memcpy(p, resp, resplen);
+        p += resplen;
+        *length = p - (uint8_t *) value;
+      } else {
+        return CKR_ATTRIBUTE_TYPE_INVALID;
       }
       break;
-    }
+
+    case CKA_MODULUS:
+      if (yh_is_rsa(object->algorithm)) {
+        uint8_t resp[2048];
+        size_t resp_len = sizeof(resp);
+
+        if (yh_util_get_public_key(session, object->id, resp, &resp_len,
+                                   NULL) != YHR_SUCCESS) {
+          return CKR_ATTRIBUTE_TYPE_INVALID;
+        }
+
+        *length = resp_len;
+        memcpy(value, resp, *length);
+      } else {
+        return CKR_ATTRIBUTE_TYPE_INVALID;
+      }
+      break;
 
     case CKA_PUBLIC_EXPONENT:
-      switch (object->algorithm) {
-        case YH_ALGO_RSA_2048:
-        case YH_ALGO_RSA_3072:
-        case YH_ALGO_RSA_4096: {
-          uint8_t *p = (uint8_t *) value;
-          p[0] = 0x01;
-          p[1] = 0x00;
-          p[2] = 0x01;
-          *length = 3;
-          break;
-        }
-        default:
-          return CKR_ATTRIBUTE_TYPE_INVALID;
+      if (yh_is_rsa(object->algorithm)) {
+        uint8_t *p = (uint8_t *) value;
+        p[0] = 0x01;
+        p[1] = 0x00;
+        p[2] = 0x01;
+        *length = 3;
+      } else {
+        return CKR_ATTRIBUTE_TYPE_INVALID;
       }
       break;
 
@@ -1256,26 +1283,6 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       *length = 0;
       break;
 
-    case CKA_MODULUS_BITS:
-      switch (object->algorithm) {
-        case YH_ALGO_RSA_2048:
-          *((CK_ULONG *) value) = 2048;
-          break;
-
-        case YH_ALGO_RSA_3072:
-          *((CK_ULONG *) value) = 3072;
-          break;
-
-        case YH_ALGO_RSA_4096:
-          *((CK_ULONG *) value) = 4096;
-          break;
-
-        default:
-          *((CK_ULONG *) value) = 0;
-      }
-      *length = sizeof(CK_ULONG);
-      break;
-
     case CKA_EC_PARAMS: {
       const uint8_t *oid;
       switch (object->algorithm) {
@@ -1318,12 +1325,16 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       break;
     }
 
-    case CKA_EC_POINT: {
-      uint8_t resp[2048];
-      size_t resplen = sizeof(resp);
+    case CKA_EC_POINT:
+      if (yh_is_ec(object->algorithm)) {
+        uint8_t resp[2048];
+        size_t resplen = sizeof(resp);
 
-      if (yh_util_get_public_key(session, object->id, resp, &resplen, NULL) ==
-          YHR_SUCCESS) {
+        if (yh_util_get_public_key(session, object->id, resp, &resplen, NULL) !=
+            YHR_SUCCESS) {
+          return CKR_ATTRIBUTE_TYPE_INVALID;
+        }
+
         uint8_t *p = value;
         *p++ = 0x04;
         if (resplen + 1 >= 0x80) {
@@ -1338,46 +1349,47 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
         return CKR_ATTRIBUTE_TYPE_INVALID;
       }
       break;
-    }
 
-    case CKA_MODULUS: {
-      switch (object->algorithm) {
-        case YH_ALGO_RSA_2048:
-        case YH_ALGO_RSA_3072:
-        case YH_ALGO_RSA_4096: {
-          uint8_t resp[2048];
-          size_t resp_len = sizeof(resp);
-
-          if (yh_util_get_public_key(session, object->id, resp, &resp_len,
-                                     NULL) != YHR_SUCCESS) {
-            return CKR_ATTRIBUTE_TYPE_INVALID;
-          }
-
-          *length = resp_len;
-          memcpy(value, resp, *length);
-
-        } break;
-
-        default:
-          return CKR_ATTRIBUTE_TYPE_INVALID;
+    case CKA_MODULUS_BITS:
+      if (yh_is_rsa(object->algorithm)) {
+        size_t key_length = 0;
+        if (yh_get_key_bitlength(object->algorithm, &key_length) !=
+            YHR_SUCCESS) {
+          return CKR_FUNCTION_FAILED;
+        }
+        *(CK_ULONG *) value = key_length;
+        *length = sizeof(CK_ULONG);
+      } else {
+        return CKR_ATTRIBUTE_TYPE_INVALID;
       }
       break;
-    }
+
+    case CKA_MODULUS:
+      if (yh_is_rsa(object->algorithm)) {
+        uint8_t resp[2048];
+        size_t resp_len = sizeof(resp);
+
+        if (yh_util_get_public_key(session, object->id, resp, &resp_len,
+                                   NULL) != YHR_SUCCESS) {
+          return CKR_ATTRIBUTE_TYPE_INVALID;
+        }
+
+        *length = resp_len;
+        memcpy(value, resp, *length);
+      } else {
+        return CKR_ATTRIBUTE_TYPE_INVALID;
+      }
+      break;
 
     case CKA_PUBLIC_EXPONENT:
-      switch (object->algorithm) {
-        case YH_ALGO_RSA_2048:
-        case YH_ALGO_RSA_3072:
-        case YH_ALGO_RSA_4096: {
-          uint8_t *p = (uint8_t *) value;
-          p[0] = 0x01;
-          p[1] = 0x00;
-          p[2] = 0x01;
-          *length = 3;
-          break;
-        }
-        default:
-          return CKR_ATTRIBUTE_TYPE_INVALID;
+      if (yh_is_rsa(object->algorithm)) {
+        uint8_t *p = (uint8_t *) value;
+        p[0] = 0x01;
+        p[1] = 0x00;
+        p[2] = 0x01;
+        *length = 3;
+      } else {
+        return CKR_ATTRIBUTE_TYPE_INVALID;
       }
       break;
 
@@ -3223,7 +3235,22 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_TOKEN:
       case CKA_PRIVATE:
       case CKA_SENSITIVE:
+      case CKA_DESTROYABLE:
         if ((rv = check_bool_attribute(pTemplate[i].pValue, true)) != CKR_OK) {
+          return rv;
+        }
+        break;
+
+      case CKA_WRAP:
+      case CKA_UNWRAP:
+      case CKA_DERIVE:
+      case CKA_ENCRYPT:
+      case CKA_SIGN_RECOVER:
+      case CKA_VERIFY:
+      case CKA_VERIFY_RECOVER:
+      case CKA_MODIFIABLE:
+      case CKA_COPYABLE:
+        if ((rv = check_bool_attribute(pTemplate[i].pValue, false)) != CKR_OK) {
           return rv;
         }
         break;
@@ -3368,7 +3395,22 @@ CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_TOKEN:
       case CKA_PRIVATE:
       case CKA_SENSITIVE:
+      case CKA_DESTROYABLE:
         if ((rv = check_bool_attribute(pTemplate[i].pValue, true)) != CKR_OK) {
+          return rv;
+        }
+        break;
+
+      case CKA_VERIFY:
+      case CKA_WRAP:
+      case CKA_UNWRAP:
+      case CKA_ENCRYPT:
+      case CKA_DECRYPT:
+      case CKA_SIGN_RECOVER:
+      case CKA_VERIFY_RECOVER:
+      case CKA_MODIFIABLE:
+      case CKA_COPYABLE:
+        if ((rv = check_bool_attribute(pTemplate[i].pValue, false)) != CKR_OK) {
           return rv;
         }
         break;
@@ -3570,6 +3612,8 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_TOKEN:
+      case CKA_EXTRACTABLE:
+      case CKA_DESTROYABLE:
         if ((rv = check_bool_attribute(pPublicKeyTemplate[i].pValue, true)) !=
             CKR_OK) {
           DBG_ERR("Boolean truth check failed for attribute 0x%lx",
@@ -3578,10 +3622,16 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         }
         break;
 
+      case CKA_PRIVATE:
+      case CKA_SENSITIVE:
       case CKA_MODIFIABLE:
+      case CKA_COPYABLE:
       case CKA_DECRYPT:
       case CKA_SIGN:
+      case CKA_WRAP:
       case CKA_UNWRAP:
+      case CKA_DERIVE:
+      case CKA_SIGN_RECOVER:
       case CKA_VERIFY_RECOVER:
         if ((rv = check_bool_attribute(pPublicKeyTemplate[i].pValue, false)) !=
             CKR_OK) {
@@ -3591,13 +3641,8 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         }
         break;
 
-      case CKA_WRAP:
       case CKA_VERIFY:
       case CKA_ENCRYPT:
-      case CKA_EXTRACTABLE:
-      case CKA_PRIVATE:
-      case CKA_COPYABLE:
-      case CKA_DESTROYABLE:
         break;
 
       default:
@@ -3697,11 +3742,14 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_WRAP:
+      case CKA_UNWRAP:
+      case CKA_DERIVE:
+      case CKA_ENCRYPT:
+      case CKA_SIGN_RECOVER:
+      case CKA_VERIFY:
+      case CKA_VERIFY_RECOVER:
       case CKA_MODIFIABLE:
       case CKA_COPYABLE:
-      case CKA_ENCRYPT:
-      case CKA_VERIFY:
-      case CKA_SIGN_RECOVER:
         if ((rv = check_bool_attribute(pPrivateKeyTemplate[i].pValue, false)) !=
             CKR_OK) {
           DBG_ERR("Boolean false check failed for attribute 0x%lx",
@@ -3710,7 +3758,6 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         }
         break;
 
-      case CKA_UNWRAP:
       case CKA_SUBJECT:
         break;
 
@@ -3810,6 +3857,8 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_TOKEN:
+      case CKA_EXTRACTABLE:
+      case CKA_DESTROYABLE:
         if ((rv = check_bool_attribute(pPublicKeyTemplate[i].pValue, true)) !=
             CKR_OK) {
           DBG_ERR("Boolean truth check failed for attribute 0x%lx",
@@ -3818,12 +3867,18 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         }
         break;
 
+      case CKA_PRIVATE:
+      case CKA_SENSITIVE:
       case CKA_MODIFIABLE:
+      case CKA_COPYABLE:
+      case CKA_ENCRYPT:
       case CKA_DECRYPT:
-      case CKA_SIGN:
       case CKA_WRAP:
       case CKA_UNWRAP:
+      case CKA_SIGN:
+      case CKA_SIGN_RECOVER:
       case CKA_VERIFY_RECOVER:
+      case CKA_DERIVE:
         if ((rv = check_bool_attribute(pPublicKeyTemplate[i].pValue, false)) !=
             CKR_OK) {
           DBG_ERR("Boolean false check failed for attribute 0x%lx",
@@ -3833,11 +3888,6 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_VERIFY:
-      case CKA_ENCRYPT:
-      case CKA_COPYABLE:
-      case CKA_PRIVATE:
-      case CKA_EXTRACTABLE:
-      case CKA_DERIVE:
         break;
 
       default:
@@ -3936,13 +3986,15 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         }
         break;
 
-      case CKA_UNWRAP:
+      case CKA_VERIFY:
       case CKA_WRAP:
+      case CKA_UNWRAP:
+      case CKA_ENCRYPT:
+      case CKA_DECRYPT:
+      case CKA_SIGN_RECOVER:
+      case CKA_VERIFY_RECOVER:
       case CKA_MODIFIABLE:
       case CKA_COPYABLE:
-      case CKA_ENCRYPT:
-      case CKA_VERIFY:
-      case CKA_SIGN_RECOVER:
         if ((rv = check_bool_attribute(pPrivateKeyTemplate[i].pValue, false)) !=
             CKR_OK) {
           DBG_ERR("Boolean false check failed for attribute 0x%lx",
@@ -3952,7 +4004,6 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_SUBJECT:
-      case CKA_DECRYPT:
         break;
 
       default:
@@ -3977,7 +4028,7 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
 
 CK_RV parse_wrap_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
                           yubihsm_pkcs11_object_template *template,
-                          bool generate) {
+                          yh_algorithm algorithm, bool generate) {
 
   CK_RV rv;
   for (CK_ULONG i = 0; i < ulCount; i++) {
@@ -3987,6 +4038,20 @@ CK_RV parse_wrap_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
         if (generate == false && template->obj.buf == NULL) {
           template->obj.buf = (CK_BYTE_PTR) pTemplate[i].pValue;
           template->objlen = pTemplate[i].ulValueLen;
+        } else {
+          return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+
+      case CKA_VALUE_LEN:
+        if (generate == true) {
+          size_t key_length = 0;
+          if (yh_get_key_bitlength(algorithm, &key_length) != YHR_SUCCESS) {
+            return CKR_ATTRIBUTE_TYPE_INVALID;
+          }
+          if (key_length / 8 != *(CK_ULONG_PTR) pTemplate[i].pValue) {
+            return CKR_TEMPLATE_INCONSISTENT;
+          }
         } else {
           return CKR_TEMPLATE_INCONSISTENT;
         }
@@ -4021,7 +4086,21 @@ CK_RV parse_wrap_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
         break;
 
       case CKA_TOKEN:
+      case CKA_PRIVATE:
+      case CKA_SENSITIVE:
+      case CKA_DESTROYABLE:
         if ((rv = check_bool_attribute(pTemplate[i].pValue, true)) != CKR_OK) {
+          return rv;
+        }
+        break;
+
+      case CKA_SIGN:
+      case CKA_VERIFY:
+      case CKA_SIGN_RECOVER:
+      case CKA_VERIFY_RECOVER:
+      case CKA_DERIVE:
+      case CKA_COPYABLE:
+        if ((rv = check_bool_attribute(pTemplate[i].pValue, false)) != CKR_OK) {
           return rv;
         }
         break;
@@ -4148,7 +4227,7 @@ CK_RV validate_derive_key_attribute(CK_ATTRIBUTE_TYPE type, void *value) {
 
     case CKA_EXTRACTABLE:
       if (*((CK_BBOOL *) value) == CK_FALSE) {
-        DBG_ERR("The derived key will be extractable");
+        DBG_ERR("The derived key must be extractable");
         return CKR_ATTRIBUTE_VALUE_INVALID;
       }
       break;

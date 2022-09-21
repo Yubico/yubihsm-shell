@@ -1512,7 +1512,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
                key_type.d == CKK_YUBICO_AES256_CCM_WRAP) {
       yh_algorithm algo = key_type.d & 0xff;
       type = YH_WRAP_KEY;
-      rv = parse_wrap_template(pTemplate, ulCount, &template, false);
+      rv = parse_wrap_template(pTemplate, ulCount, &template, algo, false);
       if (rv != CKR_OK) {
         goto c_co_out;
       }
@@ -2726,7 +2726,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
       yh_is_rsa(object->object.algorithm)) {
     DBG_INFO("RSA decryption requested");
 
-    size_t key_length;
+    size_t key_length = 0;
     yh_rc yrc = yh_get_key_bitlength(object->object.algorithm, &key_length);
     if (yrc != YHR_SUCCESS) {
       DBG_ERR("Unable to get key length: %s", yh_strerror(yrc));
@@ -4477,7 +4477,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
                key_type.d == CKK_YUBICO_AES256_CCM_WRAP) {
       yh_algorithm algo = key_type.d & 0xff;
       type = YH_WRAP_KEY;
-      rv = parse_wrap_template(pTemplate, ulCount, &template, true);
+      rv = parse_wrap_template(pTemplate, ulCount, &template, algo, true);
       if (rv != CKR_OK) {
         goto c_gk_out;
       }
