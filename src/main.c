@@ -516,7 +516,7 @@ static void create_command_list(CommandList *c) {
 #endif
 #ifdef YKHSMAUTH_ENABLED
   register_subcommand(*c, (Command){"ykopen", yh_com_open_yksession,
-                                    "w:authkey,s:label,i:password=-",
+                                    "w:authkey,s:label,i:password=-,s:reader=",
                                     fmt_password, fmt_nofmt,
                                     "Open a session with a device using an "
                                     "Authentication in a YubiKey",
@@ -2062,6 +2062,8 @@ int main(int argc, char *argv[]) {
         arg[1].len = strlen(args_info.ykhsmauth_label_arg);
         arg[2].x = buf;
         arg[2].len = pw_len;
+        arg[3].s = args_info.ykhsmauth_reader_arg;
+        arg[3].len = strlen(args_info.ykhsmauth_reader_arg);
         comrc = yh_com_open_yksession(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
       } else {
 #endif
@@ -2350,18 +2352,6 @@ int main(int argc, char *argv[]) {
         } break;
 
         case action_arg_listMINUS_objects: {
-          if (args_info.algorithm_given == 0) {
-            fprintf(stderr, "Missing argument algorithm\n");
-            rc = EXIT_FAILURE;
-            break;
-          }
-
-          if (args_info.object_type_given == 0) {
-            fprintf(stderr, "Missing argument object-type\n");
-            rc = EXIT_FAILURE;
-            break;
-          }
-
           arg[1].w = args_info.object_id_arg;
           yrc = yh_string_to_type(args_info.object_type_arg, &arg[2].t);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse type: ");

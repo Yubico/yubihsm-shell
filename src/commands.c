@@ -1437,8 +1437,11 @@ int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   for (size_t i = 0; i < num_objects; i++) {
     const char *type = "";
     yh_type_to_string(objects[i].type, &type);
-    fprintf(ctx->out, "id: 0x%04x, type: %s, sequence: %hhu\n", objects[i].id,
-            type, objects[i].sequence);
+    const char *algo = "";
+    yh_algo_to_string(objects[i].algorithm, &algo);
+    fprintf(ctx->out,
+            "id: 0x%04x, type: %s, algo: %s, sequence: %hhu label: %s\n",
+            objects[i].id, type, algo, objects[i].sequence, objects[i].label);
   }
   return 0;
 }
@@ -1599,6 +1602,7 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
 // arg 0: w:authkey
 // arg 1: s:name
 // arg 2: i:password
+// arg 3: s:reader
 int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
                           cmd_format in_fmt, cmd_format fmt) {
   UNUSED(in_fmt);
@@ -1609,7 +1613,7 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
-  ykhsmauth_rc ykhsmauthrc = ykhsmauth_connect(ctx->state, NULL);
+  ykhsmauth_rc ykhsmauthrc = ykhsmauth_connect(ctx->state, argv[3].s);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Failed to connect to the YubiKey: %s\n",
             ykhsmauth_strerror(ykhsmauthrc));
