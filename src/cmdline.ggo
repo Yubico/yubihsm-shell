@@ -65,12 +65,13 @@ option "object-id" i "Object ID" short optional default="0"
 option "label" l "Object label" string optional default=""
 option "domains" d "Object domains" string optional default="1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16"
 option "capabilities" c "Capabilities for an object" string optional default="0"
-option "object-type" t "Object type" string optional
-option "ykhsmauth-label" - "Credential label on YubiKey (implicitly enables ykhsmauth)" string optional
+option "object-type" t "Object type" string optional default="any"
+option "ykhsmauth-label" y "Credential label on YubiKey (implicitly enables ykhsmauth)" string optional
+option "ykhsmauth-reader" r "Only use a matching YubiKey reader name" string optional default=""
 
 option "delegated" - "Delegated capabilities" string optional default="0"
 option "new-password" - "New authentication password" string optional
-option "algorithm" A "Operation algorithm" string optional
+option "algorithm" A "Operation algorithm" string optional default="any"
 option "nonce" - "OTP nonce" int optional
 option "count" - "Number of bytes to request" int optional default="256"
 option "duration" - "Blink duration in seconds" int optional default="10"

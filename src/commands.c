@@ -1599,6 +1599,7 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
 // arg 0: w:authkey
 // arg 1: s:name
 // arg 2: i:password
+// arg 3: s:reader
 int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
                           cmd_format in_fmt, cmd_format fmt) {
   UNUSED(in_fmt);
@@ -1609,7 +1610,7 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
-  ykhsmauth_rc ykhsmauthrc = ykhsmauth_connect(ctx->state, NULL);
+  ykhsmauth_rc ykhsmauthrc = ykhsmauth_connect(ctx->state, argv[3].s);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Failed to connect to the YubiKey: %s\n",
             ykhsmauth_strerror(ykhsmauthrc));
