@@ -3179,9 +3179,11 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
           if (primelen == 0 || primelen == pTemplate[i].ulValueLen) {
             primelen = pTemplate[i].ulValueLen;
           } else {
+            DBG_ERR("CKA_PRIME_1 inconsistent in Template");
             return CKR_TEMPLATE_INCONSISTENT;
           }
         } else {
+          DBG_ERR("CKA_PRIME_1 inconsistent in Template");
           return CKR_TEMPLATE_INCONSISTENT;
         }
         break;
@@ -3196,9 +3198,11 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
           if (primelen == 0 || primelen == pTemplate[i].ulValueLen) {
             primelen = pTemplate[i].ulValueLen;
           } else {
+            DBG_ERR("CKA_PRIME_2 inconsistent in Template");
             return CKR_TEMPLATE_INCONSISTENT;
           }
         } else {
+          DBG_ERR("CKA_PRIME_2 inconsistent in Template");
           return CKR_TEMPLATE_INCONSISTENT;
         }
         break;
@@ -3208,6 +3212,7 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
           e = (CK_BYTE_PTR) pTemplate[i].pValue;
           if (pTemplate[i].ulValueLen != 3 ||
               memcmp(e, "\x01\x00\x01", 3) != 0) {
+            DBG_ERR("CKA_PUBLIC_EXPONENT invalid in Template");
             return CKR_ATTRIBUTE_VALUE_INVALID;
           }
         } else {
@@ -3218,6 +3223,7 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_SIGN:
         if ((rv = set_template_attribute(&template->sign,
                                          pTemplate[i].pValue)) != CKR_OK) {
+          DBG_ERR("CKA_SIGN inconsistent in Template");
           return rv;
         }
         break;
@@ -3225,6 +3231,7 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_DECRYPT:
         if ((rv = set_template_attribute(&template->decrypt,
                                          pTemplate[i].pValue)) != CKR_OK) {
+          DBG_ERR("CKA_DECRYPT inconsistent in Template");
           return rv;
         }
         break;
@@ -3234,6 +3241,8 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_SENSITIVE:
       case CKA_DESTROYABLE:
         if ((rv = check_bool_attribute(pTemplate[i].pValue, true)) != CKR_OK) {
+          DBG_ERR("Boolean truth check failed for attribute 0x%lx",
+                  pTemplate[i].type);
           return rv;
         }
         break;
@@ -3266,6 +3275,8 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
         break;
 
       default:
+        DBG_ERR("Invalid attribute type in key template: 0x%lx\n",
+                pTemplate[i].type);
         return CKR_ATTRIBUTE_TYPE_INVALID;
     }
   }
@@ -3282,9 +3293,11 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
         template->algorithm = YH_ALGO_RSA_4096;
         break;
       default:
+        DBG_ERR("Invalid prime length in Template");
         return CKR_ATTRIBUTE_VALUE_INVALID;
     }
   } else {
+    DBG_ERR("Iconsistent RSA Template");
     return CKR_TEMPLATE_INCONSISTENT;
   }
 
@@ -3362,6 +3375,7 @@ CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
           template->obj.buf = (CK_BYTE_PTR) pTemplate[i].pValue;
           template->objlen = pTemplate[i].ulValueLen;
         } else {
+          DBG_ERR("CKA_VALUE inconsistent in Template");
           return CKR_TEMPLATE_INCONSISTENT;
         }
         break;
@@ -3371,6 +3385,7 @@ CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
           ecparams = (CK_BYTE_PTR) pTemplate[i].pValue;
           ecparams_len = pTemplate[i].ulValueLen;
         } else {
+          DBG_ERR("CKA_EC_PARAMS inconsistent in Template");
           return CKR_TEMPLATE_INCONSISTENT;
         }
         break;
@@ -3378,6 +3393,7 @@ CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_SIGN:
         if ((rv = set_template_attribute(&template->sign,
                                          pTemplate[i].pValue)) != CKR_OK) {
+          DBG_ERR("CKA_SIGN inconsistent in Template");
           return rv;
         }
         break;
@@ -3385,6 +3401,7 @@ CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_DERIVE:
         if ((rv = set_template_attribute(&template->derive,
                                          pTemplate[i].pValue)) != CKR_OK) {
+          DBG_ERR("CKA_DERIVE inconsistent in Template");
           return rv;
         }
         break;
@@ -3394,6 +3411,8 @@ CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_SENSITIVE:
       case CKA_DESTROYABLE:
         if ((rv = check_bool_attribute(pTemplate[i].pValue, true)) != CKR_OK) {
+          DBG_ERR("Boolean truth check failed for attribute 0x%lx",
+                  pTemplate[i].type);
           return rv;
         }
         break;
@@ -3421,6 +3440,8 @@ CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
         break;
 
       default:
+        DBG_ERR("Invalid attribute type in key template: 0x%lx\n",
+                pTemplate[i].type);
         return CKR_ATTRIBUTE_TYPE_INVALID;
     }
   }
@@ -3428,12 +3449,15 @@ CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
     uint16_t key_len;
     rv = parse_ecparams(ecparams, ecparams_len, &template->algorithm, &key_len);
     if (rv != CKR_OK) {
+      DBG_ERR("Invalid EC parameters in Template");
       return rv;
     }
     if (key_len != template->objlen) {
+      DBG_ERR("Invalid EC parameter length in Template");
       return CKR_ATTRIBUTE_VALUE_INVALID;
     }
   } else {
+    DBG_ERR("Inconsistent EC Template");
     return CKR_TEMPLATE_INCONSISTENT;
   }
 
@@ -3455,6 +3479,7 @@ CK_RV parse_hmac_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
           template->obj.buf = (CK_BYTE_PTR) pTemplate[i].pValue;
           template->objlen = pTemplate[i].ulValueLen;
         } else {
+          DBG_ERR("CKA_VALUE inconsistent in Template");
           return CKR_TEMPLATE_INCONSISTENT;
         }
         break;
@@ -3462,6 +3487,7 @@ CK_RV parse_hmac_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_SIGN:
         if ((rv = set_template_attribute(&template->sign,
                                          pTemplate[i].pValue)) != CKR_OK) {
+          DBG_ERR("CKA_SIGN inconsistent in Template");
           return rv;
         }
         break;
@@ -3469,6 +3495,7 @@ CK_RV parse_hmac_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_VERIFY:
         if ((rv = set_template_attribute(&template->verify,
                                          pTemplate[i].pValue)) != CKR_OK) {
+          DBG_ERR("CKA_VERIFY inconsistent in Template");
           return rv;
         }
         break;
@@ -3488,12 +3515,15 @@ CK_RV parse_hmac_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
             template->algorithm = YH_ALGO_HMAC_SHA512;
             break;
           default:
+            DBG_ERR("CKA_KEY_TYPE inconsistent in Template");
             return CKR_TEMPLATE_INCONSISTENT;
         }
         break;
 
       case CKA_TOKEN:
         if ((rv = check_bool_attribute(pTemplate[i].pValue, true)) != CKR_OK) {
+          DBG_ERR("Boolean truth check failed for attribute 0x%lx",
+                  pTemplate[i].type);
           return rv;
         }
         break;
@@ -3506,12 +3536,15 @@ CK_RV parse_hmac_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
         break;
 
       default:
+        DBG_ERR("Invalid attribute type in key template: 0x%lx\n",
+                pTemplate[i].type);
         return CKR_ATTRIBUTE_TYPE_INVALID;
     }
   }
   if (template->algorithm && (generate == true || template->obj.buf)) {
     return CKR_OK;
   } else {
+    DBG_ERR("Inconsistent HMAC Template");
     return CKR_TEMPLATE_INCONSISTENT;
   }
 }
@@ -3643,7 +3676,7 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       default:
-        DBG_ERR("invalid attribute type in PublicKeyTemplate: 0x%lx",
+        DBG_ERR("Invalid attribute type in PublicKeyTemplate: 0x%lx",
                 pPublicKeyTemplate[i].type);
         return CKR_ATTRIBUTE_TYPE_INVALID;
     }
@@ -3759,7 +3792,7 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       default:
-        DBG_ERR("invalid attribute type in PrivateKeyTemplate: 0x%lx",
+        DBG_ERR("Invalid attribute type in PrivateKeyTemplate: 0x%lx",
                 pPrivateKeyTemplate[i].type);
         return CKR_ATTRIBUTE_TYPE_INVALID;
     }
@@ -3888,7 +3921,7 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       default:
-        DBG_ERR("invalid attribute type in PublicKeyTemplate: 0x%lx\n",
+        DBG_ERR("Invalid attribute type in PublicKeyTemplate: 0x%lx",
                 pPublicKeyTemplate[i].type);
         return CKR_ATTRIBUTE_TYPE_INVALID;
     }
@@ -4004,6 +4037,8 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       default:
+        DBG_ERR("Invalid attribute type in PrivateKeyTemplate: 0x%lx",
+                pPrivateKeyTemplate[i].type);
         return CKR_ATTRIBUTE_TYPE_INVALID;
     }
   }
@@ -4036,6 +4071,7 @@ CK_RV parse_wrap_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
           template->obj.buf = (CK_BYTE_PTR) pTemplate[i].pValue;
           template->objlen = pTemplate[i].ulValueLen;
         } else {
+          DBG_ERR("CKA_VALUE inconsistent in Template");
           return CKR_TEMPLATE_INCONSISTENT;
         }
         break;
@@ -4057,6 +4093,7 @@ CK_RV parse_wrap_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_WRAP:
         if ((rv = set_template_attribute(&template->wrap,
                                          pTemplate[i].pValue)) != CKR_OK) {
+          DBG_ERR("CKA_WRAP inconsistent in Template");
           return rv;
         }
         break;
@@ -4064,6 +4101,7 @@ CK_RV parse_wrap_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_UNWRAP:
         if ((rv = set_template_attribute(&template->unwrap,
                                          pTemplate[i].pValue)) != CKR_OK) {
+          DBG_ERR("CKA_UNWRAP inconsistent in Template");
           return rv;
         }
         break;
@@ -4071,6 +4109,7 @@ CK_RV parse_wrap_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_ENCRYPT:
         if ((rv = set_template_attribute(&template->encrypt,
                                          pTemplate[i].pValue)) != CKR_OK) {
+          DBG_ERR("CKA_ENCRYPT inconsistent in Template");
           return rv;
         }
         break;
@@ -4078,6 +4117,7 @@ CK_RV parse_wrap_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_DECRYPT:
         if ((rv = set_template_attribute(&template->decrypt,
                                          pTemplate[i].pValue)) != CKR_OK) {
+          DBG_ERR("CKA_DECRYPT inconsistent in Template");
           return rv;
         }
         break;
@@ -4087,6 +4127,8 @@ CK_RV parse_wrap_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_SENSITIVE:
       case CKA_DESTROYABLE:
         if ((rv = check_bool_attribute(pTemplate[i].pValue, true)) != CKR_OK) {
+          DBG_ERR("Boolean truth check failed for attribute 0x%lx",
+                  pTemplate[i].type);
           return rv;
         }
         break;
@@ -4111,12 +4153,15 @@ CK_RV parse_wrap_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
         break;
 
       default:
+        DBG_ERR("Invalid attribute type in key template: 0x%lx",
+                pTemplate[i].type);
         return CKR_ATTRIBUTE_TYPE_INVALID;
     }
   }
   if (generate == true || template->obj.buf) {
     return CKR_OK;
   } else {
+    DBG_ERR("Inconsistent wrap key template");
     return CKR_TEMPLATE_INCONSISTENT;
   }
 }

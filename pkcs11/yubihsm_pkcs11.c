@@ -1365,6 +1365,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       case CKA_EXTRACTABLE:
         if ((rv = set_template_attribute(&template.exportable,
                                          pTemplate[i].pValue)) != CKR_OK) {
+          DBG_ERR("CKA_EXTRACTABLE inconsistent in Template");
           goto c_co_out;
         }
     }
@@ -4416,6 +4417,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
       case CKA_EXTRACTABLE:
         if ((rv = set_template_attribute(&template.exportable,
                                          pTemplate[i].pValue)) != CKR_OK) {
+          DBG_ERR("CKA_EXTRACTABLE inconsistent in Template");
           return rv;
         }
     }
