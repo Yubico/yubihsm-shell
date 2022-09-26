@@ -40,11 +40,12 @@ static void import_rsa_key(int keylen, EVP_PKEY **evp, RSA **rsak,
                            CK_OBJECT_HANDLE_PTR keyid) {
   CK_BYTE e[] = {0x01, 0x00, 0x01};
   CK_BYTE *p, *q, *dp, *dq, *qinv;
-  p = malloc(keylen / 16);
-  q = malloc(keylen / 16);
-  dp = malloc(keylen / 16);
-  dq = malloc(keylen / 16);
-  qinv = malloc(keylen / 16);
+  int len = keylen / 16;
+  p = malloc(len);
+  q = malloc(len);
+  dp = malloc(len);
+  dq = malloc(len);
+  qinv = malloc(len);
 
   BIGNUM *e_bn;
   CK_ULONG class_k = CKO_PRIVATE_KEY;
@@ -53,8 +54,6 @@ static void import_rsa_key(int keylen, EVP_PKEY **evp, RSA **rsak,
   const BIGNUM *bp, *bq, *biqmp, *bdmp1, *bdmq1;
 
   // unsigned char  *px;
-  int p_len, q_len, dp_len, dq_len, qinv_len;
-  int len = keylen / 16;
   CK_BBOOL dec_capability = CK_TRUE;
 
   CK_ATTRIBUTE privateKeyTemplate[] = {{CKA_CLASS, &class_k, sizeof(class_k)},
@@ -63,30 +62,24 @@ static void import_rsa_key(int keylen, EVP_PKEY **evp, RSA **rsak,
                                        {CKA_DECRYPT, &dec_capability,
                                         sizeof(dec_capability)},
                                        {CKA_PUBLIC_EXPONENT, e, sizeof(e)},
-                                       {CKA_PRIME_1, p, (keylen / 16)},
-                                       {CKA_PRIME_2, q, (keylen / 16)},
-                                       {CKA_EXPONENT_1, dp, (keylen / 16)},
-                                       {CKA_EXPONENT_2, dq, (keylen / 16)},
-                                       {CKA_COEFFICIENT, qinv, (keylen / 16)}};
-  int len_correct = 0;
-
+                                       {CKA_PRIME_1, p, len},
+                                       {CKA_PRIME_2, q, len},
+                                       {CKA_EXPONENT_1, dp, len},
+                                       {CKA_EXPONENT_2, dq, len},
+                                       {CKA_COEFFICIENT, qinv, len}};
   e_bn = BN_bin2bn(e, 3, NULL);
   if (e_bn == NULL)
     exit(EXIT_FAILURE);
 
-  do {
-    assert(RSA_generate_key_ex(*rsak, keylen, e_bn, NULL) == 1);
+  assert(RSA_generate_key_ex(*rsak, keylen, e_bn, NULL) == 1);
 
-    RSA_get0_factors(*rsak, &bp, &bq);
-    RSA_get0_crt_params(*rsak, &bdmp1, &bdmq1, &biqmp);
-    p_len = BN_bn2bin(bp, p);
-    q_len = BN_bn2bin(bq, q);
-    dp_len = BN_bn2bin(bdmp1, dp);
-    dq_len = BN_bn2bin(bdmq1, dq);
-    qinv_len = BN_bn2bin(biqmp, qinv);
-    len_correct = p_len == len && q_len == len && dp_len == len &&
-                  dq_len == len && qinv_len == len;
-  } while (!len_correct);
+  RSA_get0_factors(*rsak, &bp, &bq);
+  RSA_get0_crt_params(*rsak, &bdmp1, &bdmq1, &biqmp);
+  BN_bn2binpad(bp, p, len);
+  BN_bn2binpad(bq, q, len);
+  BN_bn2binpad(bdmp1, dp, len);
+  BN_bn2binpad(bdmq1, dq, len);
+  BN_bn2binpad(biqmp, qinv, len);
 
   if (EVP_PKEY_set1_RSA(*evp, *rsak) == 0)
     exit(EXIT_FAILURE);

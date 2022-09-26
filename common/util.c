@@ -28,15 +28,7 @@
 #include "hash.h"
 
 bool set_component(unsigned char *in_ptr, const BIGNUM *bn, int element_len) {
-  int real_len = BN_num_bytes(bn);
-
-  if (real_len > element_len) {
-    return false;
-  }
-
-  memset(in_ptr, 0, (size_t) (element_len - real_len));
-  in_ptr += element_len - real_len;
-  return BN_bn2bin(bn, in_ptr) > 0;
+  return BN_bn2binpad(bn, in_ptr, element_len) == element_len;
 }
 
 static unsigned const char sha1oid[] = {0x30, 0x21, 0x30, 0x09, 0x06,
