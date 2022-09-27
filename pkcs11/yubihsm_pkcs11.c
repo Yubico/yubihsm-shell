@@ -155,9 +155,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
   }
 
   if (g_ctx.create_mutex != NULL) {
-    if (g_ctx.create_mutex(&g_ctx.mutex) != CKR_OK) {
+    CK_RV rv = g_ctx.create_mutex(&g_ctx.mutex);
+    if (rv != CKR_OK) {
       DBG_ERR("Unable to create global mutex");
-      return CKR_FUNCTION_FAILED;
+      return rv;
     }
   } else {
     g_ctx.mutex = NULL;
@@ -191,7 +192,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     args = strdup(init_args->pReserved);
     if (args == NULL) {
       DBG_ERR("Failed copying reserved string");
-      return CKR_FUNCTION_FAILED;
+      return CKR_HOST_MEMORY;
     }
 
     char *str = args;
@@ -313,7 +314,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
   }
 
   if (add_connectors(&g_ctx, args_info.connector_given, args_info.connector_arg,
-                     connector_list) == false) {
+                     connector_list) != CKR_OK) {
     DBG_ERR("Failed building connectors list");
     goto c_i_failure;
   }
@@ -776,17 +777,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetMechanismInfo)
     return CKR_SLOT_ID_INVALID;
   }
 
-  CK_RV rv = CKR_OK;
-
-  if (get_mechanism_info(slot, type, pInfo) == false) {
-    DBG_ERR("Invalid mechanism %lu", type);
-    rv = CKR_MECHANISM_INVALID;
-  } else {
-    DOUT;
-  }
+  CK_RV rv = get_mechanism_info(slot, type, pInfo);
 
   release_slot(&g_ctx, slot);
 
+  DOUT;
   return rv;
 }
 
@@ -1600,6 +1595,36 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
             goto c_co_out;
           }
           break;
+        case CKA_COPYABLE:
+          if ((rv = check_bool_attribute(pTemplate[i].pValue, false)) !=
+              CKR_OK) {
+            DBG_ERR("Boolean false check failed for attribute 0x%lx",
+                    pTemplate[i].type);
+            return rv;
+          }
+          break;
+        case CKA_PRIVATE:
+        case CKA_SENSITIVE:
+        case CKA_DESTROYABLE:
+          if ((rv = check_bool_attribute(pTemplate[i].pValue, true)) !=
+              CKR_OK) {
+            DBG_ERR("Boolean truth check failed for attribute 0x%lx",
+                    pTemplate[i].type);
+            return rv;
+          }
+          break;
+        case CKA_TOKEN: // pkcs11test sets this to false
+        case CKA_CLASS:
+        case CKA_ID:
+        case CKA_LABEL:
+        case CKA_APPLICATION:
+        case CKA_OBJECT_ID:
+          break;
+        default:
+          DBG_ERR("Invalid attribute type in key template: 0x%lx",
+                  pTemplate[i].type);
+          rv = CKR_ATTRIBUTE_TYPE_INVALID;
+          goto c_co_out;
       }
     }
 
@@ -2404,9 +2429,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptInit)
     goto c_ei_out;
   }
 
-  if (check_decrypt_mechanism(session->slot, pMechanism) != true) {
+  rv = check_decrypt_mechanism(session->slot, pMechanism);
+  if (rv != CKR_OK) {
     DBG_ERR("Encryption mechanism %lu not supported", pMechanism->mechanism);
-    rv = CKR_MECHANISM_INVALID;
     goto c_ei_out;
   }
 
@@ -2716,9 +2741,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
     goto c_di_out;
   }
 
-  if (check_decrypt_mechanism(session->slot, pMechanism) != true) {
+  rv = check_decrypt_mechanism(session->slot, pMechanism);
+  if (rv != CKR_OK) {
     DBG_ERR("Decryption mechanism %lu not supported", pMechanism->mechanism);
-    rv = CKR_MECHANISM_INVALID;
     goto c_di_out;
   }
   session->operation.mechanism.mechanism = pMechanism->mechanism;
@@ -3175,9 +3200,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_DigestInit)
   DBG_INFO("Trying to digest data with mechanism 0x%04lx",
            pMechanism->mechanism);
 
-  if (check_digest_mechanism(pMechanism) != true) {
+  rv = check_digest_mechanism(pMechanism);
+  if (rv != CKR_OK) {
     DBG_ERR("Digest mechanism %lu not supported", pMechanism->mechanism);
-    rv = CKR_MECHANISM_INVALID;
     goto c_di_out;
   }
   session->operation.mechanism.mechanism = pMechanism->mechanism;
@@ -3533,9 +3558,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_SignInit)
 
   session->operation.op.sign.key_len = key_length;
 
-  if (check_sign_mechanism(session->slot, pMechanism) != true) {
+  rv = check_sign_mechanism(session->slot, pMechanism);
+  if (rv != CKR_OK) {
     DBG_ERR("Signing mechanism %lu not supported", pMechanism->mechanism);
-    rv = CKR_MECHANISM_INVALID;
     goto c_si_out;
   }
   session->operation.mechanism.mechanism =
@@ -3955,9 +3980,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_VerifyInit)
 
   session->operation.op.verify.key_len = key_length;
 
-  if (check_sign_mechanism(session->slot, pMechanism) != true) {
+  rv = check_sign_mechanism(session->slot, pMechanism);
+  if (rv != CKR_OK) {
     DBG_ERR("Verification mechanism %lu not supported", pMechanism->mechanism);
-    rv = CKR_MECHANISM_INVALID;
     goto c_vi_out;
   }
   session->operation.mechanism.mechanism =
@@ -4762,9 +4787,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_WrapKey)
     goto c_wk_out;
   }
 
-  if (check_wrap_mechanism(session->slot, pMechanism) != true) {
+  rv = check_wrap_mechanism(session->slot, pMechanism);
+  if (rv != CKR_OK) {
     DBG_ERR("Wrapping mechanism %lu not supported", pMechanism->mechanism);
-    rv = CKR_MECHANISM_INVALID;
     goto c_wk_out;
   }
 
@@ -4864,9 +4889,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_UnwrapKey)
     goto c_uk_out;
   }
 
-  if (check_wrap_mechanism(session->slot, pMechanism) != true) {
+  rv = check_wrap_mechanism(session->slot, pMechanism);
+  if (rv != CKR_OK) {
     DBG_ERR("Wrapping mechanism %lu not supported", pMechanism->mechanism);
-    rv = CKR_MECHANISM_INVALID;
     goto c_uk_out;
   }
 

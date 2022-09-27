@@ -64,6 +64,77 @@ static const uint8_t oid_brainpool512r1[] = {ASN1_OID, 0x09, 0x2b, 0x24,
                                              0x03,     0x03, 0x02, 0x08,
                                              0x01,     0x01, 0x0d};
 
+CK_RV yrc_to_rv(yh_rc rc) {
+  switch (rc) {
+    case YHR_SUCCESS:
+      return CKR_OK;
+    case YHR_MEMORY_ERROR:
+      return CKR_HOST_MEMORY;
+    case YHR_INIT_ERROR:
+      return CKR_GENERAL_ERROR;
+    case YHR_CONNECTION_ERROR:
+      return CKR_DEVICE_REMOVED;
+    case YHR_CONNECTOR_NOT_FOUND:
+      return CKR_TOKEN_NOT_PRESENT;
+    case YHR_INVALID_PARAMETERS:
+      return CKR_ARGUMENTS_BAD;
+    case YHR_WRONG_LENGTH:
+      return CKR_DATA_LEN_RANGE;
+    case YHR_BUFFER_TOO_SMALL:
+      return CKR_BUFFER_TOO_SMALL;
+    case YHR_CRYPTOGRAM_MISMATCH:
+      return CKR_ENCRYPTED_DATA_INVALID;
+    case YHR_SESSION_AUTHENTICATION_FAILED:
+      return CKR_ENCRYPTED_DATA_INVALID;
+    case YHR_MAC_MISMATCH:
+      return CKR_ENCRYPTED_DATA_INVALID;
+    case YHR_DEVICE_OK:
+      return CKR_OK;
+    case YHR_DEVICE_INVALID_COMMAND:
+      return CKR_DEVICE_ERROR;
+    case YHR_DEVICE_INVALID_DATA:
+      return CKR_DEVICE_ERROR;
+    case YHR_DEVICE_INVALID_SESSION:
+      return CKR_SESSION_CLOSED;
+    case YHR_DEVICE_AUTHENTICATION_FAILED:
+      return CKR_ENCRYPTED_DATA_INVALID;
+    case YHR_DEVICE_SESSIONS_FULL:
+      return CKR_SESSION_COUNT;
+    case YHR_DEVICE_SESSION_FAILED:
+      return CKR_SESSION_CLOSED;
+    case YHR_DEVICE_STORAGE_FAILED:
+      return CKR_DEVICE_MEMORY;
+    case YHR_DEVICE_WRONG_LENGTH:
+      return CKR_DATA_LEN_RANGE;
+    case YHR_DEVICE_INSUFFICIENT_PERMISSIONS:
+      return CKR_FUNCTION_REJECTED;
+    case YHR_DEVICE_LOG_FULL:
+      return CKR_DEVICE_MEMORY;
+    case YHR_DEVICE_OBJECT_NOT_FOUND:
+      return CKR_OBJECT_HANDLE_INVALID;
+    case YHR_DEVICE_INVALID_ID:
+      return CKR_OBJECT_HANDLE_INVALID;
+    case YHR_DEVICE_INVALID_OTP:
+      return CKR_DATA_INVALID;
+    case YHR_DEVICE_DEMO_MODE:
+      return CKR_TOKEN_NOT_RECOGNIZED;
+    case YHR_DEVICE_COMMAND_UNEXECUTED:
+      return CKR_DEVICE_ERROR;
+    case YHR_GENERIC_ERROR:
+      return CKR_FUNCTION_FAILED;
+    case YHR_DEVICE_OBJECT_EXISTS:
+      return CKR_OBJECT_HANDLE_INVALID;
+    case YHR_CONNECTOR_ERROR:
+      return CKR_DEVICE_REMOVED;
+    case YHR_DEVICE_SSH_CA_CONSTRAINT_VIOLATION:
+      return CKR_FUNCTION_REJECTED;
+    case YHR_DEVICE_ALGORITHM_DISABLED:
+      return CKR_FUNCTION_REJECTED;
+    default:
+      return CKR_GENERAL_ERROR;
+  }
+}
+
 static void add_mech(CK_MECHANISM_TYPE *buf, CK_ULONG_PTR count,
                      CK_MECHANISM_TYPE item) {
   for (CK_ULONG i = 0; i < *count; i++) {
@@ -85,7 +156,7 @@ CK_RV get_mechanism_list(yubihsm_pkcs11_slot *slot,
       yh_util_get_device_info(slot->connector, NULL, NULL, NULL, NULL, NULL,
                               NULL, slot->algorithms, &slot->n_algorithms);
     if (yrc != YHR_SUCCESS) {
-      return CKR_FUNCTION_FAILED;
+      return yrc_to_rv(yrc);
     }
   }
 
@@ -313,8 +384,8 @@ static void find_minmax_ec_key_length_in_bits(yh_algorithm *algorithms,
   }
 }
 
-bool get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
-                        CK_MECHANISM_INFO_PTR pInfo) {
+CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
+                         CK_MECHANISM_INFO_PTR pInfo) {
 
   if (slot->n_algorithms == 0) {
     slot->n_algorithms = sizeof(slot->algorithms) / sizeof(slot->algorithms[0]);
@@ -322,7 +393,7 @@ bool get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
       yh_util_get_device_info(slot->connector, NULL, NULL, NULL, NULL, NULL,
                               NULL, slot->algorithms, &slot->n_algorithms);
     if (yrc != YHR_SUCCESS) {
-      return false;
+      return yrc_to_rv(yrc);
     }
   }
 
@@ -458,10 +529,11 @@ bool get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
       break;
 
     default:
-      return false;
+      DBG_ERR("Invalid mechanism %lu", type);
+      return CKR_MECHANISM_INVALID;
   }
 
-  return true;
+  return CKR_OK;
 }
 
 bool create_session(yubihsm_pkcs11_slot *slot, CK_FLAGS flags,
@@ -581,12 +653,14 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
       *length = 0;
       break;
 
-    case CKA_VALUE:
-      if (yh_util_get_opaque(session, object->id, value, (size_t *) length) !=
-          YHR_SUCCESS) {
-        return CKR_ATTRIBUTE_TYPE_INVALID;
+    case CKA_VALUE: {
+      size_t len = *length;
+      yh_rc yrc = yh_util_get_opaque(session, object->id, value, &len);
+      if (yrc != YHR_SUCCESS) {
+        return yrc_to_rv(yrc);
       }
-      break;
+      *length = len;
+    } break;
 
     case CKA_CERTIFICATE_TYPE:
       if (object->algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
@@ -625,6 +699,7 @@ static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
 
     case CKA_MODIFIABLE:
     case CKA_COPYABLE:
+    case CKA_ALWAYS_AUTHENTICATE:
       *((CK_BBOOL *) value) = CK_FALSE;
       *length = sizeof(CK_BBOOL);
       break;
@@ -702,6 +777,8 @@ static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
       // case CKA_END_DATE:
 
     case CKA_DERIVE:
+    case CKA_SIGN_RECOVER:
+    case CKA_VERIFY_RECOVER:
       *((CK_BBOOL *) value) = CK_FALSE;
       *length = sizeof(CK_BBOOL);
       break;
@@ -810,6 +887,7 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       *length = sizeof(CK_BBOOL);
       break;
 
+    case CKA_ENCRYPT:
     case CKA_MODIFIABLE:
     case CKA_COPYABLE:
       *((CK_BBOOL *) value) = CK_FALSE;
@@ -907,6 +985,9 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_SIGN_RECOVER:
+    case CKA_VERIFY:
+    case CKA_VERIFY_RECOVER:
+    case CKA_WRAP:
     case CKA_UNWRAP:
     case CKA_WRAP_WITH_TRUSTED:
     case CKA_ALWAYS_AUTHENTICATE:
@@ -975,9 +1056,10 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
         uint8_t resp[2048];
         size_t resplen = sizeof(resp);
 
-        if (yh_util_get_public_key(session, object->id, resp, &resplen, NULL) !=
-            YHR_SUCCESS) {
-          return CKR_ATTRIBUTE_TYPE_INVALID;
+        yh_rc yrc =
+          yh_util_get_public_key(session, object->id, resp, &resplen, NULL);
+        if (yrc != YHR_SUCCESS) {
+          return yrc_to_rv(yrc);
         }
 
         uint8_t *p = value;
@@ -1000,9 +1082,10 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
         uint8_t resp[2048];
         size_t resp_len = sizeof(resp);
 
-        if (yh_util_get_public_key(session, object->id, resp, &resp_len,
-                                   NULL) != YHR_SUCCESS) {
-          return CKR_ATTRIBUTE_TYPE_INVALID;
+        yh_rc yrc =
+          yh_util_get_public_key(session, object->id, resp, &resp_len, NULL);
+        if (yrc != YHR_SUCCESS) {
+          return yrc_to_rv(yrc);
         }
 
         *length = resp_len;
@@ -1036,7 +1119,7 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
   return CKR_OK;
 }
 
-static bool load_public_key(yh_session *session, uint16_t id, EVP_PKEY *key) {
+static CK_RV load_public_key(yh_session *session, uint16_t id, EVP_PKEY *key) {
 
   uint8_t data[1024];
   size_t data_len = sizeof(data) - 1;
@@ -1051,7 +1134,7 @@ static bool load_public_key(yh_session *session, uint16_t id, EVP_PKEY *key) {
 
   yh_rc yrc = yh_util_get_public_key(session, id, data + 1, &data_len, &algo);
   if (yrc != YHR_SUCCESS) {
-    return false;
+    return yrc_to_rv(yrc);
   }
 
   if (yh_is_rsa(algo)) {
@@ -1122,7 +1205,7 @@ static bool load_public_key(yh_session *session, uint16_t id, EVP_PKEY *key) {
     EC_GROUP_free(ec_group);
   }
 
-  return true;
+  return CKR_OK;
 
 l_p_k_failure:
   EC_POINT_free(ec_point);
@@ -1132,7 +1215,7 @@ l_p_k_failure:
   BN_free(n);
   BN_free(e);
 
-  return false;
+  return CKR_FUNCTION_FAILED;
 }
 
 static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
@@ -1157,11 +1240,13 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
     case CKA_PRIVATE:
     case CKA_MODIFIABLE:
     case CKA_COPYABLE:
+    case CKA_DECRYPT:
     case CKA_DERIVE:
     case CKA_SENSITIVE:
     case CKA_ALWAYS_SENSITIVE:
     case CKA_SIGN:
     case CKA_SIGN_RECOVER:
+    case CKA_VERIFY_RECOVER:
     case CKA_UNWRAP:
     case CKA_WRAP:
     case CKA_WRAP_WITH_TRUSTED:
@@ -1330,9 +1415,10 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
         uint8_t resp[2048];
         size_t resplen = sizeof(resp);
 
-        if (yh_util_get_public_key(session, object->id, resp, &resplen, NULL) !=
-            YHR_SUCCESS) {
-          return CKR_ATTRIBUTE_TYPE_INVALID;
+        yh_rc yrc =
+          yh_util_get_public_key(session, object->id, resp, &resplen, NULL);
+        if (yrc != YHR_SUCCESS) {
+          return yrc_to_rv(yrc);
         }
 
         uint8_t *p = value;
@@ -1353,9 +1439,9 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
     case CKA_MODULUS_BITS:
       if (yh_is_rsa(object->algorithm)) {
         size_t key_length = 0;
-        if (yh_get_key_bitlength(object->algorithm, &key_length) !=
-            YHR_SUCCESS) {
-          return CKR_FUNCTION_FAILED;
+        yh_rc yrc = yh_get_key_bitlength(object->algorithm, &key_length);
+        if (yrc != YHR_SUCCESS) {
+          return yrc_to_rv(yrc);
         }
         *(CK_ULONG *) value = key_length;
         *length = sizeof(CK_ULONG);
@@ -1369,9 +1455,10 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
         uint8_t resp[2048];
         size_t resp_len = sizeof(resp);
 
-        if (yh_util_get_public_key(session, object->id, resp, &resp_len,
-                                   NULL) != YHR_SUCCESS) {
-          return CKR_ATTRIBUTE_TYPE_INVALID;
+        yh_rc yrc =
+          yh_util_get_public_key(session, object->id, resp, &resp_len, NULL);
+        if (yrc != YHR_SUCCESS) {
+          return yrc_to_rv(yrc);
         }
 
         *length = resp_len;
@@ -1399,9 +1486,10 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
         return CKR_FUNCTION_FAILED;
       }
 
-      if (load_public_key(session, object->id, pkey) == false) {
+      CK_RV rv = load_public_key(session, object->id, pkey);
+      if (rv != CKR_OK) {
         EVP_PKEY_free(pkey);
-        return CKR_ATTRIBUTE_TYPE_INVALID;
+        return rv;
       }
 
       *length = i2d_PUBKEY(pkey, (unsigned char **) &value);
@@ -1570,8 +1658,9 @@ yubihsm_pkcs11_object_desc *get_object_desc(yh_session *session,
   if (!object->filled) {
     uint16_t real_type =
       type & ~0x80; // NOTE(adma): public key are not real objects
-    yh_rc rc = yh_util_get_object_info(session, id, real_type, &object->object);
-    if (rc != YHR_SUCCESS) {
+    yh_rc yrc =
+      yh_util_get_object_info(session, id, real_type, &object->object);
+    if (yrc != YHR_SUCCESS) {
       return NULL;
     }
 
@@ -1584,8 +1673,8 @@ yubihsm_pkcs11_object_desc *get_object_desc(yh_session *session,
   return object;
 }
 
-bool check_sign_mechanism(yubihsm_pkcs11_slot *slot,
-                          CK_MECHANISM_PTR pMechanism) {
+CK_RV check_sign_mechanism(yubihsm_pkcs11_slot *slot,
+                           CK_MECHANISM_PTR pMechanism) {
 
   CK_MECHANISM_TYPE mechanisms[128];
   CK_ULONG count = 128;
@@ -1594,45 +1683,49 @@ bool check_sign_mechanism(yubihsm_pkcs11_slot *slot,
       is_ECDSA_sign_mechanism(pMechanism->mechanism) == false &&
       is_HMAC_sign_mechanism(pMechanism->mechanism) == false) {
 
-    return false;
+    return CKR_MECHANISM_INVALID;
   }
 
-  if (get_mechanism_list(slot, mechanisms, &count) != CKR_OK) {
-    return false;
+  CK_RV rv = get_mechanism_list(slot, mechanisms, &count);
+  if (rv != CKR_OK) {
+    return rv;
   }
+
   for (CK_ULONG i = 0; i < count; i++) {
     if (pMechanism->mechanism == mechanisms[i]) {
-      return true;
+      return CKR_OK;
     }
   }
 
-  return false;
+  return CKR_MECHANISM_INVALID;
 }
 
-bool check_decrypt_mechanism(yubihsm_pkcs11_slot *slot,
-                             CK_MECHANISM_PTR pMechanism) {
+CK_RV check_decrypt_mechanism(yubihsm_pkcs11_slot *slot,
+                              CK_MECHANISM_PTR pMechanism) {
 
   CK_MECHANISM_TYPE mechanisms[128];
   CK_ULONG count = 128;
 
   if (is_RSA_decrypt_mechanism(pMechanism->mechanism) == false &&
       pMechanism->mechanism != CKM_YUBICO_AES_CCM_WRAP) {
-    return false;
+    return CKR_MECHANISM_INVALID;
   }
 
-  if (get_mechanism_list(slot, mechanisms, &count) != CKR_OK) {
-    return false;
+  CK_RV rv = get_mechanism_list(slot, mechanisms, &count);
+  if (rv != CKR_OK) {
+    return rv;
   }
+
   for (CK_ULONG i = 0; i < count; i++) {
     if (pMechanism->mechanism == mechanisms[i]) {
-      return true;
+      return CKR_OK;
     }
   }
 
-  return false;
+  return CKR_MECHANISM_INVALID;
 }
 
-bool check_digest_mechanism(CK_MECHANISM_PTR pMechanism) {
+CK_RV check_digest_mechanism(CK_MECHANISM_PTR pMechanism) {
 
   switch (pMechanism->mechanism) {
     case CKM_SHA_1:
@@ -1641,32 +1734,34 @@ bool check_digest_mechanism(CK_MECHANISM_PTR pMechanism) {
     case CKM_SHA512:
       break;
     default:
-      return false;
+      return CKR_MECHANISM_INVALID;
   }
 
-  return true;
+  return CKR_OK;
 }
 
-bool check_wrap_mechanism(yubihsm_pkcs11_slot *slot,
-                          CK_MECHANISM_PTR pMechanism) {
+CK_RV check_wrap_mechanism(yubihsm_pkcs11_slot *slot,
+                           CK_MECHANISM_PTR pMechanism) {
 
   CK_MECHANISM_TYPE mechanisms[128];
   CK_ULONG count = 128;
 
   if (pMechanism->mechanism != CKM_YUBICO_AES_CCM_WRAP) {
-    return false;
+    return CKR_MECHANISM_INVALID;
   }
 
-  if (get_mechanism_list(slot, mechanisms, &count) != CKR_OK) {
-    return false;
+  CK_RV rv = get_mechanism_list(slot, mechanisms, &count);
+  if (rv != CKR_OK) {
+    return rv;
   }
+
   for (CK_ULONG i = 0; i < count; i++) {
     if (pMechanism->mechanism == mechanisms[i]) {
-      return true;
+      return CKR_OK;
     }
   }
 
-  return false;
+  return CKR_MECHANISM_INVALID;
 }
 
 CK_RV apply_sign_mechanism_init(yubihsm_pkcs11_op_info *op_info) {
@@ -2307,15 +2402,14 @@ CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
                      uint8_t *signature, uint16_t signature_len) {
 
   if (is_HMAC_sign_mechanism(op_info->mechanism.mechanism)) {
-    yh_rc yrc;
     bool verified = false;
 
-    yrc = yh_util_verify_hmac(session, op_info->op.verify.key_id, signature,
-                              signature_len, op_info->buffer,
-                              op_info->buffer_length, &verified);
+    yh_rc yrc = yh_util_verify_hmac(session, op_info->op.verify.key_id,
+                                    signature, signature_len, op_info->buffer,
+                                    op_info->buffer_length, &verified);
 
     if (yrc != YHR_SUCCESS) {
-      return CKR_FUNCTION_FAILED;
+      return yrc_to_rv(yrc);
     }
 
     if (verified == false) {
@@ -2340,8 +2434,8 @@ CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
       goto pv_failure;
     }
 
-    if (load_public_key(session, op_info->op.verify.key_id, key) == false) {
-      rv = CKR_FUNCTION_FAILED;
+    rv = load_public_key(session, op_info->op.verify.key_id, key);
+    if (rv != CKR_OK) {
       goto pv_failure;
     }
 
@@ -2535,7 +2629,7 @@ CK_RV perform_signature(yh_session *session, yubihsm_pkcs11_op_info *op_info,
   }
 
   if (yrc != YHR_SUCCESS) {
-    return CKR_FUNCTION_FAILED;
+    return yrc_to_rv(yrc);
   }
 
   if (is_ECDSA_sign_mechanism(op_info->mechanism.mechanism)) {
@@ -2584,7 +2678,7 @@ CK_RV perform_decrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
 
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Decryption failed: %s", yh_strerror(yrc));
-    return CKR_FUNCTION_FAILED;
+    return yrc_to_rv(yrc);
   }
 
   if (outlen > *data_len) {
@@ -2614,7 +2708,7 @@ CK_RV perform_wrap_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
   }
 
   if (yrc != YHR_SUCCESS) {
-    return CKR_FUNCTION_FAILED;
+    return yrc_to_rv(yrc);
   }
 
   if (outlen > *data_len) {
@@ -2641,13 +2735,11 @@ CK_RV perform_rsa_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
     return CKR_FUNCTION_FAILED;
   }
 
-  CK_RV rv = CKR_OK;
   EVP_PKEY_CTX *ctx = NULL;
 
-  if (load_public_key(session, op_info->op.encrypt.key_id, public_key) ==
-      false) {
+  CK_RV rv = load_public_key(session, op_info->op.encrypt.key_id, public_key);
+  if (rv != CKR_OK) {
     DBG_ERR("Failed to load public key");
-    rv = CKR_FUNCTION_FAILED;
     goto rsa_enc_cleanup;
   }
 
@@ -2737,41 +2829,33 @@ CK_RV perform_digest(yubihsm_pkcs11_op_info *op_info, uint8_t *digest,
   return CKR_OK;
 }
 
-bool sign_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info) {
+void sign_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info) {
 
   if (op_info->op.sign.md_ctx != NULL) {
     EVP_MD_CTX_destroy(op_info->op.sign.md_ctx);
     op_info->op.sign.md_ctx = NULL;
   }
-
-  return true;
 }
 
-bool verify_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info) {
+void verify_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info) {
 
   if (op_info->op.verify.md_ctx != NULL) {
     EVP_MD_CTX_destroy(op_info->op.verify.md_ctx);
     op_info->op.verify.md_ctx = NULL;
   }
-
-  return true;
 }
 
-bool decrypt_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info) {
+void decrypt_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info) {
 
   (void) op_info;
-
-  return true;
 }
 
-bool digest_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info) {
+void digest_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info) {
 
   if (op_info->op.digest.md_ctx != NULL) {
     EVP_MD_CTX_destroy(op_info->op.digest.md_ctx);
     op_info->op.digest.md_ctx = NULL;
   }
-
-  return true;
 }
 
 CK_ULONG get_digest_bytelength(CK_MECHANISM_TYPE m) {
@@ -3111,8 +3195,8 @@ void set_native_locking(yubihsm_pkcs11_context *ctx) {
   ctx->unlock_mutex = native_unlock_mutex;
 }
 
-bool add_connectors(yubihsm_pkcs11_context *ctx, int n_connectors,
-                    char **connector_names, yh_connector **connectors) {
+CK_RV add_connectors(yubihsm_pkcs11_context *ctx, int n_connectors,
+                     char **connector_names, yh_connector **connectors) {
   list_create(&ctx->slots, sizeof(yubihsm_pkcs11_slot), free_pkcs11_slot);
   for (int i = 0; i < n_connectors; i++) {
     yubihsm_pkcs11_slot slot;
@@ -3121,20 +3205,21 @@ bool add_connectors(yubihsm_pkcs11_context *ctx, int n_connectors,
     slot.connector_name = strdup(connector_names[i]);
     slot.max_session_id = 1;
     if (!slot.connector_name) {
-      return false;
+      return CKR_HOST_MEMORY;
     }
     slot.connector = connectors[i];
     if (ctx->create_mutex != NULL) {
-      if (ctx->create_mutex(&slot.mutex) != CKR_OK) {
-        return false;
+      CK_RV rv = ctx->create_mutex(&slot.mutex);
+      if (rv != CKR_OK) {
+        return rv;
       }
     }
     list_create(&slot.pkcs11_sessions, sizeof(yubihsm_pkcs11_session), NULL);
     if (list_append(&ctx->slots, &slot) != true) {
-      return false;
+      return CKR_HOST_MEMORY;
     }
   }
-  return true;
+  return CKR_OK;
 }
 
 CK_RV set_template_attribute(yubihsm_pkcs11_attribute *attribute, void *value) {
@@ -3150,7 +3235,7 @@ CK_RV set_template_attribute(yubihsm_pkcs11_attribute *attribute, void *value) {
   }
 }
 
-static CK_RV check_bool_attribute(void *value, bool check) {
+CK_RV check_bool_attribute(void *value, bool check) {
   CK_BBOOL b_val = *(CK_BBOOL *) value;
   if (check == true && b_val == CK_TRUE) {
     return CKR_OK;
@@ -3256,6 +3341,7 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_VERIFY_RECOVER:
       case CKA_MODIFIABLE:
       case CKA_COPYABLE:
+      case CKA_ALWAYS_AUTHENTICATE:
         if ((rv = check_bool_attribute(pTemplate[i].pValue, false)) != CKR_OK) {
           return rv;
         }
@@ -3426,6 +3512,7 @@ CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_VERIFY_RECOVER:
       case CKA_MODIFIABLE:
       case CKA_COPYABLE:
+      case CKA_ALWAYS_AUTHENTICATE:
         if ((rv = check_bool_attribute(pTemplate[i].pValue, false)) != CKR_OK) {
           return rv;
         }
@@ -3520,9 +3607,29 @@ CK_RV parse_hmac_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
         }
         break;
 
+      case CKA_DESTROYABLE:
+      case CKA_PRIVATE:
+      case CKA_SENSITIVE:
       case CKA_TOKEN:
         if ((rv = check_bool_attribute(pTemplate[i].pValue, true)) != CKR_OK) {
           DBG_ERR("Boolean truth check failed for attribute 0x%lx",
+                  pTemplate[i].type);
+          return rv;
+        }
+        break;
+
+      case CKA_MODIFIABLE:
+      case CKA_COPYABLE:
+      case CKA_WRAP:
+      case CKA_UNWRAP:
+      case CKA_DERIVE:
+      case CKA_ENCRYPT:
+      case CKA_DECRYPT:
+      case CKA_SIGN_RECOVER:
+      case CKA_VERIFY_RECOVER:
+      case CKA_ALWAYS_AUTHENTICATE:
+        if ((rv = check_bool_attribute(pTemplate[i].pValue, false)) != CKR_OK) {
+          DBG_ERR("Boolean false check failed for attribute 0x%lx",
                   pTemplate[i].type);
           return rv;
         }
@@ -3663,6 +3770,7 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
       case CKA_DERIVE:
       case CKA_SIGN_RECOVER:
       case CKA_VERIFY_RECOVER:
+      case CKA_ALWAYS_AUTHENTICATE:
         if ((rv = check_bool_attribute(pPublicKeyTemplate[i].pValue, false)) !=
             CKR_OK) {
           DBG_ERR("Boolean false check failed for attribute 0x%lx",
@@ -3909,6 +4017,7 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
       case CKA_SIGN_RECOVER:
       case CKA_VERIFY_RECOVER:
       case CKA_DERIVE:
+      case CKA_ALWAYS_AUTHENTICATE:
         if ((rv = check_bool_attribute(pPublicKeyTemplate[i].pValue, false)) !=
             CKR_OK) {
           DBG_ERR("Boolean false check failed for attribute 0x%lx",

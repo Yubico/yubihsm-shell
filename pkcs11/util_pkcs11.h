@@ -26,8 +26,8 @@ CK_RV get_mechanism_list(yubihsm_pkcs11_slot *slot,
                          CK_MECHANISM_TYPE_PTR pMechanismList,
                          CK_ULONG_PTR count);
 
-bool get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
-                        CK_MECHANISM_INFO_PTR pInfo);
+CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
+                         CK_MECHANISM_INFO_PTR pInfo);
 
 void destroy_session(yubihsm_pkcs11_context *ctx, CK_SESSION_HANDLE hSession);
 
@@ -38,8 +38,8 @@ yubihsm_pkcs11_object_desc *get_object_desc(yh_session *session,
 void delete_object_from_cache(yubihsm_pkcs11_object_desc *objects,
                               CK_OBJECT_HANDLE objHandle);
 
-bool check_sign_mechanism(yubihsm_pkcs11_slot *slot,
-                          CK_MECHANISM_PTR pMechanism);
+CK_RV check_sign_mechanism(yubihsm_pkcs11_slot *slot,
+                           CK_MECHANISM_PTR pMechanism);
 
 CK_RV apply_sign_mechanism_init(yubihsm_pkcs11_op_info *op_info);
 CK_RV apply_sign_mechanism_update(yubihsm_pkcs11_op_info *op_info,
@@ -47,7 +47,7 @@ CK_RV apply_sign_mechanism_update(yubihsm_pkcs11_op_info *op_info,
 CK_RV apply_sign_mechanism_finalize(yubihsm_pkcs11_op_info *op_info);
 CK_RV perform_signature(yh_session *session, yubihsm_pkcs11_op_info *op_info,
                         uint8_t *signature, uint16_t *signature_len);
-bool sign_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info);
+void sign_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info);
 
 CK_RV apply_verify_mechanism_init(yubihsm_pkcs11_op_info *op_info);
 CK_RV apply_verify_mechanism_update(yubihsm_pkcs11_op_info *op_info,
@@ -56,17 +56,17 @@ CK_RV apply_verify_mechanism_finalize(yubihsm_pkcs11_op_info *op_info,
                                       CK_ULONG sig_len);
 CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
                      uint8_t *signature, uint16_t signature_len);
-bool verify_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info);
+void verify_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info);
 
-bool check_decrypt_mechanism(yubihsm_pkcs11_slot *slot,
-                             CK_MECHANISM_PTR pMechanism);
+CK_RV check_decrypt_mechanism(yubihsm_pkcs11_slot *slot,
+                              CK_MECHANISM_PTR pMechanism);
 CK_RV apply_decrypt_mechanism_init(yubihsm_pkcs11_op_info *op_info);
 CK_RV apply_decrypt_mechanism_update(yubihsm_pkcs11_op_info *op_info,
                                      CK_BYTE_PTR in, CK_ULONG in_len);
 CK_RV apply_decrypt_mechanism_finalize(yubihsm_pkcs11_op_info *op_info);
 CK_RV perform_decrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
                       uint8_t *ciphertext, uint16_t *ciphertext_len);
-bool decrypt_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info);
+void decrypt_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info);
 
 CK_RV apply_encrypt_mechanism_init(yubihsm_pkcs11_session *session,
                                    CK_MECHANISM_PTR pMechanism,
@@ -80,18 +80,18 @@ CK_RV perform_rsa_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
                           CK_BYTE_PTR data, CK_ULONG data_len, CK_BYTE_PTR enc,
                           CK_ULONG_PTR enc_len);
 
-bool check_digest_mechanism(CK_MECHANISM_PTR pMechanism);
+CK_RV check_digest_mechanism(CK_MECHANISM_PTR pMechanism);
 CK_RV apply_digest_mechanism_init(yubihsm_pkcs11_op_info *op_info);
 CK_RV apply_digest_mechanism_update(yubihsm_pkcs11_op_info *op_info,
                                     CK_BYTE_PTR in, CK_ULONG in_len);
 CK_RV apply_digest_mechanism_finalize(yubihsm_pkcs11_op_info *op_info);
 CK_RV perform_digest(yubihsm_pkcs11_op_info *op_info, uint8_t *digest,
                      uint16_t *digest_len);
-bool digest_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info);
+void digest_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info);
 CK_ULONG get_digest_bytelength(CK_MECHANISM_TYPE m);
 
-bool check_wrap_mechanism(yubihsm_pkcs11_slot *slot,
-                          CK_MECHANISM_PTR pMechanism);
+CK_RV check_wrap_mechanism(yubihsm_pkcs11_slot *slot,
+                           CK_MECHANISM_PTR pMechanism);
 
 bool is_RSA_sign_mechanism(CK_MECHANISM_TYPE m);
 bool is_RSA_decrypt_mechanism(CK_MECHANISM_TYPE m);
@@ -102,8 +102,8 @@ bool is_PSS_sign_mechanism(CK_MECHANISM_TYPE m);
 bool is_HMAC_sign_mechanism(CK_MECHANISM_TYPE m);
 
 void set_native_locking(yubihsm_pkcs11_context *ctx);
-bool add_connectors(yubihsm_pkcs11_context *ctx, int n_connectors,
-                    char **connector_names, yh_connector **connectors);
+CK_RV add_connectors(yubihsm_pkcs11_context *ctx, int n_connectors,
+                     char **connector_names, yh_connector **connectors);
 bool delete_session(yubihsm_pkcs11_context *ctx,
                     CK_SESSION_HANDLE_PTR phSession);
 CK_RV get_session(yubihsm_pkcs11_context *ctx, CK_SESSION_HANDLE hSession,
@@ -145,5 +145,8 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
                         CK_ULONG ulCount, yh_session *session);
 
 CK_RV validate_derive_key_attribute(CK_ATTRIBUTE_TYPE type, void *value);
+
+CK_RV check_bool_attribute(void *value, bool check);
+CK_RV yrc_to_rv(yh_rc rc);
 
 #endif
