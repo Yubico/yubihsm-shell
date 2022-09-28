@@ -1511,16 +1511,16 @@ yh_rc yh_util_list_objects(yh_session *session, uint16_t id,
   }
 
   *n_objects = response_len / 4;
-  DBG_INFO("Found %zu objects", *n_objects);
 
   for (size_t i = 0; i < *n_objects; i++) {
-    yrc = yh_util_get_object_info(session,
-                                  ntohs(*((uint16_t *) (response + i * 4))),
-                                  response[i * 4 + 2], &objects[i]);
-    if (yrc != YHR_SUCCESS) {
-      return yrc;
-    }
+    // NOTE: clear the fields that we didn't set
+    memset(&objects[i], 0, sizeof(yh_object_descriptor));
+    objects[i].id = ntohs(*((uint16_t *) (response + i * 4)));
+    objects[i].type = response[i * 4 + 2];
+    objects[i].sequence = response[i * 4 + 3];
   }
+
+  DBG_INFO("Found %zu objects", *n_objects);
 
   return YHR_SUCCESS;
 }
