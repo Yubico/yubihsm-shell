@@ -97,11 +97,11 @@ CK_RV yrc_to_rv(yh_rc rc) {
     case YHR_DEVICE_INVALID_SESSION:
       return CKR_SESSION_CLOSED;
     case YHR_DEVICE_AUTHENTICATION_FAILED:
-      return CKR_ENCRYPTED_DATA_INVALID;
+      return CKR_DEVICE_ERROR;
     case YHR_DEVICE_SESSIONS_FULL:
       return CKR_SESSION_COUNT;
     case YHR_DEVICE_SESSION_FAILED:
-      return CKR_SESSION_CLOSED;
+      return CKR_DEVICE_ERROR;
     case YHR_DEVICE_STORAGE_FAILED:
       return CKR_DEVICE_MEMORY;
     case YHR_DEVICE_WRONG_LENGTH:
@@ -115,9 +115,9 @@ CK_RV yrc_to_rv(yh_rc rc) {
     case YHR_DEVICE_INVALID_ID:
       return CKR_OBJECT_HANDLE_INVALID;
     case YHR_DEVICE_INVALID_OTP:
-      return CKR_DATA_INVALID;
+      return CKR_DEVICE_ERROR;
     case YHR_DEVICE_DEMO_MODE:
-      return CKR_TOKEN_NOT_RECOGNIZED;
+      return CKR_FUNCTION_REJECTED;
     case YHR_DEVICE_COMMAND_UNEXECUTED:
       return CKR_DEVICE_ERROR;
     case YHR_GENERIC_ERROR:
@@ -1483,7 +1483,7 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
     case CKA_VALUE: {
       EVP_PKEY *pkey = EVP_PKEY_new();
       if (pkey == NULL) {
-        return CKR_FUNCTION_FAILED;
+        return CKR_HOST_MEMORY;
       }
 
       CK_RV rv = load_public_key(session, object->id, pkey);
@@ -1813,7 +1813,7 @@ CK_RV apply_sign_mechanism_init(yubihsm_pkcs11_op_info *op_info) {
 
   op_info->op.sign.md_ctx = EVP_MD_CTX_create();
   if (op_info->op.sign.md_ctx == NULL) {
-    return CKR_FUNCTION_FAILED;
+    return CKR_HOST_MEMORY;
   }
   if (EVP_DigestInit_ex(op_info->op.sign.md_ctx, md, NULL) == 0) {
     EVP_MD_CTX_destroy(op_info->op.sign.md_ctx);
@@ -1878,7 +1878,7 @@ CK_RV apply_verify_mechanism_init(yubihsm_pkcs11_op_info *op_info) {
   op_info->op.verify.md = md;
   op_info->op.verify.md_ctx = EVP_MD_CTX_create();
   if (op_info->op.verify.md_ctx == NULL) {
-    return CKR_FUNCTION_FAILED;
+    return CKR_HOST_MEMORY;
   }
   if (EVP_DigestInit(op_info->op.verify.md_ctx, md) == 0) {
     EVP_MD_CTX_destroy(op_info->op.verify.md_ctx);
@@ -1921,7 +1921,7 @@ CK_RV apply_encrypt_mechanism_init(yubihsm_pkcs11_session *session,
 
   if (object == NULL) {
     DBG_ERR("Unable to retrieve object");
-    return CKR_FUNCTION_FAILED;
+    return CKR_KEY_HANDLE_INVALID;
   }
 
   session->operation.op.encrypt.oaep_label = NULL;
@@ -2065,7 +2065,7 @@ CK_RV apply_digest_mechanism_init(yubihsm_pkcs11_op_info *op_info) {
 
   op_info->op.digest.md_ctx = EVP_MD_CTX_create();
   if (op_info->op.digest.md_ctx == NULL) {
-    return CKR_FUNCTION_FAILED;
+    return CKR_HOST_MEMORY;
   }
   op_info->op.digest.is_multipart = false;
 
@@ -2430,7 +2430,7 @@ CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
 #endif
 
     if (key == NULL) {
-      rv = CKR_FUNCTION_FAILED;
+      rv = CKR_HOST_MEMORY;
       goto pv_failure;
     }
 
@@ -2441,7 +2441,7 @@ CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
 
     ctx = EVP_PKEY_CTX_new(key, NULL);
     if (ctx == NULL) {
-      rv = CKR_FUNCTION_FAILED;
+      rv = CKR_HOST_MEMORY;
       goto pv_failure;
     }
     if (EVP_PKEY_verify_init(ctx) <= 0) {
@@ -2732,7 +2732,7 @@ CK_RV perform_rsa_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
   EVP_PKEY *public_key = EVP_PKEY_new();
   if (public_key == NULL) {
     DBG_ERR("Failed to create EVP_PKEY object for public key");
-    return CKR_FUNCTION_FAILED;
+    return CKR_HOST_MEMORY;
   }
 
   EVP_PKEY_CTX *ctx = NULL;
@@ -2746,7 +2746,7 @@ CK_RV perform_rsa_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
   ctx = EVP_PKEY_CTX_new(public_key, NULL);
   if (ctx == NULL) {
     DBG_ERR("Failed to create EVP_PKEY_CTX object for public key");
-    rv = CKR_FUNCTION_FAILED;
+    rv = CKR_HOST_MEMORY;
     goto rsa_enc_cleanup;
   }
 
@@ -2758,7 +2758,7 @@ CK_RV perform_rsa_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
   CK_ULONG padding = op_info->op.encrypt.padding;
   if (padding == RSA_NO_PADDING) {
     DBG_ERR("Unsupported padding RSA_NO_PADDING");
-    rv = CKR_FUNCTION_FAILED;
+    rv = CKR_FUNCTION_REJECTED;
     goto rsa_enc_cleanup;
   } else {
     if (EVP_PKEY_CTX_set_rsa_padding(ctx, padding) <= 0) {
@@ -3396,7 +3396,7 @@ static CK_RV parse_ecparams(uint8_t *ecparams, uint16_t ecparams_len,
   const uint8_t *param_ptr = ecparams;
   int curve = 0;
   if (group == NULL) {
-    return CKR_FUNCTION_FAILED;
+    return CKR_HOST_MEMORY;
   }
   if (d2i_ECPKParameters(&group, &param_ptr, ecparams_len) != NULL) {
     curve = EC_GROUP_get_curve_name(group);
