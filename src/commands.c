@@ -1435,6 +1435,12 @@ int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
   fprintf(ctx->out, "Found %zu object(s)\n", num_objects);
   for (size_t i = 0; i < num_objects; i++) {
+    yrc = yh_util_get_object_info(argv[0].e, objects[i].id, objects[i].type,
+                                  &objects[i]);
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr, "Failed to get object info: %s\n", yh_strerror(yrc));
+      return -1;
+    }
     const char *type = "";
     yh_type_to_string(objects[i].type, &type);
     const char *algo = "";
