@@ -154,10 +154,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     }
   }
 
+  CK_RV rv = CKR_OK;
+
   if (g_ctx.create_mutex != NULL) {
-    if (g_ctx.create_mutex(&g_ctx.mutex) != CKR_OK) {
+    rv = g_ctx.create_mutex(&g_ctx.mutex);
+    if (rv != CKR_OK) {
       DBG_ERR("Unable to create global mutex");
-      return CKR_FUNCTION_FAILED;
+      return rv;
     }
   } else {
     g_ctx.mutex = NULL;
@@ -176,7 +179,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
 
   if (cmdline_parser(0, &tmp, &args_info) != 0) {
     DBG_ERR("Unable to initialize ggo structure");
-    return CKR_FUNCTION_FAILED;
+    return CKR_GENERAL_ERROR;
   }
 
   params.initialize = 0;
@@ -191,7 +194,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     args = strdup(init_args->pReserved);
     if (args == NULL) {
       DBG_ERR("Failed copying reserved string");
-      return CKR_FUNCTION_FAILED;
+      return CKR_HOST_MEMORY;
     }
 
     char *str = args;
@@ -206,6 +209,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
         sprintf(args_parsed + len, "--%s ", part);
       } else {
         DBG_ERR("Failed allocating memory for args");
+        rv = CKR_HOST_MEMORY;
         goto c_i_failure;
       }
     }
@@ -215,6 +219,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     if (cmdline_parser_string_ext(args_parsed, &args_info,
                                   "yubihsm_pkcs11 module", &params) != 0) {
       DBG_ERR("Parsing of the reserved init args '%s' failed", args);
+      rv = CKR_GENERAL_ERROR;
       goto c_i_failure;
     }
 
@@ -236,7 +241,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
   if (config_file != NULL &&
       cmdline_parser_config_file(config_file, &args_info, &params) != 0) {
     DBG_ERR("Unable to parse configuration file");
-    return CKR_FUNCTION_FAILED;
+    rv = CKR_GENERAL_ERROR;
+    goto c_i_failure;
   }
 
   yh_dbg_init(args_info.debug_flag, args_info.dinout_flag,
@@ -246,12 +252,15 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
   // here
   if (args_info.connector_given == 0) {
     DBG_ERR("No connector defined");
-    return CKR_FUNCTION_FAILED;
+    rv = CKR_ARGUMENTS_BAD;
+    goto c_i_failure;
   }
 
-  if (yh_init() != YHR_SUCCESS) {
-    DBG_ERR("Unable to initialize libyubihsm");
-    return CKR_FUNCTION_FAILED;
+  yh_rc yrc = yh_init();
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("Unable to initialize libyubihsm: %s", yh_strerror(yrc));
+    rv = yrc_to_rv(yrc);
+    goto c_i_failure;
   }
 
   DBG_INFO("Found %u configured connector(s)", args_info.connector_given);
@@ -259,61 +268,77 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
   connector_list = calloc(args_info.connector_given, sizeof(yh_connector *));
   if (connector_list == NULL) {
     DBG_ERR("Failed allocating memory");
+    rv = CKR_HOST_MEMORY;
     goto c_i_failure;
   }
   size_t n_connectors = 0;
   for (unsigned int i = 0; i < args_info.connector_given; i++) {
-    if (yh_init_connector(args_info.connector_arg[i], &connector_list[i]) !=
-        YHR_SUCCESS) {
-      DBG_ERR("Failed to init connector");
+    yrc = yh_init_connector(args_info.connector_arg[i], &connector_list[i]);
+    if (yrc != YHR_SUCCESS) {
+      DBG_ERR("Failed to init connector: %s", yh_strerror(yrc));
+      rv = yrc_to_rv(yrc);
       goto c_i_failure;
     }
     if (args_info.cacert_given) {
-      if (yh_set_connector_option(connector_list[i], YH_CONNECTOR_HTTPS_CA,
-                                  args_info.cacert_arg) != YHR_SUCCESS) {
-        DBG_ERR("Failed to set HTTPS CA option");
+      yrc = yh_set_connector_option(connector_list[i], YH_CONNECTOR_HTTPS_CA,
+                                    args_info.cacert_arg);
+      if (yrc != YHR_SUCCESS) {
+        DBG_ERR("Failed to set HTTPS CA option: %s", yh_strerror(yrc));
+        rv = yrc_to_rv(yrc);
         goto c_i_failure;
       }
     }
     if (args_info.cert_given) {
-      if (yh_set_connector_option(connector_list[i], YH_CONNECTOR_HTTPS_CERT,
-                                  args_info.cert_arg) != YHR_SUCCESS) {
-        DBG_ERR("Failed to set HTTPS cert option");
+      yrc = yh_set_connector_option(connector_list[i], YH_CONNECTOR_HTTPS_CERT,
+                                    args_info.cert_arg);
+      if (yrc != YHR_SUCCESS) {
+        DBG_ERR("Failed to set HTTPS cert option: %s", yh_strerror(yrc));
+        rv = yrc_to_rv(yrc);
         goto c_i_failure;
       }
     }
     if (args_info.key_given) {
-      if (yh_set_connector_option(connector_list[i], YH_CONNECTOR_HTTPS_KEY,
-                                  args_info.key_arg) != YHR_SUCCESS) {
-        DBG_ERR("Failed to set HTTPS key option");
+      yrc = yh_set_connector_option(connector_list[i], YH_CONNECTOR_HTTPS_KEY,
+                                    args_info.key_arg);
+      if (yrc != YHR_SUCCESS) {
+        DBG_ERR("Failed to set HTTPS key option: %s", yh_strerror(yrc));
+        rv = yrc_to_rv(yrc);
         goto c_i_failure;
       }
     }
     if (args_info.proxy_given) {
-      if (yh_set_connector_option(connector_list[i], YH_CONNECTOR_PROXY_SERVER,
-                                  args_info.proxy_arg) != YHR_SUCCESS) {
-        DBG_ERR("Failed to set proxy server option");
+      yrc =
+        yh_set_connector_option(connector_list[i], YH_CONNECTOR_PROXY_SERVER,
+                                args_info.proxy_arg);
+      if (yrc != YHR_SUCCESS) {
+        DBG_ERR("Failed to set proxy server option: %s", yh_strerror(yrc));
+        rv = yrc_to_rv(yrc);
         goto c_i_failure;
       }
     }
     if (args_info.noproxy_given) {
-      if (yh_set_connector_option(connector_list[i], YH_CONNECTOR_NOPROXY,
-                                  args_info.noproxy_arg) != YHR_SUCCESS) {
-        DBG_ERR("Failed to set noproxy option");
+      yrc = yh_set_connector_option(connector_list[i], YH_CONNECTOR_NOPROXY,
+                                    args_info.noproxy_arg);
+      if (yrc != YHR_SUCCESS) {
+        DBG_ERR("Failed to set noproxy option: %s", yh_strerror(yrc));
+        rv = yrc_to_rv(yrc);
         goto c_i_failure;
       }
     }
 
-    if (yh_connect(connector_list[i], args_info.timeout_arg) != YHR_SUCCESS) {
-      DBG_ERR("Failed to connect '%s'", args_info.connector_arg[i]);
+    yrc = yh_connect(connector_list[i], args_info.timeout_arg);
+    if (yrc != YHR_SUCCESS) {
+      DBG_ERR("Failed to connect to '%s': %s", args_info.connector_arg[i],
+              yh_strerror(yrc));
       continue;
     } else {
       n_connectors++;
     }
   }
 
-  if (add_connectors(&g_ctx, args_info.connector_given, args_info.connector_arg,
-                     connector_list) == false) {
+  rv = add_connectors(&g_ctx, args_info.connector_given,
+                      args_info.connector_arg, connector_list);
+  if (rv != CKR_OK) {
     DBG_ERR("Failed building connectors list");
     goto c_i_failure;
   }
@@ -325,7 +350,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     if (hex_decode(args_info.device_pubkey_arg[i], pk, &pk_len) == false ||
         pk_len != YH_EC_P256_PUBKEY_LEN) {
       DBG_ERR("Invalid device public key configured");
-      return CKR_FUNCTION_FAILED;
+      rv = CKR_ARGUMENTS_BAD;
+      goto c_i_failure;
     }
     list_append(&g_ctx.device_pubkeys, pk);
   }
@@ -366,7 +392,8 @@ c_i_failure:
     g_ctx.mutex = NULL;
   }
 
-  return CKR_FUNCTION_FAILED;
+  DOUT;
+  return rv;
 }
 
 CK_DEFINE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pReserved) {
@@ -646,7 +673,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetTokenInfo)
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Unable to get device version and serial number: %s",
             yh_strerror(yrc));
-    rv = CKR_DEVICE_ERROR;
+    rv = yrc_to_rv(yrc);
     goto c_gt_out;
   }
 
@@ -736,10 +763,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetMechanismList)
   }
 
   CK_RV rv = get_mechanism_list(slot, pMechanismList, pulCount);
-  if (rv == CKR_BUFFER_TOO_SMALL) {
-    DBG_ERR("Mechanism buffer too small");
-    goto c_gml_out;
-  } else if (rv == CKR_FUNCTION_FAILED) {
+  if (rv != CKR_OK) {
     DBG_ERR("Failed getting device info");
     goto c_gml_out;
   }
@@ -776,17 +800,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetMechanismInfo)
     return CKR_SLOT_ID_INVALID;
   }
 
-  CK_RV rv = CKR_OK;
-
-  if (get_mechanism_info(slot, type, pInfo) == false) {
-    DBG_ERR("Invalid mechanism %lu", type);
-    rv = CKR_MECHANISM_INVALID;
-  } else {
-    DOUT;
-  }
+  CK_RV rv = get_mechanism_info(slot, type, pInfo);
 
   release_slot(&g_ctx, slot);
 
+  DOUT;
   return rv;
 }
 
@@ -909,12 +927,15 @@ CK_DEFINE_FUNCTION(CK_RV, C_CloseSession)(CK_SESSION_HANDLE hSession) {
     if (session->slot->pkcs11_sessions.length == 1) {
       // NOTE: if this is the last session and is authenticated we need to
       // de-auth
-      if (yh_util_close_session(session->slot->device_session) != YHR_SUCCESS) {
-        DBG_ERR("Failed closing device session, continuing");
+      yh_rc yrc = yh_util_close_session(session->slot->device_session);
+      if (yrc != YHR_SUCCESS) {
+        DBG_ERR("Failed closing device session: %s, continuing",
+                yh_strerror(yrc));
       }
 
-      if (yh_destroy_session(&session->slot->device_session) != YHR_SUCCESS) {
-        DBG_ERR("Failed destroying session");
+      yrc = yh_destroy_session(&session->slot->device_session);
+      if (yrc != YHR_SUCCESS) {
+        DBG_ERR("Failed destroying session: %s", yh_strerror(yrc));
         // TODO: should we handle the error cases here better?
       }
       session->slot->device_session = NULL;
@@ -960,12 +981,15 @@ CK_DEFINE_FUNCTION(CK_RV, C_CloseAllSessions)(CK_SLOT_ID slotID) {
   DBG_INFO("Closing all sessions for slot %lu", slotID);
 
   if (slot->device_session) {
-    if (yh_util_close_session(slot->device_session) != YHR_SUCCESS) {
-      DBG_ERR("Failed closing device session, continuing");
+    yh_rc yrc = yh_util_close_session(slot->device_session);
+    if (yrc != YHR_SUCCESS) {
+      DBG_ERR("Failed closing device session: %s, continuing",
+              yh_strerror(yrc));
     }
-    if (yh_destroy_session(&slot->device_session) != YHR_SUCCESS) {
+    yrc = yh_destroy_session(&slot->device_session);
+    if (yrc != YHR_SUCCESS) {
       // TODO: handle or ignore these errrors?
-      DBG_ERR("Failed destroying device session");
+      DBG_ERR("Failed destroying device session: %s", yh_strerror(yrc));
     }
     slot->device_session = NULL;
   }
@@ -1169,7 +1193,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
                                      pk_oce, sizeof(pk_oce));
     if (yrc != YHR_SUCCESS) {
       DBG_ERR("Failed to derive asymmetric key: %s", yh_strerror(yrc));
-      rv = CKR_FUNCTION_FAILED;
+      rv = yrc_to_rv(yrc);
       goto c_l_out;
     }
 
@@ -1177,13 +1201,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
                                     NULL);
     if (yrc != YHR_SUCCESS) {
       DBG_ERR("Failed to get device public key: %s", yh_strerror(yrc));
-      rv = CKR_FUNCTION_FAILED;
+      rv = yrc_to_rv(yrc);
       goto c_l_out;
     }
 
     if (pk_sd_len != YH_EC_P256_PUBKEY_LEN) {
       DBG_ERR("Invalid device public key");
-      rv = CKR_FUNCTION_FAILED;
+      rv = CKR_DATA_LEN_RANGE;
       goto c_l_out;
     }
 
@@ -1197,7 +1221,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
 
     if (g_ctx.device_pubkeys.length > 0 && hits == 0) {
       DBG_ERR("Failed to validate device public key");
-      rv = CKR_FUNCTION_FAILED;
+      rv = CKR_FUNCTION_REJECTED;
       goto c_l_out;
     }
 
@@ -1209,7 +1233,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
       if (yrc == YHR_SESSION_AUTHENTICATION_FAILED) {
         rv = CKR_PIN_INCORRECT;
       } else {
-        rv = CKR_FUNCTION_FAILED;
+        rv = yrc_to_rv(yrc);
       }
       goto c_l_out;
     }
@@ -1222,7 +1246,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
       if (yrc == YHR_CRYPTOGRAM_MISMATCH) {
         rv = CKR_PIN_INCORRECT;
       } else {
-        rv = CKR_FUNCTION_FAILED;
+        rv = yrc_to_rv(yrc);
       }
       goto c_l_out;
     }
@@ -1255,15 +1279,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_Logout)(CK_SESSION_HANDLE hSession) {
     return rv;
   }
 
-  if (yh_util_close_session(session->slot->device_session) != YHR_SUCCESS) {
-    DBG_ERR("Failed closing session");
-    rv = CKR_FUNCTION_FAILED;
+  yh_rc yrc = yh_util_close_session(session->slot->device_session);
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("Failed closing session: %s", yh_strerror(yrc));
+    rv = yrc_to_rv(yrc);
     goto c_l_out;
   }
 
-  if (yh_destroy_session(&session->slot->device_session) != YHR_SUCCESS) {
-    DBG_ERR("Failed destroying session");
-    rv = CKR_FUNCTION_FAILED;
+  yrc = yh_destroy_session(&session->slot->device_session);
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("Failed destroying session: %s", yh_strerror(yrc));
+    rv = yrc_to_rv(yrc);
     goto c_l_out;
   }
 
@@ -1385,8 +1411,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
   if (template.exportable == ATTRIBUTE_TRUE) {
     rc = yh_string_to_capabilities("exportable-under-wrap", &capabilities);
     if (rc != YHR_SUCCESS) {
-      DBG_ERR("Failed setting exportable-under-wrap capability");
-      rv = CKR_FUNCTION_FAILED;
+      rv = yrc_to_rv(rc);
       goto c_co_out;
     }
   }
@@ -1409,7 +1434,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       if (template.sign == ATTRIBUTE_TRUE) {
         rc = yh_string_to_capabilities("sign-pkcs,sign-pss", &capabilities);
         if (rc != YHR_SUCCESS) {
-          rv = CKR_FUNCTION_FAILED;
+          rv = yrc_to_rv(rc);
           goto c_co_out;
         }
       }
@@ -1418,17 +1443,18 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
         rc =
           yh_string_to_capabilities("decrypt-pkcs,decrypt-oaep", &capabilities);
         if (rc != YHR_SUCCESS) {
-          rv = CKR_FUNCTION_FAILED;
+          rv = yrc_to_rv(rc);
           goto c_co_out;
         }
       }
 
-      if (yh_util_import_rsa_key(session->slot->device_session, &template.id,
-                                 template.label, 0xffff, &capabilities,
-                                 template.algorithm, template.obj.rsa.p,
-                                 template.obj.rsa.q) != YHR_SUCCESS) {
-        DBG_ERR("Failed writing RSA key to device");
-        rv = CKR_FUNCTION_FAILED;
+      rc = yh_util_import_rsa_key(session->slot->device_session, &template.id,
+                                  template.label, 0xffff, &capabilities,
+                                  template.algorithm, template.obj.rsa.p,
+                                  template.obj.rsa.q);
+      if (rc != YHR_SUCCESS) {
+        DBG_ERR("Failed writing RSA key to device: %s", yh_strerror(rc));
+        rv = yrc_to_rv(rc);
         goto c_co_out;
       }
     } else if (key_type.d == CKK_EC) {
@@ -1443,7 +1469,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       if (template.sign == ATTRIBUTE_TRUE) {
         rc = yh_string_to_capabilities("sign-ecdsa", &capabilities);
         if (rc != YHR_SUCCESS) {
-          rv = CKR_FUNCTION_FAILED;
+          rv = yrc_to_rv(rc);
           goto c_co_out;
         }
       }
@@ -1451,17 +1477,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       if (template.derive == ATTRIBUTE_TRUE) {
         rc = yh_string_to_capabilities("derive-ecdh", &capabilities);
         if (rc != YHR_SUCCESS) {
-          rv = CKR_FUNCTION_FAILED;
+          rv = yrc_to_rv(rc);
           goto c_co_out;
         }
       }
 
-      if (yh_util_import_ec_key(session->slot->device_session, &template.id,
-                                template.label, 0xffff, &capabilities,
-                                template.algorithm,
-                                template.obj.buf) != YHR_SUCCESS) {
-        DBG_ERR("Failed writing EC key to device");
-        rv = CKR_FUNCTION_FAILED;
+      rc = yh_util_import_ec_key(session->slot->device_session, &template.id,
+                                 template.label, 0xffff, &capabilities,
+                                 template.algorithm, template.obj.buf);
+      if (rc != YHR_SUCCESS) {
+        DBG_ERR("Failed writing EC key to device: %s", yh_strerror(rc));
+        rv = yrc_to_rv(rc);
         goto c_co_out;
       }
     } else {
@@ -1487,7 +1513,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       if (template.sign == ATTRIBUTE_TRUE) {
         rc = yh_string_to_capabilities("sign-hmac", &capabilities);
         if (rc != YHR_SUCCESS) {
-          rv = CKR_FUNCTION_FAILED;
+          rv = yrc_to_rv(rc);
           goto c_co_out;
         }
       }
@@ -1495,17 +1521,18 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       if (template.verify == ATTRIBUTE_TRUE) {
         rc = yh_string_to_capabilities("verify-hmac", &capabilities);
         if (rc != YHR_SUCCESS) {
-          rv = CKR_FUNCTION_FAILED;
+          rv = yrc_to_rv(rc);
           goto c_co_out;
         }
       }
 
-      if (yh_util_import_hmac_key(session->slot->device_session, &template.id,
-                                  template.label, 0xffff, &capabilities,
-                                  template.algorithm, template.obj.buf,
-                                  template.objlen) != YHR_SUCCESS) {
-        DBG_ERR("Failed writing HMAC key to device");
-        rv = CKR_FUNCTION_FAILED;
+      rc = yh_util_import_hmac_key(session->slot->device_session, &template.id,
+                                   template.label, 0xffff, &capabilities,
+                                   template.algorithm, template.obj.buf,
+                                   template.objlen);
+      if (rc != YHR_SUCCESS) {
+        DBG_ERR("Failed writing HMAC key to device: %s", yh_strerror(rc));
+        rv = yrc_to_rv(rc);
         goto c_co_out;
       }
     } else if (key_type.d == CKK_YUBICO_AES128_CCM_WRAP ||
@@ -1523,7 +1550,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       if (template.wrap == ATTRIBUTE_TRUE) {
         rc = yh_string_to_capabilities("export-wrapped", &capabilities);
         if (rc != YHR_SUCCESS) {
-          rv = CKR_FUNCTION_FAILED;
+          rv = yrc_to_rv(rc);
           goto c_co_out;
         }
       }
@@ -1531,7 +1558,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       if (template.unwrap == ATTRIBUTE_TRUE) {
         rc = yh_string_to_capabilities("import-wrapped", &capabilities);
         if (rc != YHR_SUCCESS) {
-          rv = CKR_FUNCTION_FAILED;
+          rv = yrc_to_rv(rc);
           goto c_co_out;
         }
       }
@@ -1539,7 +1566,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       if (template.encrypt == ATTRIBUTE_TRUE) {
         rc = yh_string_to_capabilities("wrap-data", &capabilities);
         if (rc != YHR_SUCCESS) {
-          rv = CKR_FUNCTION_FAILED;
+          rv = yrc_to_rv(rc);
           goto c_co_out;
         }
       }
@@ -1547,23 +1574,24 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       if (template.decrypt == ATTRIBUTE_TRUE) {
         rc = yh_string_to_capabilities("unwrap-data", &capabilities);
         if (rc != YHR_SUCCESS) {
-          rv = CKR_FUNCTION_FAILED;
+          rv = yrc_to_rv(rc);
           goto c_co_out;
         }
       }
 
       rc = yh_string_to_capabilities("all", &delegated_capabilities);
       if (rc != YHR_SUCCESS) {
-        rv = CKR_FUNCTION_FAILED;
+        rv = yrc_to_rv(rc);
         goto c_co_out;
       }
 
-      if (yh_util_import_wrap_key(session->slot->device_session, &template.id,
-                                  template.label, 0xffff, &capabilities, algo,
-                                  &delegated_capabilities, template.obj.buf,
-                                  template.objlen) != YHR_SUCCESS) {
-        DBG_ERR("Failed writing WRAP key to device");
-        rv = CKR_FUNCTION_FAILED;
+      rc = yh_util_import_wrap_key(session->slot->device_session, &template.id,
+                                   template.label, 0xffff, &capabilities, algo,
+                                   &delegated_capabilities, template.obj.buf,
+                                   template.objlen);
+      if (rc != YHR_SUCCESS) {
+        DBG_ERR("Failed writing WRAP key to device: %s", yh_strerror(rc));
+        rv = yrc_to_rv(rc);
         goto c_co_out;
       }
     } else {
@@ -1572,12 +1600,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       goto c_co_out;
     }
   } else if (class.d == CKO_CERTIFICATE || class.d == CKO_DATA) {
-    yh_algorithm algo = 0;
+    yh_algorithm algo = YH_ALGO_OPAQUE_DATA;
     type = YH_OPAQUE;
     if (class.d == CKO_CERTIFICATE) {
       algo = YH_ALGO_OPAQUE_X509_CERTIFICATE;
-    } else {
-      algo = YH_ALGO_OPAQUE_DATA;
     }
     for (CK_ULONG i = 0; i < ulCount; i++) {
       switch (pTemplate[i].type) {
@@ -1600,15 +1626,45 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
             goto c_co_out;
           }
           break;
+        case CKA_COPYABLE:
+          if ((rv = check_bool_attribute(pTemplate[i].pValue, false)) !=
+              CKR_OK) {
+            DBG_ERR("Boolean false check failed for attribute 0x%lx",
+                    pTemplate[i].type);
+            return rv;
+          }
+          break;
+        case CKA_PRIVATE:
+        case CKA_SENSITIVE:
+        case CKA_DESTROYABLE:
+          if ((rv = check_bool_attribute(pTemplate[i].pValue, true)) !=
+              CKR_OK) {
+            DBG_ERR("Boolean truth check failed for attribute 0x%lx",
+                    pTemplate[i].type);
+            return rv;
+          }
+          break;
+        case CKA_TOKEN: // pkcs11test sets this to false
+        case CKA_CLASS:
+        case CKA_ID:
+        case CKA_LABEL:
+        case CKA_APPLICATION:
+        case CKA_OBJECT_ID:
+          break;
+        default:
+          DBG_ERR("Invalid attribute type in key template: 0x%lx",
+                  pTemplate[i].type);
+          rv = CKR_ATTRIBUTE_TYPE_INVALID;
+          goto c_co_out;
       }
     }
 
-    if (yh_util_import_opaque(session->slot->device_session, &template.id,
-                              template.label, 0xffff, &capabilities, algo,
-                              template.obj.buf,
-                              template.objlen) != YHR_SUCCESS) {
-      DBG_ERR("Failed writing Opaque object to device");
-      rv = CKR_FUNCTION_FAILED;
+    rc = yh_util_import_opaque(session->slot->device_session, &template.id,
+                               template.label, 0xffff, &capabilities, algo,
+                               template.obj.buf, template.objlen);
+    if (rc != YHR_SUCCESS) {
+      DBG_ERR("Failed writing Opaque object to device: %s", yh_strerror(rc));
+      rv = yrc_to_rv(rc);
       goto c_co_out;
     }
   } else {
@@ -1617,10 +1673,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
   }
 
   yh_object_descriptor object = {0};
-  if (yh_util_get_object_info(session->slot->device_session, template.id, type,
-                              &object) != YHR_SUCCESS) {
-    DBG_ERR("Failed executing get object info after creating");
-    rv = CKR_FUNCTION_FAILED;
+  rc = yh_util_get_object_info(session->slot->device_session, template.id, type,
+                               &object);
+  if (rc != YHR_SUCCESS) {
+    DBG_ERR("Failed executing get object info after creating: %s",
+            yh_strerror(rc));
+    rv = yrc_to_rv(rc);
     goto c_co_out;
   }
   *phObject = object.sequence << 24 | object.type << 16 | object.id;
@@ -1672,7 +1730,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
 
   if (session->operation.type != OPERATION_NOOP) {
     DBG_ERR("Other operation in progress");
-    rv = CKR_FUNCTION_FAILED;
+    rv = CKR_OPERATION_ACTIVE;
     goto c_do_out;
   }
 
@@ -1702,10 +1760,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
       goto c_do_out;
     }
 
-    if (yh_util_delete_object(session->slot->device_session, object->object.id,
-                              object->object.type) != YHR_SUCCESS) {
-      DBG_ERR("Failed deleting object");
-      rv = CKR_FUNCTION_FAILED;
+    yh_rc yrc = yh_util_delete_object(session->slot->device_session,
+                                      object->object.id, object->object.type);
+    if (yrc != YHR_SUCCESS) {
+      DBG_ERR("Failed deleting object: %s", yh_strerror(yrc));
+      rv = yrc_to_rv(yrc);
       goto c_do_out;
     }
 
@@ -1815,7 +1874,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
 
     if ((rv == CKR_OK) && !object_found) {
       DBG_ERR("Unable to retrieve session ECDH key with ID: %08lx", hObject);
-      rv = CKR_FUNCTION_FAILED;
+      rv = CKR_OBJECT_HANDLE_INVALID;
       goto c_gav_out;
     } else if (rv != CKR_OK) {
       goto c_gav_out;
@@ -1828,7 +1887,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
 
     if (object == NULL) {
       DBG_ERR("Unable to retrieve object");
-      rv = CKR_FUNCTION_FAILED;
+      rv = CKR_OBJECT_HANDLE_INVALID;
       goto c_gav_out;
     }
 
@@ -1884,7 +1943,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
                     hObject);
   if (object == NULL) {
     DBG_ERR("Unable to retrieve object");
-    rv = CKR_FUNCTION_FAILED;
+    rv = CKR_OBJECT_HANDLE_INVALID;
     goto c_sav_out;
   }
   for (CK_ULONG i = 0; i < ulCount; i++) {
@@ -2068,8 +2127,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
             rc = yh_string_to_capabilities(
               "sign-pkcs,sign-pss,sign-ecdsa,sign-hmac", &capabilities);
             if (rc != YHR_SUCCESS) {
-              DBG_ERR("Failed to parse capabilities: %s", yh_strerror(rc));
-              rv = CKR_FUNCTION_FAILED;
+              rv = yrc_to_rv(rc);
               goto c_foi_out;
             }
           }
@@ -2083,8 +2141,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
                                         "unwrap-data",
                                         &capabilities);
             if (rc != YHR_SUCCESS) {
-              DBG_ERR("Failed to parse capabilities: %s", yh_strerror(rc));
-              rv = CKR_FUNCTION_FAILED;
+              rv = yrc_to_rv(rc);
               goto c_foi_out;
             }
           }
@@ -2095,8 +2152,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
             type = YH_WRAP_KEY;
             rc = yh_string_to_capabilities("wrap-data", &capabilities);
             if (rc != YHR_SUCCESS) {
-              DBG_ERR("Failed to parse capabilities: %s", yh_strerror(rc));
-              rv = CKR_FUNCTION_FAILED;
+              rv = yrc_to_rv(rc);
               goto c_foi_out;
             }
           }
@@ -2107,8 +2163,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
             type = YH_WRAP_KEY;
             rc = yh_string_to_capabilities("export-wrapped", &capabilities);
             if (rc != YHR_SUCCESS) {
-              DBG_ERR("Failed to parse capabilities: %s", yh_strerror(rc));
-              rv = CKR_FUNCTION_FAILED;
+              rv = yrc_to_rv(rc);
               goto c_foi_out;
             }
           }
@@ -2119,8 +2174,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
             type = YH_WRAP_KEY;
             rc = yh_string_to_capabilities("import-wrapped", &capabilities);
             if (rc != YHR_SUCCESS) {
-              DBG_ERR("Failed to parse capabilities: %s", yh_strerror(rc));
-              rv = CKR_FUNCTION_FAILED;
+              rv = yrc_to_rv(rc);
               goto c_foi_out;
             }
           }
@@ -2133,8 +2187,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
             rc =
               yh_string_to_capabilities("exportable-under-wrap", &capabilities);
             if (rc != YHR_SUCCESS) {
-              DBG_ERR("Failed to parse capabilities: %s", yh_strerror(rc));
-              rv = CKR_FUNCTION_FAILED;
+              rv = yrc_to_rv(rc);
               goto c_foi_out;
             }
           }
@@ -2173,8 +2226,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
                                 &capabilities, algorithm, label, tmp_objects,
                                 &tmp_n_objects);
       if (rc != YHR_SUCCESS) {
-        DBG_ERR("Failed to get object list");
-        rv = CKR_FUNCTION_FAILED;
+        DBG_ERR("Failed to get object list: %s", yh_strerror(rc));
+        rv = yrc_to_rv(rc);
         goto c_foi_out;
       }
       for (size_t i = 0; i < tmp_n_objects; i++) {
@@ -2193,8 +2246,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
                                 session->operation.op.find.objects,
                                 &session->operation.op.find.n_objects);
       if (rc != YHR_SUCCESS) {
-        DBG_ERR("Failed to get object list");
-        rv = CKR_FUNCTION_FAILED;
+        DBG_ERR("Failed to get object list: %s", yh_strerror(rc));
+        rv = yrc_to_rv(rc);
         goto c_foi_out;
       }
       found_objects = session->operation.op.find.n_objects;
@@ -2404,9 +2457,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptInit)
     goto c_ei_out;
   }
 
-  if (check_decrypt_mechanism(session->slot, pMechanism) != true) {
+  rv = check_decrypt_mechanism(session->slot, pMechanism);
+  if (rv != CKR_OK) {
     DBG_ERR("Encryption mechanism %lu not supported", pMechanism->mechanism);
-    rv = CKR_MECHANISM_INVALID;
     goto c_ei_out;
   }
 
@@ -2416,7 +2469,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptInit)
   rv = apply_encrypt_mechanism_init(session, pMechanism, hKey);
   if (rv != CKR_OK) {
     DBG_ERR("Failed to initialize encryption operation");
-    rv = CKR_FUNCTION_FAILED;
     goto c_ei_out;
   }
 
@@ -2712,13 +2764,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
 
   if (object == NULL) {
     DBG_ERR("Unable to retrieve object");
-    rv = CKR_FUNCTION_FAILED;
+    rv = CKR_KEY_HANDLE_INVALID;
     goto c_di_out;
   }
 
-  if (check_decrypt_mechanism(session->slot, pMechanism) != true) {
+  rv = check_decrypt_mechanism(session->slot, pMechanism);
+  if (rv != CKR_OK) {
     DBG_ERR("Decryption mechanism %lu not supported", pMechanism->mechanism);
-    rv = CKR_MECHANISM_INVALID;
     goto c_di_out;
   }
   session->operation.mechanism.mechanism = pMechanism->mechanism;
@@ -2731,7 +2783,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
     yh_rc yrc = yh_get_key_bitlength(object->object.algorithm, &key_length);
     if (yrc != YHR_SUCCESS) {
       DBG_ERR("Unable to get key length: %s", yh_strerror(yrc));
-      rv = CKR_FUNCTION_FAILED;
+      rv = yrc_to_rv(yrc);
       goto c_di_out;
     }
 
@@ -2799,7 +2851,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
       }
       mdctx = EVP_MD_CTX_create();
       if (mdctx == NULL) {
-        rv = CKR_FUNCTION_FAILED;
+        rv = CKR_HOST_MEMORY;
         goto c_di_out;
       }
 
@@ -3175,9 +3227,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_DigestInit)
   DBG_INFO("Trying to digest data with mechanism 0x%04lx",
            pMechanism->mechanism);
 
-  if (check_digest_mechanism(pMechanism) != true) {
+  rv = check_digest_mechanism(pMechanism);
+  if (rv != CKR_OK) {
     DBG_ERR("Digest mechanism %lu not supported", pMechanism->mechanism);
-    rv = CKR_MECHANISM_INVALID;
     goto c_di_out;
   }
   session->operation.mechanism.mechanism = pMechanism->mechanism;
@@ -3519,7 +3571,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_SignInit)
 
   if (object == NULL) {
     DBG_ERR("Unable to retrieve object");
-    rv = CKR_FUNCTION_FAILED;
+    rv = CKR_KEY_HANDLE_INVALID;
     goto c_si_out;
   }
 
@@ -3527,15 +3579,15 @@ CK_DEFINE_FUNCTION(CK_RV, C_SignInit)
   yh_rc yrc = yh_get_key_bitlength(object->object.algorithm, &key_length);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Unable to get key length: %s", yh_strerror(yrc));
-    rv = CKR_FUNCTION_FAILED;
+    rv = yrc_to_rv(yrc);
     goto c_si_out;
   }
 
   session->operation.op.sign.key_len = key_length;
 
-  if (check_sign_mechanism(session->slot, pMechanism) != true) {
+  rv = check_sign_mechanism(session->slot, pMechanism);
+  if (rv != CKR_OK) {
     DBG_ERR("Signing mechanism %lu not supported", pMechanism->mechanism);
-    rv = CKR_MECHANISM_INVALID;
     goto c_si_out;
   }
   session->operation.mechanism.mechanism =
@@ -3941,7 +3993,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_VerifyInit)
 
   if (object == NULL) {
     DBG_ERR("Unable to retrieve object");
-    rv = CKR_FUNCTION_FAILED;
+    rv = CKR_KEY_HANDLE_INVALID;
     goto c_vi_out;
   }
 
@@ -3949,15 +4001,15 @@ CK_DEFINE_FUNCTION(CK_RV, C_VerifyInit)
   yh_rc yrc = yh_get_key_bitlength(object->object.algorithm, &key_length);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Unable to get key length: %s", yh_strerror(yrc));
-    rv = CKR_FUNCTION_FAILED;
+    rv = yrc_to_rv(yrc);
     goto c_vi_out;
   }
 
   session->operation.op.verify.key_len = key_length;
 
-  if (check_sign_mechanism(session->slot, pMechanism) != true) {
+  rv = check_sign_mechanism(session->slot, pMechanism);
+  if (rv != CKR_OK) {
     DBG_ERR("Verification mechanism %lu not supported", pMechanism->mechanism);
-    rv = CKR_MECHANISM_INVALID;
     goto c_vi_out;
   }
   session->operation.mechanism.mechanism =
@@ -4437,7 +4489,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
   if (template.exportable == ATTRIBUTE_TRUE) {
     rc = yh_string_to_capabilities("exportable-under-wrap", &capabilities);
     if (rc != YHR_SUCCESS) {
-      rv = CKR_FUNCTION_FAILED;
+      rv = yrc_to_rv(rc);
       goto c_gk_out;
     }
   }
@@ -4454,7 +4506,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
       if (template.sign == ATTRIBUTE_TRUE) {
         rc = yh_string_to_capabilities("sign-hmac", &capabilities);
         if (rc != YHR_SUCCESS) {
-          rv = CKR_FUNCTION_FAILED;
+          rv = yrc_to_rv(rc);
           goto c_gk_out;
         }
       }
@@ -4462,16 +4514,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
       if (template.verify == ATTRIBUTE_TRUE) {
         rc = yh_string_to_capabilities("verify-hmac", &capabilities);
         if (rc != YHR_SUCCESS) {
-          rv = CKR_FUNCTION_FAILED;
+          rv = yrc_to_rv(rc);
           goto c_gk_out;
         }
       }
 
-      if (yh_util_generate_hmac_key(session->slot->device_session, &template.id,
-                                    template.label, 0xffff, &capabilities,
-                                    template.algorithm) != YHR_SUCCESS) {
-        DBG_ERR("Failed generating HMAC key");
-        rv = CKR_FUNCTION_FAILED;
+      rc = yh_util_generate_hmac_key(session->slot->device_session,
+                                     &template.id, template.label, 0xffff,
+                                     &capabilities, template.algorithm);
+      if (rc != YHR_SUCCESS) {
+        DBG_ERR("Failed generating HMAC key: %s", yh_strerror(rc));
+        rv = yrc_to_rv(rc);
         goto c_gk_out;
       }
     } else if (key_type.d == CKK_YUBICO_AES128_CCM_WRAP ||
@@ -4489,7 +4542,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
       if (template.wrap == ATTRIBUTE_TRUE) {
         rc = yh_string_to_capabilities("export-wrapped", &capabilities);
         if (rc != YHR_SUCCESS) {
-          rv = CKR_FUNCTION_FAILED;
+          rv = yrc_to_rv(rc);
           goto c_gk_out;
         }
       }
@@ -4497,7 +4550,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
       if (template.unwrap == ATTRIBUTE_TRUE) {
         rc = yh_string_to_capabilities("import-wrapped", &capabilities);
         if (rc != YHR_SUCCESS) {
-          rv = CKR_FUNCTION_FAILED;
+          rv = yrc_to_rv(rc);
           goto c_gk_out;
         }
       }
@@ -4505,7 +4558,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
       if (template.encrypt == ATTRIBUTE_TRUE) {
         rc = yh_string_to_capabilities("wrap-data", &capabilities);
         if (rc != YHR_SUCCESS) {
-          rv = CKR_FUNCTION_FAILED;
+          rv = yrc_to_rv(rc);
           goto c_gk_out;
         }
       }
@@ -4513,22 +4566,24 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
       if (template.decrypt == ATTRIBUTE_TRUE) {
         rc = yh_string_to_capabilities("unwrap-data", &capabilities);
         if (rc != YHR_SUCCESS) {
-          rv = CKR_FUNCTION_FAILED;
+          rv = yrc_to_rv(rc);
           goto c_gk_out;
         }
       }
 
       rc = yh_string_to_capabilities("all", &delegated_capabilities);
       if (rc != YHR_SUCCESS) {
-        rv = CKR_FUNCTION_FAILED;
+        rv = yrc_to_rv(rc);
         goto c_gk_out;
       }
 
-      if (yh_util_generate_wrap_key(session->slot->device_session, &template.id,
-                                    template.label, 0xffff, &capabilities, algo,
-                                    &delegated_capabilities) != YHR_SUCCESS) {
-        DBG_ERR("Failed generating wrap key");
-        rv = CKR_FUNCTION_FAILED;
+      rc =
+        yh_util_generate_wrap_key(session->slot->device_session, &template.id,
+                                  template.label, 0xffff, &capabilities, algo,
+                                  &delegated_capabilities);
+      if (rc != YHR_SUCCESS) {
+        DBG_ERR("Failed generating wrap key: %s", yh_strerror(rc));
+        rv = yrc_to_rv(rc);
         goto c_gk_out;
       }
     } else {
@@ -4542,10 +4597,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
   }
 
   yh_object_descriptor object = {0};
-  if (yh_util_get_object_info(session->slot->device_session, template.id, type,
-                              &object) != YHR_SUCCESS) {
-    DBG_ERR("Failed getting new object %04x", template.id);
-    rv = CKR_FUNCTION_FAILED;
+  rc = yh_util_get_object_info(session->slot->device_session, template.id, type,
+                               &object);
+  if (rc != YHR_SUCCESS) {
+    DBG_ERR("Failed getting new object %04x: %s", template.id, yh_strerror(rc));
+    rv = yrc_to_rv(rc);
     goto c_gk_out;
   }
   *phKey = object.sequence << 24 | object.type << 16 | object.id;
@@ -4623,7 +4679,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
   if (template.exportable == ATTRIBUTE_TRUE) {
     rc = yh_string_to_capabilities("exportable-under-wrap", &capabilities);
     if (rc != YHR_SUCCESS) {
-      rv = CKR_FUNCTION_FAILED;
+      rv = yrc_to_rv(rc);
       goto c_gkp_out;
     }
   }
@@ -4635,7 +4691,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
     if (template.sign == ATTRIBUTE_TRUE) {
       rc = yh_string_to_capabilities("sign-pkcs,sign-pss", &capabilities);
       if (rc != YHR_SUCCESS) {
-        rv = CKR_FUNCTION_FAILED;
+        rv = yrc_to_rv(rc);
         goto c_gkp_out;
       }
     }
@@ -4644,7 +4700,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
       rc =
         yh_string_to_capabilities("decrypt-pkcs,decrypt-oaep", &capabilities);
       if (rc != YHR_SUCCESS) {
-        rv = CKR_FUNCTION_FAILED;
+        rv = yrc_to_rv(rc);
         goto c_gkp_out;
       }
     }
@@ -4653,8 +4709,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
                                   template.label, 0xffff, &capabilities,
                                   template.algorithm);
     if (rc != YHR_SUCCESS) {
-      DBG_ERR("Failed writing RSA key to device");
-      rv = CKR_FUNCTION_FAILED;
+      DBG_ERR("Failed generating RSA key on device: %s", yh_strerror(rc));
+      rv = yrc_to_rv(rc);
       goto c_gkp_out;
     }
   } else {
@@ -4662,16 +4718,15 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
     if (template.sign == ATTRIBUTE_TRUE) {
       rc = yh_string_to_capabilities("sign-ecdsa", &capabilities);
       if (rc != YHR_SUCCESS) {
-        rv = CKR_FUNCTION_FAILED;
+        rv = yrc_to_rv(rc);
         goto c_gkp_out;
       }
     }
 
     if (template.derive == ATTRIBUTE_TRUE) {
       rc = yh_string_to_capabilities("derive-ecdh", &capabilities);
-
       if (rc != YHR_SUCCESS) {
-        rv = CKR_FUNCTION_FAILED;
+        rv = yrc_to_rv(rc);
         goto c_gkp_out;
       }
     }
@@ -4680,16 +4735,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
                                  template.label, 0xffff, &capabilities,
                                  template.algorithm);
     if (rc != YHR_SUCCESS) {
-      DBG_ERR("Failed writing EC key to device");
-      rv = CKR_FUNCTION_FAILED;
+      DBG_ERR("Failed generating EC key on device: %s", yh_strerror(rc));
+      rv = yrc_to_rv(rc);
       goto c_gkp_out;
     }
   }
 
   yh_object_descriptor object = {0};
-  if (yh_util_get_object_info(session->slot->device_session, template.id,
-                              YH_ASYMMETRIC_KEY, &object) != YHR_SUCCESS) {
-    rv = CKR_FUNCTION_FAILED;
+  rc = yh_util_get_object_info(session->slot->device_session, template.id,
+                               YH_ASYMMETRIC_KEY, &object);
+  if (rc != YHR_SUCCESS) {
+    rv = yrc_to_rv(rc);
     goto c_gkp_out;
   }
   *phPublicKey = object.sequence << 24 | (object.type | 0x80) << 16 | object.id;
@@ -4762,9 +4818,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_WrapKey)
     goto c_wk_out;
   }
 
-  if (check_wrap_mechanism(session->slot, pMechanism) != true) {
+  rv = check_wrap_mechanism(session->slot, pMechanism);
+  if (rv != CKR_OK) {
     DBG_ERR("Wrapping mechanism %lu not supported", pMechanism->mechanism);
-    rv = CKR_MECHANISM_INVALID;
     goto c_wk_out;
   }
 
@@ -4799,7 +4855,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_WrapKey)
                            object->object.type, object->object.id, buf, &len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Wrapping failed: %s", yh_strerror(yrc));
-    rv = CKR_FUNCTION_FAILED;
+    rv = yrc_to_rv(yrc);
     goto c_wk_out;
   }
 
@@ -4864,9 +4920,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_UnwrapKey)
     goto c_uk_out;
   }
 
-  if (check_wrap_mechanism(session->slot, pMechanism) != true) {
+  rv = check_wrap_mechanism(session->slot, pMechanism);
+  if (rv != CKR_OK) {
     DBG_ERR("Wrapping mechanism %lu not supported", pMechanism->mechanism);
-    rv = CKR_MECHANISM_INVALID;
     goto c_uk_out;
   }
 
@@ -4893,14 +4949,15 @@ CK_DEFINE_FUNCTION(CK_RV, C_UnwrapKey)
                                      ulWrappedKeyLen, &target_type, &target_id);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Unwrapping failed: %s", yh_strerror(yrc));
-    rv = CKR_FUNCTION_FAILED;
+    rv = yrc_to_rv(yrc);
     goto c_uk_out;
   }
 
   yh_object_descriptor object = {0};
-  if (yh_util_get_object_info(session->slot->device_session, target_id,
-                              target_type, &object) != YHR_SUCCESS) {
-    rv = CKR_FUNCTION_FAILED;
+  yrc = yh_util_get_object_info(session->slot->device_session, target_id,
+                                target_type, &object);
+  if (yrc != YHR_SUCCESS) {
+    rv = yrc_to_rv(yrc);
     goto c_uk_out;
   }
   *phKey = object.sequence << 24 | object.type << 16 | object.id;
@@ -5008,7 +5065,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
     DBG_ERR("There are already %d ECDH keys available for this session. "
             "Cannot derive more",
             MAX_ECDH_SESSION_KEYS);
-    rv = CKR_FUNCTION_FAILED;
+    rv = CKR_FUNCTION_REJECTED;
     goto c_drv_out;
   }
 
@@ -5017,16 +5074,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
 
   ecdh_session_key ecdh_key = {0};
   size_t out_len = sizeof(ecdh_key.ecdh_key);
-  rv = yh_util_derive_ecdh(session->slot->device_session, privkey_id, pubkey,
-                           in_len, ecdh_key.ecdh_key, &out_len);
-  if (rv != CKR_OK) {
-    DBG_ERR("Unable to derive ECDH key: %s", yh_strerror(rv));
+  yh_rc rc = yh_util_derive_ecdh(session->slot->device_session, privkey_id,
+                                 pubkey, in_len, ecdh_key.ecdh_key, &out_len);
+  if (rc != YHR_SUCCESS) {
+    DBG_ERR("Unable to derive ECDH key: %s", yh_strerror(rc));
+    rv = yrc_to_rv(rc);
     goto c_drv_out;
   }
 
   if ((expected_key_length > 0) && (expected_key_length != out_len)) {
     DBG_ERR("Failed to derive a key with the expected length");
-    rv = CKR_FUNCTION_FAILED;
+    rv = CKR_DATA_LEN_RANGE;
     goto c_drv_out;
   }
 
@@ -5094,15 +5152,15 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateRandom)
     yh_rc rc = yh_util_get_pseudo_random(session->slot->device_session,
                                          ulRandomLen, pRandomData, &len);
     if (rc != YHR_SUCCESS) {
-      DBG_ERR("Failed to get random data");
-      rv = CKR_FUNCTION_FAILED;
+      DBG_ERR("Failed to get random data: %s", yh_strerror(rc));
+      rv = yrc_to_rv(rc);
       goto c_gr_out;
     }
   }
 
   if (len != ulRandomLen) {
     DBG_ERR("Incorrect amount of data returned");
-    rv = CKR_FUNCTION_FAILED;
+    rv = CKR_DATA_LEN_RANGE;
     goto c_gr_out;
   }
 
