@@ -135,8 +135,8 @@ int main(void) {
   int nid = algo2nid(YH_ALGO_EC_P256);
   EC_POINT *point;
   EC_GROUP *group = EC_GROUP_new_by_curve_name(nid);
-
-  EC_GROUP_set_asn1_flag(group, nid);
+  assert(group != NULL);
+  EC_GROUP_set_asn1_flag(group, OPENSSL_EC_NAMED_CURVE);
   EC_KEY_set_group(eckey, group);
   point = EC_POINT_new(group);
 
