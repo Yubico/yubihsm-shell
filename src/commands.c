@@ -2484,7 +2484,7 @@ int yh_com_reset(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(fmt);
 
   yh_rc yrc = yh_util_reset_device(argv[0].e);
-  if (yrc != YHR_CONNECTION_ERROR && yrc != YHR_SUCCESS) {
+  if (yrc != YHR_CONNECTOR_ERROR && yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to reset device: %s\n", yh_strerror(yrc));
     return -1;
   }
