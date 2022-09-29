@@ -1093,7 +1093,7 @@ static bool load_public_key(yh_session *session, uint16_t id, EVP_PKEY *key) {
 
     // NOTE: this call is important since it makes it a named curve instead of
     // encoded parameters
-    EC_GROUP_set_asn1_flag(ec_group, algo2nid(algo));
+    EC_GROUP_set_asn1_flag(ec_group, OPENSSL_EC_NAMED_CURVE);
 
     if (EC_KEY_set_group(ec_key, ec_group) == 0) {
       goto l_p_k_failure;

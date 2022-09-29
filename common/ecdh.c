@@ -184,6 +184,7 @@ int ecdh_calculate_public_key(int curve, const uint8_t *privkey,
   if (ctx == NULL || order == NULL || pvt == NULL || group == NULL) {
     goto err;
   }
+  EC_GROUP_set_asn1_flag(group, OPENSSL_EC_NAMED_CURVE);
   if (BN_is_zero(pvt) || !EC_GROUP_get_order(group, order, ctx) ||
       BN_cmp(pvt, order) >= 0) {
     goto err;

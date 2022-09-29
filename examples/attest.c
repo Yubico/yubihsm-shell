@@ -169,7 +169,7 @@ int main(void) {
   assert(nid);
   EC_GROUP *group = EC_GROUP_new_by_curve_name(nid);
   assert(group != NULL);
-  EC_GROUP_set_asn1_flag(group, nid);
+  EC_GROUP_set_asn1_flag(group, OPENSSL_EC_NAMED_CURVE);
 
   EC_POINT *point = EC_POINT_new(group);
   assert(point != NULL);

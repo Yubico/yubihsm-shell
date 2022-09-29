@@ -967,7 +967,7 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
       goto ec_cleanup;
     }
 
-    EC_GROUP_set_asn1_flag(group, nid);
+    EC_GROUP_set_asn1_flag(group, OPENSSL_EC_NAMED_CURVE);
     if (EC_KEY_set_group(eckey, group) != 1) {
       fprintf(stderr, "Failed to set EC group\n");
       error = true;
@@ -1102,7 +1102,7 @@ int yh_com_get_device_pubkey(yubihsm_context *ctx, Argument *argv,
     fprintf(stderr, "Invalid device public key algorithm\n");
     return -1;
   }
-  EC_GROUP_set_asn1_flag(group, nid);
+  EC_GROUP_set_asn1_flag(group, OPENSSL_EC_NAMED_CURVE);
 
   EC_KEY *eckey = EC_KEY_new();
   EC_KEY_set_group(eckey, group);
