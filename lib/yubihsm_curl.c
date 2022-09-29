@@ -77,7 +77,7 @@ static yh_rc backend_init(uint8_t verbosity, FILE *output) {
     CURL_GLOBAL_DEFAULT); // NOTE(adma): this funciton is not thread safe
   if (rc != CURLE_OK) {
     DBG_ERR("%s", curl_easy_strerror(rc));
-    return YHR_CONNECTION_ERROR;
+    return YHR_CONNECTOR_ERROR;
   }
 
   return YHR_SUCCESS;
@@ -156,7 +156,6 @@ static void backend_disconnect(yh_backend *connection) {
 static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
                               const char *identifier) {
   CURLcode rc;
-  yh_rc yrc = YHR_CONNECTION_ERROR;
   int32_t trf_len = ntohs(msg->st.len) + 3;
   struct curl_data data = {response->raw,
                            response->raw + sizeof(response->raw)};
@@ -207,7 +206,7 @@ sm_failure:
     DBG_ERR("Curl perform failed: '%s'", curl_easy_strerror(rc));
   }
 
-  return yrc;
+  return YHR_CONNECTOR_ERROR;
 }
 
 static void backend_cleanup(void) {

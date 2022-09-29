@@ -90,18 +90,18 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
       usb_close(connection);
       if (usb_open_device(connection) == false) {
         DBG_ERR("Failed reconnecting device");
-        return YHR_CONNECTION_ERROR;
+        return YHR_CONNECTOR_ERROR;
       }
     }
     if (usb_write(connection, msg->raw, trf_len) == 0) {
-      ret = YHR_CONNECTION_ERROR;
+      ret = YHR_CONNECTOR_ERROR;
       DBG_ERR("USB write failed");
       continue;
     }
 
     read_len = sizeof(response->raw);
     if (usb_read(connection, response->raw, &read_len) == 0) {
-      ret = YHR_CONNECTION_ERROR;
+      ret = YHR_CONNECTOR_ERROR;
       DBG_ERR("USB read failed");
       continue;
     }
