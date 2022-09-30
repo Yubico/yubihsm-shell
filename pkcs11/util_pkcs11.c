@@ -43,7 +43,9 @@
 #include "../common/insecure_memzero.h"
 
 #define UNUSED(x) (void) (x)
+#define ASN1_OCTET_STRING 0x04
 #define ASN1_OID 0x06
+#define ASN1_PRINTABLE_STRING 0x13
 static const uint8_t oid_secp224r1[] = {ASN1_OID, 0x05, 0x2b, 0x81,
                                         0x04,     0x00, 0x21};
 static const uint8_t oid_secp256r1[] = {ASN1_OID, 0x08, 0x2a, 0x86, 0x48,
@@ -63,8 +65,20 @@ static const uint8_t oid_brainpool384r1[] = {ASN1_OID, 0x09, 0x2b, 0x24,
 static const uint8_t oid_brainpool512r1[] = {ASN1_OID, 0x09, 0x2b, 0x24,
                                              0x03,     0x03, 0x02, 0x08,
                                              0x01,     0x01, 0x0d};
-static const uint8_t oid_ed25519[] = {0x13, 0x0c, 0x65, 0x64, 0x77, 0x61, 0x72,
-                                      0x64, 0x73, 0x32, 0x35, 0x35, 0x31, 0x39};
+static const uint8_t oid_ed25519[] = {ASN1_PRINTABLE_STRING,
+                                      0x0c,
+                                      0x65,
+                                      0x64,
+                                      0x77,
+                                      0x61,
+                                      0x72,
+                                      0x64,
+                                      0x73,
+                                      0x32,
+                                      0x35,
+                                      0x35,
+                                      0x31,
+                                      0x39};
 
 CK_RV yrc_to_rv(yh_rc rc) {
   switch (rc) {
@@ -134,6 +148,22 @@ CK_RV yrc_to_rv(yh_rc rc) {
       return CKR_FUNCTION_REJECTED;
     default:
       return CKR_GENERAL_ERROR;
+  }
+}
+
+static CK_ULONG encode_length(CK_BYTE_PTR buffer, CK_ULONG length) {
+  if (length < 0x80) {
+    *buffer++ = length;
+    return 1;
+  } else if (length < 0x100) {
+    *buffer++ = 0x81;
+    *buffer++ = length;
+    return 2;
+  } else {
+    *buffer++ = 0x82;
+    *buffer++ = (length >> 8) & 0xff;
+    *buffer++ = length & 0xff;
+    return 3;
   }
 }
 
@@ -1673,12 +1703,9 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
         }
 
         uint8_t *p = value;
-        *p++ = 0x04;
-        if (resplen + 1 >= 0x80) {
-          *p++ = 0x81;
-        }
-        *p++ = resplen + 1;
-        *p++ = 0x04;
+        *p++ = ASN1_OCTET_STRING;
+        p += encode_length(p, resplen + 1);
+        *p++ = 0x04; // UNCOMPRESSED POINT
         memcpy(p, resp, resplen);
         p += resplen;
         *length = p - (uint8_t *) value;
@@ -1693,14 +1720,25 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
         }
 
         uint8_t *p = value;
-        *p++ = 0x04;
-        if (resplen >= 0x80) {
-          *p++ = 0x81;
-        }
-        *p++ = resplen;
+        *p++ = ASN1_OCTET_STRING;
+        p += encode_length(p, resplen);
         memcpy(p, resp, resplen);
         p += resplen;
         *length = p - (uint8_t *) value;
+      } else {
+        return CKR_ATTRIBUTE_TYPE_INVALID;
+      }
+      break;
+
+    case CKA_MODULUS_BITS:
+      if (yh_is_rsa(object->algorithm)) {
+        size_t key_length = 0;
+        yh_rc yrc = yh_get_key_bitlength(object->algorithm, &key_length);
+        if (yrc != YHR_SUCCESS) {
+          return yrc_to_rv(yrc);
+        }
+        *(CK_ULONG *) value = key_length;
+        *length = sizeof(CK_ULONG);
       } else {
         return CKR_ATTRIBUTE_TYPE_INVALID;
       }
@@ -2078,12 +2116,9 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
         }
 
         uint8_t *p = value;
-        *p++ = 0x04;
-        if (resplen + 1 >= 0x80) {
-          *p++ = 0x81;
-        }
-        *p++ = resplen + 1;
-        *p++ = 0x04;
+        *p++ = ASN1_OCTET_STRING;
+        p += encode_length(p, resplen + 1);
+        *p++ = 0x04; // UNCOMPRESSED POINT
         memcpy(p, resp, resplen);
         p += resplen;
         *length = p - (uint8_t *) value;
@@ -2098,11 +2133,8 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
         }
 
         uint8_t *p = value;
-        *p++ = 0x04;
-        if (resplen >= 0x80) {
-          *p++ = 0x81;
-        }
-        *p++ = resplen;
+        *p++ = ASN1_OCTET_STRING;
+        p += encode_length(p, resplen);
         memcpy(p, resp, resplen);
         p += resplen;
         *length = p - (uint8_t *) value;
