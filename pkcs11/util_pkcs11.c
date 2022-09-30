@@ -1072,6 +1072,10 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
           oid = oid_brainpool512r1;
           *length = sizeof(oid_brainpool512r1);
           break;
+        case YH_ALGO_EC_ED25519:
+          oid = oid_ed25519;
+          *length = sizeof(oid_ed25519);
+          break;
         default:
           return CKR_ATTRIBUTE_TYPE_INVALID;
       }
@@ -1096,6 +1100,25 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
         }
         *p++ = resplen + 1;
         *p++ = 0x04;
+        memcpy(p, resp, resplen);
+        p += resplen;
+        *length = p - (uint8_t *) value;
+      } else if (yh_is_ed(object->algorithm)) {
+        uint8_t resp[2048];
+        size_t resplen = sizeof(resp);
+
+        yh_rc yrc =
+          yh_util_get_public_key(session, object->id, resp, &resplen, NULL);
+        if (yrc != YHR_SUCCESS) {
+          return yrc_to_rv(yrc);
+        }
+
+        uint8_t *p = value;
+        *p++ = 0x04;
+        if (resplen >= 0x80) {
+          *p++ = 0x81;
+        }
+        *p++ = resplen;
         memcpy(p, resp, resplen);
         p += resplen;
         *length = p - (uint8_t *) value;
@@ -1483,6 +1506,25 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
         }
         *p++ = resplen + 1;
         *p++ = 0x04;
+        memcpy(p, resp, resplen);
+        p += resplen;
+        *length = p - (uint8_t *) value;
+      } else if (yh_is_ed(object->algorithm)) {
+        uint8_t resp[2048];
+        size_t resplen = sizeof(resp);
+
+        yh_rc yrc =
+          yh_util_get_public_key(session, object->id, resp, &resplen, NULL);
+        if (yrc != YHR_SUCCESS) {
+          return yrc_to_rv(yrc);
+        }
+
+        uint8_t *p = value;
+        *p++ = 0x04;
+        if (resplen >= 0x80) {
+          *p++ = 0x81;
+        }
+        *p++ = resplen;
         memcpy(p, resp, resplen);
         p += resplen;
         *length = p - (uint8_t *) value;
@@ -4373,6 +4415,9 @@ CK_RV parse_ed_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_TOKEN:
+      case CKA_EXTRACTABLE:
+      case CKA_DESTROYABLE:
+      case CKA_VERIFY:
         if ((rv = check_bool_attribute(pPublicKeyTemplate[i].pValue, true)) !=
             CKR_OK) {
           DBG_ERR("Boolean truth check failed for attribute 0x%lx",
@@ -4381,11 +4426,18 @@ CK_RV parse_ed_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         }
         break;
 
+      case CKA_SENSITIVE:
+      case CKA_PRIVATE:
+      case CKA_COPYABLE:
       case CKA_MODIFIABLE:
+      case CKA_ENCRYPT:
       case CKA_DECRYPT:
       case CKA_SIGN:
+      case CKA_SIGN_RECOVER:
       case CKA_WRAP:
+      case CKA_WRAP_WITH_TRUSTED:
       case CKA_UNWRAP:
+      case CKA_DERIVE:
       case CKA_VERIFY_RECOVER:
         if ((rv = check_bool_attribute(pPublicKeyTemplate[i].pValue, false)) !=
             CKR_OK) {
@@ -4395,12 +4447,7 @@ CK_RV parse_ed_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         }
         break;
 
-      case CKA_VERIFY:
-      case CKA_ENCRYPT:
-      case CKA_COPYABLE:
-      case CKA_PRIVATE:
-      case CKA_EXTRACTABLE:
-      case CKA_DERIVE:
+      case CKA_SUBJECT:
         break;
 
       default:
@@ -4490,13 +4537,17 @@ CK_RV parse_ed_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         }
         break;
 
-      case CKA_UNWRAP:
-      case CKA_WRAP:
-      case CKA_MODIFIABLE:
       case CKA_COPYABLE:
+      case CKA_MODIFIABLE:
       case CKA_ENCRYPT:
-      case CKA_VERIFY:
+      case CKA_DECRYPT:
       case CKA_SIGN_RECOVER:
+      case CKA_VERIFY:
+      case CKA_VERIFY_RECOVER:
+      case CKA_WRAP:
+      case CKA_WRAP_WITH_TRUSTED:
+      case CKA_UNWRAP:
+      case CKA_DERIVE:
         if ((rv = check_bool_attribute(pPrivateKeyTemplate[i].pValue, false)) !=
             CKR_OK) {
           DBG_ERR("Boolean false check failed for attribute 0x%lx",
@@ -4506,11 +4557,11 @@ CK_RV parse_ed_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_SUBJECT:
-      case CKA_DECRYPT:
-      case CKA_DERIVE:
         break;
 
       default:
+        DBG_ERR("invalid attribute type in PrivateKeyTemplate: 0x%lx\n",
+                pPrivateKeyTemplate[i].type);
         return CKR_ATTRIBUTE_TYPE_INVALID;
     }
   }
