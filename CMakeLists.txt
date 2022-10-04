@@ -77,6 +77,7 @@ endif ()
 if (CMAKE_C_COMPILER_ID STREQUAL AppleClang)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-nullability-completeness -Wno-nullability-extension -Wno-expansion-to-defined -Wno-undef-prefix")
 elseif (NOT MSVC)
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-missing-braces -Wno-missing-field-initializers")
   # -Wl,--strip-all is dependent on linker not compiler...
   set (CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -Wl,--strip-all")
 endif ()
@@ -139,9 +140,6 @@ if(MSVC)
 else()
   message(STATUS "not win32")
 
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-missing-braces")
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-missing-field-initializers")
-  
   include(CheckFunctionExists)
 
   check_function_exists(memset_s HAVE_MEMSET_S)
