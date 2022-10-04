@@ -1468,8 +1468,17 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   }
 
   yh_session *ses = NULL;
-  yh_rc yrc = yh_create_session_derived(ctx->connector, argv[0].w, argv[1].x,
-                                        argv[1].len, false, &ses);
+  yh_rc yrc = YHR_SUCCESS;
+
+  if (in_fmt == fmt_password) {
+    yrc = yh_create_session_derived(ctx->connector, argv[0].w, argv[1].x,
+                                    argv[1].len, false, &ses);
+  } else {
+    yrc = yh_create_session(ctx->connector, argv[0].w, argv[1].x,
+                            argv[1].len / 2, argv[1].x + argv[1].len / 2,
+                            argv[1].len / 2, false, &ses);
+  }
+
   insecure_memzero(argv[1].x, argv[1].len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
@@ -1480,7 +1489,7 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
   yrc = yh_get_session_id(ses, &session_id);
   if (yrc != YHR_SUCCESS) {
-    fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
+    fprintf(stderr, "Failed to get session id: %s\n", yh_strerror(yrc));
     return -1;
   }
 
@@ -1556,6 +1565,7 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
   for (uint8_t **pubkey = ctx->device_pubkey_list; *pubkey; pubkey++) {
     if (!memcmp(*pubkey, device_pubkey, device_pubkey_len)) {
       matched++;
+      break;
     }
   }
 
@@ -1582,7 +1592,7 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
   uint8_t session_id = 0;
   yrc = yh_get_session_id(ses, &session_id);
   if (yrc != YHR_SUCCESS) {
-    fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
+    fprintf(stderr, "Failed to get session id: %s\n", yh_strerror(yrc));
     return -1;
   }
 
@@ -1666,6 +1676,7 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
     for (uint8_t **pubkey = ctx->device_pubkey_list; *pubkey; pubkey++) {
       if (!memcmp(*pubkey, card_pubkey, card_pubkey_len)) {
         matched++;
+        break;
       }
     }
 
