@@ -27,14 +27,13 @@ typedef struct {
     uint16_t w;
     uint32_t d;
     const char *s;
-    const uint8_t *u;
     yh_session *e;
     yh_capabilities c;
     yh_algorithm a;
     yh_object_type t;
     yh_option o;
   };
-  unsigned char *x;
+  uint8_t *x;
   size_t len;
 } Argument;
 

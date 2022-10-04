@@ -2065,12 +2065,12 @@ int main(int argc, char *argv[]) {
         arg[2].len = pw_len;
         arg[3].s = args_info.ykhsmauth_reader_arg;
         arg[3].len = strlen(args_info.ykhsmauth_reader_arg);
-        comrc = yh_com_open_yksession(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
+        comrc = yh_com_open_yksession(&g_ctx, arg, fmt_password, fmt_nofmt);
       } else {
 #endif
         arg[1].x = buf;
         arg[1].len = pw_len;
-        comrc = yh_com_open_session(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
+        comrc = yh_com_open_session(&g_ctx, arg, fmt_password, fmt_nofmt);
 #ifdef YKHSMAUTH_ENABLED
       }
 #endif
