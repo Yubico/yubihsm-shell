@@ -1,8 +1,24 @@
-/* Copyright (c) OASIS Open 2016-2020. All Rights Reserved.
- * Distributed under the terms of the OASIS IPR Policy,
+/*
+ * PKCS #11 Specification Version 3.1
+ * Committee Specification Draft 01
+ * 16 February 2022
+ * Copyright (c) OASIS Open 2022. All Rights Reserved.
+ * Source:
+ * https://docs.oasis-open.org/pkcs11/pkcs11-spec/v3.1/csd01/include/pkcs11-v3.1/
+ * Latest stage of narrative specification:
+ * https://docs.oasis-open.org/pkcs11/pkcs11-spec/v3.1/pkcs11-spec-v3.1.html TC
+ * IPR Statement: https://www.oasis-open.org/committees/pkcs11/ipr.php
+ */
+
+/* Copyright (c) OASIS Open 2016,2019. All Rights Reserved./
+ * /Distributed under the terms of the OASIS IPR Policy,
  * [http://www.oasis-open.org/policies-guidelines/ipr], AS-IS, WITHOUT ANY
  * IMPLIED OR EXPRESS WARRANTY; there is no warranty of MERCHANTABILITY, FITNESS
  * FOR A PARTICULAR PURPOSE or NONINFRINGEMENT of the rights of others.
+ */
+
+/* Latest version of the specification:
+ * http://docs.oasis-open.org/pkcs11/pkcs11-base/v3.0/pkcs11-base-v3.0.html
  */
 
 #ifndef _PKCS11_H_
@@ -47,7 +63,7 @@ extern "C" {
  *
  * typedef CK_BYTE CK_PTR CK_BYTE_PTR;
  *
- * If you're using windows, it might be defined by:
+ * If you're using Windows, it might be defined by:
  *
  * #define CK_PTR *
  *
@@ -65,7 +81,7 @@ extern "C" {
  *   CK_VOID_PTR pReserved
  * );
  *
- * If you're using Windows to declare a function in a Win32 cryptoki .dll,
+ * If you're using Windows to declare a function in a Win32 Cryptoki .dll,
  * it might be defined by:
  *
  * #define CK_DECLARE_FUNCTION(returnType, name) \
