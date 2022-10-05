@@ -2086,6 +2086,7 @@ int main(int argc, char *argv[]) {
          i++) {
       if (g_ctx.sessions[i] != NULL) {
         arg[0].e = g_ctx.sessions[i];
+        break;
       }
     }
 
