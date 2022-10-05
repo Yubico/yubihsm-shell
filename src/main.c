@@ -2052,7 +2052,9 @@ int main(int argc, char *argv[]) {
       arg[0].w = args_info.authkey_arg;
       if (get_input_data(args_info.password_given ? args_info.password_arg
                                                   : "-",
-                         &buf, &pw_len, fmt_password) == false) {
+                         &buf, &pw_len,
+                         g_in_fmt == fmt_nofmt ? fmt_password : g_in_fmt) ==
+          false) {
         fprintf(stderr, "Failed to get password\n");
         rc = EXIT_FAILURE;
         goto main_exit;
@@ -2070,7 +2072,10 @@ int main(int argc, char *argv[]) {
 #endif
         arg[1].x = buf;
         arg[1].len = pw_len;
-        comrc = yh_com_open_session(&g_ctx, arg, fmt_password, fmt_nofmt);
+        comrc =
+          yh_com_open_session(&g_ctx, arg,
+                              g_in_fmt == fmt_nofmt ? fmt_password : g_in_fmt,
+                              fmt_nofmt);
 #ifdef YKHSMAUTH_ENABLED
       }
 #endif
