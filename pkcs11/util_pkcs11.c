@@ -758,11 +758,11 @@ static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
     case CKA_VALUE_LEN:
       if (object->type == YH_WRAP_KEY) {
         size_t key_length = 0;
-        if (yh_get_key_bitlength(object->algorithm, &key_length) !=
-            YHR_SUCCESS) {
-          return CKR_ATTRIBUTE_TYPE_INVALID;
+        yh_rc yrc = yh_get_key_bitlength(object->algorithm, &key_length);
+        if (yrc != YHR_SUCCESS) {
+          return yrc_to_rv(yrc);
         }
-        *(CK_ULONG_PTR) value = key_length / 8;
+        *(CK_ULONG_PTR) value = (key_length + 7) / 8;
       } else {
         return CKR_ATTRIBUTE_TYPE_INVALID;
       }
@@ -4188,10 +4188,11 @@ CK_RV parse_wrap_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_VALUE_LEN:
         if (generate == true) {
           size_t key_length = 0;
-          if (yh_get_key_bitlength(algorithm, &key_length) != YHR_SUCCESS) {
-            return CKR_ATTRIBUTE_TYPE_INVALID;
+          yh_rc yrc = yh_get_key_bitlength(algorithm, &key_length);
+          if (yrc != YHR_SUCCESS) {
+            return yrc_to_rv(yrc);
           }
-          if (key_length / 8 != *(CK_ULONG_PTR) pTemplate[i].pValue) {
+          if ((key_length + 7) / 8 != *(CK_ULONG_PTR) pTemplate[i].pValue) {
             return CKR_TEMPLATE_INCONSISTENT;
           }
         } else {
