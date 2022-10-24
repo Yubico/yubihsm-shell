@@ -98,7 +98,7 @@ Or using ctest directly
 
  $ ctest
 
-By default the tests expect a local connector running at `http://127.0.0.1:12345`.
+By default the tests expect a local connector running at `http://localhost:12345`.
 A different connector for the tests can be specified by setting the
 `DEFAULT_CONNECTOR_URL` environment variable.
 For example, to run tests using direct USB (i.e., without a connector) use

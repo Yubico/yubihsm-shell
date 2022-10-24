@@ -44,8 +44,6 @@
 #define MAX_COMMAND_NAME 32
 #define MAX_ARGUMENTS 32
 
-#define LOCAL_CONNECTOR_URL "http://127.0.0.1:12345"
-
 #include "yubihsm-shell.h"
 
 #define SPACES " \f\n\r\t\v"
@@ -1979,12 +1977,12 @@ int main(int argc, char *argv[]) {
 #endif
 
   if (g_ctx.connector_list[0] == NULL) {
-    fprintf(stderr, "Using default connector URL: %s\n", LOCAL_CONNECTOR_URL);
+    fprintf(stderr, "Using default connector URL: %s\n", DEFAULT_CONNECTOR_URL);
 
-    char *local_connector_url = LOCAL_CONNECTOR_URL;
+    char *default_connector_url = DEFAULT_CONNECTOR_URL;
 
     free_configured_connectors(&g_ctx);
-    parse_configured_connectors(&g_ctx, &local_connector_url, 1);
+    parse_configured_connectors(&g_ctx, &default_connector_url, 1);
   }
 
   if (args_info.cacert_given) {

@@ -26,7 +26,7 @@ BIN_SIG="$TMPDIR/bin_sig"
 PUBLIC_KEY="$TMPDIR/public"
 
 if [ -z ${DEFAULT_CONNECTOR_URL} ]; then
-  DEFAULT_CONNECTOR_URL="http://127.0.0.1:12345"
+  DEFAULT_CONNECTOR_URL="http://localhost:12345"
 fi
 PROG="../yubihsm-shell --connector=${DEFAULT_CONNECTOR_URL}"
 if [ "x$(uname)" = "xFreeBSD" ]; then

@@ -62,7 +62,7 @@ if [ ! -f $engine ]; then
 fi
 
 if [ -z ${DEFAULT_CONNECTOR_URL} ]; then
-  DEFAULT_CONNECTOR_URL="http://127.0.0.1:12345"
+  DEFAULT_CONNECTOR_URL="http://localhost:12345"
 fi
 
 dir=`mktemp -d /tmp/yubihsmtest.XXXXXX`
