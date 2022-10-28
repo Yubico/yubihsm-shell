@@ -20,10 +20,6 @@
 #include <stdbool.h>
 #include "../pkcs11.h"
 
-#ifndef DEFAULT_CONNECTOR_URL
-#define DEFAULT_CONNECTOR_URL "http://127.0.0.1:12345"
-#endif
-
 void *open_module(const char *path);
 void close_module(void *handle);
 CK_FUNCTION_LIST_PTR get_function_list(void *handle);

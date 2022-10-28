@@ -31,10 +31,6 @@
 #include "openssl-compat.h"
 #include "util.h"
 
-#ifndef DEFAULT_CONNECTOR_URL
-#define DEFAULT_CONNECTOR_URL "http://127.0.0.1:12345"
-#endif
-
 const char attestation_template_file[] = "attestation_template.pem";
 const char *key_label = "label";
 const uint8_t password[] = "password";

@@ -17,8 +17,6 @@
 include(${CMAKE_SOURCE_DIR}/cmake/openssl.cmake)
 find_libcrypto()
 
-add_definitions (-DDEFAULT_CONNECTOR_URL="${DEFAULT_CONNECTOR_URL}")
-
 set (
   SOURCE_IMPORT_RSA
   import_rsa.c

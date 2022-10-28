@@ -30,10 +30,6 @@
 
 #include <yubihsm.h>
 
-#ifndef DEFAULT_CONNECTOR_URL
-#define DEFAULT_CONNECTOR_URL "http://127.0.0.1:12345"
-#endif
-
 #define N_OPERATIONS 5
 
 const uint8_t password[] = "password";

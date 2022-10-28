@@ -69,7 +69,7 @@ with Object ID `30` by running
 [source, bash]
 ----
 $ yubihsm-shell -p password -a get-object-info -i 30 -t asymmetric-key
-Using default connector URL: http://127.0.0.1:12345
+Using default connector URL: http://localhost:12345
 Session keepalive set up to run every 15 seconds
 Created session 0
 id: 0x001e, type: asymmetric-key, algorithm: rsa2048, label: "RSA_Key", length: 896, domains: 1:2:5, sequence: 0, origin: imported:imported_wrapped, capabilities: sign-pkcs

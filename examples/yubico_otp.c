@@ -28,10 +28,6 @@
 
 #include <yubihsm.h>
 
-#ifndef DEFAULT_CONNECTOR_URL
-#define DEFAULT_CONNECTOR_URL "http://127.0.0.1:12345"
-#endif
-
 const char *key_label = "label";
 const uint8_t password[] = "password";
 const uint8_t otp_key[] = {0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,

@@ -94,8 +94,10 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
 endif ()
 
 if (NOT DEFINED DEFAULT_CONNECTOR_URL)
-  set (DEFAULT_CONNECTOR_URL "http://127.0.0.1:12345")
+  set (DEFAULT_CONNECTOR_URL "http://localhost:12345")
 endif()
+
+add_definitions(-DDEFAULT_CONNECTOR_URL="${DEFAULT_CONNECTOR_URL}")
 
 enable_testing()
 find_package(codecov)

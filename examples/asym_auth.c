@@ -24,10 +24,6 @@
 
 #include <yubihsm.h>
 
-#ifndef DEFAULT_CONNECTOR_URL
-#define DEFAULT_CONNECTOR_URL "http://127.0.0.1:12345"
-#endif
-
 const uint8_t password[] = "password";
 const uint8_t data[] = "sudo make me a sandwich";
 
