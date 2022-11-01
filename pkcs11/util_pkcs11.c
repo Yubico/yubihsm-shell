@@ -682,6 +682,20 @@ CK_RV populate_meta_objects(yubihsm_pkcs11_session *session) {
   }
   return CKR_OK;
 }
+/*
+void print_meta_objects(yubihsm_pkcs11_session *session) {
+  ListItem *item = NULL;
+  pkcs11_meta_object *meta_object = NULL;
+  item = session->pkcs11_meta_objects.head;
+  while(item != NULL) {
+    meta_object = (pkcs11_meta_object *) item->data;
+    DBG_ERR("---------------------------- meta_id 0x%x   meta_obj_id 0x%x   "
+            "meta_obj_type %d   meta_pkcs11_id_len %lu",
+            meta_object->opaque_id, meta_object->object_id,
+            meta_object->object_type, meta_object->pkcs11_id_len);
+    item = item->next;
+  }
+}*/
 
 #define ID_TAG 1
 #define TYPE_TAG 2
@@ -3876,7 +3890,6 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
   uint16_t primelen = 0;
   CK_RV rv;
   for (CK_ULONG i = 0; i < ulCount; i++) {
-    DBG_ERR("----------- parse_rsa_template: type: 0x%lx", pTemplate[i].type);
     switch (pTemplate[i].type) {
       case CKA_PRIME_1:
         if (template->obj.rsa.p == NULL) {
@@ -3990,7 +4003,6 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
         return CKR_ATTRIBUTE_TYPE_INVALID;
     }
   }
-  DBG_ERR("--------------- rsa template walk through");
   if (e && template->obj.rsa.p && template->obj.rsa.q) {
     template->objlen = primelen;
     switch (primelen) {
@@ -4011,8 +4023,6 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
     DBG_ERR("Iconsistent RSA Template");
     return CKR_TEMPLATE_INCONSISTENT;
   }
-  DBG_ERR("--------------- rsa algo set: %d", template->algorithm);
-
   return CKR_OK;
 }
 
