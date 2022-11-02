@@ -683,10 +683,8 @@ CK_RV populate_meta_objects(yubihsm_pkcs11_session *session) {
   return CKR_OK;
 }
 
-#define ID_TAG 1
-#define TYPE_TAG 2
-#define PKCS11_ID_TAG 4
-#define PKCS11_LABEL_TAG 5
+#define PKCS11_ID_TAG 1
+#define PKCS11_LABEL_TAG 2
 uint8_t META_OBJECT_VERSION = 1;
 
 /*
@@ -969,7 +967,8 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
 
     case CKA_VALUE: {
       size_t len = *length;
-      yh_rc yrc = yh_util_get_opaque(session->slot->device_session, object->id, value, &len);
+      yh_rc yrc = yh_util_get_opaque(session->slot->device_session, object->id,
+                                     value, &len);
       if (yrc != YHR_SUCCESS) {
         return yrc_to_rv(yrc);
       }
@@ -1420,8 +1419,8 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       if (yh_is_ec(object->algorithm)) {
         uint8_t resp[2048];
         size_t resplen = sizeof(resp);
-        yh_rc yrc =
-          yh_util_get_public_key(session->slot->device_session, object->id, resp, &resplen, NULL);
+        yh_rc yrc = yh_util_get_public_key(session->slot->device_session,
+                                           object->id, resp, &resplen, NULL);
         if (yrc != YHR_SUCCESS) {
           return yrc_to_rv(yrc);
         }
@@ -1446,8 +1445,8 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
         uint8_t resp[2048];
         size_t resp_len = sizeof(resp);
 
-        yh_rc yrc =
-          yh_util_get_public_key(session->slot->device_session, object->id, resp, &resp_len, NULL);
+        yh_rc yrc = yh_util_get_public_key(session->slot->device_session,
+                                           object->id, resp, &resp_len, NULL);
         if (yrc != YHR_SUCCESS) {
           return yrc_to_rv(yrc);
         }
@@ -1790,8 +1789,8 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
         uint8_t resp[2048];
         size_t resplen = sizeof(resp);
 
-        yh_rc yrc =
-          yh_util_get_public_key(session->slot->device_session, object->id, resp, &resplen, NULL);
+        yh_rc yrc = yh_util_get_public_key(session->slot->device_session,
+                                           object->id, resp, &resplen, NULL);
         if (yrc != YHR_SUCCESS) {
           return yrc_to_rv(yrc);
         }
@@ -1830,8 +1829,8 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
         uint8_t resp[2048];
         size_t resp_len = sizeof(resp);
 
-        yh_rc yrc =
-          yh_util_get_public_key(session->slot->device_session, object->id, resp, &resp_len, NULL);
+        yh_rc yrc = yh_util_get_public_key(session->slot->device_session,
+                                           object->id, resp, &resp_len, NULL);
         if (yrc != YHR_SUCCESS) {
           return yrc_to_rv(yrc);
         }
@@ -1861,7 +1860,8 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
         return CKR_HOST_MEMORY;
       }
 
-      CK_RV rv = load_public_key(session->slot->device_session, object->id, pkey);
+      CK_RV rv =
+        load_public_key(session->slot->device_session, object->id, pkey);
       if (rv != CKR_OK) {
         EVP_PKEY_free(pkey);
         return rv;
@@ -4413,13 +4413,13 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
       case CKA_UNWRAP: // pkcs11-tool sets this on public keys
       case CKA_VERIFY:
       case CKA_ENCRYPT:
-/*
-      case CKA_EXTRACTABLE:
-      case CKA_PRIVATE:
-      case CKA_COPYABLE:
-      case CKA_DESTROYABLE:
-      case CKA_DERIVE:
-*/
+        /*
+              case CKA_EXTRACTABLE:
+              case CKA_PRIVATE:
+              case CKA_COPYABLE:
+              case CKA_DESTROYABLE:
+              case CKA_DERIVE:
+        */
         break;
 
       default:
