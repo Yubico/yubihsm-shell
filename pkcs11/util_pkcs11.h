@@ -166,7 +166,7 @@ CK_RV write_meta_opaque(yubihsm_pkcs11_session *session,
                         pkcs11_meta_object *meta_opaque, bool replace);
 void parse_pkcs11_opaque_value(uint8_t *opaque_value, size_t opaque_value_len,
                                pkcs11_meta_object *meta_object);
-<<<<<<< HEAD
+
 pkcs11_meta_object *find_meta_object_by_id(yubihsm_pkcs11_session *session,
                                            uint8_t type, uint8_t *ckaid,
                                            size_t ckaid_len);
@@ -177,9 +177,4 @@ pkcs11_meta_object *find_meta_object_by_label(yubihsm_pkcs11_session *session,
 pkcs11_meta_object *find_meta_object(yubihsm_pkcs11_session *session,
                                      u_int16_t origin_id, uint8_t type);
 bool is_meta_object(yh_object_descriptor *object);
-
-=======
-
-// void print_meta_objects(yubihsm_pkcs11_session *session);
->>>>>>> 401abac... PKCS11: Support edit of attributes by implementing a data opaque object. Works but code needs a lot of cleaning up
 #endif

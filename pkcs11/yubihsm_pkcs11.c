@@ -1479,6 +1479,16 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
         rv = yrc_to_rv(rc);
         goto c_co_out;
       }
+
+      if (pkcs11meta.cka_id_len > 0 || pkcs11meta.cka_label_len > 0) {
+        pkcs11meta.object_id = template.id;
+        pkcs11meta.object_type = YH_ASYMMETRIC_KEY;
+        rv = write_meta_opaque(session, &pkcs11meta, false);
+        if (rc != CKR_OK) {
+          DBG_ERR("Failed writing meta opaque object to device");
+          goto c_co_out;
+        }
+      }
     } else if (key_type.d == CKK_EC) {
       rv = parse_ec_template(pTemplate, ulCount, &template);
       if (rv != CKR_OK) {
@@ -1511,6 +1521,15 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
         DBG_ERR("Failed writing EC key to device: %s", yh_strerror(rc));
         rv = yrc_to_rv(rc);
         goto c_co_out;
+      }
+      if (pkcs11meta.cka_id_len > 0 || pkcs11meta.cka_label_len > 0) {
+        pkcs11meta.object_id = template.id;
+        pkcs11meta.object_type = YH_ASYMMETRIC_KEY;
+        rv = write_meta_opaque(session, &pkcs11meta, false);
+        if (rv != CKR_OK) {
+          DBG_ERR("Failed writing meta opaque object to device");
+          goto c_co_out;
+        }
       }
     } else {
       rv = CKR_ATTRIBUTE_VALUE_INVALID;
@@ -1866,38 +1885,25 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
       goto c_do_out;
     }
 
-    yh_rc yrc;
+    //yh_rc yrc;
     pkcs11_meta_object *meta_object =
       find_meta_object(session, object->object.id,
                        (object->object.type & 0x7f));
     if (meta_object != NULL) {
-      yrc = yh_util_delete_object(session->slot->device_session,
+      rv = yh_util_delete_object(session->slot->device_session,
                                  meta_object->opaque_id, YH_OPAQUE);
-      if (yrc != YHR_SUCCESS) {
-        DBG_ERR("Failed deleting meta opaque object: %s", yh_strerror(yrc));
-        rv = yrc_to_rv(yrc);
+      if (rv != YHR_SUCCESS) {
+        DBG_ERR("Failed deleting object");
+        rv = CKR_FUNCTION_FAILED;
         goto c_do_out;
       }
     }
 
-<<<<<<< HEAD
-    yrc = yh_util_delete_object(session->slot->device_session, object->object.id,
-                              object->object.type);
-    if(yrc != YHR_SUCCESS) {
-      DBG_ERR("Failed deleting object: %s", yh_strerror(yrc));
-      rv = yrc_to_rv(yrc);
+    if (yh_util_delete_object(session->slot->device_session, object->object.id,
+                              object->object.type) != YHR_SUCCESS) {
+      DBG_ERR("Failed deleting object");
+      rv = CKR_FUNCTION_FAILED;
       goto c_do_out;
-=======
-    ListItem *item = session->pkcs11_meta_objects.head;
-    while (item != NULL) {
-      pkcs11_meta_object *pkcs11meta = (pkcs11_meta_object *) item->data;
-      if (object->object.id == pkcs11meta->object_id &&
-          (object->object.type & 0x7f) == pkcs11meta->object_type) {
-        list_delete(&session->pkcs11_meta_objects, item);
-        break;
-      }
-      item = item->next;
->>>>>>> 401abac... PKCS11: Support edit of attributes by implementing a data opaque object. Works but code needs a lot of cleaning up
     }
 
     DBG_INFO("Deleted object %08lx", hObject);
@@ -2081,7 +2087,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
           DBG_INFO(
             "New ID different from ObjectID. Creating metadata opaque object");
 
-<<<<<<< HEAD
           pkcs11_meta_object *pkcs11meta =
             find_meta_object(session, object->object.id,
                              (object->object.type & 0x7f));
@@ -2093,22 +2098,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
             rv = write_meta_opaque(session, pkcs11meta, true);
             if (rv != CKR_OK) {
               DBG_ERR("Failed to update meta opaque object to update CKA_ID");
+              rv = CKR_FUNCTION_FAILED;
               goto c_sav_out;
-=======
-          bool pkcs11meta_exists = false;
-          ListItem *item = session->pkcs11_meta_objects.head;
-          while (item != NULL) {
-            pkcs11_meta_object *pkcs11meta = (pkcs11_meta_object *) item->data;
-            if (object->object.id == pkcs11meta->object_id &&
-                (object->object.type & 0x7f) == pkcs11meta->object_type) {
-              memset(&pkcs11meta->pkcs11_id, 0, pkcs11meta->pkcs11_id_len);
-              pkcs11meta->pkcs11_id_len = pTemplate[i].ulValueLen;
-              memcpy(pkcs11meta->pkcs11_id, pTemplate[i].pValue,
-                     pTemplate[i].ulValueLen);
-              write_meta_opaque(session, pkcs11meta, true);
-              pkcs11meta_exists = true;
-              break;
->>>>>>> 401abac... PKCS11: Support edit of attributes by implementing a data opaque object. Works but code needs a lot of cleaning up
             }
           } else {
             // Create new opaque object and add it to the session
@@ -2118,16 +2109,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
             new_meta.cka_id_len = pTemplate[i].ulValueLen;
             memcpy(new_meta.cka_id, pTemplate[i].pValue,
                    pTemplate[i].ulValueLen);
-<<<<<<< HEAD
             rv = write_meta_opaque(session, &new_meta, false);
             if (rv != CKR_OK) {
               DBG_ERR(
                 "Failed to create a new meta opaque object to store CKA_ID");
+              rv = CKR_FUNCTION_FAILED;
               goto c_sav_out;
             }
-=======
-            write_meta_opaque(session, &new_meta, false);
->>>>>>> 401abac... PKCS11: Support edit of attributes by implementing a data opaque object. Works but code needs a lot of cleaning up
           }
         }
       } break;
@@ -2138,7 +2126,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
                    pTemplate[i].ulValueLen) != 0) {
           DBG_INFO("New label different from existing label. Creating metadata "
                    "opaque object");
-<<<<<<< HEAD
 
           pkcs11_meta_object *pkcs11meta =
             find_meta_object(session, object->object.id,
@@ -2146,27 +2133,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
           if (pkcs11meta != NULL) {
             if (pkcs11meta->cka_label_len > 0) {
               memset(&pkcs11meta->cka_label, 0, pkcs11meta->cka_label_len);
-=======
-          bool pkcs11meta_exists = false;
-          ListItem *item = session->pkcs11_meta_objects.head;
-          while (item != NULL) {
-            pkcs11_meta_object *pkcs11meta = (pkcs11_meta_object *) item->data;
-            if (object->object.id == pkcs11meta->object_id &&
-                (object->object.type & 0x7f) == pkcs11meta->object_type) {
-              memset(&pkcs11meta->pkcs11_label, 0,
-                     pkcs11meta->pkcs11_label_len);
-              pkcs11meta->pkcs11_label_len = pTemplate[i].ulValueLen;
-              memcpy(pkcs11meta->pkcs11_label, pTemplate[i].pValue,
-                     pTemplate[i].ulValueLen);
-              if (pkcs11meta->label_len != 0) {
-                pkcs11meta->label_len = strlen(object->object.label);
-                memcpy(pkcs11meta->label, object->object.label,
-                       pkcs11meta->label_len);
-              }
-              write_meta_opaque(session, pkcs11meta, true);
-              pkcs11meta_exists = true;
-              break;
->>>>>>> 401abac... PKCS11: Support edit of attributes by implementing a data opaque object. Works but code needs a lot of cleaning up
             }
             pkcs11meta->cka_label_len = pTemplate[i].ulValueLen;
             memcpy(pkcs11meta->cka_label, pTemplate[i].pValue,
@@ -2175,6 +2141,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
             if (rv != CKR_OK) {
               DBG_ERR(
                 "Failed to update meta opaque object to update CKA_LABEL");
+              rv = CKR_FUNCTION_FAILED;
               goto c_sav_out;
             }
           } else {
@@ -2185,18 +2152,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
             new_meta.cka_label_len = pTemplate[i].ulValueLen;
             memcpy(new_meta.cka_label, pTemplate[i].pValue,
                    pTemplate[i].ulValueLen);
-<<<<<<< HEAD
             rv = write_meta_opaque(session, &new_meta, false);
             if (rv != CKR_OK) {
               DBG_ERR(
                 "Failed to create a new meta opaque object to store CKA_LABEL");
+              rv = CKR_FUNCTION_FAILED;
               goto c_sav_out;
             }
-=======
-            new_meta.label_len = strlen(object->object.label);
-            memcpy(new_meta.label, object->object.label, new_meta.label_len);
-            write_meta_opaque(session, &new_meta, false);
->>>>>>> 401abac... PKCS11: Support edit of attributes by implementing a data opaque object. Works but code needs a lot of cleaning up
           }
         }
         break;
@@ -2290,12 +2252,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
   bool unknown = false;
   bool secret_key = false;
   bool extractable_set = false;
-<<<<<<< HEAD
   size_t template_value_len = 0;
-=======
-  uint8_t *cert_value = NULL;
-  size_t cert_value_len = 0;
->>>>>>> 401abac... PKCS11: Support edit of attributes by implementing a data opaque object. Works but code needs a lot of cleaning up
   uint8_t template_id[1024] = {0};
   size_t template_id_len = 0;
   uint8_t template_label[1024] = {0};
@@ -2419,15 +2376,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           break;
 
         case CKA_VALUE:
-<<<<<<< HEAD
           template_value_len = pTemplate[i].ulValueLen;
           template_value = malloc(template_value_len * sizeof(uint8_t));
           memcpy(template_value, pTemplate[i].pValue, template_value_len);
-=======
-          cert_value_len = pTemplate[i].ulValueLen;
-          cert_value = malloc(cert_value_len * sizeof(uint8_t));
-          memcpy(cert_value, pTemplate[i].pValue, cert_value_len);
->>>>>>> 401abac... PKCS11: Support edit of attributes by implementing a data opaque object. Works but code needs a lot of cleaning up
           break;
 
         case CKA_TOKEN:
@@ -2455,33 +2406,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
 
   // If CKA_ID is a filter, find if there's an opaque object with that ID first
   if (template_id_len > 0) {
-<<<<<<< HEAD
     pkcs11_meta_object *meta_object =
       find_meta_object_by_id(session, type, template_id, template_id_len);
     if (meta_object != NULL) {
       id = meta_object->object_id;
     } else {
-=======
-    bool pkcs11meta_found = false;
-    pkcs11_meta_object *meta_object = NULL;
-    ListItem *item = NULL;
-
-    item = session->pkcs11_meta_objects.head;
-    pkcs11meta_found = false;
-    while (item != NULL) {
-      meta_object = (pkcs11_meta_object *) item->data;
-      if (meta_object->object_type == type &&
-          meta_object->pkcs11_id_len == template_id_len &&
-          memcmp(meta_object->pkcs11_id, template_id,
-                 meta_object->pkcs11_id_len) == 0) {
-        id = meta_object->object_id;
-        pkcs11meta_found = true;
-        break;
-      }
-      item = item->next;
-    }
-    if (pkcs11meta_found == false) {
->>>>>>> 401abac... PKCS11: Support edit of attributes by implementing a data opaque object. Works but code needs a lot of cleaning up
       if (template_id_len <= 2) {
         id = parse_id_value(template_id, template_id_len);
         if (id == -1) {
@@ -2490,16 +2419,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           goto c_foi_out;
         }
       } else {
-<<<<<<< HEAD
         DBG_ERR("Supplied id is too long (was %lu bytes). Object does not "
                 "exist.",
                 template_id_len);
         rv = CKR_ATTRIBUTE_VALUE_INVALID;
-=======
-        DBG_ERR("Supplied id is long (was %lu bytes). Object does not exist.",
-                template_id_len);
-        // rv = CKR_ATTRIBUTE_VALUE_INVALID;
->>>>>>> 401abac... PKCS11: Support edit of attributes by implementing a data opaque object. Works but code needs a lot of cleaning up
         goto c_foi_out;
       }
     }
@@ -2509,7 +2432,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
   // If CKA_LABEL is a filter, find if there's an opaque object with that LABEL
   // first
   if (template_label_len > 0) {
-<<<<<<< HEAD
     pkcs11_meta_object *meta_object =
       find_meta_object_by_label(session, type, id, template_label,
                                 template_label_len);
@@ -2518,29 +2440,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
         id = meta_object->object_id;
       }
     } else {
-=======
-    bool pkcs11meta_found = false;
-    pkcs11_meta_object *meta_object = NULL;
-    ListItem *item = NULL;
-
-    item = session->pkcs11_meta_objects.head;
-    pkcs11meta_found = false;
-    while (item != NULL) {
-      meta_object = (pkcs11_meta_object *) item->data;
-      if (meta_object->object_type == type &&
-          meta_object->pkcs11_label_len == template_label_len &&
-          memcmp(meta_object->pkcs11_label, template_label,
-                 meta_object->pkcs11_label_len) == 0) {
-        if (id == 0) {
-          id = meta_object->object_id;
-        }
-        pkcs11meta_found = true;
-        break;
-      }
-      item = item->next;
-    }
-    if (pkcs11meta_found == false) {
->>>>>>> 401abac... PKCS11: Support edit of attributes by implementing a data opaque object. Works but code needs a lot of cleaning up
       if (template_label_len > YH_OBJ_LABEL_LEN) {
         DBG_ERR("Label value too long, found %lu, maximum is %d",
                 template_label_len, YH_OBJ_LABEL_LEN);
@@ -2584,7 +2483,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
         }
       }
     } else {
-<<<<<<< HEAD
       if (template_value != NULL) {
         // Find by certificate
         if (algorithm != 0 && algorithm != YH_ALGO_OPAQUE_X509_CERTIFICATE) {
@@ -2600,8 +2498,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
                                     YH_ALGO_OPAQUE_X509_CERTIFICATE, label,
                                     tmp_objects, &tmp_n_objects);
           if (rc != YHR_SUCCESS) {
-            DBG_ERR("Failed to get object list: %s", yh_strerror(rc));
-            rv = yrc_to_rv(rc);
+            DBG_ERR("Failed to get object list");
+            rv = CKR_FUNCTION_FAILED;
             goto c_foi_out;
           }
 
@@ -2611,8 +2509,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
             rc = yh_util_get_opaque(session->slot->device_session,
                                     tmp_objects[i].id, cert, &cert_len);
             if (rc != YHR_SUCCESS) {
-              DBG_ERR("Failed to get opaque object 0x%x: %s", tmp_objects[i].id, yh_strerror(rc));
-              rv = yrc_to_rv(rc);
+              DBG_ERR("Failed to get opaque object 0x%x", tmp_objects[i].id);
+              rv = CKR_FUNCTION_FAILED;
               goto c_foi_out;
             }
 
@@ -2638,8 +2536,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
                                   tmp_objects, &tmp_n_objects);
 
         if (rc != YHR_SUCCESS) {
-          DBG_ERR("Failed to get object list: %s", yh_strerror(rc));
-          rv = yrc_to_rv(rc);
+          DBG_ERR("Failed to get object list");
+          rv = CKR_FUNCTION_FAILED;
           goto c_foi_out;
         }
         for (size_t i = 0; i < tmp_n_objects; i++) {
@@ -2649,8 +2547,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
                                          tmp_objects[i].id, tmp_objects[i].type,
                                          &opaque_object);
             if (rc != YHR_SUCCESS) {
-              DBG_ERR("Failed to get opaque object info %s", yh_strerror(rc));
-              rv = yrc_to_rv(rc);
+              DBG_ERR("Failed to get opaque object info");
+              rv = CKR_FUNCTION_FAILED;
               goto c_foi_out;
             }
             if (is_meta_object(&opaque_object)) {
@@ -2672,53 +2570,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           } else {
           }
         }
-=======
-      // Find by certificate
-      if (cert_value != NULL) {
-        yh_object_descriptor objects[YH_MAX_ITEMS_COUNT] = {0};
-        size_t n_objects = sizeof(objects);
-        rc = yh_util_list_objects(session->slot->device_session, id, YH_OPAQUE,
-                                  domains, &capabilities,
-                                  YH_ALGO_OPAQUE_X509_CERTIFICATE, label,
-                                  objects, &n_objects);
-        if (rc != YHR_SUCCESS) {
-          DBG_ERR("Failed to get object list");
-          rv = CKR_FUNCTION_FAILED;
-          goto c_foi_out;
-        }
-
-        for (size_t i = 0; i < n_objects; i++) {
-          uint8_t v[4096] = {0};
-          size_t v_len = sizeof(v);
-          yh_util_get_opaque(session->slot->device_session, objects[i].id, v,
-                             &v_len);
-
-          if (v_len == cert_value_len && memcmp(cert_value, v, v_len) == 0) {
-            memset(&session->operation.op.find.objects[0], 0,
-                   sizeof(yh_object_descriptor));
-            session->operation.op.find.objects[0].id = objects[i].id;
-            session->operation.op.find.objects[0].type = objects[i].type;
-            session->operation.op.find.objects[0].sequence =
-              objects[i].sequence;
-            found_objects = 1;
-            break;
-          }
-        }
-      } else {
-        session->operation.op.find.n_objects =
-          YH_MAX_ITEMS_COUNT + MAX_ECDH_SESSION_KEYS;
-        rc = yh_util_list_objects(session->slot->device_session, id, type,
-                                  domains, &capabilities, algorithm, label,
-                                  session->operation.op.find.objects,
-                                  &session->operation.op.find.n_objects);
-        if (rc != YHR_SUCCESS) {
-          DBG_ERR("Failed to get object list");
-          rv = CKR_FUNCTION_FAILED;
-          goto c_foi_out;
-        }
-        found_objects = session->operation.op.find.n_objects;
-
->>>>>>> 401abac... PKCS11: Support edit of attributes by implementing a data opaque object. Works but code needs a lot of cleaning up
         if (pub) {
           for (size_t i = 0; i < session->operation.op.find.n_objects; i++) {
             if (session->operation.op.find.objects[i].type ==
@@ -2767,15 +2618,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
   DOUT;
 
 c_foi_out:
-<<<<<<< HEAD
   if (template_value != NULL) {
     free(template_value);
     template_value = NULL;
-=======
-  if (cert_value != NULL) {
-    free(cert_value);
-    cert_value = NULL;
->>>>>>> 401abac... PKCS11: Support edit of attributes by implementing a data opaque object. Works but code needs a lot of cleaning up
   }
 
   if (label != NULL) {
@@ -5390,15 +5235,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
   if (pkcs11meta.cka_id_len > 0 || pkcs11meta.cka_label_len > 0) {
     pkcs11meta.object_id = template.id;
     pkcs11meta.object_type = YH_ASYMMETRIC_KEY;
-<<<<<<< HEAD
     rv = write_meta_opaque(session, &pkcs11meta, false);
     if(rv != CKR_OK) {
       DBG_ERR("Failed to import meta data object");
       goto c_gkp_out;
     }
-=======
-    write_meta_opaque(session, &pkcs11meta, false);
->>>>>>> 401abac... PKCS11: Support edit of attributes by implementing a data opaque object. Works but code needs a lot of cleaning up
   }
   *phPublicKey = object.sequence << 24 | (object.type | 0x80) << 16 | object.id;
   *phPrivateKey = object.sequence << 24 | object.type << 16 | object.id;

@@ -682,20 +682,6 @@ CK_RV populate_meta_objects(yubihsm_pkcs11_session *session) {
   }
   return CKR_OK;
 }
-/*
-void print_meta_objects(yubihsm_pkcs11_session *session) {
-  ListItem *item = NULL;
-  pkcs11_meta_object *meta_object = NULL;
-  item = session->pkcs11_meta_objects.head;
-  while(item != NULL) {
-    meta_object = (pkcs11_meta_object *) item->data;
-    DBG_ERR("---------------------------- meta_id 0x%x   meta_obj_id 0x%x   "
-            "meta_obj_type %d   meta_pkcs11_id_len %lu",
-            meta_object->opaque_id, meta_object->object_id,
-            meta_object->object_type, meta_object->pkcs11_id_len);
-    item = item->next;
-  }
-}*/
 
 #define ID_TAG 1
 #define TYPE_TAG 2
@@ -710,7 +696,6 @@ uint8_t META_OBJECT_VERSION = 1;
  * byte 2 and 3: Original object ID (always present)
  * byte 4 and onward: TLV tripplets
  */
-
 void parse_pkcs11_opaque_value(uint8_t *opaque_value, size_t opaque_value_len,
                                pkcs11_meta_object *meta_object) {
   uint8_t *p = opaque_value;
