@@ -1307,17 +1307,7 @@ c_l_out:
 
   return rv;
 }
-/*
-static void write_raw_bytes(uint8_t* buff, size_t buff_len) {
-  fprintf(stderr, "---- buff size: %lu : ", buff_len);
-  uint8_t* p = buff;
-  while(p != buff+buff_len) {
-    fprintf(stderr, "%2x : ", *p);
-    p++;
-  }
-  fprintf(stderr, "\n\n");
-}
-*/
+
 CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
 (CK_SESSION_HANDLE hSession, CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
  CK_OBJECT_HANDLE_PTR phObject) {
@@ -1400,8 +1390,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
 
       case CKA_LABEL:
         if (pTemplate[i].ulValueLen > YH_OBJ_LABEL_LEN) {
-          // rv = CKR_ATTRIBUTE_VALUE_INVALID;
-          // goto c_co_out;
           pkcs11meta.cka_label_len = pTemplate[i].ulValueLen;
           memcpy(pkcs11meta.cka_label, pTemplate[i].pValue,
                  pTemplate[i].ulValueLen);

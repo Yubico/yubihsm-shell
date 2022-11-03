@@ -3876,6 +3876,7 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
   CK_RV rv;
   for (CK_ULONG i = 0; i < ulCount; i++) {
     switch (pTemplate[i].type) {
+
       case CKA_PRIME_1:
         if (template->obj.rsa.p == NULL) {
           template->obj.rsa.p = (CK_BYTE_PTR) pTemplate[i].pValue;
@@ -3967,6 +3968,16 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
         }
         break;
 
+      case CKA_SIGN_RECOVER:
+      case CKA_UNWRAP: {
+        CK_BBOOL b_val = *(CK_BBOOL *) pTemplate[i].pValue;
+        if (b_val != CK_FALSE) {
+          DBG_ERR("Boolean false check failed for attribute 0x%lx. This will "
+                  "be ignored",
+                  pTemplate[i].type);
+        }
+      } break;
+
       case CKA_MODULUS:
       case CKA_PRIVATE_EXPONENT:
       case CKA_EXPONENT_1:
@@ -3978,8 +3989,6 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_ID:
       case CKA_LABEL:
       case CKA_EXTRACTABLE:
-      case CKA_SIGN_RECOVER:
-      case CKA_UNWRAP:
         break;
 
       default:
@@ -4126,18 +4135,28 @@ CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
 
       case CKA_VERIFY:
       case CKA_WRAP:
-      case CKA_UNWRAP:
       case CKA_ENCRYPT:
       case CKA_DECRYPT:
-      case CKA_SIGN_RECOVER:
       case CKA_VERIFY_RECOVER:
       case CKA_MODIFIABLE:
       case CKA_COPYABLE:
       case CKA_ALWAYS_AUTHENTICATE:
         if ((rv = check_bool_attribute(pTemplate[i].pValue, false)) != CKR_OK) {
+          DBG_ERR("Boolean false check failed for attribute 0x%lx.",
+                  pTemplate[i].type);
           return rv;
         }
         break;
+
+      case CKA_SIGN_RECOVER:
+      case CKA_UNWRAP: {
+        CK_BBOOL b_val = *(CK_BBOOL *) pTemplate[i].pValue;
+        if (b_val != CK_FALSE) {
+          DBG_ERR("Boolean false check failed for attribute 0x%lx. This will "
+                  "be ignored",
+                  pTemplate[i].type);
+        }
+      } break;
 
       case CKA_CLASS:
       case CKA_KEY_TYPE:
