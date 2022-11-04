@@ -2370,24 +2370,18 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
 
   populate_meta_objects(session);
 
-  // If CKA_ID is a filter, find if there's an opaque object with that ID first
+  // If CKA_ID is a filter, find if there's an opaque object with that ID
   if (template_id_len > 0) {
     pkcs11_meta_object *meta_object =
       find_meta_object_by_id(session, type, template_id, template_id_len);
     if (meta_object != NULL) {
       id = meta_object->object_id;
-    } else {
-      if (template_id_len <= 2) {
-        id = parse_id_value(template_id, template_id_len);
-        if (id == -1) {
-          DBG_ERR("Failed to parse ID from template");
-          rv = CKR_ATTRIBUTE_VALUE_INVALID;
-          goto c_foi_out;
-        }
-      } else {
-        DBG_ERR("Supplied id is too long (was %lu bytes). Object does not "
-                "exist.",
-                template_id_len);
+    }
+
+    if (id == 0) {
+      id = parse_id_value(template_id, template_id_len);
+      if (id == -1) {
+        DBG_ERR("Failed to parse ID from template");
         rv = CKR_ATTRIBUTE_VALUE_INVALID;
         goto c_foi_out;
       }
@@ -2529,11 +2523,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
             memcpy(session->operation.op.find.objects + found_objects,
                    tmp_objects + i, sizeof(yh_object_descriptor));
             found_objects++;
-          }
-
-          if (is_meta_object(&tmp_objects[i])) {
-            continue;
-          } else {
           }
         }
         if (pub) {
