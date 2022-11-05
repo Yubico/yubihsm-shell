@@ -127,7 +127,7 @@ int main() {
   // Padding tests
 
   uint8_t a[48];
-  uint16_t l;
+  uint32_t l;
 
   l = 3;
   memset(a, 0xab, 48);

@@ -1508,6 +1508,86 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   return 0;
 }
 
+// NOTE(adma): Open a session with a connector using a pair of named
+// Authentication Keys argc = 3 arg 0: w:authkey_enc arg 1: w:authkey_mac arg 1:
+// i:password
+int yh_com_open_session_ex(yubihsm_context *ctx, Argument *argv,
+                           cmd_format in_fmt, cmd_format fmt) {
+  UNUSED(in_fmt);
+  UNUSED(fmt);
+
+  UNUSED(in_fmt);
+  UNUSED(fmt);
+
+  if (ctx->connector == NULL) {
+    fprintf(stderr, "Not connected\n");
+    return -1;
+  }
+
+  yh_session *ses = NULL;
+  yh_rc yrc =
+    yh_create_session_ex(ctx->connector, argv[0].w, argv[1].s, argv[2].s, &ses);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  uint8_t session_id = 0;
+
+  yrc = yh_get_session_id(ses, &session_id);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  if (ctx->sessions[session_id] != NULL) {
+    yrc = yh_destroy_session(&ctx->sessions[session_id]);
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr, "Failed to destroy old session with same id (%d): %s\n",
+              session_id, yh_strerror(yrc));
+      return -1;
+    }
+  }
+  ctx->sessions[session_id] = ses;
+
+  fprintf(stderr, "Created session %d\n", session_id);
+
+  return 0;
+}
+
+int yh_com_load_client_auth_module(yubihsm_context *ctx, Argument *argv,
+                                   cmd_format in_fmt, cmd_format fmt) {
+
+  UNUSED(ctx);
+  UNUSED(in_fmt);
+  UNUSED(fmt);
+
+  yh_util_load_client_auth_module(argv[0].s, ctx->out);
+  return 0;
+}
+
+int yh_com_list_client_auth_providers(yubihsm_context *ctx, Argument *argv,
+                                      cmd_format in_fmt, cmd_format fmt) {
+
+  UNUSED(argv);
+  UNUSED(in_fmt);
+  UNUSED(fmt);
+
+  yh_util_list_client_auth_providers(ctx->out);
+  return 0;
+}
+
+int yh_com_list_client_auth_keys(yubihsm_context *ctx, Argument *argv,
+                                 cmd_format in_fmt, cmd_format fmt) {
+
+  UNUSED(argv);
+  UNUSED(in_fmt);
+  UNUSED(fmt);
+
+  yh_util_list_client_auth_keys(ctx->out);
+  return 0;
+}
+
 #ifdef USE_ASYMMETRIC_AUTH
 // NOTE: Open a session with a connector using an Asymmetric
 // Authentication Key argc = 2 arg 0: w:authkey arg 1: i:password
@@ -1593,6 +1673,98 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
   yrc = yh_get_session_id(ses, &session_id);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to get session id: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  if (ctx->sessions[session_id] != NULL) {
+    yrc = yh_destroy_session(&ctx->sessions[session_id]);
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr, "Failed to destroy old session with same id (%d): %s\n",
+              session_id, yh_strerror(yrc));
+      return -1;
+    }
+  }
+  ctx->sessions[session_id] = ses;
+
+  fprintf(stderr, "Created session %d\n", session_id);
+
+  return 0;
+}
+
+int yh_com_list_client_asym_auth_keys(yubihsm_context *ctx, Argument *argv,
+                                      cmd_format in_fmt, cmd_format fmt) {
+
+  UNUSED(ctx);
+  UNUSED(argv);
+  UNUSED(in_fmt);
+  UNUSED(fmt);
+
+  yh_util_list_client_asym_auth_keys(ctx->out);
+  return 0;
+}
+
+// NOTE: Open a session with a connector using a named Asymmetric
+// Authentication Key argc = 2 arg 0: w:authkey arg 1: i:password
+int yh_com_open_session_asym_ex(yubihsm_context *ctx, Argument *argv,
+                                cmd_format in_fmt, cmd_format fmt) {
+
+  UNUSED(in_fmt);
+  UNUSED(fmt);
+
+  if (ctx->connector == NULL) {
+    fprintf(stderr, "Not connected\n");
+    return -1;
+  }
+
+  uint16_t authkey = argv[0].w;
+  const char *keyname = argv[1].s;
+  yh_rc yrc = YHR_SUCCESS;
+
+  uint8_t device_pubkey[YH_EC_P256_PUBKEY_LEN] = {0};
+  size_t device_pubkey_len = sizeof(device_pubkey);
+  yrc = yh_util_get_device_pubkey(ctx->connector, device_pubkey,
+                                  &device_pubkey_len, NULL);
+
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to retrieve device pubkey: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  if (device_pubkey_len != YH_EC_P256_PUBKEY_LEN) {
+    fprintf(stderr, "Invalid device pubkey\n");
+    return -1;
+  }
+
+  int matched = 0;
+  for (uint8_t **pubkey = ctx->device_pubkey_list; *pubkey; pubkey++) {
+    if (!memcmp(*pubkey, device_pubkey, device_pubkey_len)) {
+      matched++;
+    }
+  }
+
+  if (ctx->device_pubkey_list[0] == NULL) {
+    fprintf(stderr, "CAUTION: Device public key (PK.SD) not validated\n");
+    for (size_t i = 0; i < device_pubkey_len; i++)
+      fprintf(stderr, "%02x", device_pubkey[i]);
+    fprintf(stderr, "\n");
+  } else if (matched == 0) {
+    fprintf(stderr, "Failed to validate device pubkey\n");
+    return -1;
+  }
+
+  yh_session *ses = NULL;
+  yrc = yh_create_session_asym_ex(ctx->connector, authkey, keyname,
+                                  device_pubkey, device_pubkey_len, &ses);
+
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  uint8_t session_id = 0;
+  yrc = yh_get_session_id(ses, &session_id);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
     return -1;
   }
 
@@ -1919,6 +2091,83 @@ int yh_com_put_authentication(yubihsm_context *ctx, Argument *argv,
   return 0;
 }
 
+// NOTE: Store an authentication key persistently
+// argc = 7
+// arg 0: e:session
+// arg 1: w:key_id
+// arg 2: s:label
+// arg 3: w:domains
+// arg 4: c:capabilities
+// arg 5: c:delegated_capabilities
+// arg 6: s:key_enc_name
+// arg 7: s:key_mac_name
+int yh_com_put_authentication_ex(yubihsm_context *ctx, Argument *argv,
+                                 cmd_format in_fmt, cmd_format fmt) {
+
+  UNUSED(ctx);
+  UNUSED(argv);
+  UNUSED(in_fmt);
+  UNUSED(fmt);
+
+  uint8_t key_enc[16];
+  yh_rc yrc = yh_util_generate_auth_key(argv[6].s, key_enc, sizeof(key_enc));
+
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to generate encryption key: %s\n",
+            yh_strerror(yrc));
+    return -1;
+  }
+
+  uint8_t key_mac[16];
+  yrc = yh_util_generate_auth_key(argv[7].s, key_mac, sizeof(key_mac));
+
+  if (yrc != YHR_SUCCESS) {
+    insecure_memzero(key_enc, sizeof(key_enc));
+    fprintf(stderr, "Failed to generate mac key: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  yrc = yh_util_import_authentication_key(argv[0].e, &argv[1].w, argv[2].s,
+                                          argv[3].w, &argv[4].c, &argv[5].c,
+                                          key_enc, sizeof(key_enc), key_mac,
+                                          sizeof(key_mac));
+
+  insecure_memzero(key_enc, sizeof(key_enc));
+  insecure_memzero(key_mac, sizeof(key_mac));
+
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to store asymmetric authkey: %s\n",
+            yh_strerror(yrc));
+    return -1;
+  }
+
+  fprintf(stderr, "Stored Persistents Authentication key 0x%04x\n", argv[1].w);
+  return 0;
+}
+
+// NOTE: Delete a persistent authentication key
+// argc = 1
+// arg 0: s:key_name
+int yh_com_destroy_authentication_ex(yubihsm_context *ctx, Argument *argv,
+                                     cmd_format in_fmt, cmd_format fmt) {
+
+  UNUSED(ctx);
+  UNUSED(argv);
+  UNUSED(in_fmt);
+  UNUSED(fmt);
+
+  yh_rc yrc = yh_util_destroy_auth_key(argv[0].s);
+
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to delete persistent authkey: %s\n",
+            yh_strerror(yrc));
+    return -1;
+  }
+
+  fprintf(stderr, "Deleted Persistent Authentication key 0x%04x\n", argv[1].w);
+  return 0;
+}
+
 #ifdef USE_ASYMMETRIC_AUTH
 // NOTE: Store an asymmetric authentication key
 // argc = 7
@@ -1975,6 +2224,46 @@ int yh_com_put_authentication_asym(yubihsm_context *ctx, Argument *argv,
 
   fprintf(stderr, "Stored Asymmetric Authentication key 0x%04x\n", argv[1].w);
 
+  return 0;
+}
+// NOTE: Store an asymmetric authentication key persistently
+// argc = 7
+// arg 0: e:session
+// arg 1: w:key_id
+// arg 2: s:label
+// arg 3: w:domains
+// arg 4: c:capabilities
+// arg 5: c:delegated_capabilities
+// arg 6: s:key_name
+int yh_com_put_authentication_asym_ex(yubihsm_context *ctx, Argument *argv,
+                                      cmd_format in_fmt, cmd_format fmt) {
+
+  UNUSED(ctx);
+  UNUSED(argv);
+  UNUSED(in_fmt);
+  UNUSED(fmt);
+
+  uint8_t pub[65];
+  yh_rc yrc = yh_util_generate_asym_auth_key(argv[6].s, pub, sizeof(pub));
+
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to generate persistent private key: %s\n",
+            yh_strerror(yrc));
+    return -1;
+  }
+
+  yrc = yh_util_import_authentication_key(argv[0].e, &argv[1].w, argv[2].s,
+                                          argv[3].w, &argv[4].c, &argv[5].c,
+                                          pub + 1, sizeof(pub) - 1, NULL, 0);
+
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to store asymmetric authkey: %s\n",
+            yh_strerror(yrc));
+    return -1;
+  }
+
+  fprintf(stderr, "Stored Asymmetric Persistents Authentication key 0x%04x\n",
+          argv[1].w);
   return 0;
 }
 #endif

@@ -78,8 +78,7 @@ int aes_cmac_encrypt(aes_cmac_context_t *ctx, const uint8_t *message,
   uint8_t remaining_bytes = (message_len % AES_BLOCK_SIZE);
 
   for (uint8_t i = 0; i < n_blocks; i++) {
-    do_xor(ptr, mac);
-    int rc = aes_encrypt(mac, mac, ctx->aes_ctx);
+    int rc = aes_cbc_encrypt(ptr, mac, AES_BLOCK_SIZE, mac, ctx->aes_ctx);
     if (rc) {
       return rc;
     }
@@ -100,9 +99,7 @@ int aes_cmac_encrypt(aes_cmac_context_t *ctx, const uint8_t *message,
     do_xor(ctx->k2, M);
   }
 
-  do_xor(M, mac);
-
-  return aes_encrypt(mac, mac, ctx->aes_ctx);
+  return aes_cbc_encrypt(M, mac, AES_BLOCK_SIZE, mac, ctx->aes_ctx);
 }
 
 int aes_cmac_init(aes_context *aes_ctx, aes_cmac_context_t *ctx) {
@@ -111,7 +108,7 @@ int aes_cmac_init(aes_context *aes_ctx, aes_cmac_context_t *ctx) {
 
   ctx->aes_ctx = aes_ctx;
 
-  int rc = aes_encrypt(zero, L, ctx->aes_ctx);
+  int rc = aes_encrypt(zero, L, AES_BLOCK_SIZE, ctx->aes_ctx);
   if (rc) {
     return rc;
   }

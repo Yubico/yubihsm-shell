@@ -442,6 +442,14 @@ static void create_command_list(CommandList *c) {
                                     "password=-",
                                     fmt_password, fmt_nofmt,
                                     "Store an authentication key", NULL, NULL});
+  register_subcommand(*c, (Command){"authkey_ex", yh_com_put_authentication_ex,
+                                    "e:session,w:key_id,s:label,d:domains,c:"
+                                    "capabilities,c:delegated_capabilities,"
+                                    "s:key_enc_name,s:key_mac_name",
+                                    fmt_nofmt, fmt_nofmt,
+                                    "Provision a random persistent "
+                                    "authentication key",
+                                    NULL, NULL});
 #ifdef USE_ASYMMETRIC_AUTH
   register_subcommand(*c,
                       (Command){"authkey_asym", yh_com_put_authentication_asym,
@@ -451,6 +459,15 @@ static void create_command_list(CommandList *c) {
                                 fmt_password, fmt_nofmt,
                                 "Store an asymmetric authentication key", NULL,
                                 NULL});
+  register_subcommand(*c, (Command){"authkey_asym_ex",
+                                    yh_com_put_authentication_asym_ex,
+                                    "e:session,w:key_id,s:label,d:domains,c:"
+                                    "capabilities,c:delegated_capabilities,"
+                                    "s:key_name",
+                                    fmt_nofmt, fmt_nofmt,
+                                    "Provision a random persistent "
+                                    "asymmetric authentication key",
+                                    NULL, NULL});
 #endif
   register_subcommand(*c, (Command){"opaque", yh_com_put_opaque,
                                     "e:session,w:object_id,s:label,d:domains,c:"
@@ -505,12 +522,23 @@ static void create_command_list(CommandList *c) {
                                     "Open a session with a device using a "
                                     "specific Authentication Key",
                                     NULL, NULL});
+  register_subcommand(*c, (Command){"open_ex", yh_com_open_session_ex,
+                                    "w:authkey,s:key_enc,s:key_mac", fmt_nofmt,
+                                    fmt_nofmt,
+                                    "Open a session with a device using a "
+                                    "pair of named Authentication Keys",
+                                    NULL, NULL});
 #ifdef USE_ASYMMETRIC_AUTH
   register_subcommand(*c, (Command){"open_asym", yh_com_open_session_asym,
                                     "w:authkey,i:password=-", fmt_password,
                                     fmt_nofmt,
                                     "Open a session with a device using a "
-                                    "specific Asymmetric Authentication Key",
+                                    "derived Asymmetric Authentication Key",
+                                    NULL, NULL});
+  register_subcommand(*c, (Command){"open_asym_ex", yh_com_open_session_asym_ex,
+                                    "w:authkey,s:keyname", fmt_nofmt, fmt_nofmt,
+                                    "Open a session with a device using a "
+                                    "named Asymmetric Authentication Key",
                                     NULL, NULL});
 #endif
 #ifdef YKHSMAUTH_ENABLED
@@ -655,6 +683,27 @@ static void create_command_list(CommandList *c) {
                                     NULL, NULL});
 #endif
 
+  *c = register_command(*c, (Command){"pkcs11", yh_com_noop, NULL, fmt_nofmt,
+                                      fmt_nofmt, "Manage PKCS11 modules", NULL,
+                                      NULL});
+  register_subcommand(*c, (Command){"load", yh_com_load_client_auth_module,
+                                    "s:module_name", fmt_nofmt, fmt_nofmt,
+                                    "Load a PKCS11 module", NULL, NULL});
+  register_subcommand(*c, (Command){"slots", yh_com_list_client_auth_providers,
+                                    NULL, fmt_nofmt, fmt_nofmt,
+                                    "List PKCS11 module slots", NULL, NULL});
+  register_subcommand(*c,
+                      (Command){"symmetric_keys", yh_com_list_client_auth_keys,
+                                NULL, fmt_nofmt, fmt_nofmt,
+                                "List symmetric client auth keys", NULL, NULL});
+  register_subcommand(*c, (Command){"asymmetric_keys",
+                                    yh_com_list_client_asym_auth_keys, NULL,
+                                    fmt_nofmt, fmt_nofmt,
+                                    "List asymmetric client auth keys", NULL,
+                                    NULL});
+  register_subcommand(*c, (Command){"destroy", yh_com_destroy_authentication_ex,
+                                    "s:key_name", fmt_nofmt, fmt_nofmt,
+                                    "Delete a client auth key", NULL, NULL});
   *c = msort_list(*c);
   for (Command *t = *c; t != NULL; t = t->next) {
     if (t->subcommands != NULL) {

@@ -122,9 +122,21 @@ int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                         cmd_format fmt);
 int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                         cmd_format fmt);
+int yh_com_open_session_ex(yubihsm_context *ctx, Argument *argv,
+                           cmd_format in_fmt, cmd_format fmt);
+int yh_com_load_client_auth_module(yubihsm_context *ctx, Argument *argv,
+                                   cmd_format in_fmt, cmd_format fmt);
+int yh_com_list_client_auth_providers(yubihsm_context *ctx, Argument *argv,
+                                      cmd_format in_fmt, cmd_format fmt);
+int yh_com_list_client_auth_keys(yubihsm_context *ctx, Argument *argv,
+                                 cmd_format in_fmt, cmd_format fmt);
 #ifdef USE_ASYMMETRIC_AUTH
 int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
                              cmd_format in_fmt, cmd_format fmt);
+int yh_com_list_client_asym_auth_keys(yubihsm_context *ctx, Argument *argv,
+                                      cmd_format in_fmt, cmd_format fmt);
+int yh_com_open_session_asym_ex(yubihsm_context *ctx, Argument *argv,
+                                cmd_format in_fmt, cmd_format fmt);
 #endif
 #ifdef YKHSMAUTH_ENABLED
 int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
@@ -136,9 +148,15 @@ int yh_com_put_asymmetric(yubihsm_context *ctx, Argument *argv,
                           cmd_format in_fmt, cmd_format fmt);
 int yh_com_put_authentication(yubihsm_context *ctx, Argument *argv,
                               cmd_format in_fmt, cmd_format fmt);
+int yh_com_put_authentication_ex(yubihsm_context *ctx, Argument *argv,
+                                 cmd_format in_fmt, cmd_format fmt);
+int yh_com_destroy_authentication_ex(yubihsm_context *ctx, Argument *argv,
+                                     cmd_format in_fmt, cmd_format fmt);
 #ifdef USE_ASYMMETRIC_AUTH
 int yh_com_put_authentication_asym(yubihsm_context *ctx, Argument *argv,
                                    cmd_format in_fmt, cmd_format fmt);
+int yh_com_put_authentication_asym_ex(yubihsm_context *ctx, Argument *argv,
+                                      cmd_format in_fmt, cmd_format fmt);
 #endif
 int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                       cmd_format fmt);

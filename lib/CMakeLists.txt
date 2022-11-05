@@ -61,7 +61,7 @@ if(WIN32)
   set(USB_LIBRARY winusb ws2_32 setupapi)
 
   if(${WIN32_BCRYPT})
-    set (CRYPT_LIBRARY bcrypt)
+    set (CRYPT_LIBRARY bcrypt ncrypt)
     add_definitions (-D_WIN32_BCRYPT)
   else(${WIN32_BCRYPT})
     set(CRYPT_LIBRARY ${LIBCRYPTO_LDFLAGS})
