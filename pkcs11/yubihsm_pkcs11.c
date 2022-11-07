@@ -2401,7 +2401,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
       }
     } else {
       if (template_label_len > YH_OBJ_LABEL_LEN) {
-        DBG_ERR("Label value too long, found %lu, maximum is %d",
+        DBG_ERR("Label value too long, found %zu, maximum is %d",
                 template_label_len, YH_OBJ_LABEL_LEN);
         rv = CKR_ATTRIBUTE_VALUE_INVALID;
         goto c_foi_out;
