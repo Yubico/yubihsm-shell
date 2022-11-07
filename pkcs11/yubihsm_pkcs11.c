@@ -2526,7 +2526,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           }
         }
         if (pub) {
-          for (size_t i = 0; i < session->operation.op.find.n_objects; i++) {
+          for (size_t i = 0; i < found_objects; i++) {
             if (session->operation.op.find.objects[i].type ==
                 YH_ASYMMETRIC_KEY) {
               session->operation.op.find.objects[i].type |= 0x80;
