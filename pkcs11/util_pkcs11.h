@@ -175,6 +175,6 @@ pkcs11_meta_object *find_meta_object_by_label(yubihsm_pkcs11_session *session,
                                               uint8_t *cka_label,
                                               size_t cka_label_len);
 pkcs11_meta_object *find_meta_object(yubihsm_pkcs11_session *session,
-                                     u_int16_t origin_id, uint8_t type);
+                                     uint16_t origin_id, uint8_t type);
 bool is_meta_object(yh_object_descriptor *object);
 #endif
