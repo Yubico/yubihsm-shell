@@ -701,17 +701,19 @@ void parse_pkcs11_opaque_value(uint8_t *opaque_value, size_t opaque_value_len,
   meta_object->object_type = *p++;
   memcpy(&meta_object->object_id, p, 2);
   p += 2;
-  while (p != opaque_value + opaque_value_len) {
+  while (p < opaque_value + opaque_value_len) {
     switch (*p) {
       case PKCS11_ID_TAG:
         p++; // Tag byte
-        meta_object->cka_id_len = *p++;
+        memcpy(&meta_object->cka_id_len, p, 2);
+        p += 2;
         memcpy(&meta_object->cka_id, p, meta_object->cka_id_len);
         p += meta_object->cka_id_len;
         break;
       case PKCS11_LABEL_TAG:
         p++; // Tag byte
-        meta_object->cka_label_len = *p++;
+        memcpy(&meta_object->cka_label_len, p, 2);
+        p += 2;
         memcpy(&meta_object->cka_label, p, meta_object->cka_label_len);
         p += meta_object->cka_label_len;
         break;
@@ -724,8 +726,10 @@ void parse_pkcs11_opaque_value(uint8_t *opaque_value, size_t opaque_value_len,
 CK_RV write_meta_opaque(yubihsm_pkcs11_session *session,
                         pkcs11_meta_object *meta_opaque, bool replace) {
   size_t opaque_value_len =
-    4 + (meta_opaque->cka_id_len == 0 ? 0 : 2 + meta_opaque->cka_id_len) +
-    (meta_opaque->cka_label_len == 0 ? 0 : 2 + meta_opaque->cka_label_len);
+    4 /* 1 version + 1 original_object type + 2 original_object ID*/ +
+    (meta_opaque->cka_id_len == 0 ? 0 : 3 + meta_opaque->cka_id_len) +
+    (meta_opaque->cka_label_len == 0 ? 0 : 3 + meta_opaque->cka_label_len);
+  // 3: 1 tag + 2 value length
   uint8_t *opaque_value;
   opaque_value = malloc(opaque_value_len * sizeof(uint8_t));
   memset(opaque_value, 0, opaque_value_len * sizeof(uint8_t));
@@ -739,14 +743,16 @@ CK_RV write_meta_opaque(yubihsm_pkcs11_session *session,
 
   if (meta_opaque->cka_id_len > 0) {
     *p++ = PKCS11_ID_TAG;
-    *p++ = meta_opaque->cka_id_len;
+    memcpy(p, &meta_opaque->cka_id_len, 2);
+    p += 2;
     memcpy(p, &meta_opaque->cka_id, meta_opaque->cka_id_len);
     p += meta_opaque->cka_id_len;
   }
 
   if (meta_opaque->cka_label_len > 0) {
     *p++ = PKCS11_LABEL_TAG;
-    *p++ = meta_opaque->cka_label_len;
+    memcpy(p, &meta_opaque->cka_label_len, 2);
+    p += 2;
     memcpy(p, &meta_opaque->cka_label, meta_opaque->cka_label_len);
   }
 
@@ -784,9 +790,9 @@ CK_RV write_meta_opaque(yubihsm_pkcs11_session *session,
 }
 
 bool is_meta_object(yh_object_descriptor *object) {
-  return (strncmp(object->label, "Meta object", strlen("Meta object")) == 0);
-  // return (object->type == YH_OPAQUE && object->algorithm ==
-  // YH_ALGO_AES256_YUBICO_OTP);
+  return (object->type == YH_OPAQUE &&
+          object->algorithm == YH_ALGO_OPAQUE_DATA &&
+          strncmp(object->label, "Meta object", strlen("Meta object")) == 0);
 }
 
 pkcs11_meta_object *find_meta_object(yubihsm_pkcs11_session *session,
@@ -4327,7 +4333,7 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
 
       case CKA_ID:
         if (template->id == 0) {
-          if (pPublicKeyTemplate[i].ulValueLen > 2) {
+          if (pPublicKeyTemplate[i].ulValueLen != 2) {
             pkcs11meta->cka_id_len = pPublicKeyTemplate[i].ulValueLen;
             memcpy(pkcs11meta->cka_id, pPublicKeyTemplate[i].pValue,
                    pPublicKeyTemplate[i].ulValueLen);
@@ -4466,7 +4472,7 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_ID: {
-        if (pPrivateKeyTemplate[i].ulValueLen > 2) {
+        if (pPrivateKeyTemplate[i].ulValueLen != 2) {
           if (pkcs11meta->cka_id_len > 0) {
             if (memcmp(pkcs11meta->cka_id, pPrivateKeyTemplate[i].pValue,
                        pPrivateKeyTemplate[i].ulValueLen) != 0) {
@@ -4649,7 +4655,7 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
 
       case CKA_ID:
         if (template->id == 0) {
-          if (pPublicKeyTemplate[i].ulValueLen > 2) {
+          if (pPublicKeyTemplate[i].ulValueLen != 2) {
             pkcs11meta->cka_id_len = pPublicKeyTemplate[i].ulValueLen;
             memcpy(pkcs11meta->cka_id, pPublicKeyTemplate[i].pValue,
                    pPublicKeyTemplate[i].ulValueLen);
@@ -4757,7 +4763,7 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
       case CKA_ID: {
         if (id_set == TRUE) {
           bool eq = TRUE;
-          if (pPrivateKeyTemplate[i].ulValueLen > 2) {
+          if (pPrivateKeyTemplate[i].ulValueLen != 2) {
             if (pkcs11meta->cka_id_len != pPrivateKeyTemplate[i].ulValueLen ||
                 memcmp(pkcs11meta->cka_id, pPrivateKeyTemplate[i].pValue,
                        pPrivateKeyTemplate[i].ulValueLen) != 0) {

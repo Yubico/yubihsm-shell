@@ -1369,7 +1369,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
 
       case CKA_ID:
         if (id.set == false) {
-          if (pTemplate[i].ulValueLen > 2) {
+          if (pTemplate[i].ulValueLen != 2) {
             pkcs11meta.cka_id_len = pTemplate[i].ulValueLen;
             memcpy(pkcs11meta.cka_id, pTemplate[i].pValue,
                    pTemplate[i].ulValueLen);
@@ -2048,43 +2048,20 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
     rv = CKR_OBJECT_HANDLE_INVALID;
     goto c_sav_out;
   }
+
+  uint8_t new_ckaid[PKCS11_ID_SIZE] = {0};
+  int new_ckaid_len = 0;
+  uint8_t new_ckalabel[PKCS11_LABEL_SIZE] = {0};
+  int new_ckalabel_len = 0;
+
   for (CK_ULONG i = 0; i < ulCount; i++) {
     switch (pTemplate[i].type) {
       case CKA_ID: {
         int new_id =
           parse_id_value(pTemplate[i].pValue, pTemplate[i].ulValueLen);
         if (new_id != object->object.id) {
-          DBG_INFO(
-            "New ID different from ObjectID. Creating metadata opaque object");
-
-          pkcs11_meta_object *pkcs11meta =
-            find_meta_object(session, object->object.id,
-                             (object->object.type & 0x7f));
-          if (pkcs11meta != NULL) {
-            memset(&pkcs11meta->cka_id, 0, pkcs11meta->cka_id_len);
-            pkcs11meta->cka_id_len = pTemplate[i].ulValueLen;
-            memcpy(pkcs11meta->cka_id, pTemplate[i].pValue,
-                   pTemplate[i].ulValueLen);
-            rv = write_meta_opaque(session, pkcs11meta, true);
-            if (rv != CKR_OK) {
-              DBG_ERR("Failed to update meta opaque object to update CKA_ID");
-              goto c_sav_out;
-            }
-          } else {
-            // Create new opaque object and add it to the session
-            pkcs11_meta_object new_meta = {0};
-            new_meta.object_id = object->object.id;
-            new_meta.object_type = object->object.type;
-            new_meta.cka_id_len = pTemplate[i].ulValueLen;
-            memcpy(new_meta.cka_id, pTemplate[i].pValue,
-                   pTemplate[i].ulValueLen);
-            rv = write_meta_opaque(session, &new_meta, false);
-            if (rv != CKR_OK) {
-              DBG_ERR(
-                "Failed to create a new meta opaque object to store CKA_ID");
-              goto c_sav_out;
-            }
-          }
+          new_ckaid_len = pTemplate[i].ulValueLen;
+          memcpy(new_ckaid, pTemplate[i].pValue, pTemplate[i].ulValueLen);
         }
       } break;
 
@@ -2092,40 +2069,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
         if (pTemplate[i].ulValueLen != strlen(object->object.label) ||
             memcmp(pTemplate[i].pValue, object->object.label,
                    pTemplate[i].ulValueLen) != 0) {
-          DBG_INFO("New label different from existing label. Creating metadata "
-                   "opaque object");
-
-          pkcs11_meta_object *pkcs11meta =
-            find_meta_object(session, object->object.id,
-                             (object->object.type & 0x7f));
-          if (pkcs11meta != NULL) {
-            if (pkcs11meta->cka_label_len > 0) {
-              memset(&pkcs11meta->cka_label, 0, pkcs11meta->cka_label_len);
-            }
-            pkcs11meta->cka_label_len = pTemplate[i].ulValueLen;
-            memcpy(pkcs11meta->cka_label, pTemplate[i].pValue,
-                   pTemplate[i].ulValueLen);
-            rv = write_meta_opaque(session, pkcs11meta, true);
-            if (rv != CKR_OK) {
-              DBG_ERR(
-                "Failed to update meta opaque object to update CKA_LABEL");
-              goto c_sav_out;
-            }
-          } else {
-            // Create new opaque object and add it to the session
-            pkcs11_meta_object new_meta = {0};
-            new_meta.object_id = object->object.id;
-            new_meta.object_type = object->object.type;
-            new_meta.cka_label_len = pTemplate[i].ulValueLen;
-            memcpy(new_meta.cka_label, pTemplate[i].pValue,
-                   pTemplate[i].ulValueLen);
-            rv = write_meta_opaque(session, &new_meta, false);
-            if (rv != CKR_OK) {
-              DBG_ERR(
-                "Failed to create a new meta opaque object to store CKA_LABEL");
-              goto c_sav_out;
-            }
-          }
+          new_ckalabel_len = pTemplate[i].ulValueLen;
+          memcpy(new_ckalabel, pTemplate[i].pValue, pTemplate[i].ulValueLen);
         }
         break;
 
@@ -2137,6 +2082,61 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
                  pTemplate[i].type);
         rv = CKR_FUNCTION_NOT_SUPPORTED;
         goto c_sav_out;
+    }
+  }
+
+  if (new_ckaid_len > 0 || new_ckalabel_len > 0) {
+    DBG_INFO("New ID or label different from existing ones. Creating metadata "
+             "opaque object");
+
+    pkcs11_meta_object *pkcs11meta =
+      find_meta_object(session, object->object.id,
+                       (object->object.type & 0x7f));
+    if (pkcs11meta != NULL) {
+      bool changed = FALSE;
+      if (new_ckaid_len != pkcs11meta->cka_id_len ||
+          memcmp(new_ckaid, pkcs11meta->cka_id, new_ckaid_len) != 0) {
+        changed = TRUE;
+        if (pkcs11meta->cka_id_len > 0) {
+          memset(&pkcs11meta->cka_id, 0, pkcs11meta->cka_id_len);
+        }
+        pkcs11meta->cka_id_len = new_ckaid_len;
+        memcpy(pkcs11meta->cka_id, new_ckaid, new_ckaid_len);
+      }
+      if (new_ckalabel_len != pkcs11meta->cka_label_len ||
+          memcmp(new_ckalabel, pkcs11meta->cka_label, new_ckalabel_len) != 0) {
+        changed = TRUE;
+        if (pkcs11meta->cka_label_len > 0) {
+          memset(&pkcs11meta->cka_label, 0, pkcs11meta->cka_label_len);
+        }
+        pkcs11meta->cka_label_len = new_ckalabel_len;
+        memcpy(pkcs11meta->cka_label, new_ckalabel, new_ckalabel_len);
+      }
+      if (changed) {
+        rv = write_meta_opaque(session, pkcs11meta, true);
+        if (rv != CKR_OK) {
+          DBG_ERR("Failed to update meta opaque object to update CKA_ID");
+          goto c_sav_out;
+        }
+      }
+    } else {
+      // Create new opaque object and add it to the session
+      pkcs11_meta_object new_meta = {0};
+      new_meta.object_id = object->object.id;
+      new_meta.object_type = object->object.type;
+      if (new_ckaid_len > 0) {
+        new_meta.cka_id_len = new_ckaid_len;
+        memcpy(new_meta.cka_id, new_ckaid, new_ckaid_len);
+      }
+      if (new_ckalabel_len > 0) {
+        new_meta.cka_label_len = new_ckalabel_len;
+        memcpy(new_meta.cka_label, new_ckalabel, new_ckalabel_len);
+      }
+      rv = write_meta_opaque(session, &new_meta, false);
+      if (rv != CKR_OK) {
+        DBG_ERR("Failed to create a new meta opaque object to store CKA_ID");
+        goto c_sav_out;
+      }
     }
   }
 
