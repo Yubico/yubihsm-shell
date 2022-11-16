@@ -167,11 +167,11 @@ typedef struct {
   /// The CKA_ID
   uint8_t cka_id[PKCS11_ID_SIZE];
   /// The CKA_ID length
-  size_t cka_id_len;
+  uint16_t cka_id_len;
   /// Object label
   char cka_label[PKCS11_LABEL_SIZE];
   /// The CKA_LABEL length
-  size_t cka_label_len;
+  uint16_t cka_label_len;
 } pkcs11_meta_object;
 
 typedef struct {
