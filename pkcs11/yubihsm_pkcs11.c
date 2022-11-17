@@ -2219,9 +2219,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
   bool secret_key = false;
   bool extractable_set = false;
   size_t template_value_len = 0;
-  uint8_t template_id[1024] = {0};
+  uint8_t template_id[PKCS11_ID_SIZE] = {0};
   size_t template_id_len = 0;
-  uint8_t template_label[1024] = {0};
+  uint8_t template_label[PKCS11_LABEL_SIZE] = {0};
   size_t template_label_len = 0;
 
   DBG_INFO("find with %lu attributes", ulCount);
