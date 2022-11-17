@@ -4011,7 +4011,6 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
       case CKA_SIGN:
       case CKA_SIGN_RECOVER:
       case CKA_VERIFY_RECOVER:
-      case CKA_DERIVE:
       case CKA_ALWAYS_AUTHENTICATE:
         if ((rv = check_bool_attribute(pPublicKeyTemplate[i].pValue, false)) !=
             CKR_OK) {
@@ -4022,6 +4021,7 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_VERIFY:
+      case CKA_DERIVE: // pkcs11-tool sets this on public keys
         break;
 
       default:
