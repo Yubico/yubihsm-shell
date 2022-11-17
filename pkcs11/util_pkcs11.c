@@ -656,7 +656,7 @@ CK_RV populate_meta_objects(yubihsm_pkcs11_session *session) {
   int id = 0;
   uint8_t type = YH_OPAQUE;
   uint16_t domains = 0;
-  yh_algorithm algorithm = YH_ALGO_AES256_YUBICO_OTP;
+  yh_algorithm algorithm = YH_ALGO_OPAQUE_DATA;
   yh_capabilities capabilities = {{0}};
 
   rc =
@@ -667,18 +667,26 @@ CK_RV populate_meta_objects(yubihsm_pkcs11_session *session) {
     return yrc_to_rv(rc);
   }
   for (size_t i = 0; i < n_opaques; i++) {
-    uint8_t opaque_value[YH_MSG_BUF_SIZE] = {0};
-    size_t opaque_value_len = sizeof(opaque_value);
-    rc = yh_util_get_opaque(session->slot->device_session, opaques[i].id,
-                            opaque_value, &opaque_value_len);
+    rc = yh_util_get_object_info(session->slot->device_session, opaques[i].id,
+                                 opaques[i].type, &opaques[i]);
     if (rc != YHR_SUCCESS) {
-      DBG_ERR("Failed to get opaque object 0x%x", opaques[i].id);
+      DBG_ERR("Failed to get opaque object info 0x%x", opaques[i].id);
       return yrc_to_rv(rc);
     }
-    pkcs11_meta_object meta_object = {0};
-    meta_object.opaque_id = opaques[i].id;
-    parse_pkcs11_opaque_value(opaque_value, opaque_value_len, &meta_object);
-    list_append(&session->pkcs11_meta_objects, &meta_object);
+    if (is_meta_object(&opaques[i])) {
+      uint8_t opaque_value[YH_MSG_BUF_SIZE] = {0};
+      size_t opaque_value_len = sizeof(opaque_value);
+      rc = yh_util_get_opaque(session->slot->device_session, opaques[i].id,
+                              opaque_value, &opaque_value_len);
+      if (rc != YHR_SUCCESS) {
+        DBG_ERR("Failed to get opaque object value 0x%x", opaques[i].id);
+        return yrc_to_rv(rc);
+      }
+      pkcs11_meta_object meta_object = {0};
+      meta_object.opaque_id = opaques[i].id;
+      parse_pkcs11_opaque_value(opaque_value, opaque_value_len, &meta_object);
+      list_append(&session->pkcs11_meta_objects, &meta_object);
+    }
   }
   return CKR_OK;
 }
@@ -774,8 +782,8 @@ CK_RV write_meta_opaque(yubihsm_pkcs11_session *session,
   yh_capabilities capabilities = {{0}};
   rc = yh_util_import_opaque(session->slot->device_session,
                              &meta_opaque->opaque_id, opaque_label, 0xffff,
-                             &capabilities, YH_ALGO_AES256_YUBICO_OTP,
-                             opaque_value, opaque_value_len);
+                             &capabilities, YH_ALGO_OPAQUE_DATA, opaque_value,
+                             opaque_value_len);
 
   if (rc != YHR_SUCCESS) {
     DBG_ERR("Failed to import opaque meta object for object 0x%x",
