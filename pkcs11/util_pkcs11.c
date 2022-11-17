@@ -1600,23 +1600,22 @@ static CK_RV get_attribute_ecsession_key(CK_ATTRIBUTE_TYPE type,
   return CKR_OK;
 }
 
-void delete_object_from_cache(yubihsm_pkcs11_object_desc *objects,
+void delete_object_from_cache(yubihsm_pkcs11_slot *slot,
                               CK_OBJECT_HANDLE objHandle) {
   uint16_t id = objHandle & 0xffff;
   uint8_t type = objHandle >> 16;
   uint8_t sequence = objHandle >> 24;
   for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
-    if (objects[i].object.id == id &&
-        (objects[i].object.type & 0x7f) == (type & 0x7f) &&
-        objects[i].object.sequence == sequence) {
-      memset(&objects[i], 0, sizeof(yubihsm_pkcs11_object_desc));
+    if (slot->objects[i].object.id == id &&
+        (slot->objects[i].object.type & 0x7f) == (type & 0x7f) &&
+        slot->objects[i].object.sequence == sequence) {
+      memset(&slot->objects[i], 0, sizeof(yubihsm_pkcs11_object_desc));
       return;
     }
   }
 }
 
-yubihsm_pkcs11_object_desc *get_object_desc(yh_session *session,
-                                            yubihsm_pkcs11_object_desc *objects,
+yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
                                             CK_OBJECT_HANDLE objHandle) {
 
   yubihsm_pkcs11_object_desc *object = NULL;
@@ -1624,10 +1623,10 @@ yubihsm_pkcs11_object_desc *get_object_desc(yh_session *session,
   uint8_t type = objHandle >> 16;
   uint8_t sequence = objHandle >> 24;
   for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
-    if (objects[i].object.id == id &&
-        (objects[i].object.type & 0x7f) == (type & 0x7f) &&
-        objects[i].object.sequence == sequence) {
-      object = &objects[i];
+    if (slot->objects[i].object.id == id &&
+        slot->objects[i].object.type == (type & 0x7f) &&
+        slot->objects[i].object.sequence == sequence) {
+      object = &slot->objects[i];
       break;
     }
   }
@@ -1637,29 +1636,27 @@ yubihsm_pkcs11_object_desc *get_object_desc(yh_session *session,
     struct timeval *low_time = NULL;
 
     for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
-      if (objects[i].tv.tv_sec == 0) {
+      if (slot->objects[i].tv.tv_sec == 0) {
         low = i;
-        low_time = &objects[i].tv;
+        low_time = &slot->objects[i].tv;
         break;
       } else {
-        if (!low_time || objects[i].tv.tv_sec < low_time->tv_sec ||
-            (objects[i].tv.tv_sec == low_time->tv_sec &&
-             objects[i].tv.tv_usec < low_time->tv_usec)) {
+        if (!low_time || slot->objects[i].tv.tv_sec < low_time->tv_sec ||
+            (slot->objects[i].tv.tv_sec == low_time->tv_sec &&
+             slot->objects[i].tv.tv_usec < low_time->tv_usec)) {
 
-          low_time = &objects[i].tv;
+          low_time = &slot->objects[i].tv;
           low = i;
         }
       }
     }
-    object = &objects[low];
+    object = &slot->objects[low];
     memset(object, 0, sizeof(yubihsm_pkcs11_object_desc));
   }
 
   if (!object->filled) {
-    uint16_t real_type =
-      type & ~0x80; // NOTE(adma): public key are not real objects
-    yh_rc yrc =
-      yh_util_get_object_info(session, id, real_type, &object->object);
+    yh_rc yrc = yh_util_get_object_info(slot->device_session, id, type & 0x7f,
+                                        &object->object);
     if (yrc != YHR_SUCCESS) {
       return NULL;
     }
@@ -1915,9 +1912,7 @@ CK_RV apply_encrypt_mechanism_init(yubihsm_pkcs11_session *session,
     return CKR_KEY_TYPE_INCONSISTENT;
   }
 
-  yubihsm_pkcs11_object_desc *object =
-    get_object_desc(session->slot->device_session, session->slot->objects,
-                    hKey);
+  yubihsm_pkcs11_object_desc *object = get_object_desc(session->slot, hKey);
 
   if (object == NULL) {
     DBG_ERR("Unable to retrieve object");
