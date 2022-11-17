@@ -3760,8 +3760,6 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
       case CKA_COPYABLE:
       case CKA_DECRYPT:
       case CKA_SIGN:
-      case CKA_WRAP:
-      case CKA_UNWRAP:
       case CKA_DERIVE:
       case CKA_SIGN_RECOVER:
       case CKA_VERIFY_RECOVER:
@@ -3774,6 +3772,8 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         }
         break;
 
+      case CKA_WRAP:   // pkcs11-tool sets this on public keys
+      case CKA_UNWRAP: // pkcs11-tool sets this on public keys
       case CKA_VERIFY:
       case CKA_ENCRYPT:
         break;
@@ -3875,7 +3875,6 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_WRAP:
-      case CKA_UNWRAP:
       case CKA_DERIVE:
       case CKA_ENCRYPT:
       case CKA_SIGN_RECOVER:
@@ -3891,6 +3890,7 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         }
         break;
 
+      case CKA_UNWRAP: // pkcs11-tool sets this on private keys
       case CKA_SUBJECT:
         break;
 
