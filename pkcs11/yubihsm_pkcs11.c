@@ -1752,8 +1752,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
     }
 
     yubihsm_pkcs11_object_desc *object =
-      get_object_desc(session->slot->device_session, session->slot->objects,
-                      hObject);
+      get_object_desc(session->slot, hObject);
     if (object == NULL) {
       DBG_ERR("Object not found");
       rv = CKR_OBJECT_HANDLE_INVALID;
@@ -1769,7 +1768,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
     }
 
     DBG_INFO("Deleted object %08lx", hObject);
-    delete_object_from_cache(session->slot->objects, hObject);
+    delete_object_from_cache(session->slot, hObject);
   }
 
   DOUT;
@@ -1817,8 +1816,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetObjectSize)
     }
   } else {
     yubihsm_pkcs11_object_desc *object =
-      get_object_desc(session->slot->device_session, session->slot->objects,
-                      hObject);
+      get_object_desc(session->slot, hObject);
     if (object == NULL) {
       rv = CKR_OBJECT_HANDLE_INVALID;
     } else {
@@ -1882,8 +1880,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
 
   } else {
     yubihsm_pkcs11_object_desc *object =
-      get_object_desc(session->slot->device_session, session->slot->objects,
-                      hObject);
+      get_object_desc(session->slot, hObject);
 
     if (object == NULL) {
       DBG_ERR("Unable to retrieve object");
@@ -1938,9 +1935,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
     goto c_sav_out;
   }
 
-  yubihsm_pkcs11_object_desc *object =
-    get_object_desc(session->slot->device_session, session->slot->objects,
-                    hObject);
+  yubihsm_pkcs11_object_desc *object = get_object_desc(session->slot, hObject);
   if (object == NULL) {
     DBG_ERR("Unable to retrieve object");
     rv = CKR_OBJECT_HANDLE_INVALID;
@@ -2758,9 +2753,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
     goto c_di_out;
   }
 
-  yubihsm_pkcs11_object_desc *object =
-    get_object_desc(session->slot->device_session, session->slot->objects,
-                    hKey);
+  yubihsm_pkcs11_object_desc *object = get_object_desc(session->slot, hKey);
 
   if (object == NULL) {
     DBG_ERR("Unable to retrieve object");
@@ -3565,9 +3558,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_SignInit)
     goto c_si_out;
   }
 
-  yubihsm_pkcs11_object_desc *object =
-    get_object_desc(session->slot->device_session, session->slot->objects,
-                    hKey);
+  yubihsm_pkcs11_object_desc *object = get_object_desc(session->slot, hKey);
 
   if (object == NULL) {
     DBG_ERR("Unable to retrieve object");
@@ -3987,9 +3978,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_VerifyInit)
     goto c_vi_out;
   }
 
-  yubihsm_pkcs11_object_desc *object =
-    get_object_desc(session->slot->device_session, session->slot->objects,
-                    hKey);
+  yubihsm_pkcs11_object_desc *object = get_object_desc(session->slot, hKey);
 
   if (object == NULL) {
     DBG_ERR("Unable to retrieve object");
@@ -4794,9 +4783,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_WrapKey)
     goto c_wk_out;
   }
 
-  yubihsm_pkcs11_object_desc *object =
-    get_object_desc(session->slot->device_session, session->slot->objects,
-                    hKey);
+  yubihsm_pkcs11_object_desc *object = get_object_desc(session->slot, hKey);
   if (object == NULL) {
     DBG_ERR("Wrapped key not found");
     rv = CKR_KEY_HANDLE_INVALID;
@@ -4825,8 +4812,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_WrapKey)
   }
 
   yubihsm_pkcs11_object_desc *key =
-    get_object_desc(session->slot->device_session, session->slot->objects,
-                    hWrappingKey);
+    get_object_desc(session->slot, hWrappingKey);
   if (key == NULL) {
     DBG_ERR("No wrap key found");
     rv = CKR_WRAPPING_KEY_HANDLE_INVALID;
@@ -4927,8 +4913,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_UnwrapKey)
   }
 
   yubihsm_pkcs11_object_desc *key =
-    get_object_desc(session->slot->device_session, session->slot->objects,
-                    hUnwrappingKey);
+    get_object_desc(session->slot, hUnwrappingKey);
   if (key == NULL) {
     DBG_ERR("No wrap key found");
     rv = CKR_UNWRAPPING_KEY_HANDLE_INVALID;

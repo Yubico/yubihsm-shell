@@ -31,11 +31,10 @@ CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
 
 void destroy_session(yubihsm_pkcs11_context *ctx, CK_SESSION_HANDLE hSession);
 
-yubihsm_pkcs11_object_desc *get_object_desc(yh_session *session,
-                                            yubihsm_pkcs11_object_desc *objects,
+yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
                                             CK_OBJECT_HANDLE objectHandle);
 
-void delete_object_from_cache(yubihsm_pkcs11_object_desc *objects,
+void delete_object_from_cache(yubihsm_pkcs11_slot *slot,
                               CK_OBJECT_HANDLE objHandle);
 
 CK_RV check_sign_mechanism(yubihsm_pkcs11_slot *slot,
