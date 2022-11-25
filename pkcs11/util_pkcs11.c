@@ -714,6 +714,7 @@ void parse_pkcs11_opaque_value(uint8_t *opaque_value, size_t opaque_value_len,
       case PKCS11_ID_TAG:
         p++; // Tag byte
         memcpy(&meta_object->cka_id_len, p, 2);
+        meta_object->cka_id_len = ntohs(meta_object->cka_id_len);
         p += 2;
         memcpy(&meta_object->cka_id, p, meta_object->cka_id_len);
         p += meta_object->cka_id_len;
@@ -721,6 +722,7 @@ void parse_pkcs11_opaque_value(uint8_t *opaque_value, size_t opaque_value_len,
       case PKCS11_LABEL_TAG:
         p++; // Tag byte
         memcpy(&meta_object->cka_label_len, p, 2);
+        meta_object->cka_label_len = ntohs(meta_object->cka_label_len);
         p += 2;
         memcpy(&meta_object->cka_label, p, meta_object->cka_label_len);
         p += meta_object->cka_label_len;
@@ -751,7 +753,8 @@ CK_RV write_meta_opaque(yubihsm_pkcs11_session *session,
 
   if (meta_opaque->cka_id_len > 0) {
     *p++ = PKCS11_ID_TAG;
-    memcpy(p, &meta_opaque->cka_id_len, 2);
+    uint16_t len_serialized = htons(meta_opaque->cka_id_len);
+    memcpy(p, &len_serialized, 2);
     p += 2;
     memcpy(p, &meta_opaque->cka_id, meta_opaque->cka_id_len);
     p += meta_opaque->cka_id_len;
@@ -759,7 +762,8 @@ CK_RV write_meta_opaque(yubihsm_pkcs11_session *session,
 
   if (meta_opaque->cka_label_len > 0) {
     *p++ = PKCS11_LABEL_TAG;
-    memcpy(p, &meta_opaque->cka_label_len, 2);
+    uint16_t len_serialized = htons(meta_opaque->cka_label_len);
+    memcpy(p, &len_serialized, 2);
     p += 2;
     memcpy(p, &meta_opaque->cka_label, meta_opaque->cka_label_len);
   }
