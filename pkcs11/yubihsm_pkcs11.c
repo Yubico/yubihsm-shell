@@ -1754,7 +1754,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       }
     }
     if (pubkey_found == false) {
-      rv = CKR_FUNCTION_FAILED;
+      rv = CKR_ATTRIBUTE_VALUE_INVALID;
       goto c_co_out;
     }
   } else {
@@ -2448,7 +2448,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
         if (algorithm != 0 && algorithm != YH_ALGO_OPAQUE_X509_CERTIFICATE) {
           DBG_ERR(
             "Value in template not an X509Certificate. Cannot perform search.");
-          rv = CKR_FUNCTION_FAILED;
+          rv = CKR_ATTRIBUTE_VALUE_INVALID;
           goto c_foi_out;
         } else {
           yh_object_descriptor tmp_objects[YH_MAX_ITEMS_COUNT] = {0};
@@ -2459,7 +2459,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
                                     tmp_objects, &tmp_n_objects);
           if (rc != YHR_SUCCESS) {
             DBG_ERR("Failed to get object list");
-            rv = CKR_FUNCTION_FAILED;
+            rv = yrc_to_rv(rc);
             goto c_foi_out;
           }
 
@@ -2470,7 +2470,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
                                     tmp_objects[i].id, cert, &cert_len);
             if (rc != YHR_SUCCESS) {
               DBG_ERR("Failed to get opaque object 0x%x", tmp_objects[i].id);
-              rv = CKR_FUNCTION_FAILED;
+              rv = yrc_to_rv(rc);
               goto c_foi_out;
             }
 
@@ -2497,7 +2497,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
 
         if (rc != YHR_SUCCESS) {
           DBG_ERR("Failed to get object list");
-          rv = CKR_FUNCTION_FAILED;
+          rv = yrc_to_rv(rc);
           goto c_foi_out;
         }
         for (size_t i = 0; i < tmp_n_objects; i++) {
@@ -2508,7 +2508,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
                                          &opaque_object);
             if (rc != YHR_SUCCESS) {
               DBG_ERR("Failed to get opaque object info");
-              rv = CKR_FUNCTION_FAILED;
+              rv = yrc_to_rv(rc);
               goto c_foi_out;
             }
             if (is_meta_object(&opaque_object)) {
