@@ -684,7 +684,11 @@ CK_RV populate_meta_objects(yubihsm_pkcs11_session *session) {
       }
       pkcs11_meta_object meta_object = {0};
       meta_object.opaque_id = opaques[i].id;
-      parse_pkcs11_opaque_value(opaque_value, opaque_value_len, &meta_object);
+      CK_RV rv =
+        parse_pkcs11_opaque_value(opaque_value, opaque_value_len, &meta_object);
+      if (rv != CKR_OK) {
+        return rv;
+      }
       list_append(&session->pkcs11_meta_objects, &meta_object);
     }
   }
@@ -702,9 +706,13 @@ uint8_t META_OBJECT_VERSION = 1;
  * byte 2 and 3: Original object ID (always present)
  * byte 4 and onward: TLV tripplets
  */
-void parse_pkcs11_opaque_value(uint8_t *opaque_value, size_t opaque_value_len,
-                               pkcs11_meta_object *meta_object) {
+CK_RV parse_pkcs11_opaque_value(uint8_t *opaque_value, size_t opaque_value_len,
+                                pkcs11_meta_object *meta_object) {
   uint8_t *p = opaque_value;
+  if (*p != META_OBJECT_VERSION) {
+    DBG_ERR("Meta object value has unexpected version");
+    return CKR_DATA_INVALID;
+  }
   meta_object->version = *p++;
   meta_object->object_type = *p++;
   memcpy(&meta_object->object_id, p, 2);
@@ -729,8 +737,10 @@ void parse_pkcs11_opaque_value(uint8_t *opaque_value, size_t opaque_value_len,
         break;
       default:
         DBG_ERR("Unknown tag in value of opaque PKCS11 object");
+        return CKR_DATA_INVALID;
     }
   }
+  return CKR_OK;
 }
 
 CK_RV write_meta_opaque(yubihsm_pkcs11_session *session,

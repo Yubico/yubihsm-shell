@@ -164,8 +164,8 @@ CK_RV yrc_to_rv(yh_rc rc);
 CK_RV populate_meta_objects(yubihsm_pkcs11_session *session);
 CK_RV write_meta_opaque(yubihsm_pkcs11_session *session,
                         pkcs11_meta_object *meta_opaque, bool replace);
-void parse_pkcs11_opaque_value(uint8_t *opaque_value, size_t opaque_value_len,
-                               pkcs11_meta_object *meta_object);
+CK_RV parse_pkcs11_opaque_value(uint8_t *opaque_value, size_t opaque_value_len,
+                                pkcs11_meta_object *meta_object);
 
 pkcs11_meta_object *find_meta_object_by_id(yubihsm_pkcs11_session *session,
                                            uint8_t type, uint8_t *ckaid,
