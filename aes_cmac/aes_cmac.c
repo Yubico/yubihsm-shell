@@ -75,16 +75,15 @@ int aes_cmac_encrypt(aes_cmac_context_t *ctx, const uint8_t *message,
   else
     n_blocks = (message_len + (AES_BLOCK_SIZE - 1)) / AES_BLOCK_SIZE - 1;
 
-  uint8_t remaining_bytes = (message_len % AES_BLOCK_SIZE);
-
   for (uint8_t i = 0; i < n_blocks; i++) {
-    do_xor(ptr, mac);
-    int rc = aes_encrypt(mac, mac, ctx->aes_ctx);
+    int rc = aes_cbc_encrypt(ptr, mac, AES_BLOCK_SIZE, mac, ctx->aes_ctx);
     if (rc) {
       return rc;
     }
     ptr += AES_BLOCK_SIZE;
   }
+
+  uint8_t remaining_bytes = (message_len % AES_BLOCK_SIZE);
 
   if (remaining_bytes == 0) {
     if (message != NULL && message_len != 0) {
@@ -100,9 +99,7 @@ int aes_cmac_encrypt(aes_cmac_context_t *ctx, const uint8_t *message,
     do_xor(ctx->k2, M);
   }
 
-  do_xor(M, mac);
-
-  return aes_encrypt(mac, mac, ctx->aes_ctx);
+  return aes_cbc_encrypt(M, mac, AES_BLOCK_SIZE, mac, ctx->aes_ctx);
 }
 
 int aes_cmac_init(aes_context *aes_ctx, aes_cmac_context_t *ctx) {
@@ -119,7 +116,7 @@ int aes_cmac_init(aes_context *aes_ctx, aes_cmac_context_t *ctx) {
   cmac_generate_subkey(L, ctx->k1);
   cmac_generate_subkey(ctx->k1, ctx->k2);
 
-  return aes_cmac_encrypt(ctx, zero, AES_BLOCK_SIZE, ctx->mac);
+  return 0;
 }
 
 void aes_cmac_destroy(aes_cmac_context_t *ctx) {
