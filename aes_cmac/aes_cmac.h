@@ -20,7 +20,6 @@ typedef struct {
   aes_context *aes_ctx;
   uint8_t k1[AES_BLOCK_SIZE];
   uint8_t k2[AES_BLOCK_SIZE];
-  uint8_t mac[AES_BLOCK_SIZE];
 } aes_cmac_context_t;
 
 #ifndef __WIN32
