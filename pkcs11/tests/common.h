@@ -18,7 +18,7 @@
 #define YUBIHSM_PKCS11_TESTS_COMMON_H
 
 #include <stdbool.h>
-#include "../pkcs11.h"
+#include "../pkcs11y.h"
 
 void *open_module(const char *path);
 void close_module(void *handle);
