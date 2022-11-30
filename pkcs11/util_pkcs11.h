@@ -169,11 +169,16 @@ CK_RV parse_pkcs11_opaque_value(uint8_t *opaque_value, size_t opaque_value_len,
 
 pkcs11_meta_object *find_meta_object_by_id(yubihsm_pkcs11_session *session,
                                            uint8_t type, uint8_t *ckaid,
-                                           size_t ckaid_len);
+                                           uint16_t ckaid_len);
 pkcs11_meta_object *find_meta_object_by_label(yubihsm_pkcs11_session *session,
                                               uint8_t type, uint16_t object_id,
                                               uint8_t *cka_label,
-                                              size_t cka_label_len);
+                                              uint16_t cka_label_len);
+pkcs11_meta_object *
+find_meta_object_by_id_and_label(yubihsm_pkcs11_session *session, uint8_t type,
+                                 uint8_t *ckaid, uint16_t ckaid_len,
+                                 uint8_t *cka_label, uint16_t cka_label_len);
+
 pkcs11_meta_object *find_meta_object(yubihsm_pkcs11_session *session,
                                      uint16_t origin_id, uint8_t type);
 bool is_meta_object(yh_object_descriptor *object);

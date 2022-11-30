@@ -1743,16 +1743,73 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     }
   } else if (class.d == CKO_PUBLIC_KEY) {
     bool pubkey_found = false;
-    if (template.id == 0 && pkcs11meta.cka_id_len > 0) {
+    if (template.id == 0) { // Check if a meta opaque object already exists
       pkcs11_meta_object *meta_object =
-        find_meta_object_by_id(session, YH_ASYMMETRIC_KEY, pkcs11meta.cka_id,
-                               pkcs11meta.cka_id_len);
+        find_meta_object_by_id_and_label(session, YH_ASYMMETRIC_KEY,
+                                         pkcs11meta.cka_id,
+                                         pkcs11meta.cka_id_len,
+                                         (uint8_t *) pkcs11meta.cka_label,
+                                         pkcs11meta.cka_label_len);
       if (meta_object != NULL) {
         template.id = meta_object->object_id;
         type = meta_object->object_type;
         pubkey_found = true;
       }
     }
+
+    // If the asym key not found among meta opaque object, check in the YubiHSM
+    if (pubkey_found == false) {
+
+      // Read the value of the public key
+      for (CK_ULONG i = 0; i < ulCount; i++) {
+        switch (pTemplate[i].type) {
+          case CKA_VALUE:
+            if (template.obj.buf == NULL) {
+              template.obj.buf = (CK_BYTE_PTR) pTemplate[i].pValue;
+              template.objlen = pTemplate[i].ulValueLen;
+              DBG_INFO("Object will be stored with length %d", template.objlen);
+            } else {
+              DBG_ERR("Object buffer already set");
+              rv = CKR_TEMPLATE_INCONSISTENT;
+              goto c_co_out;
+            }
+            break;
+        }
+      }
+
+      // Get a list of all asym objects in the YubiHSM
+      yh_object_descriptor asym_keys[YH_MAX_ITEMS_COUNT] = {0};
+      size_t asym_keys_len = sizeof(asym_keys);
+      rc = yh_util_list_objects(session->slot->device_session, 0,
+                                YH_ASYMMETRIC_KEY, 0, &capabilities, 0, "",
+                                asym_keys, &asym_keys_len);
+      if (rc != YHR_SUCCESS) {
+        DBG_ERR("Failed to get object list");
+        rv = yrc_to_rv(rc);
+        goto c_co_out;
+      }
+
+      // Check which asym public key matches the one in the request
+      for (size_t i = 0; i < asym_keys_len; i++) {
+        uint8_t pubkey[2048] = {0};
+        size_t pubkey_len = sizeof(pubkey);
+        rc = yh_util_get_public_key(session->slot->device_session,
+                                    asym_keys[i].id, pubkey, &pubkey_len, NULL);
+        if (rc != YHR_SUCCESS) {
+          DBG_ERR("Failed to get public key of object 0x%x", asym_keys[i].id);
+          rv = yrc_to_rv(rc);
+          goto c_co_out;
+        }
+
+        if (pubkey_len == template.objlen &&
+            memcmp(pubkey, template.obj.buf, pubkey_len) == 0) {
+          template.id = asym_keys[i].id;
+          pubkey_found = true;
+          break;
+        }
+      }
+    }
+
     if (pubkey_found == false) {
       rv = CKR_ATTRIBUTE_VALUE_INVALID;
       goto c_co_out;
