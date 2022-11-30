@@ -834,7 +834,7 @@ pkcs11_meta_object *find_meta_object(yubihsm_pkcs11_session *session,
 
 pkcs11_meta_object *find_meta_object_by_id(yubihsm_pkcs11_session *session,
                                            uint8_t type, uint8_t *ckaid,
-                                           size_t ckaid_len) {
+                                           uint16_t ckaid_len) {
   ListItem *item = session->pkcs11_meta_objects.head;
   pkcs11_meta_object *meta_object = NULL;
   while (item != NULL) {
@@ -861,7 +861,7 @@ pkcs11_meta_object *find_meta_object_by_id(yubihsm_pkcs11_session *session,
 pkcs11_meta_object *find_meta_object_by_label(yubihsm_pkcs11_session *session,
                                               uint8_t type, uint16_t object_id,
                                               uint8_t *cka_label,
-                                              size_t cka_label_len) {
+                                              uint16_t cka_label_len) {
   ListItem *item = session->pkcs11_meta_objects.head;
   pkcs11_meta_object *meta_object = NULL;
   while (item != NULL) {
@@ -875,6 +875,47 @@ pkcs11_meta_object *find_meta_object_by_label(yubihsm_pkcs11_session *session,
       } else {
         continue;
       }
+    }
+    item = item->next;
+  }
+  return NULL;
+}
+
+/**
+ *
+ * @param session
+ * @param type
+ * @param object_id  Use 0 if not available
+ * @param cka_label
+ * @param cka_label_len
+ * @return
+ */
+pkcs11_meta_object *
+find_meta_object_by_id_and_label(yubihsm_pkcs11_session *session, uint8_t type,
+                                 uint8_t *ckaid, uint16_t ckaid_len,
+                                 uint8_t *cka_label, uint16_t cka_label_len) {
+  if (ckaid_len == 0 && cka_label_len == 0) {
+    return NULL;
+  }
+  if (ckaid_len > 0 && cka_label_len == 0) {
+    return find_meta_object_by_id(session, type, ckaid, ckaid_len);
+  }
+  if (ckaid_len == 0 && cka_label_len > 0) {
+    return find_meta_object_by_label(session, type, 0, cka_label,
+                                     cka_label_len);
+  }
+
+  ListItem *item = session->pkcs11_meta_objects.head;
+  pkcs11_meta_object *meta_object = NULL;
+  while (item != NULL) {
+    meta_object = (pkcs11_meta_object *) item->data;
+    if (meta_object->object_type == type &&
+        meta_object->cka_label_len == cka_label_len &&
+        memcmp(meta_object->cka_label, cka_label, meta_object->cka_label_len) ==
+          0 &&
+        meta_object->cka_id_len == ckaid_len &&
+        memcmp(meta_object->cka_id, ckaid, meta_object->cka_id_len) == 0) {
+      return meta_object;
     }
     item = item->next;
   }
