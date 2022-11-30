@@ -4363,6 +4363,58 @@ CK_RV parse_hmac_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
   }
 }
 
+static CK_RV parse_meta_id_template(pkcs11_meta_object *pkcs11meta, int *id,
+                                    uint8_t *value, size_t value_len) {
+  if (value_len != 2) {
+    if (pkcs11meta->cka_id_len > 0) {
+      if (pkcs11meta->cka_id_len != value_len ||
+          memcmp(pkcs11meta->cka_id, value, value_len) != 0) {
+        DBG_ERR("CKA_ID inconsistent in template");
+        return CKR_TEMPLATE_INCONSISTENT;
+      }
+    } else {
+      pkcs11meta->cka_id_len = value_len;
+      memcpy(pkcs11meta->cka_id, value, value_len);
+      *id = 0;
+    }
+  } else {
+    *id = parse_id_value(value, value_len);
+    if (*id == -1) {
+      DBG_ERR("CKA_ID invalid in template");
+      return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+  }
+
+  return CKR_OK;
+}
+
+static CK_RV parse_meta_label_template(yubihsm_pkcs11_object_template *template,
+                                       pkcs11_meta_object *pkcs11meta,
+                                       bool label_set, uint8_t *value,
+                                       size_t value_len) {
+  if (label_set == TRUE) {
+    int eq = 0;
+    if (value_len > YH_OBJ_LABEL_LEN) {
+      eq = memcmp(pkcs11meta->cka_label, value, value_len);
+    } else {
+      eq = memcmp(template->label, value, value_len);
+    }
+    if (eq != 0) {
+      DBG_ERR("CKA_LABEL inconsistent in template");
+      return CKR_TEMPLATE_INCONSISTENT;
+    }
+  } else {
+    if (value_len > YH_OBJ_LABEL_LEN) {
+      pkcs11meta->cka_label_len = value_len;
+      memcpy(pkcs11meta->cka_label, value, value_len);
+      memcpy(template->label, value, YH_OBJ_LABEL_LEN);
+    } else {
+      memcpy(template->label, value, value_len);
+    }
+  }
+  return CKR_OK;
+}
+
 CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
                                   CK_ULONG ulPublicKeyAttributeCount,
                                   CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
@@ -4394,18 +4446,12 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
 
       case CKA_ID:
         if (template->id == 0) {
-          if (pPublicKeyTemplate[i].ulValueLen != 2) {
-            pkcs11meta->cka_id_len = pPublicKeyTemplate[i].ulValueLen;
-            memcpy(pkcs11meta->cka_id, pPublicKeyTemplate[i].pValue,
-                   pPublicKeyTemplate[i].ulValueLen);
-            id = 0;
-          } else {
-            id = parse_id_value(pPublicKeyTemplate[i].pValue,
-                                pPublicKeyTemplate[i].ulValueLen);
-            if (id == -1) {
-              DBG_ERR("CKA_ID invalid in PublicKeyTemplate");
-              return CKR_ATTRIBUTE_VALUE_INVALID;
-            }
+          rv = parse_meta_id_template(pkcs11meta, &id,
+                                      pPublicKeyTemplate[i].pValue,
+                                      pPublicKeyTemplate[i].ulValueLen);
+          if (rv != CKR_OK) {
+            DBG_ERR("Failed to parse CKA_ID in PublicKeyTemplate");
+            return rv;
           }
           template->id = id;
         } else {
@@ -4452,15 +4498,12 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_LABEL:
-        if (pPublicKeyTemplate[i].ulValueLen > YH_OBJ_LABEL_LEN) {
-          pkcs11meta->cka_label_len = pPublicKeyTemplate[i].ulValueLen;
-          memcpy(pkcs11meta->cka_label, pPublicKeyTemplate[i].pValue,
-                 pPublicKeyTemplate[i].ulValueLen);
-          memcpy(template->label, pPublicKeyTemplate[i].pValue,
-                 YH_OBJ_LABEL_LEN);
-        } else {
-          memcpy(template->label, pPublicKeyTemplate[i].pValue,
-                 pPublicKeyTemplate[i].ulValueLen);
+        rv = parse_meta_label_template(template, pkcs11meta, label_set,
+                                       pPublicKeyTemplate[i].pValue,
+                                       pPublicKeyTemplate[i].ulValueLen);
+        if (rv != CKR_OK) {
+          DBG_ERR("CKA_LABEL inconsistent in PublicKeyTemplate");
+          return rv;
         }
         label_set = TRUE;
 
@@ -4533,26 +4576,12 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_ID: {
-        if (pPrivateKeyTemplate[i].ulValueLen != 2) {
-          if (pkcs11meta->cka_id_len > 0) {
-            if (memcmp(pkcs11meta->cka_id, pPrivateKeyTemplate[i].pValue,
-                       pPrivateKeyTemplate[i].ulValueLen) != 0) {
-              DBG_ERR("CKA_ID inconsistent in PrivateKeyTemplate");
-              return CKR_TEMPLATE_INCONSISTENT;
-            }
-          } else {
-            pkcs11meta->cka_id_len = pPrivateKeyTemplate[i].ulValueLen;
-            memcpy(pkcs11meta->cka_id, pPrivateKeyTemplate[i].pValue,
-                   pPrivateKeyTemplate[i].ulValueLen);
-            id = 0;
-          }
-        } else {
-          id = parse_id_value(pPrivateKeyTemplate[i].pValue,
-                              pPrivateKeyTemplate[i].ulValueLen);
-          if (id == -1) {
-            DBG_ERR("CKA_ID invalid in PrivateKeyTemplate");
-            return CKR_ATTRIBUTE_VALUE_INVALID;
-          }
+        rv =
+          parse_meta_id_template(pkcs11meta, &id, pPrivateKeyTemplate[i].pValue,
+                                 pPrivateKeyTemplate[i].ulValueLen);
+        if (rv != CKR_OK) {
+          DBG_ERR("Failed to parse CKA_ID in PrivateKeyTemplate");
+          return rv;
         }
         if (template->id != 0 && template->id != id) {
           DBG_ERR("CKA_ID inconsistent in PrivateKeyTemplate");
@@ -4590,35 +4619,12 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_LABEL:
-        // if (pPrivateKeyTemplate[i].ulValueLen > YH_OBJ_LABEL_LEN) {
-        //   DBG_ERR("CKA_LABEL invalid in PrivateKeyTemplate");
-        //   return CKR_ATTRIBUTE_VALUE_INVALID;
-        // }
-
-        if (label_set == TRUE) {
-          int eq = 0;
-          if (pPrivateKeyTemplate[i].ulValueLen > YH_OBJ_LABEL_LEN) {
-            eq = memcmp(pkcs11meta->cka_label, pPrivateKeyTemplate[i].pValue,
-                        pPrivateKeyTemplate[i].ulValueLen);
-          } else {
-            eq = memcmp(template->label, pPrivateKeyTemplate[i].pValue,
-                        pPrivateKeyTemplate[i].ulValueLen);
-          }
-          if (eq != 0) {
-            DBG_ERR("CKA_LABEL inconsistent in PrivateKeyTemplate");
-            return CKR_TEMPLATE_INCONSISTENT;
-          }
-        } else {
-          if (pPrivateKeyTemplate[i].ulValueLen > YH_OBJ_LABEL_LEN) {
-            pkcs11meta->cka_label_len = pPrivateKeyTemplate[i].ulValueLen;
-            memcpy(pkcs11meta->cka_label, pPrivateKeyTemplate[i].pValue,
-                   pPrivateKeyTemplate[i].ulValueLen);
-            memcpy(template->label, pPrivateKeyTemplate[i].pValue,
-                   YH_OBJ_LABEL_LEN);
-          } else {
-            memcpy(template->label, pPrivateKeyTemplate[i].pValue,
-                   pPrivateKeyTemplate[i].ulValueLen);
-          }
+        rv = parse_meta_label_template(template, pkcs11meta, label_set,
+                                       pPrivateKeyTemplate[i].pValue,
+                                       pPrivateKeyTemplate[i].ulValueLen);
+        if (rv != CKR_OK) {
+          DBG_ERR("CKA_LABEL inconsistent in PrivateKeyTemplate");
+          return rv;
         }
         break;
 
@@ -4693,7 +4699,6 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
   uint8_t *ecparams = NULL;
   uint16_t ecparams_len = 0;
   bool label_set = FALSE;
-  bool id_set = FALSE;
   CK_RV rv;
   int id;
 
@@ -4716,25 +4721,18 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
 
       case CKA_ID:
         if (template->id == 0) {
-          if (pPublicKeyTemplate[i].ulValueLen != 2) {
-            pkcs11meta->cka_id_len = pPublicKeyTemplate[i].ulValueLen;
-            memcpy(pkcs11meta->cka_id, pPublicKeyTemplate[i].pValue,
-                   pPublicKeyTemplate[i].ulValueLen);
-            id = 0;
-          } else {
-            id = parse_id_value(pPublicKeyTemplate[i].pValue,
-                                pPublicKeyTemplate[i].ulValueLen);
-            if (id == -1) {
-              DBG_ERR("CKA_ID invalid in PublicKeyTemplate");
-              return CKR_ATTRIBUTE_VALUE_INVALID;
-            }
+          rv = parse_meta_id_template(pkcs11meta, &id,
+                                      pPublicKeyTemplate[i].pValue,
+                                      pPublicKeyTemplate[i].ulValueLen);
+          if (rv != CKR_OK) {
+            DBG_ERR("Failed to parse CKA_ID in PublicKeyTemplate");
+            return rv;
           }
           template->id = id;
         } else {
           DBG_ERR("CKA_ID inconsistent in PublicKeyTemplate");
           return CKR_TEMPLATE_INCONSISTENT;
         }
-        id_set = TRUE;
         break;
 
       case CKA_EC_PARAMS:
@@ -4748,15 +4746,12 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_LABEL:
-        if (pPublicKeyTemplate[i].ulValueLen > YH_OBJ_LABEL_LEN) {
-          pkcs11meta->cka_label_len = pPublicKeyTemplate[i].ulValueLen;
-          memcpy(pkcs11meta->cka_label, pPublicKeyTemplate[i].pValue,
-                 pPublicKeyTemplate[i].ulValueLen);
-          memcpy(template->label, pPublicKeyTemplate[i].pValue,
-                 YH_OBJ_LABEL_LEN);
-        } else {
-          memcpy(template->label, pPublicKeyTemplate[i].pValue,
-                 pPublicKeyTemplate[i].ulValueLen);
+        rv = parse_meta_label_template(template, pkcs11meta, label_set,
+                                       pPublicKeyTemplate[i].pValue,
+                                       pPublicKeyTemplate[i].ulValueLen);
+        if (rv != CKR_OK) {
+          DBG_ERR("CKA_LABEL inconsistent in PublicKeyTemplate");
+          return rv;
         }
         label_set = TRUE;
 
@@ -4822,45 +4817,20 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_ID: {
-        if (id_set == TRUE) {
-          bool eq = TRUE;
-          if (pPrivateKeyTemplate[i].ulValueLen != 2) {
-            if (pkcs11meta->cka_id_len != pPrivateKeyTemplate[i].ulValueLen ||
-                memcmp(pkcs11meta->cka_id, pPrivateKeyTemplate[i].pValue,
-                       pPrivateKeyTemplate[i].ulValueLen) != 0) {
-              eq = FALSE;
-            }
-          } else {
-            id = parse_id_value(pPrivateKeyTemplate[i].pValue,
-                                pPrivateKeyTemplate[i].ulValueLen);
-            if (id == -1) {
-              DBG_ERR("CKA_ID invalid in PrivateKeyTemplate");
-              return CKR_ATTRIBUTE_VALUE_INVALID;
-            }
-            if (template->id != id) {
-              eq = FALSE;
-            }
-          }
-          if (eq == FALSE) {
-            DBG_ERR("CKA_ID inconsistent in PrivateKeyTemplate");
-            return CKR_TEMPLATE_INCONSISTENT;
-          }
+        rv =
+          parse_meta_id_template(pkcs11meta, &id, pPrivateKeyTemplate[i].pValue,
+                                 pPrivateKeyTemplate[i].ulValueLen);
+        if (rv != CKR_OK) {
+          DBG_ERR("Failed to parse CKA_ID in PrivateKeyTemplate");
+          return rv;
+        }
+        if (template->id != 0 && template->id != id) {
+          DBG_ERR("CKA_ID inconsistent in PrivateKeyTemplate");
+          return CKR_TEMPLATE_INCONSISTENT;
         } else {
-          if (pPrivateKeyTemplate[i].ulValueLen > 2) {
-            pkcs11meta->cka_id_len = pPrivateKeyTemplate[i].ulValueLen;
-            memcpy(pkcs11meta->cka_id, pPrivateKeyTemplate[i].pValue,
-                   pPrivateKeyTemplate[i].ulValueLen);
-            id = 0;
-          } else {
-            id = parse_id_value(pPrivateKeyTemplate[i].pValue,
-                                pPrivateKeyTemplate[i].ulValueLen);
-            if (id == -1) {
-              DBG_ERR("CKA_ID invalid in PrivateKeyTemplate");
-              return CKR_ATTRIBUTE_VALUE_INVALID;
-            }
-          }
           template->id = id;
         }
+
       } break;
 
       case CKA_SIGN:
@@ -4891,35 +4861,12 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_LABEL:
-        // if (pPrivateKeyTemplate[i].ulValueLen > YH_OBJ_LABEL_LEN) {
-        //  DBG_ERR("CKA_LABEL invalid in PrivateKeyTemplate");
-        //  return CKR_ATTRIBUTE_VALUE_INVALID;
-        //}
-
-        if (label_set == TRUE) {
-          int eq = 0;
-          if (pPrivateKeyTemplate[i].ulValueLen > YH_OBJ_LABEL_LEN) {
-            eq = memcmp(pkcs11meta->cka_label, pPrivateKeyTemplate[i].pValue,
-                        pPrivateKeyTemplate[i].ulValueLen);
-          } else {
-            eq = memcmp(template->label, pPrivateKeyTemplate[i].pValue,
-                        pPrivateKeyTemplate[i].ulValueLen);
-          }
-          if (eq != 0) {
-            DBG_ERR("CKA_LABEL inconsistent in PrivateKeyTemplate");
-            return CKR_TEMPLATE_INCONSISTENT;
-          }
-        } else {
-          if (pPrivateKeyTemplate[i].ulValueLen > YH_OBJ_LABEL_LEN) {
-            pkcs11meta->cka_label_len = pPrivateKeyTemplate[i].ulValueLen;
-            memcpy(pkcs11meta->cka_label, pPrivateKeyTemplate[i].pValue,
-                   pPrivateKeyTemplate[i].ulValueLen);
-            memcpy(template->label, pPrivateKeyTemplate[i].pValue,
-                   YH_OBJ_LABEL_LEN);
-          } else {
-            memcpy(template->label, pPrivateKeyTemplate[i].pValue,
-                   pPrivateKeyTemplate[i].ulValueLen);
-          }
+        rv = parse_meta_label_template(template, pkcs11meta, label_set,
+                                       pPrivateKeyTemplate[i].pValue,
+                                       pPrivateKeyTemplate[i].ulValueLen);
+        if (rv != CKR_OK) {
+          DBG_ERR("CKA_LABEL inconsistent in PrivateKeyTemplate");
+          return rv;
         }
         break;
 
