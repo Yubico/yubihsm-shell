@@ -83,7 +83,7 @@ static yh_rc backend_init(uint8_t verbosity, FILE *output) {
   return YHR_SUCCESS;
 }
 
-static yh_backend *backend_create() {
+static yh_backend *backend_create(void) {
   DBG_INFO("backend_create");
   return curl_easy_init();
 }
