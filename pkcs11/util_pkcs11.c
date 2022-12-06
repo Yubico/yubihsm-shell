@@ -636,18 +636,16 @@ bool create_session(yubihsm_pkcs11_slot *slot, CK_FLAGS flags,
   session.id = slot->max_session_id++;
   session.slot = slot;
   list_create(&session.ecdh_session_keys, sizeof(ecdh_session_key), NULL);
-  list_create(&session.pkcs11_meta_objects, sizeof(pkcs11_meta_object), NULL);
-  populate_meta_objects(&session);
   *phSession = (slot->id << 16) + session.id;
   return list_append(&slot->pkcs11_sessions, &session);
 }
 
-CK_RV populate_meta_objects(yubihsm_pkcs11_session *session) {
-  // if (session->pkcs11_meta_objects.head != NULL) {
-  //  return CKR_OK;
+CK_RV populate_meta_objects(yubihsm_pkcs11_slot *slot) {
+  // if (slot->pkcs11_meta_objects.head != NULL) {
+  // return CKR_OK;
   //}
-  list_destroy(&session->pkcs11_meta_objects);
-  list_create(&session->pkcs11_meta_objects, sizeof(pkcs11_meta_object), NULL);
+  list_destroy(&slot->pkcs11_meta_objects);
+  list_create(&slot->pkcs11_meta_objects, sizeof(pkcs11_meta_object), NULL);
 
   yh_rc rc = YHR_SUCCESS;
   yh_object_descriptor opaques[YH_MAX_ITEMS_COUNT] = {0};
@@ -660,14 +658,14 @@ CK_RV populate_meta_objects(yubihsm_pkcs11_session *session) {
   yh_capabilities capabilities = {{0}};
 
   rc =
-    yh_util_list_objects(session->slot->device_session, id, type, domains,
-                         &capabilities, algorithm, NULL, opaques, &n_opaques);
+    yh_util_list_objects(slot->device_session, id, type, domains, &capabilities,
+                         algorithm, NULL, opaques, &n_opaques);
   if (rc != YHR_SUCCESS) {
     DBG_ERR("Failed to get object list");
     return yrc_to_rv(rc);
   }
   for (size_t i = 0; i < n_opaques; i++) {
-    rc = yh_util_get_object_info(session->slot->device_session, opaques[i].id,
+    rc = yh_util_get_object_info(slot->device_session, opaques[i].id,
                                  opaques[i].type, &opaques[i]);
     if (rc != YHR_SUCCESS) {
       DBG_ERR("Failed to get opaque object info 0x%x", opaques[i].id);
@@ -676,8 +674,8 @@ CK_RV populate_meta_objects(yubihsm_pkcs11_session *session) {
     if (is_meta_object(&opaques[i])) {
       uint8_t opaque_value[YH_MSG_BUF_SIZE] = {0};
       size_t opaque_value_len = sizeof(opaque_value);
-      rc = yh_util_get_opaque(session->slot->device_session, opaques[i].id,
-                              opaque_value, &opaque_value_len);
+      rc = yh_util_get_opaque(slot->device_session, opaques[i].id, opaque_value,
+                              &opaque_value_len);
       if (rc != YHR_SUCCESS) {
         DBG_ERR("Failed to get opaque object value 0x%x", opaques[i].id);
         return yrc_to_rv(rc);
@@ -689,7 +687,7 @@ CK_RV populate_meta_objects(yubihsm_pkcs11_session *session) {
       if (rv != CKR_OK) {
         return rv;
       }
-      list_append(&session->pkcs11_meta_objects, &meta_object);
+      list_append(&slot->pkcs11_meta_objects, &meta_object);
     }
   }
   return CKR_OK;
@@ -743,7 +741,7 @@ CK_RV parse_pkcs11_opaque_value(uint8_t *opaque_value, size_t opaque_value_len,
   return CKR_OK;
 }
 
-CK_RV write_meta_opaque(yubihsm_pkcs11_session *session,
+CK_RV write_meta_opaque(yubihsm_pkcs11_slot *slot,
                         pkcs11_meta_object *meta_opaque, bool replace) {
   size_t opaque_value_len =
     4 /* 1 version + 1 original_object type + 2 original_object ID*/ +
@@ -784,8 +782,8 @@ CK_RV write_meta_opaque(yubihsm_pkcs11_session *session,
   yh_rc rc = YHR_SUCCESS;
 
   if (replace) {
-    rc = yh_util_delete_object(session->slot->device_session,
-                               meta_opaque->opaque_id, YH_OPAQUE);
+    rc = yh_util_delete_object(slot->device_session, meta_opaque->opaque_id,
+                               YH_OPAQUE);
     if (rc != YHR_SUCCESS) {
       DBG_ERR("Failed to delete opaque object 0x%x", meta_opaque->opaque_id);
       return yrc_to_rv(rc);
@@ -794,10 +792,10 @@ CK_RV write_meta_opaque(yubihsm_pkcs11_session *session,
              opaque_label);
   }
   yh_capabilities capabilities = {{0}};
-  rc = yh_util_import_opaque(session->slot->device_session,
-                             &meta_opaque->opaque_id, opaque_label, 0xffff,
-                             &capabilities, YH_ALGO_OPAQUE_DATA, opaque_value,
-                             opaque_value_len);
+  rc =
+    yh_util_import_opaque(slot->device_session, &meta_opaque->opaque_id,
+                          opaque_label, 0xffff, &capabilities,
+                          YH_ALGO_OPAQUE_DATA, opaque_value, opaque_value_len);
 
   if (rc != YHR_SUCCESS) {
     DBG_ERR("Failed to import opaque meta object for object 0x%x",
@@ -806,7 +804,7 @@ CK_RV write_meta_opaque(yubihsm_pkcs11_session *session,
   }
   DBG_INFO("Successfully imported opaque object 0x%x with label: %s",
            meta_opaque->opaque_id, opaque_label);
-  list_append(&session->pkcs11_meta_objects, meta_opaque);
+  list_append(&slot->pkcs11_meta_objects, meta_opaque);
 
   return CKR_OK;
 }
@@ -817,9 +815,9 @@ bool is_meta_object(yh_object_descriptor *object) {
           strncmp(object->label, "Meta object", strlen("Meta object")) == 0);
 }
 
-pkcs11_meta_object *find_meta_object(yubihsm_pkcs11_session *session,
+pkcs11_meta_object *find_meta_object(yubihsm_pkcs11_slot *slot,
                                      uint16_t origin_id, uint8_t type) {
-  ListItem *item = session->pkcs11_meta_objects.head;
+  ListItem *item = slot->pkcs11_meta_objects.head;
   pkcs11_meta_object *meta_object = NULL;
   while (item != NULL) {
     meta_object = (pkcs11_meta_object *) item->data;
@@ -832,10 +830,10 @@ pkcs11_meta_object *find_meta_object(yubihsm_pkcs11_session *session,
   return NULL;
 }
 
-pkcs11_meta_object *find_meta_object_by_id(yubihsm_pkcs11_session *session,
+pkcs11_meta_object *find_meta_object_by_id(yubihsm_pkcs11_slot *slot,
                                            uint8_t type, uint8_t *ckaid,
                                            uint16_t ckaid_len) {
-  ListItem *item = session->pkcs11_meta_objects.head;
+  ListItem *item = slot->pkcs11_meta_objects.head;
   pkcs11_meta_object *meta_object = NULL;
   while (item != NULL) {
     meta_object = (pkcs11_meta_object *) item->data;
@@ -858,11 +856,11 @@ pkcs11_meta_object *find_meta_object_by_id(yubihsm_pkcs11_session *session,
  * @param cka_label_len
  * @return
  */
-pkcs11_meta_object *find_meta_object_by_label(yubihsm_pkcs11_session *session,
+pkcs11_meta_object *find_meta_object_by_label(yubihsm_pkcs11_slot *slot,
                                               uint8_t type, uint16_t object_id,
                                               uint8_t *cka_label,
                                               uint16_t cka_label_len) {
-  ListItem *item = session->pkcs11_meta_objects.head;
+  ListItem *item = slot->pkcs11_meta_objects.head;
   pkcs11_meta_object *meta_object = NULL;
   while (item != NULL) {
     meta_object = (pkcs11_meta_object *) item->data;
@@ -891,21 +889,20 @@ pkcs11_meta_object *find_meta_object_by_label(yubihsm_pkcs11_session *session,
  * @return
  */
 pkcs11_meta_object *
-find_meta_object_by_id_and_label(yubihsm_pkcs11_session *session, uint8_t type,
+find_meta_object_by_id_and_label(yubihsm_pkcs11_slot *slot, uint8_t type,
                                  uint8_t *ckaid, uint16_t ckaid_len,
                                  uint8_t *cka_label, uint16_t cka_label_len) {
   if (ckaid_len == 0 && cka_label_len == 0) {
     return NULL;
   }
   if (ckaid_len > 0 && cka_label_len == 0) {
-    return find_meta_object_by_id(session, type, ckaid, ckaid_len);
+    return find_meta_object_by_id(slot, type, ckaid, ckaid_len);
   }
   if (ckaid_len == 0 && cka_label_len > 0) {
-    return find_meta_object_by_label(session, type, 0, cka_label,
-                                     cka_label_len);
+    return find_meta_object_by_label(slot, type, 0, cka_label, cka_label_len);
   }
 
-  ListItem *item = session->pkcs11_meta_objects.head;
+  ListItem *item = slot->pkcs11_meta_objects.head;
   pkcs11_meta_object *meta_object = NULL;
   while (item != NULL) {
     meta_object = (pkcs11_meta_object *) item->data;
@@ -992,7 +989,7 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
 
     case CKA_LABEL: {
       pkcs11_meta_object *meta_object =
-        find_meta_object(session, object->id, object->type);
+        find_meta_object(session->slot, object->id, object->type);
       if (meta_object != NULL) {
         if (meta_object->cka_label_len > 0) {
           *length = meta_object->cka_label_len;
@@ -1008,7 +1005,7 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
 
     case CKA_ID: {
       pkcs11_meta_object *meta_object =
-        find_meta_object(session, object->id, object->type);
+        find_meta_object(session->slot, object->id, object->type);
       if (meta_object != NULL) {
         if (meta_object->cka_id_len > 0) {
           *length = meta_object->cka_id_len;
@@ -1307,7 +1304,7 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
 
     case CKA_LABEL: {
       pkcs11_meta_object *meta_object =
-        find_meta_object(session, object->id, object->type);
+        find_meta_object(session->slot, object->id, object->type);
       if (meta_object != NULL) {
         if (meta_object->cka_label_len > 0) {
           *length = meta_object->cka_label_len;
@@ -1338,7 +1335,7 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
 
     case CKA_ID: {
       pkcs11_meta_object *meta_object =
-        find_meta_object(session, object->id, object->type);
+        find_meta_object(session->slot, object->id, object->type);
       if (meta_object != NULL) {
         if (meta_object->cka_id_len > 0) {
           *length = meta_object->cka_id_len;
@@ -1774,7 +1771,7 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
 
     case CKA_ID: {
       pkcs11_meta_object *meta_object =
-        find_meta_object(session, object->id, YH_ASYMMETRIC_KEY);
+        find_meta_object(session->slot, object->id, YH_ASYMMETRIC_KEY);
       if (meta_object != NULL) {
         if (meta_object->cka_id_len > 0) {
           *length = meta_object->cka_id_len;
@@ -3777,7 +3774,7 @@ CK_RV get_session(yubihsm_pkcs11_context *ctx, CK_SESSION_HANDLE hSession,
     return CKR_OK;
   }
 
-  populate_meta_objects(*session);
+  populate_meta_objects(slot);
   CK_RV rv = CKR_SESSION_HANDLE_INVALID;
   if (session_state == SESSION_AUTHENTICATED) {
     rv = CKR_USER_NOT_LOGGED_IN;

@@ -952,7 +952,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CloseSession)(CK_SESSION_HANDLE hSession) {
 
   if (session) {
     list_destroy(&session->ecdh_session_keys);
-    list_destroy(&session->pkcs11_meta_objects);
+    list_destroy(&session->slot->pkcs11_meta_objects);
   }
   if (delete_session(&g_ctx, &hSession) == false) {
     DBG_ERR("Trying to close invalid session");
@@ -1508,7 +1508,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     if (pkcs11meta.cka_id_len > 0 || pkcs11meta.cka_label_len > 0) {
       pkcs11meta.object_id = template.id;
       pkcs11meta.object_type = YH_ASYMMETRIC_KEY;
-      rv = write_meta_opaque(session, &pkcs11meta, false);
+      rv = write_meta_opaque(session->slot, &pkcs11meta, false);
       if (rv != CKR_OK) {
         DBG_ERR("Failed writing meta opaque object to device");
         goto c_co_out;
@@ -1735,7 +1735,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
         (pkcs11meta.cka_id_len > 0 || pkcs11meta.cka_label_len > 0)) {
       pkcs11meta.object_id = template.id;
       pkcs11meta.object_type = YH_OPAQUE;
-      rv = write_meta_opaque(session, &pkcs11meta, false);
+      rv = write_meta_opaque(session->slot, &pkcs11meta, false);
       if (rv != CKR_OK) {
         DBG_ERR("Failed writing meta Opaque object to device");
         goto c_co_out;
@@ -1745,7 +1745,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     bool pubkey_found = false;
     if (template.id == 0) { // Check if a meta opaque object already exists
       pkcs11_meta_object *meta_object =
-        find_meta_object_by_id_and_label(session, YH_ASYMMETRIC_KEY,
+        find_meta_object_by_id_and_label(session->slot, YH_ASYMMETRIC_KEY,
                                          pkcs11meta.cka_id,
                                          pkcs11meta.cka_id_len,
                                          (uint8_t *) pkcs11meta.cka_label,
@@ -1913,7 +1913,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
 
     yh_rc yrc;
     pkcs11_meta_object *meta_object =
-      find_meta_object(session, object->object.id,
+      find_meta_object(session->slot, object->object.id,
                        (object->object.type & 0x7f));
     if (meta_object != NULL) {
       yrc = yh_util_delete_object(session->slot->device_session,
@@ -2052,7 +2052,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
       rv = CKR_OBJECT_HANDLE_INVALID;
       goto c_gav_out;
     }
-
+    populate_meta_objects(session->slot);
     rv = populate_template(type, object, pTemplate, ulCount, session);
     if (rv != CKR_OK) {
       goto c_gav_out;
@@ -2147,7 +2147,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
              "opaque object");
 
     pkcs11_meta_object *pkcs11meta =
-      find_meta_object(session, object->object.id,
+      find_meta_object(session->slot, object->object.id,
                        (object->object.type & 0x7f));
     if (pkcs11meta != NULL) {
       bool changed = FALSE;
@@ -2170,7 +2170,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
         memcpy(pkcs11meta->cka_label, new_ckalabel, new_ckalabel_len);
       }
       if (changed) {
-        rv = write_meta_opaque(session, pkcs11meta, true);
+        rv = write_meta_opaque(session->slot, pkcs11meta, true);
         if (rv != CKR_OK) {
           DBG_ERR("Failed to update meta opaque object to update CKA_ID");
           goto c_sav_out;
@@ -2189,7 +2189,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
         new_meta.cka_label_len = new_ckalabel_len;
         memcpy(new_meta.cka_label, new_ckalabel, new_ckalabel_len);
       }
-      rv = write_meta_opaque(session, &new_meta, false);
+      rv = write_meta_opaque(session->slot, &new_meta, false);
       if (rv != CKR_OK) {
         DBG_ERR("Failed to create a new meta opaque object to store CKA_ID");
         goto c_sav_out;
@@ -2425,12 +2425,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
     }
   }
 
-  populate_meta_objects(session);
-
   // If CKA_ID is a filter, find if there's an opaque object with that ID
   if (template_id_len > 0) {
     pkcs11_meta_object *meta_object =
-      find_meta_object_by_id(session, type, template_id, template_id_len);
+      find_meta_object_by_id(session->slot, type, template_id, template_id_len);
     if (meta_object != NULL) {
       id = meta_object->object_id;
     }
@@ -2450,7 +2448,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
   // first
   if (template_label_len > 0) {
     pkcs11_meta_object *meta_object =
-      find_meta_object_by_label(session, type, id, template_label,
+      find_meta_object_by_label(session->slot, type, id, template_label,
                                 template_label_len);
     if (meta_object != NULL) {
       if (id == 0) {
@@ -5247,7 +5245,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
   if (pkcs11meta.cka_id_len > 0 || pkcs11meta.cka_label_len > 0) {
     pkcs11meta.object_id = template.id;
     pkcs11meta.object_type = YH_ASYMMETRIC_KEY;
-    rv = write_meta_opaque(session, &pkcs11meta, false);
+    rv = write_meta_opaque(session->slot, &pkcs11meta, false);
     if (rv != CKR_OK) {
       DBG_ERR("Failed to import meta data object 0x%lx", rv);
       goto c_gkp_out;

@@ -49,6 +49,25 @@ typedef enum {
 #define SESSION_NOT_AUTHENTICATED (SESSION_RESERVED_RO | SESSION_RESERVED_RW)
 
 typedef struct {
+  // Value structure version
+  uint8_t version;
+  // The ObjectID of the opaque object containing the metadata
+  uint16_t opaque_id;
+  // The ObjectID of the asymmetric key
+  uint16_t object_id;
+  /// Object type
+  yh_object_type object_type;
+  /// The CKA_ID
+  uint8_t cka_id[PKCS11_ID_SIZE];
+  /// The CKA_ID length
+  uint16_t cka_id_len;
+  /// Object label
+  char cka_label[PKCS11_LABEL_SIZE];
+  /// The CKA_LABEL length
+  uint16_t cka_label_len;
+} pkcs11_meta_object;
+
+typedef struct {
   struct timeval tv;
   bool filled;
   yh_object_descriptor object;
@@ -156,25 +175,6 @@ typedef struct {
 } ecdh_session_key;
 
 typedef struct {
-  // Value structure version
-  uint8_t version;
-  // The ObjectID of the opaque object containing the metadata
-  uint16_t opaque_id;
-  // The ObjectID of the asymmetric key
-  uint16_t object_id;
-  /// Object type
-  yh_object_type object_type;
-  /// The CKA_ID
-  uint8_t cka_id[PKCS11_ID_SIZE];
-  /// The CKA_ID length
-  uint16_t cka_id_len;
-  /// Object label
-  char cka_label[PKCS11_LABEL_SIZE];
-  /// The CKA_LABEL length
-  uint16_t cka_label_len;
-} pkcs11_meta_object;
-
-typedef struct {
   yubihsm_pkcs11_op_type type;
   yubihsm_pkcs11_part_type part;
   mechanism mechanism;
@@ -201,6 +201,7 @@ typedef struct {
   yh_session *device_session;
   List pkcs11_sessions;
   yubihsm_pkcs11_object_desc objects[YH_MAX_ITEMS_COUNT];
+  List pkcs11_meta_objects;
   yh_algorithm algorithms[YH_MAX_ALGORITHM_COUNT];
   size_t n_algorithms;
   void *mutex;
@@ -212,7 +213,6 @@ typedef struct {
   yubihsm_pkcs11_session_state session_state;
   yubihsm_pkcs11_slot *slot;
   List ecdh_session_keys;
-  List pkcs11_meta_objects;
 } yubihsm_pkcs11_session;
 
 typedef enum {
