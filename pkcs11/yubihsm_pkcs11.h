@@ -71,6 +71,7 @@ typedef struct {
   struct timeval tv;
   bool filled;
   yh_object_descriptor object;
+  pkcs11_meta_object meta_object;
 } yubihsm_pkcs11_object_desc;
 
 typedef enum {
@@ -201,7 +202,6 @@ typedef struct {
   yh_session *device_session;
   List pkcs11_sessions;
   yubihsm_pkcs11_object_desc objects[YH_MAX_ITEMS_COUNT];
-  List pkcs11_meta_objects;
   yh_algorithm algorithms[YH_MAX_ALGORITHM_COUNT];
   size_t n_algorithms;
   void *mutex;

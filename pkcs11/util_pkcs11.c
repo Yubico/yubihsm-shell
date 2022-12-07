@@ -640,12 +640,9 @@ bool create_session(yubihsm_pkcs11_slot *slot, CK_FLAGS flags,
   return list_append(&slot->pkcs11_sessions, &session);
 }
 
-CK_RV populate_meta_objects(yubihsm_pkcs11_slot *slot) {
-  // if (slot->pkcs11_meta_objects.head != NULL) {
-  // return CKR_OK;
-  //}
-  list_destroy(&slot->pkcs11_meta_objects);
-  list_create(&slot->pkcs11_meta_objects, sizeof(pkcs11_meta_object), NULL);
+static CK_RV get_all_meta_objects(yubihsm_pkcs11_slot *slot,
+                                  yh_object_descriptor *meta_opaques,
+                                  size_t *meta_opaques_len) {
 
   yh_rc rc = YHR_SUCCESS;
   yh_object_descriptor opaques[YH_MAX_ITEMS_COUNT] = {0};
@@ -672,24 +669,12 @@ CK_RV populate_meta_objects(yubihsm_pkcs11_slot *slot) {
       return yrc_to_rv(rc);
     }
     if (is_meta_object(&opaques[i])) {
-      uint8_t opaque_value[YH_MSG_BUF_SIZE] = {0};
-      size_t opaque_value_len = sizeof(opaque_value);
-      rc = yh_util_get_opaque(slot->device_session, opaques[i].id, opaque_value,
-                              &opaque_value_len);
-      if (rc != YHR_SUCCESS) {
-        DBG_ERR("Failed to get opaque object value 0x%x", opaques[i].id);
-        return yrc_to_rv(rc);
-      }
-      pkcs11_meta_object meta_object = {0};
-      meta_object.opaque_id = opaques[i].id;
-      CK_RV rv =
-        parse_pkcs11_opaque_value(opaque_value, opaque_value_len, &meta_object);
-      if (rv != CKR_OK) {
-        return rv;
-      }
-      list_append(&slot->pkcs11_meta_objects, &meta_object);
+      memcpy(meta_opaques + *meta_opaques_len, &opaques[i],
+             sizeof(yh_object_descriptor));
+      *meta_opaques_len += 1;
     }
   }
+
   return CKR_OK;
 }
 
@@ -704,8 +689,9 @@ uint8_t META_OBJECT_VERSION = 1;
  * byte 2 and 3: Original object ID (always present)
  * byte 4 and onward: TLV tripplets
  */
-CK_RV parse_pkcs11_opaque_value(uint8_t *opaque_value, size_t opaque_value_len,
-                                pkcs11_meta_object *meta_object) {
+static CK_RV parse_pkcs11_opaque_value(uint8_t *opaque_value,
+                                       size_t opaque_value_len,
+                                       pkcs11_meta_object *meta_object) {
   uint8_t *p = opaque_value;
   if (*p != META_OBJECT_VERSION) {
     DBG_ERR("Meta object value has unexpected version");
@@ -804,7 +790,6 @@ CK_RV write_meta_opaque(yubihsm_pkcs11_slot *slot,
   }
   DBG_INFO("Successfully imported opaque object 0x%x with label: %s",
            meta_opaque->opaque_id, opaque_label);
-  list_append(&slot->pkcs11_meta_objects, meta_opaque);
 
   return CKR_OK;
 }
@@ -815,108 +800,110 @@ bool is_meta_object(yh_object_descriptor *object) {
           strncmp(object->label, "Meta object", strlen("Meta object")) == 0);
 }
 
-pkcs11_meta_object *find_meta_object(yubihsm_pkcs11_slot *slot,
-                                     uint16_t origin_id, uint8_t type) {
-  ListItem *item = slot->pkcs11_meta_objects.head;
-  pkcs11_meta_object *meta_object = NULL;
-  while (item != NULL) {
-    meta_object = (pkcs11_meta_object *) item->data;
-    if (meta_object->object_id == origin_id &&
-        meta_object->object_type == type) {
-      return meta_object;
-    }
-    item = item->next;
-  }
-  return NULL;
+static bool match_byte_array(uint8_t *a, uint16_t a_len, uint8_t *b,
+                             uint16_t b_len) {
+  return a_len == b_len && memcmp(a, b, a_len) == 0;
 }
 
-pkcs11_meta_object *find_meta_object_by_id(yubihsm_pkcs11_slot *slot,
-                                           uint8_t type, uint8_t *ckaid,
-                                           uint16_t ckaid_len) {
-  ListItem *item = slot->pkcs11_meta_objects.head;
-  pkcs11_meta_object *meta_object = NULL;
-  while (item != NULL) {
-    meta_object = (pkcs11_meta_object *) item->data;
-    if (meta_object->object_type == type &&
-        meta_object->cka_id_len == ckaid_len &&
-        memcmp(meta_object->cka_id, ckaid, meta_object->cka_id_len) == 0) {
-      return meta_object;
-    }
-    item = item->next;
-  }
-  return NULL;
-}
+CK_RV find_meta_object(yubihsm_pkcs11_slot *slot, uint16_t origin_id,
+                       uint8_t type, uint8_t *ckaid, uint16_t ckaid_len,
+                       uint8_t *cka_label, uint16_t cka_label_len,
+                       pkcs11_meta_object *meta_object) {
 
-/**
- *
- * @param session
- * @param type
- * @param object_id  Use 0 if not available
- * @param cka_label
- * @param cka_label_len
- * @return
- */
-pkcs11_meta_object *find_meta_object_by_label(yubihsm_pkcs11_slot *slot,
-                                              uint8_t type, uint16_t object_id,
-                                              uint8_t *cka_label,
-                                              uint16_t cka_label_len) {
-  ListItem *item = slot->pkcs11_meta_objects.head;
-  pkcs11_meta_object *meta_object = NULL;
-  while (item != NULL) {
-    meta_object = (pkcs11_meta_object *) item->data;
-    if (meta_object->object_type == type &&
-        meta_object->cka_label_len == cka_label_len &&
-        memcmp(meta_object->cka_label, cka_label, meta_object->cka_label_len) ==
-          0) {
-      if (object_id == 0 || meta_object->object_id == object_id) {
-        return meta_object;
-      } else {
-        continue;
+  if (origin_id == 0 && ckaid_len == 0 && cka_label_len == 0) {
+    DBG_INFO("No meta opaque object criteria to look for");
+    meta_object = NULL;
+    return CKR_OK;
+  }
+
+  if ((ckaid_len > 0 && ckaid == NULL) ||
+      (cka_label_len > 0 && cka_label == NULL)) {
+    DBG_ERR("Mismatch between attribute pointer and attribute length");
+    return CKR_ATTRIBUTE_VALUE_INVALID;
+  }
+
+  CK_RV rv = CKR_OK;
+  yh_object_descriptor opaques[YH_MAX_ITEMS_COUNT] = {0};
+  size_t n_opaques = 0;
+  rv = get_all_meta_objects(slot, opaques, &n_opaques);
+  if (rv != CKR_OK) {
+    DBG_ERR("Failed to obtain a list of opaque meta objects from device");
+    return rv;
+  }
+  for (size_t i = 0; i < n_opaques; i++) {
+    uint8_t opaque_value[YH_MSG_BUF_SIZE] = {0};
+    size_t opaque_value_len = sizeof(opaque_value);
+    yh_rc rc = yh_util_get_opaque(slot->device_session, opaques[i].id,
+                                  opaque_value, &opaque_value_len);
+    if (rc != YHR_SUCCESS) {
+      DBG_ERR("Failed to get opaque object value 0x%x", opaques[i].id);
+      return yrc_to_rv(rc);
+    }
+    pkcs11_meta_object current_meta_object = {0};
+    current_meta_object.opaque_id = opaques[i].id;
+    rv = parse_pkcs11_opaque_value(opaque_value, opaque_value_len,
+                                   &current_meta_object);
+    if (rv != CKR_OK) {
+      return rv;
+    }
+
+    if (current_meta_object.object_type != type) {
+      continue;
+    }
+
+    // If original objectID match, no need to look more. This is the right meta
+    // object
+    if (current_meta_object.object_id == origin_id) {
+      memcpy(meta_object, &current_meta_object, sizeof(pkcs11_meta_object));
+      break;
+    }
+
+    if (ckaid_len > 0) {
+
+      // If both CKA_ID and CKA_LAEBL are set, find object by matching both ID
+      // and label along with the type
+      if (cka_label_len > 0) {
+        if (match_byte_array(current_meta_object.cka_id,
+                             current_meta_object.cka_id_len, ckaid,
+                             ckaid_len) &&
+            match_byte_array((uint8_t *) current_meta_object.cka_label,
+                             current_meta_object.cka_label_len, cka_label,
+                             cka_label_len)) {
+          if (origin_id == 0 || current_meta_object.object_id == origin_id) {
+            memcpy(meta_object, &current_meta_object,
+                   sizeof(pkcs11_meta_object));
+            break;
+          }
+        }
+      } else { // If CKA_LAEBL is not set, find object by matching only the ID
+               // and type
+        if (match_byte_array(current_meta_object.cka_id,
+                             current_meta_object.cka_id_len, ckaid,
+                             ckaid_len)) {
+          if (origin_id == 0 || current_meta_object.object_id == origin_id) {
+            memcpy(meta_object, &current_meta_object,
+                   sizeof(pkcs11_meta_object));
+            break;
+          }
+        }
+      }
+    } else { // If SKA_ID is not set, find object by just matching the type and
+             // the label
+      if (cka_label_len > 0) {
+        if (match_byte_array((uint8_t *) current_meta_object.cka_label,
+                             current_meta_object.cka_label_len, cka_label,
+                             cka_label_len)) {
+          if (origin_id == 0 || current_meta_object.object_id == origin_id) {
+            memcpy(meta_object, &current_meta_object,
+                   sizeof(pkcs11_meta_object));
+            break;
+          }
+        }
       }
     }
-    item = item->next;
-  }
-  return NULL;
-}
-
-/**
- *
- * @param session
- * @param type
- * @param object_id  Use 0 if not available
- * @param cka_label
- * @param cka_label_len
- * @return
- */
-pkcs11_meta_object *
-find_meta_object_by_id_and_label(yubihsm_pkcs11_slot *slot, uint8_t type,
-                                 uint8_t *ckaid, uint16_t ckaid_len,
-                                 uint8_t *cka_label, uint16_t cka_label_len) {
-  if (ckaid_len == 0 && cka_label_len == 0) {
-    return NULL;
-  }
-  if (ckaid_len > 0 && cka_label_len == 0) {
-    return find_meta_object_by_id(slot, type, ckaid, ckaid_len);
-  }
-  if (ckaid_len == 0 && cka_label_len > 0) {
-    return find_meta_object_by_label(slot, type, 0, cka_label, cka_label_len);
   }
 
-  ListItem *item = slot->pkcs11_meta_objects.head;
-  pkcs11_meta_object *meta_object = NULL;
-  while (item != NULL) {
-    meta_object = (pkcs11_meta_object *) item->data;
-    if (meta_object->object_type == type &&
-        meta_object->cka_label_len == cka_label_len &&
-        memcmp(meta_object->cka_label, cka_label, meta_object->cka_label_len) ==
-          0 &&
-        meta_object->cka_id_len == ckaid_len &&
-        memcmp(meta_object->cka_id, ckaid, meta_object->cka_id_len) == 0) {
-      return meta_object;
-    }
-    item = item->next;
-  }
-  return NULL;
+  return rv;
 }
 
 static void get_label_attribute(yh_object_descriptor *object, CK_VOID_PTR value,
@@ -954,16 +941,16 @@ static void get_capability_attribute(yh_object_descriptor *object,
 }
 
 static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
-                                  yh_object_descriptor *object,
+                                  yubihsm_pkcs11_object_desc *object,
                                   CK_VOID_PTR value, CK_ULONG_PTR length,
                                   yubihsm_pkcs11_session *session) {
 
-  if (object->type != YH_OPAQUE) {
+  if (object->object.type != YH_OPAQUE) {
     return CKR_FUNCTION_FAILED;
   }
   switch (type) {
     case CKA_CLASS:
-      if (object->algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
+      if (object->object.algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
         *((CK_OBJECT_CLASS *) value) = CKO_CERTIFICATE;
       } else {
         *((CK_OBJECT_CLASS *) value) = CKO_DATA;
@@ -988,33 +975,27 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_LABEL: {
-      pkcs11_meta_object *meta_object =
-        find_meta_object(session->slot, object->id, object->type);
-      if (meta_object != NULL) {
-        if (meta_object->cka_label_len > 0) {
-          *length = meta_object->cka_label_len;
-          memcpy(value, meta_object->cka_label, *length);
-        } else {
-          get_label_attribute(object, value, length);
-        }
+      pkcs11_meta_object meta_object = object->meta_object;
+      if (meta_object.cka_label_len > 0) {
+        *length = meta_object.cka_label_len;
+        memcpy(value, meta_object.cka_label, *length);
       } else {
-        get_label_attribute(object, value, length);
+        get_label_attribute(&object->object, value, length);
       }
 
     } break;
 
     case CKA_ID: {
-      pkcs11_meta_object *meta_object =
-        find_meta_object(session->slot, object->id, object->type);
+      pkcs11_meta_object *meta_object = &object->meta_object;
       if (meta_object != NULL) {
         if (meta_object->cka_id_len > 0) {
           *length = meta_object->cka_id_len;
           memcpy(value, meta_object->cka_id, *length);
         } else {
-          get_id_attribute(object, value, length);
+          get_id_attribute(&object->object, value, length);
         }
       } else {
-        get_id_attribute(object, value, length);
+        get_id_attribute(&object->object, value, length);
       }
     } break;
 
@@ -1033,8 +1014,8 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
 
     case CKA_VALUE: {
       size_t len = *length;
-      yh_rc yrc = yh_util_get_opaque(session->slot->device_session, object->id,
-                                     value, &len);
+      yh_rc yrc = yh_util_get_opaque(session->slot->device_session,
+                                     object->object.id, value, &len);
       if (yrc != YHR_SUCCESS) {
         return yrc_to_rv(yrc);
       }
@@ -1042,7 +1023,7 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
     } break;
 
     case CKA_CERTIFICATE_TYPE:
-      if (object->algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
+      if (object->object.algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
         *((CK_CERTIFICATE_TYPE *) value) = CKC_X_509;
         *length = sizeof(CK_CERTIFICATE_TYPE);
       } else {
@@ -1277,7 +1258,7 @@ static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
 }
 
 static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
-                                       yh_object_descriptor *object,
+                                       yubihsm_pkcs11_object_desc *object,
                                        CK_VOID_PTR value, CK_ULONG_PTR length,
                                        yubihsm_pkcs11_session *session) {
   switch (type) {
@@ -1303,25 +1284,24 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_LABEL: {
-      pkcs11_meta_object *meta_object =
-        find_meta_object(session->slot, object->id, object->type);
+      pkcs11_meta_object *meta_object = &object->meta_object;
       if (meta_object != NULL) {
         if (meta_object->cka_label_len > 0) {
           *length = meta_object->cka_label_len;
           memcpy(value, meta_object->cka_label, *length);
         } else {
-          get_label_attribute(object, value, length);
+          get_label_attribute(&object->object, value, length);
         }
       } else {
-        get_label_attribute(object, value, length);
+        get_label_attribute(&object->object, value, length);
       }
     } break;
 
       // NOTE(adma): Key Objects attributes
 
     case CKA_KEY_TYPE:
-      if (object->type == YH_ASYMMETRIC_KEY) {
-        if (yh_is_rsa(object->algorithm)) {
+      if (object->object.type == YH_ASYMMETRIC_KEY) {
+        if (yh_is_rsa(object->object.algorithm)) {
           *((CK_KEY_TYPE *) value) = CKK_RSA;
         } else {
           *((CK_KEY_TYPE *) value) = CKK_EC;
@@ -1334,17 +1314,16 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_ID: {
-      pkcs11_meta_object *meta_object =
-        find_meta_object(session->slot, object->id, object->type);
+      pkcs11_meta_object *meta_object = &object->meta_object;
       if (meta_object != NULL) {
         if (meta_object->cka_id_len > 0) {
           *length = meta_object->cka_id_len;
           memcpy(value, meta_object->cka_id, *length);
         } else {
-          get_id_attribute(object, value, length);
+          get_id_attribute(&object->object, value, length);
         }
       } else {
-        get_id_attribute(object, value, length);
+        get_id_attribute(&object->object, value, length);
       }
     } break;
 
@@ -1352,9 +1331,10 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       // case CKA_END_DATE:
 
     case CKA_DERIVE:
-      if (object->type == YH_ASYMMETRIC_KEY &&
-          yh_is_rsa(object->algorithm) == false &&
-          yh_check_capability(&object->capabilities, "derive-ecdh") == true) {
+      if (object->object.type == YH_ASYMMETRIC_KEY &&
+          yh_is_rsa(object->object.algorithm) == false &&
+          yh_check_capability(&object->object.capabilities, "derive-ecdh") ==
+            true) {
 
         *((CK_BBOOL *) value) = CK_TRUE;
       } else {
@@ -1364,7 +1344,7 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_LOCAL:
-      if (object->origin == YH_ORIGIN_GENERATED) {
+      if (object->object.origin == YH_ORIGIN_GENERATED) {
         *((CK_BBOOL *) value) = CK_TRUE;
       } else {
         *((CK_BBOOL *) value) = CK_FALSE;
@@ -1390,9 +1370,10 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_DECRYPT:
-      if (object->type == YH_ASYMMETRIC_KEY && yh_is_rsa(object->algorithm)) {
-        get_capability_attribute(object, "decrypt-pkcs,decrypt-oaep", true,
-                                 value, length, NULL);
+      if (object->object.type == YH_ASYMMETRIC_KEY &&
+          yh_is_rsa(object->object.algorithm)) {
+        get_capability_attribute(&object->object, "decrypt-pkcs,decrypt-oaep",
+                                 true, value, length, NULL);
       } else {
         *((CK_BBOOL *) value) = CK_FALSE;
         *length = sizeof(CK_BBOOL);
@@ -1400,14 +1381,14 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_SIGN:
-      if (object->type == YH_ASYMMETRIC_KEY &&
-          yh_is_rsa(object->algorithm) == true) {
-        get_capability_attribute(object, "sign-pkcs,sign-pss", true, value,
+      if (object->object.type == YH_ASYMMETRIC_KEY &&
+          yh_is_rsa(object->object.algorithm) == true) {
+        get_capability_attribute(&object->object, "sign-pkcs,sign-pss", true,
+                                 value, length, NULL);
+      } else if (object->object.type == YH_ASYMMETRIC_KEY &&
+                 yh_is_ec(object->object.algorithm) == true) {
+        get_capability_attribute(&object->object, "sign-ecdsa", true, value,
                                  length, NULL);
-      } else if (object->type == YH_ASYMMETRIC_KEY &&
-                 yh_is_ec(object->algorithm) == true) {
-        get_capability_attribute(object, "sign-ecdsa", true, value, length,
-                                 NULL);
       } else {
         *((CK_BBOOL *) value) = CK_FALSE;
         *length = sizeof(CK_BBOOL);
@@ -1426,13 +1407,13 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_EXTRACTABLE:
-      get_capability_attribute(object, "exportable-under-wrap", true, value,
-                               length, NULL);
+      get_capability_attribute(&object->object, "exportable-under-wrap", true,
+                               value, length, NULL);
       break;
 
     case CKA_NEVER_EXTRACTABLE:
-      get_capability_attribute(object, "exportable-under-wrap", false, value,
-                               length, NULL);
+      get_capability_attribute(&object->object, "exportable-under-wrap", false,
+                               value, length, NULL);
       break;
 
     case CKA_UNWRAP_TEMPLATE:
@@ -1442,7 +1423,7 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
 
     case CKA_EC_PARAMS: {
       const uint8_t *oid;
-      switch (object->algorithm) {
+      switch (object->object.algorithm) {
         case YH_ALGO_EC_P224:
           oid = oid_secp224r1;
           *length = sizeof(oid_secp224r1);
@@ -1482,11 +1463,12 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
     } break;
 
     case CKA_EC_POINT:
-      if (yh_is_ec(object->algorithm)) {
+      if (yh_is_ec(object->object.algorithm)) {
         uint8_t resp[2048];
         size_t resplen = sizeof(resp);
-        yh_rc yrc = yh_util_get_public_key(session->slot->device_session,
-                                           object->id, resp, &resplen, NULL);
+        yh_rc yrc =
+          yh_util_get_public_key(session->slot->device_session,
+                                 object->object.id, resp, &resplen, NULL);
         if (yrc != YHR_SUCCESS) {
           return yrc_to_rv(yrc);
         }
@@ -1507,12 +1489,13 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_MODULUS:
-      if (yh_is_rsa(object->algorithm)) {
+      if (yh_is_rsa(object->object.algorithm)) {
         uint8_t resp[2048];
         size_t resp_len = sizeof(resp);
 
-        yh_rc yrc = yh_util_get_public_key(session->slot->device_session,
-                                           object->id, resp, &resp_len, NULL);
+        yh_rc yrc =
+          yh_util_get_public_key(session->slot->device_session,
+                                 object->object.id, resp, &resp_len, NULL);
         if (yrc != YHR_SUCCESS) {
           return yrc_to_rv(yrc);
         }
@@ -1525,7 +1508,7 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_PUBLIC_EXPONENT:
-      if (yh_is_rsa(object->algorithm)) {
+      if (yh_is_rsa(object->object.algorithm)) {
         uint8_t *p = (uint8_t *) value;
         p[0] = 0x01;
         p[1] = 0x00;
@@ -1648,7 +1631,7 @@ l_p_k_failure:
 }
 
 static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
-                                      yh_object_descriptor *object,
+                                      yubihsm_pkcs11_object_desc *object,
                                       CK_VOID_PTR value, CK_ULONG_PTR length,
                                       yubihsm_pkcs11_session *session) {
   switch (type) {
@@ -1686,10 +1669,10 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_ENCRYPT:
-      if (object->type == (0x80 | YH_ASYMMETRIC_KEY) &&
-          yh_is_rsa(object->algorithm)) {
-        get_capability_attribute(object, "decrypt-pkcs,decrypt-oaep", true,
-                                 value, length, NULL);
+      if (object->object.type == (0x80 | YH_ASYMMETRIC_KEY) &&
+          yh_is_rsa(object->object.algorithm)) {
+        get_capability_attribute(&object->object, "decrypt-pkcs,decrypt-oaep",
+                                 true, value, length, NULL);
       } else {
         *((CK_BBOOL *) value) = CK_FALSE;
         *length = sizeof(CK_BBOOL);
@@ -1697,29 +1680,39 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_VERIFY:
-      if (object->type == (0x80 | YH_ASYMMETRIC_KEY) &&
-          yh_is_rsa(object->algorithm) == true) {
-        get_capability_attribute(object, "sign-pkcs,sign-pss", true, value,
+      if (object->object.type == (0x80 | YH_ASYMMETRIC_KEY) &&
+          yh_is_rsa(object->object.algorithm) == true) {
+        get_capability_attribute(&object->object, "sign-pkcs,sign-pss", true,
+                                 value, length, NULL);
+      } else if (object->object.type == (0x80 | YH_ASYMMETRIC_KEY) &&
+                 yh_is_ec(object->object.algorithm) == true) {
+        get_capability_attribute(&object->object, "sign-ecdsa", true, value,
                                  length, NULL);
-      } else if (object->type == (0x80 | YH_ASYMMETRIC_KEY) &&
-                 yh_is_ec(object->algorithm) == true) {
-        get_capability_attribute(object, "sign-ecdsa", true, value, length,
-                                 NULL);
       } else {
         *((CK_BBOOL *) value) = CK_FALSE;
         *length = sizeof(CK_BBOOL);
       }
       break;
 
-    case CKA_LABEL:
-      get_label_attribute(object, value, length);
-      break;
+    case CKA_LABEL: {
+      pkcs11_meta_object *meta_object = &object->meta_object;
+      if (meta_object != NULL) {
+        if (meta_object->cka_label_len > 0) {
+          *length = meta_object->cka_label_len;
+          memcpy(value, meta_object->cka_label, *length);
+        } else {
+          get_id_attribute(&object->object, value, length);
+        }
+      } else {
+        get_id_attribute(&object->object, value, length);
+      }
+    } break;
 
       // NOTE(adma): Key Objects attributes
 
     case CKA_KEY_TYPE:
-      if (object->type == (0x80 | YH_ASYMMETRIC_KEY)) {
-        switch (object->algorithm) {
+      if (object->object.type == (0x80 | YH_ASYMMETRIC_KEY)) {
+        switch (object->object.algorithm) {
           case YH_ALGO_RSA_2048:
           case YH_ALGO_RSA_3072:
           case YH_ALGO_RSA_4096:
@@ -1742,8 +1735,8 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
         }
 
         *length = sizeof(CK_KEY_TYPE);
-      } else if (object->type == YH_HMAC_KEY) {
-        switch (object->algorithm) {
+      } else if (object->object.type == YH_HMAC_KEY) {
+        switch (object->object.algorithm) {
           case YH_ALGO_HMAC_SHA1:
             *((CK_KEY_TYPE *) value) = CKK_SHA_1_HMAC;
             break;
@@ -1770,17 +1763,16 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_ID: {
-      pkcs11_meta_object *meta_object =
-        find_meta_object(session->slot, object->id, YH_ASYMMETRIC_KEY);
+      pkcs11_meta_object *meta_object = &object->meta_object;
       if (meta_object != NULL) {
         if (meta_object->cka_id_len > 0) {
           *length = meta_object->cka_id_len;
           memcpy(value, meta_object->cka_id, *length);
         } else {
-          get_id_attribute(object, value, length);
+          get_id_attribute(&object->object, value, length);
         }
       } else {
-        get_id_attribute(object, value, length);
+        get_id_attribute(&object->object, value, length);
       }
     } break;
 
@@ -1788,7 +1780,7 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       // case CKA_END_DATE:
 
     case CKA_LOCAL:
-      if (object->origin == YH_ORIGIN_GENERATED) {
+      if (object->object.origin == YH_ORIGIN_GENERATED) {
         *((CK_BBOOL *) value) = CK_TRUE;
       } else {
         *((CK_BBOOL *) value) = CK_FALSE;
@@ -1810,7 +1802,7 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
 
     case CKA_EC_PARAMS: {
       const uint8_t *oid;
-      switch (object->algorithm) {
+      switch (object->object.algorithm) {
         case YH_ALGO_EC_P224:
           oid = oid_secp224r1;
           *length = sizeof(oid_secp224r1);
@@ -1851,12 +1843,13 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
     }
 
     case CKA_EC_POINT:
-      if (yh_is_ec(object->algorithm)) {
+      if (yh_is_ec(object->object.algorithm)) {
         uint8_t resp[2048];
         size_t resplen = sizeof(resp);
 
-        yh_rc yrc = yh_util_get_public_key(session->slot->device_session,
-                                           object->id, resp, &resplen, NULL);
+        yh_rc yrc =
+          yh_util_get_public_key(session->slot->device_session,
+                                 object->object.id, resp, &resplen, NULL);
         if (yrc != YHR_SUCCESS) {
           return yrc_to_rv(yrc);
         }
@@ -1877,9 +1870,9 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_MODULUS_BITS:
-      if (yh_is_rsa(object->algorithm)) {
+      if (yh_is_rsa(object->object.algorithm)) {
         size_t key_length = 0;
-        yh_rc yrc = yh_get_key_bitlength(object->algorithm, &key_length);
+        yh_rc yrc = yh_get_key_bitlength(object->object.algorithm, &key_length);
         if (yrc != YHR_SUCCESS) {
           return yrc_to_rv(yrc);
         }
@@ -1891,12 +1884,13 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_MODULUS:
-      if (yh_is_rsa(object->algorithm)) {
+      if (yh_is_rsa(object->object.algorithm)) {
         uint8_t resp[2048];
         size_t resp_len = sizeof(resp);
 
-        yh_rc yrc = yh_util_get_public_key(session->slot->device_session,
-                                           object->id, resp, &resp_len, NULL);
+        yh_rc yrc =
+          yh_util_get_public_key(session->slot->device_session,
+                                 object->object.id, resp, &resp_len, NULL);
         if (yrc != YHR_SUCCESS) {
           return yrc_to_rv(yrc);
         }
@@ -1909,7 +1903,7 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_PUBLIC_EXPONENT:
-      if (yh_is_rsa(object->algorithm)) {
+      if (yh_is_rsa(object->object.algorithm)) {
         uint8_t *p = (uint8_t *) value;
         p[0] = 0x01;
         p[1] = 0x00;
@@ -1927,7 +1921,7 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       }
 
       CK_RV rv =
-        load_public_key(session->slot->device_session, object->id, pkey);
+        load_public_key(session->slot->device_session, object->object.id, pkey);
       if (rv != CKR_OK) {
         EVP_PKEY_free(pkey);
         return rv;
@@ -1944,18 +1938,21 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
   return CKR_OK;
 }
 
-static CK_RV get_attribute(CK_ATTRIBUTE_TYPE type, yh_object_descriptor *object,
+static CK_RV get_attribute(CK_ATTRIBUTE_TYPE type,
+                           yubihsm_pkcs11_object_desc *object,
                            CK_BYTE_PTR value, CK_ULONG_PTR length,
                            yubihsm_pkcs11_session *session) {
 
-  switch (object->type) {
+  switch (object->object.type) {
     case YH_OPAQUE:
       return get_attribute_opaque(type, object, value, length, session);
 
     case YH_WRAP_KEY:
     case YH_HMAC_KEY:
+      return get_attribute_secret_key(type, &object->object, value, length);
+
     case YH_SYMMETRIC_KEY:
-      return get_attribute_secret_key(type, object, value, length);
+      return get_attribute_secret_key(type, &object->object, value, length);
 
     case YH_ASYMMETRIC_KEY:
       return get_attribute_private_key(type, object, value, length, session);
@@ -2103,6 +2100,12 @@ yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
       return NULL;
     }
 
+    CK_RV rv = find_meta_object(slot, object->object.id, object->object.type,
+                                NULL, 0, NULL, 0, &object->meta_object);
+    if (rv != CKR_OK) {
+      DBG_INFO("No PKCS11 meta opaque object was found for 0x%x",
+               object->object.id);
+    }
     object->filled = true;
   }
 
@@ -3772,7 +3775,6 @@ CK_RV get_session(yubihsm_pkcs11_context *ctx, CK_SESSION_HANDLE hSession,
     return CKR_OK;
   }
 
-  populate_meta_objects(slot);
   CK_RV rv = CKR_SESSION_HANDLE_INVALID;
   if (session_state == SESSION_AUTHENTICATED) {
     rv = CKR_USER_NOT_LOGGED_IN;
@@ -5145,8 +5147,7 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
         get_attribute_ecsession_key(pTemplate[i].type, key, tmp, &len);
     } else {
       yubihsm_pkcs11_object_desc *desc = object;
-      attribute_rc =
-        get_attribute(pTemplate[i].type, &desc->object, tmp, &len, session);
+      attribute_rc = get_attribute(pTemplate[i].type, desc, tmp, &len, session);
     }
 
     if (attribute_rc == CKR_OK) {
