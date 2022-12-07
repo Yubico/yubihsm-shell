@@ -952,7 +952,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_CloseSession)(CK_SESSION_HANDLE hSession) {
 
   if (session) {
     list_destroy(&session->ecdh_session_keys);
-    list_destroy(&session->slot->pkcs11_meta_objects);
   }
   if (delete_session(&g_ctx, &hSession) == false) {
     DBG_ERR("Trying to close invalid session");
@@ -1393,6 +1392,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
           pkcs11meta.cka_label_len = pTemplate[i].ulValueLen;
           memcpy(pkcs11meta.cka_label, pTemplate[i].pValue,
                  pTemplate[i].ulValueLen);
+          memcpy(template.label, pTemplate[i].pValue, YH_OBJ_LABEL_LEN);
         } else {
           memcpy(template.label, pTemplate[i].pValue, pTemplate[i].ulValueLen);
         }
@@ -1657,12 +1657,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     type = YH_OPAQUE;
     if (class.d == CKO_CERTIFICATE) {
       algo = YH_ALGO_OPAQUE_X509_CERTIFICATE;
-      if (pkcs11meta.cka_id_len > 0) {
-        template.id = 0;
-      }
-      if (pkcs11meta.cka_label_len > 0) {
-        memcpy(template.label, pkcs11meta.cka_label, YH_OBJ_LABEL_LEN);
-      }
     } else {
       algo = YH_ALGO_OPAQUE_DATA;
     }
@@ -1744,17 +1738,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
   } else if (class.d == CKO_PUBLIC_KEY) {
     bool pubkey_found = false;
     if (template.id == 0) { // Check if a meta opaque object already exists
-      pkcs11_meta_object *meta_object =
-        find_meta_object_by_id_and_label(session->slot, YH_ASYMMETRIC_KEY,
-                                         pkcs11meta.cka_id,
-                                         pkcs11meta.cka_id_len,
-                                         (uint8_t *) pkcs11meta.cka_label,
-                                         pkcs11meta.cka_label_len);
-      if (meta_object != NULL) {
-        template.id = meta_object->object_id;
-        type = meta_object->object_type;
-        pubkey_found = true;
+      pkcs11_meta_object meta_object = {0};
+      rv = find_meta_object(session->slot, 0, YH_ASYMMETRIC_KEY,
+                            pkcs11meta.cka_id, pkcs11meta.cka_id_len,
+                            (uint8_t *) pkcs11meta.cka_label,
+                            pkcs11meta.cka_label_len, &meta_object);
+      if (rv != CKR_OK) {
+        DBG_ERR("Failed to search for meta Opaque object in device");
+        goto c_co_out;
       }
+      template.id = meta_object.object_id;
+      pubkey_found = true;
     }
 
     // If the asym key not found among meta opaque object, check in the YubiHSM
@@ -1814,6 +1808,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       rv = CKR_ATTRIBUTE_VALUE_INVALID;
       goto c_co_out;
     }
+    type = YH_ASYMMETRIC_KEY;
   } else {
     rv = CKR_TEMPLATE_INCONSISTENT;
     goto c_co_out;
@@ -1912,9 +1907,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
     }
 
     yh_rc yrc;
-    pkcs11_meta_object *meta_object =
-      find_meta_object(session->slot, object->object.id,
-                       (object->object.type & 0x7f));
+    pkcs11_meta_object *meta_object = &object->meta_object;
     if (meta_object != NULL) {
       yrc = yh_util_delete_object(session->slot->device_session,
                                   meta_object->opaque_id, YH_OPAQUE);
@@ -2052,7 +2045,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
       rv = CKR_OBJECT_HANDLE_INVALID;
       goto c_gav_out;
     }
-    populate_meta_objects(session->slot);
+
     rv = populate_template(type, object, pTemplate, ulCount, session);
     if (rv != CKR_OK) {
       goto c_gav_out;
@@ -2146,10 +2139,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
     DBG_INFO("New ID or label different from existing ones. Creating metadata "
              "opaque object");
 
-    pkcs11_meta_object *pkcs11meta =
-      find_meta_object(session->slot, object->object.id,
-                       (object->object.type & 0x7f));
-    if (pkcs11meta != NULL) {
+    pkcs11_meta_object *pkcs11meta = &object->meta_object;
+
+    if (pkcs11meta->cka_id_len > 0 || pkcs11meta->cka_label_len > 0) {
       bool changed = FALSE;
       if (new_ckaid_len != pkcs11meta->cka_id_len ||
           memcmp(new_ckaid, pkcs11meta->cka_id, new_ckaid_len) != 0) {
@@ -2194,6 +2186,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
         DBG_ERR("Failed to create a new meta opaque object to store CKA_ID");
         goto c_sav_out;
       }
+      memcpy(&object->meta_object, &new_meta, sizeof(pkcs11_meta_object));
     }
   }
 
@@ -2425,13 +2418,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
     }
   }
 
-  // If CKA_ID is a filter, find if there's an opaque object with that ID
-  if (template_id_len > 0) {
-    pkcs11_meta_object *meta_object =
-      find_meta_object_by_id(session->slot, type, template_id, template_id_len);
-    if (meta_object != NULL) {
-      id = meta_object->object_id;
+  // If CKA_ID or CKA_LABEL are filters, find if there's an opaque object with
+  // that ID and/or label
+  if (template_id_len > 0 || template_label_len > 0) {
+    pkcs11_meta_object meta_object = {0};
+    rv = find_meta_object(session->slot, 0, type, template_id, template_id_len,
+                          template_label, template_label_len, &meta_object);
+    if (rv != CKR_OK) {
+      DBG_ERR("Failed to search for a meta opaque object");
+      goto c_foi_out;
     }
+    id = meta_object.object_id;
 
     if (id == 0) {
       id = parse_id_value(template_id, template_id_len);
@@ -2440,21 +2437,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
         rv = CKR_ATTRIBUTE_VALUE_INVALID;
         goto c_foi_out;
       }
-    }
-    DBG_INFO("id parsed as %x", id);
-  }
 
-  // If CKA_LABEL is a filter, find if there's an opaque object with that LABEL
-  // first
-  if (template_label_len > 0) {
-    pkcs11_meta_object *meta_object =
-      find_meta_object_by_label(session->slot, type, id, template_label,
-                                template_label_len);
-    if (meta_object != NULL) {
-      if (id == 0) {
-        id = meta_object->object_id;
-      }
-    } else {
       if (template_label_len > YH_OBJ_LABEL_LEN) {
         DBG_ERR("Label value too long, found %zu, maximum is %d",
                 template_label_len, YH_OBJ_LABEL_LEN);
@@ -2470,6 +2453,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
 
       memcpy(label, template_label, template_label_len);
     }
+    DBG_INFO("id parsed as %x", id);
   }
 
   if (unknown == false) {
