@@ -286,3 +286,10 @@ add_test(
   NAME change_authkey
   COMMAND change_authkey
   )
+
+add_test(
+  NAME encrypt_aes
+  COMMAND encrypt_aes
+  WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/examples"
+)
+set_tests_properties(encrypt_aes PROPERTIES SKIP_RETURN_CODE 64)

@@ -31,6 +31,7 @@ int main(void) {
   yh_connector *connector = NULL;
   yh_session *session = NULL;
   yh_rc yrc = YHR_GENERIC_ERROR;
+  int r = EXIT_FAILURE;
 
   const char *connector_url;
   connector_url = getenv("DEFAULT_CONNECTOR_URL");
@@ -56,6 +57,26 @@ int main(void) {
   assert(yrc == YHR_SUCCESS);
 
   printf("Successfully established session %02d\n", session_id);
+
+  yh_algorithm algorithms[YH_MAX_ALGORITHM_COUNT];
+  size_t algorithm_count = YH_MAX_ALGORITHM_COUNT;
+  yrc = yh_util_get_device_info(connector, NULL, NULL, NULL, NULL, NULL, NULL,
+                                algorithms, &algorithm_count);
+  assert(yrc == YHR_SUCCESS);
+
+  int state = 0; /* unsupported */
+  for (size_t i = 0; i < algorithm_count; i++) {
+    if (algorithms[i] == YH_ALGO_AES_ECB) {
+      state |= 0x01;
+    } else if (algorithms[i] == YH_ALGO_AES_CBC) {
+      state |= 0x02;
+    }
+  }
+  if (state != 0x03) {
+    fprintf(stderr, "ECB/CBC unsupported or disabled (%#04x)\n", state);
+    r = 64; /* arbitrarily chosen */
+    goto done;
+  }
 
   yh_capabilities capabilities = {{0}};
   yrc =
@@ -113,6 +134,8 @@ int main(void) {
 
   printf("AES-CBC decryption successful\n");
 
+  r = EXIT_SUCCESS;
+done:
   yrc = yh_util_close_session(session);
   assert(yrc == YHR_SUCCESS);
 
@@ -125,5 +148,5 @@ int main(void) {
   yrc = yh_exit();
   assert(yrc == YHR_SUCCESS);
 
-  return 0;
+  return r;
 }
