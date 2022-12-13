@@ -1738,17 +1738,15 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
   } else if (class.d == CKO_PUBLIC_KEY) {
     bool pubkey_found = false;
     if (template.id == 0) { // Check if a meta opaque object already exists
-      pkcs11_meta_object meta_object = {0};
-      rv = find_meta_object(session->slot, 0, YH_ASYMMETRIC_KEY,
-                            pkcs11meta.cka_id, pkcs11meta.cka_id_len,
-                            (uint8_t *) pkcs11meta.cka_label,
-                            pkcs11meta.cka_label_len, &meta_object);
-      if (rv != CKR_OK) {
-        DBG_ERR("Failed to search for meta Opaque object in device");
-        goto c_co_out;
+      pkcs11_meta_object *meta_object =
+        find_meta_object(session->slot, 0, YH_ASYMMETRIC_KEY, pkcs11meta.cka_id,
+                         pkcs11meta.cka_id_len,
+                         (uint8_t *) pkcs11meta.cka_label,
+                         pkcs11meta.cka_label_len, FALSE);
+      if (meta_object != NULL) {
+        template.id = meta_object->object_id;
+        pubkey_found = true;
       }
-      template.id = meta_object.object_id;
-      pubkey_found = true;
     }
 
     // If the asym key not found among meta opaque object, check in the YubiHSM
@@ -1907,7 +1905,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
     }
 
     yh_rc yrc;
-    pkcs11_meta_object *meta_object = &object->meta_object;
+    pkcs11_meta_object *meta_object =
+      find_meta_object(session->slot, object->object.id, object->object.type,
+                       NULL, 0, NULL, 0, FALSE);
     if (meta_object != NULL) {
       yrc = yh_util_delete_object(session->slot->device_session,
                                   meta_object->opaque_id, YH_OPAQUE);
@@ -1916,6 +1916,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
         rv = yrc_to_rv(yrc);
         goto c_do_out;
       }
+      DBG_INFO("Deleted meta object 0x%x", meta_object->opaque_id);
+      delete_meta_object_from_cache(session->slot, meta_object->opaque_id,
+                                    meta_object->object_type);
     }
 
     yrc = yh_util_delete_object(session->slot->device_session,
@@ -2139,30 +2142,31 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
     DBG_INFO("New ID or label different from existing ones. Creating metadata "
              "opaque object");
 
-    pkcs11_meta_object *pkcs11meta = &object->meta_object;
-
-    if (pkcs11meta->cka_id_len > 0 || pkcs11meta->cka_label_len > 0) {
+    pkcs11_meta_object *meta_object =
+      find_meta_object(session->slot, object->object.id, object->object.type,
+                       NULL, 0, NULL, 0, FALSE);
+    if (meta_object != NULL) {
       bool changed = FALSE;
-      if (new_ckaid_len != pkcs11meta->cka_id_len ||
-          memcmp(new_ckaid, pkcs11meta->cka_id, new_ckaid_len) != 0) {
+      if (new_ckaid_len != meta_object->cka_id_len ||
+          memcmp(new_ckaid, meta_object->cka_id, new_ckaid_len) != 0) {
         changed = TRUE;
-        if (pkcs11meta->cka_id_len > 0) {
-          memset(&pkcs11meta->cka_id, 0, pkcs11meta->cka_id_len);
+        if (meta_object->cka_id_len > 0) {
+          memset(&meta_object->cka_id, 0, meta_object->cka_id_len);
         }
-        pkcs11meta->cka_id_len = new_ckaid_len;
-        memcpy(pkcs11meta->cka_id, new_ckaid, new_ckaid_len);
+        meta_object->cka_id_len = new_ckaid_len;
+        memcpy(meta_object->cka_id, new_ckaid, new_ckaid_len);
       }
-      if (new_ckalabel_len != pkcs11meta->cka_label_len ||
-          memcmp(new_ckalabel, pkcs11meta->cka_label, new_ckalabel_len) != 0) {
+      if (new_ckalabel_len != meta_object->cka_label_len ||
+          memcmp(new_ckalabel, meta_object->cka_label, new_ckalabel_len) != 0) {
         changed = TRUE;
-        if (pkcs11meta->cka_label_len > 0) {
-          memset(&pkcs11meta->cka_label, 0, pkcs11meta->cka_label_len);
+        if (meta_object->cka_label_len > 0) {
+          memset(&meta_object->cka_label, 0, meta_object->cka_label_len);
         }
-        pkcs11meta->cka_label_len = new_ckalabel_len;
-        memcpy(pkcs11meta->cka_label, new_ckalabel, new_ckalabel_len);
+        meta_object->cka_label_len = new_ckalabel_len;
+        memcpy(meta_object->cka_label, new_ckalabel, new_ckalabel_len);
       }
       if (changed) {
-        rv = write_meta_opaque(session->slot, pkcs11meta, true);
+        rv = write_meta_opaque(session->slot, meta_object, true);
         if (rv != CKR_OK) {
           DBG_ERR("Failed to update meta opaque object to update CKA_ID");
           goto c_sav_out;
@@ -2170,23 +2174,22 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
       }
     } else {
       // Create new opaque object and add it to the session
-      pkcs11_meta_object new_meta = {0};
-      new_meta.object_id = object->object.id;
-      new_meta.object_type = object->object.type;
+      pkcs11_meta_object new_meta_object = {0};
+      new_meta_object.object_id = object->object.id;
+      new_meta_object.object_type = object->object.type;
       if (new_ckaid_len > 0) {
-        new_meta.cka_id_len = new_ckaid_len;
-        memcpy(new_meta.cka_id, new_ckaid, new_ckaid_len);
+        new_meta_object.cka_id_len = new_ckaid_len;
+        memcpy(new_meta_object.cka_id, new_ckaid, new_ckaid_len);
       }
       if (new_ckalabel_len > 0) {
-        new_meta.cka_label_len = new_ckalabel_len;
-        memcpy(new_meta.cka_label, new_ckalabel, new_ckalabel_len);
+        new_meta_object.cka_label_len = new_ckalabel_len;
+        memcpy(new_meta_object.cka_label, new_ckalabel, new_ckalabel_len);
       }
-      rv = write_meta_opaque(session->slot, &new_meta, false);
+      rv = write_meta_opaque(session->slot, &new_meta_object, false);
       if (rv != CKR_OK) {
         DBG_ERR("Failed to create a new meta opaque object to store CKA_ID");
         goto c_sav_out;
       }
-      memcpy(&object->meta_object, &new_meta, sizeof(pkcs11_meta_object));
     }
   }
 
@@ -2421,14 +2424,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
   // If CKA_ID or CKA_LABEL are filters, find if there's an opaque object with
   // that ID and/or label
   if (template_id_len > 0 || template_label_len > 0) {
-    pkcs11_meta_object meta_object = {0};
-    rv = find_meta_object(session->slot, 0, type, template_id, template_id_len,
-                          template_label, template_label_len, &meta_object);
-    if (rv != CKR_OK) {
-      DBG_ERR("Failed to search for a meta opaque object");
-      goto c_foi_out;
+    pkcs11_meta_object *meta_object =
+      find_meta_object(session->slot, 0, type, template_id, template_id_len,
+                       template_label, template_label_len, FALSE);
+    if (meta_object != NULL) {
+      id = meta_object->object_id;
     }
-    id = meta_object.object_id;
 
     if (id == 0) {
       id = parse_id_value(template_id, template_id_len);

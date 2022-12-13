@@ -38,6 +38,8 @@ yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
 
 void delete_object_from_cache(yubihsm_pkcs11_slot *slot,
                               CK_OBJECT_HANDLE objHandle);
+void delete_meta_object_from_cache(yubihsm_pkcs11_slot *slot,
+                                   uint16_t opaque_id, yh_object_type type);
 
 CK_RV check_sign_mechanism(yubihsm_pkcs11_slot *slot,
                            CK_MECHANISM_PTR pMechanism);
@@ -164,10 +166,11 @@ CK_RV yrc_to_rv(yh_rc rc);
 CK_RV write_meta_opaque(yubihsm_pkcs11_slot *slot,
                         pkcs11_meta_object *meta_opaque, bool replace);
 
-CK_RV find_meta_object(yubihsm_pkcs11_slot *slot, uint16_t origin_id,
-                       uint8_t type, uint8_t *ckaid, uint16_t ckaid_len,
-                       uint8_t *cka_label, uint16_t cka_label_len,
-                       pkcs11_meta_object *meta_object);
+pkcs11_meta_object *find_meta_object(yubihsm_pkcs11_slot *slot,
+                                     uint16_t origin_id, uint8_t type,
+                                     uint8_t *ckaid, uint16_t ckaid_len,
+                                     uint8_t *cka_label, uint16_t cka_label_len,
+                                     bool refersh);
 
 bool is_meta_object(yh_object_descriptor *object);
 #endif
