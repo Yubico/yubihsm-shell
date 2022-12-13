@@ -613,33 +613,6 @@ CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
   return CKR_OK;
 }
 
-bool create_session(yubihsm_pkcs11_slot *slot, CK_FLAGS flags,
-                    CK_SESSION_HANDLE_PTR phSession) {
-
-  bool authed = false;
-  yubihsm_pkcs11_session session;
-  memset(&session, 0, sizeof(session));
-  if (slot->pkcs11_sessions.head) {
-    yubihsm_pkcs11_session *s =
-      (yubihsm_pkcs11_session *) slot->pkcs11_sessions.head->data;
-    if (s->session_state & SESSION_AUTHENTICATED) {
-      authed = true;
-    }
-  }
-  if (flags & CKF_RW_SESSION) {
-    session.session_state =
-      authed ? SESSION_AUTHENTICATED_RW : SESSION_RESERVED_RW;
-  } else {
-    session.session_state =
-      authed ? SESSION_AUTHENTICATED_RO : SESSION_RESERVED_RO;
-  }
-  session.id = slot->max_session_id++;
-  session.slot = slot;
-  list_create(&session.ecdh_session_keys, sizeof(ecdh_session_key), NULL);
-  *phSession = (slot->id << 16) + session.id;
-  return list_append(&slot->pkcs11_sessions, &session);
-}
-
 static CK_RV get_all_meta_objects(yubihsm_pkcs11_slot *slot,
                                   yh_object_descriptor *meta_opaques,
                                   size_t *meta_opaques_len) {
@@ -678,6 +651,37 @@ static CK_RV get_all_meta_objects(yubihsm_pkcs11_slot *slot,
   return CKR_OK;
 }
 
+static pkcs11_meta_object *cache_meta_object(yubihsm_pkcs11_slot *slot,
+                                             pkcs11_meta_object *meta_object) {
+  if (meta_object == NULL) {
+    DBG_ERR("No meta object to cache");
+    return NULL;
+  }
+
+  for (int i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
+    if (slot->objects[i].meta_object.opaque_id == meta_object->opaque_id) {
+      // meta object alrady in the cache. Overwrite the old value
+      memset(&slot->objects[i].meta_object, 0, sizeof(pkcs11_meta_object));
+      memcpy(&slot->objects[i].meta_object, meta_object,
+             sizeof(pkcs11_meta_object));
+      return &slot->objects[i].meta_object;
+    }
+  }
+
+  // meta object is not already cached. Find an empty cache slot tos tore it
+  for (int i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
+    if (slot->objects[i].object.id == 0 &&
+        slot->objects[i].meta_object.opaque_id == 0) {
+      memcpy(&slot->objects[i].meta_object, meta_object,
+             sizeof(pkcs11_meta_object));
+      return &slot->objects[i].meta_object;
+    }
+  }
+
+  DBG_ERR("Failed to cache meta object 0x%x", meta_object->opaque_id);
+  return NULL;
+}
+
 #define PKCS11_ID_TAG 1
 #define PKCS11_LABEL_TAG 2
 uint8_t META_OBJECT_VERSION = 1;
@@ -689,9 +693,9 @@ uint8_t META_OBJECT_VERSION = 1;
  * byte 2 and 3: Original object ID (always present)
  * byte 4 and onward: TLV tripplets
  */
-static CK_RV parse_pkcs11_opaque_value(uint8_t *opaque_value,
-                                       size_t opaque_value_len,
-                                       pkcs11_meta_object *meta_object) {
+static CK_RV parse_meta_opaque_value(uint8_t *opaque_value,
+                                     size_t opaque_value_len,
+                                     pkcs11_meta_object *meta_object) {
   uint8_t *p = opaque_value;
   if (*p != META_OBJECT_VERSION) {
     DBG_ERR("Meta object value has unexpected version");
@@ -791,6 +795,8 @@ CK_RV write_meta_opaque(yubihsm_pkcs11_slot *slot,
   DBG_INFO("Successfully imported opaque object 0x%x with label: %s",
            meta_opaque->opaque_id, opaque_label);
 
+  cache_meta_object(slot, meta_opaque);
+
   return CKR_OK;
 }
 
@@ -805,105 +811,223 @@ static bool match_byte_array(uint8_t *a, uint16_t a_len, uint8_t *b,
   return a_len == b_len && memcmp(a, b, a_len) == 0;
 }
 
-CK_RV find_meta_object(yubihsm_pkcs11_slot *slot, uint16_t origin_id,
-                       uint8_t type, uint8_t *ckaid, uint16_t ckaid_len,
-                       uint8_t *cka_label, uint16_t cka_label_len,
-                       pkcs11_meta_object *meta_object) {
+static bool match_meta_object(pkcs11_meta_object *object, uint16_t origin_id,
+                              uint8_t type, uint8_t *ckaid, uint16_t ckaid_len,
+                              uint8_t *cka_label, uint16_t cka_label_len) {
+  if (object->object_type != type) {
+    return false;
+  }
+
+  // If original objectID match, no need to look more. This is the right meta
+  // object
+  if (object->object_id == origin_id) {
+    return true;
+  }
+
+  if (ckaid_len > 0) {
+
+    // If both CKA_ID and CKA_LAEBL are set, find object by matching both ID
+    // and label along with the type
+    if (cka_label_len > 0) {
+      if (match_byte_array(object->cka_id, object->cka_id_len, ckaid,
+                           ckaid_len) &&
+          match_byte_array((uint8_t *) object->cka_label, object->cka_label_len,
+                           cka_label, cka_label_len)) {
+        if (origin_id == 0 || object->object_id == origin_id) {
+          return true;
+        }
+      }
+    } else { // If CKA_LAEBL is not set, find object by matching only the ID
+             // and type
+      if (match_byte_array(object->cka_id, object->cka_id_len, ckaid,
+                           ckaid_len)) {
+        if (origin_id == 0 || object->object_id == origin_id) {
+          return true;
+        }
+      }
+    }
+  } else { // If SKA_ID is not set, find object by just matching the type and
+           // the label
+    if (cka_label_len > 0) {
+      if (match_byte_array((uint8_t *) object->cka_label, object->cka_label_len,
+                           cka_label, cka_label_len)) {
+        if (origin_id == 0 || object->object_id == origin_id) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+static CK_RV read_meta_object_from_devic(yubihsm_pkcs11_slot *slot,
+                                         uint16_t opaque_id,
+                                         pkcs11_meta_object *meta_object) {
+  uint8_t opaque_value[YH_MSG_BUF_SIZE] = {0};
+  size_t opaque_value_len = sizeof(opaque_value);
+  yh_rc yrc = yh_util_get_opaque(slot->device_session, opaque_id, opaque_value,
+                                 &opaque_value_len);
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("Failed to read meta object 0x%x from device", opaque_id);
+    return yrc_to_rv(yrc);
+  }
+
+  CK_RV rv =
+    parse_meta_opaque_value(opaque_value, opaque_value_len, meta_object);
+  if (rv != CKR_OK) {
+    DBG_ERR("Failed to parse opaque value for meta object 0x%x", opaque_id);
+    return rv;
+  }
+
+  meta_object->opaque_id = opaque_id;
+  return CKR_OK;
+}
+
+static CK_RV populate_meta_opaques(yubihsm_pkcs11_slot *slot) {
+  for (int i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
+    if (slot->objects[i].meta_object.opaque_id != 0) {
+      // If there are any meta_objects in the cache, then it had already been
+      // populated
+      return CKR_OK;
+    }
+  }
+
+  yh_object_descriptor opaque_descs[YH_MAX_ITEMS_COUNT] = {0};
+  size_t opaque_descs_len = 0;
+  CK_RV rv = get_all_meta_objects(slot, opaque_descs, &opaque_descs_len);
+  if (rv != CKR_OK) {
+    DBG_ERR("Failed to get all meta opaque objects from device");
+    return rv;
+  }
+
+  for (size_t i = 0; i < opaque_descs_len; i++) {
+    if (slot->objects[i].object.id != 0) {
+      // skip slot position if it already has a "normal" object cached in it
+      continue;
+    }
+
+    rv = read_meta_object_from_devic(slot, opaque_descs[i].id,
+                                     &slot->objects[i].meta_object);
+    if (rv != CKR_OK) {
+      DBG_ERR("Failed to read meta object 0x%x from device",
+              opaque_descs[i].id);
+      return rv;
+    }
+  }
+  return CKR_OK;
+}
+
+static pkcs11_meta_object *
+find_meta_object_in_device(yubihsm_pkcs11_slot *slot, uint16_t origin_id,
+                           uint8_t type, uint8_t *ckaid, uint16_t ckaid_len,
+                           uint8_t *cka_label, uint16_t cka_label_len) {
+
+  CK_RV rv = CKR_OK;
+  yh_object_descriptor opaque_descs[YH_MAX_ITEMS_COUNT] = {0};
+  size_t n_opaque_descs = 0;
+  rv = get_all_meta_objects(slot, opaque_descs, &n_opaque_descs);
+  if (rv != CKR_OK) {
+    DBG_ERR("Failed to obtain a list of opaque meta objects from device");
+    return NULL;
+  }
+
+  for (size_t i = 0; i < n_opaque_descs; i++) {
+    pkcs11_meta_object meta_object = {0};
+    rv = read_meta_object_from_devic(slot, opaque_descs[i].id, &meta_object);
+    if (rv != CKR_OK) {
+      DBG_ERR("Failed to get opaque object 0x%x from device",
+              opaque_descs[i].id);
+      return NULL;
+    }
+
+    if (match_meta_object(&meta_object, origin_id, type, ckaid, ckaid_len,
+                          cka_label, cka_label_len)) {
+      // cache_meta_object() return a pointer to the meta object in the slot
+      // cache
+      return cache_meta_object(slot, &meta_object);
+    }
+  }
+  return NULL;
+}
+
+/**
+ * If 'refresh' is true, the meta object will be overwritten in the cache by it
+ * value read from the device. Recommend to set to true only from
+ * get_object_desc
+ */
+pkcs11_meta_object *find_meta_object(yubihsm_pkcs11_slot *slot,
+                                     uint16_t origin_id, uint8_t type,
+                                     uint8_t *ckaid, uint16_t ckaid_len,
+                                     uint8_t *cka_label, uint16_t cka_label_len,
+                                     bool refresh) {
 
   if (origin_id == 0 && ckaid_len == 0 && cka_label_len == 0) {
     DBG_INFO("No meta opaque object criteria to look for");
-    meta_object = NULL;
-    return CKR_OK;
+    return NULL;
   }
 
   if ((ckaid_len > 0 && ckaid == NULL) ||
       (cka_label_len > 0 && cka_label == NULL)) {
     DBG_ERR("Mismatch between attribute pointer and attribute length");
-    return CKR_ATTRIBUTE_VALUE_INVALID;
+    return NULL;
   }
 
-  CK_RV rv = CKR_OK;
-  yh_object_descriptor opaques[YH_MAX_ITEMS_COUNT] = {0};
-  size_t n_opaques = 0;
-  rv = get_all_meta_objects(slot, opaques, &n_opaques);
-  if (rv != CKR_OK) {
-    DBG_ERR("Failed to obtain a list of opaque meta objects from device");
-    return rv;
-  }
-  for (size_t i = 0; i < n_opaques; i++) {
-    uint8_t opaque_value[YH_MSG_BUF_SIZE] = {0};
-    size_t opaque_value_len = sizeof(opaque_value);
-    yh_rc rc = yh_util_get_opaque(slot->device_session, opaques[i].id,
-                                  opaque_value, &opaque_value_len);
-    if (rc != YHR_SUCCESS) {
-      DBG_ERR("Failed to get opaque object value 0x%x", opaques[i].id);
-      return yrc_to_rv(rc);
-    }
-    pkcs11_meta_object current_meta_object = {0};
-    current_meta_object.opaque_id = opaques[i].id;
-    rv = parse_pkcs11_opaque_value(opaque_value, opaque_value_len,
-                                   &current_meta_object);
-    if (rv != CKR_OK) {
-      return rv;
-    }
-
-    if (current_meta_object.object_type != type) {
+  for (int i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
+    if (slot->objects[i].meta_object.opaque_id == 0) {
       continue;
     }
-
-    // If original objectID match, no need to look more. This is the right meta
-    // object
-    if (current_meta_object.object_id == origin_id) {
-      memcpy(meta_object, &current_meta_object, sizeof(pkcs11_meta_object));
-      break;
-    }
-
-    if (ckaid_len > 0) {
-
-      // If both CKA_ID and CKA_LAEBL are set, find object by matching both ID
-      // and label along with the type
-      if (cka_label_len > 0) {
-        if (match_byte_array(current_meta_object.cka_id,
-                             current_meta_object.cka_id_len, ckaid,
-                             ckaid_len) &&
-            match_byte_array((uint8_t *) current_meta_object.cka_label,
-                             current_meta_object.cka_label_len, cka_label,
-                             cka_label_len)) {
-          if (origin_id == 0 || current_meta_object.object_id == origin_id) {
-            memcpy(meta_object, &current_meta_object,
-                   sizeof(pkcs11_meta_object));
-            break;
-          }
+    if (match_meta_object(&slot->objects[i].meta_object, origin_id, type, ckaid,
+                          ckaid_len, cka_label, cka_label_len)) {
+      if (refresh) {
+        pkcs11_meta_object meta_object_in_device = {0};
+        CK_RV rv =
+          read_meta_object_from_devic(slot,
+                                      slot->objects[i].meta_object.opaque_id,
+                                      &meta_object_in_device);
+        if (rv != CKR_OK) {
+          DBG_ERR("Failed to retrieve meta object 0x%x from device",
+                  slot->objects[i].meta_object.opaque_id);
+          return NULL;
         }
-      } else { // If CKA_LAEBL is not set, find object by matching only the ID
-               // and type
-        if (match_byte_array(current_meta_object.cka_id,
-                             current_meta_object.cka_id_len, ckaid,
-                             ckaid_len)) {
-          if (origin_id == 0 || current_meta_object.object_id == origin_id) {
-            memcpy(meta_object, &current_meta_object,
-                   sizeof(pkcs11_meta_object));
-            break;
-          }
-        }
+        memset(&slot->objects[i].meta_object, 0, sizeof(pkcs11_meta_object));
+        memcpy(&slot->objects[i].meta_object, &meta_object_in_device,
+               sizeof(pkcs11_meta_object));
       }
-    } else { // If SKA_ID is not set, find object by just matching the type and
-             // the label
-      if (cka_label_len > 0) {
-        if (match_byte_array((uint8_t *) current_meta_object.cka_label,
-                             current_meta_object.cka_label_len, cka_label,
-                             cka_label_len)) {
-          if (origin_id == 0 || current_meta_object.object_id == origin_id) {
-            memcpy(meta_object, &current_meta_object,
-                   sizeof(pkcs11_meta_object));
-            break;
-          }
-        }
-      }
+      return &slot->objects[i].meta_object;
     }
   }
 
-  return rv;
+  // meta object was not found in the cache. Look for it in the device
+  return find_meta_object_in_device(slot, origin_id, type, ckaid, ckaid_len,
+                                    cka_label, cka_label_len);
+}
+
+bool create_session(yubihsm_pkcs11_slot *slot, CK_FLAGS flags,
+                    CK_SESSION_HANDLE_PTR phSession) {
+
+  bool authed = false;
+  yubihsm_pkcs11_session session;
+  memset(&session, 0, sizeof(session));
+  if (slot->pkcs11_sessions.head) {
+    yubihsm_pkcs11_session *s =
+      (yubihsm_pkcs11_session *) slot->pkcs11_sessions.head->data;
+    if (s->session_state & SESSION_AUTHENTICATED) {
+      authed = true;
+    }
+  }
+  if (flags & CKF_RW_SESSION) {
+    session.session_state =
+      authed ? SESSION_AUTHENTICATED_RW : SESSION_RESERVED_RW;
+  } else {
+    session.session_state =
+      authed ? SESSION_AUTHENTICATED_RO : SESSION_RESERVED_RO;
+  }
+  session.id = slot->max_session_id++;
+  session.slot = slot;
+  list_create(&session.ecdh_session_keys, sizeof(ecdh_session_key), NULL);
+  populate_meta_opaques(slot);
+  *phSession = (slot->id << 16) + session.id;
+  return list_append(&slot->pkcs11_sessions, &session);
 }
 
 static void get_label_attribute(yh_object_descriptor *object, CK_VOID_PTR value,
@@ -942,6 +1066,7 @@ static void get_capability_attribute(yh_object_descriptor *object,
 
 static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
                                   yubihsm_pkcs11_object_desc *object,
+                                  pkcs11_meta_object *meta_object,
                                   CK_VOID_PTR value, CK_ULONG_PTR length,
                                   yubihsm_pkcs11_session *session) {
 
@@ -975,10 +1100,9 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_LABEL: {
-      pkcs11_meta_object meta_object = object->meta_object;
-      if (meta_object.cka_label_len > 0) {
-        *length = meta_object.cka_label_len;
-        memcpy(value, meta_object.cka_label, *length);
+      if (meta_object != NULL && meta_object->cka_label_len > 0) {
+        *length = meta_object->cka_label_len;
+        memcpy(value, meta_object->cka_label, *length);
       } else {
         get_label_attribute(&object->object, value, length);
       }
@@ -986,14 +1110,9 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
     } break;
 
     case CKA_ID: {
-      pkcs11_meta_object *meta_object = &object->meta_object;
-      if (meta_object != NULL) {
-        if (meta_object->cka_id_len > 0) {
-          *length = meta_object->cka_id_len;
-          memcpy(value, meta_object->cka_id, *length);
-        } else {
-          get_id_attribute(&object->object, value, length);
-        }
+      if (meta_object != NULL && meta_object->cka_id_len > 0) {
+        *length = meta_object->cka_id_len;
+        memcpy(value, meta_object->cka_id, *length);
       } else {
         get_id_attribute(&object->object, value, length);
       }
@@ -1259,6 +1378,7 @@ static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
 
 static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
                                        yubihsm_pkcs11_object_desc *object,
+                                       pkcs11_meta_object *meta_object,
                                        CK_VOID_PTR value, CK_ULONG_PTR length,
                                        yubihsm_pkcs11_session *session) {
   switch (type) {
@@ -1284,14 +1404,9 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_LABEL: {
-      pkcs11_meta_object *meta_object = &object->meta_object;
-      if (meta_object != NULL) {
-        if (meta_object->cka_label_len > 0) {
-          *length = meta_object->cka_label_len;
-          memcpy(value, meta_object->cka_label, *length);
-        } else {
-          get_label_attribute(&object->object, value, length);
-        }
+      if (meta_object != NULL && meta_object->cka_label_len > 0) {
+        *length = meta_object->cka_label_len;
+        memcpy(value, meta_object->cka_label, *length);
       } else {
         get_label_attribute(&object->object, value, length);
       }
@@ -1314,14 +1429,9 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_ID: {
-      pkcs11_meta_object *meta_object = &object->meta_object;
-      if (meta_object != NULL) {
-        if (meta_object->cka_id_len > 0) {
-          *length = meta_object->cka_id_len;
-          memcpy(value, meta_object->cka_id, *length);
-        } else {
-          get_id_attribute(&object->object, value, length);
-        }
+      if (meta_object != NULL && meta_object->cka_id_len > 0) {
+        *length = meta_object->cka_id_len;
+        memcpy(value, meta_object->cka_id, *length);
       } else {
         get_id_attribute(&object->object, value, length);
       }
@@ -1632,6 +1742,7 @@ l_p_k_failure:
 
 static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
                                       yubihsm_pkcs11_object_desc *object,
+                                      pkcs11_meta_object *meta_object,
                                       CK_VOID_PTR value, CK_ULONG_PTR length,
                                       yubihsm_pkcs11_session *session) {
   switch (type) {
@@ -1695,14 +1806,9 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_LABEL: {
-      pkcs11_meta_object *meta_object = &object->meta_object;
-      if (meta_object != NULL) {
-        if (meta_object->cka_label_len > 0) {
-          *length = meta_object->cka_label_len;
-          memcpy(value, meta_object->cka_label, *length);
-        } else {
-          get_id_attribute(&object->object, value, length);
-        }
+      if (meta_object != NULL && meta_object->cka_label_len > 0) {
+        *length = meta_object->cka_label_len;
+        memcpy(value, meta_object->cka_label, *length);
       } else {
         get_id_attribute(&object->object, value, length);
       }
@@ -1763,14 +1869,9 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_ID: {
-      pkcs11_meta_object *meta_object = &object->meta_object;
-      if (meta_object != NULL) {
-        if (meta_object->cka_id_len > 0) {
-          *length = meta_object->cka_id_len;
-          memcpy(value, meta_object->cka_id, *length);
-        } else {
-          get_id_attribute(&object->object, value, length);
-        }
+      if (meta_object != NULL && meta_object->cka_id_len > 0) {
+        *length = meta_object->cka_id_len;
+        memcpy(value, meta_object->cka_id, *length);
       } else {
         get_id_attribute(&object->object, value, length);
       }
@@ -1940,12 +2041,14 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
 
 static CK_RV get_attribute(CK_ATTRIBUTE_TYPE type,
                            yubihsm_pkcs11_object_desc *object,
-                           CK_BYTE_PTR value, CK_ULONG_PTR length,
+                           pkcs11_meta_object *meta_object, CK_BYTE_PTR value,
+                           CK_ULONG_PTR length,
                            yubihsm_pkcs11_session *session) {
 
   switch (object->object.type) {
     case YH_OPAQUE:
-      return get_attribute_opaque(type, object, value, length, session);
+      return get_attribute_opaque(type, object, meta_object, value, length,
+                                  session);
 
     case YH_WRAP_KEY:
     case YH_HMAC_KEY:
@@ -1955,9 +2058,11 @@ static CK_RV get_attribute(CK_ATTRIBUTE_TYPE type,
       return get_attribute_secret_key(type, &object->object, value, length);
 
     case YH_ASYMMETRIC_KEY:
-      return get_attribute_private_key(type, object, value, length, session);
+      return get_attribute_private_key(type, object, meta_object, value, length,
+                                       session);
     case 0x80 | YH_ASYMMETRIC_KEY:
-      return get_attribute_public_key(type, object, value, length, session);
+      return get_attribute_public_key(type, object, meta_object, value, length,
+                                      session);
 
     case YH_TEMPLATE:
     case YH_AUTHENTICATION_KEY:
@@ -2054,6 +2159,17 @@ void delete_object_from_cache(yubihsm_pkcs11_slot *slot,
   }
 }
 
+void delete_meta_object_from_cache(yubihsm_pkcs11_slot *slot,
+                                   uint16_t opaque_id, yh_object_type type) {
+  for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
+    if (slot->objects[i].meta_object.opaque_id == opaque_id &&
+        slot->objects[i].meta_object.object_type == type) {
+      memset(&slot->objects[i].meta_object, 0, sizeof(pkcs11_meta_object));
+      return;
+    }
+  }
+}
+
 yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
                                             CK_OBJECT_HANDLE objHandle) {
 
@@ -2100,12 +2216,9 @@ yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
       return NULL;
     }
 
-    CK_RV rv = find_meta_object(slot, object->object.id, object->object.type,
-                                NULL, 0, NULL, 0, &object->meta_object);
-    if (rv != CKR_OK) {
-      DBG_INFO("No PKCS11 meta opaque object was found for 0x%x",
-               object->object.id);
-    }
+    find_meta_object(slot, object->object.id, object->object.type, NULL, 0,
+                     NULL, 0, TRUE);
+
     object->filled = true;
   }
 
@@ -5147,7 +5260,11 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
         get_attribute_ecsession_key(pTemplate[i].type, key, tmp, &len);
     } else {
       yubihsm_pkcs11_object_desc *desc = object;
-      attribute_rc = get_attribute(pTemplate[i].type, desc, tmp, &len, session);
+      pkcs11_meta_object *meta_object =
+        find_meta_object(session->slot, desc->object.id, desc->object.type,
+                         NULL, 0, NULL, 0, FALSE);
+      attribute_rc =
+        get_attribute(pTemplate[i].type, desc, meta_object, tmp, &len, session);
     }
 
     if (attribute_rc == CKR_OK) {
