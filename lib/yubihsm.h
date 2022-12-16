@@ -1293,7 +1293,7 @@ yh_rc yh_util_close_session(yh_session *session);
  *
  * @return #YHR_SUCCESS if successful.
  *         #YHR_INVALID_PARAMETERS input parameters are NULL or if
- *<tt>in_len</tt> is not 20, 34, 48 or 64. See #yh_rc for other possible errors
+ *<tt>in_len</tt> is not 20, 32, 48 or 64. See #yh_rc for other possible errors
  **/
 yh_rc yh_util_sign_pkcs1v1_5(yh_session *session, uint16_t key_id, bool hashed,
                              const uint8_t *in, size_t in_len, uint8_t *out,
@@ -1315,7 +1315,7 @@ yh_rc yh_util_sign_pkcs1v1_5(yh_session *session, uint16_t key_id, bool hashed,
  *
  * @return #YHR_SUCCESS if successful.
  *         #YHR_INVALID_PARAMETERS input parameters are NULL or if
- *<tt>in_len</tt> is not 20, 34, 48 or 64. See #yh_rc for other possible errors
+ *<tt>in_len</tt> is not 20, 32, 48 or 64. See #yh_rc for other possible errors
  *
  * @see <a href="https://tools.ietf.org/html/rfc8017#section-9.1">PSS
  *specifications</a>
