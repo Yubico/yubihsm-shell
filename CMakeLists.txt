@@ -75,7 +75,7 @@ if (NOT DISABLE_LTO)
 endif ()
 
 if (CMAKE_C_COMPILER_ID STREQUAL AppleClang)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-nullability-completeness -Wno-nullability-extension -Wno-expansion-to-defined -Wno-undef-prefix")
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-nullability-completeness -Wno-nullability-extension -Wno-expansion-to-defined -Wno-undef-prefix -Wno-extra-semi")
 elseif (NOT MSVC)
   set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-missing-braces -Wno-missing-field-initializers")
   # -Wl,--strip-all is dependent on linker not compiler...
