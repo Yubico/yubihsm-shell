@@ -484,6 +484,8 @@ bool algo2type(yh_algorithm algorithm, yh_object_type *type) {
     case YH_ALGO_AES128:
     case YH_ALGO_AES192:
     case YH_ALGO_AES256:
+    case YH_ALGO_AES_ECB:
+    case YH_ALGO_AES_CBC:
       *type = YH_SYMMETRIC_KEY;
       break;
 
