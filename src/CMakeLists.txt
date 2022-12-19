@@ -88,7 +88,7 @@ set_target_properties(yubihsm-shell PROPERTIES INSTALL_RPATH "${YUBIHSM_INSTALL_
 
 add_coverage (yubihsm-shell)
 
-if (ENABLE_EXPERIMENTAL_ASYMMETRIC_AUTH)
+if (ENABLE_ASYMMETRIC_AUTH)
   add_definitions(-DUSE_ASYMMETRIC_AUTH="1")
 endif()
 
