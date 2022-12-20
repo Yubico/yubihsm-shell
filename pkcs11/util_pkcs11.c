@@ -616,6 +616,10 @@ CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
 static CK_RV get_all_meta_objects(yubihsm_pkcs11_slot *slot,
                                   yh_object_descriptor *meta_opaques,
                                   size_t *meta_opaques_len) {
+  if (slot == NULL || slot->device_session == NULL) {
+    DBG_ERR("No device session available");
+    return CKR_ARGUMENTS_BAD;
+  }
 
   yh_rc rc = YHR_SUCCESS;
   yh_object_descriptor opaques[YH_MAX_ITEMS_COUNT] = {0};
