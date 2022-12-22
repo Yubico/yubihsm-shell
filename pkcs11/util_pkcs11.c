@@ -655,6 +655,40 @@ static CK_RV get_all_meta_objects(yubihsm_pkcs11_slot *slot,
   return CKR_OK;
 }
 
+static void cache_non_meta_object(yubihsm_pkcs11_slot *slot, uint16_t id,
+                                  yh_object_type type) {
+  if (id == 0 || type == 0) {
+    DBG_ERR("No object to cache");
+    return;
+  }
+  yh_object_descriptor object = {0};
+  yh_rc yrc = yh_util_get_object_info(slot->device_session, id, type, &object);
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("Failed to get object info of 0x%x", id);
+    return;
+  }
+
+  for (int i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
+    if (slot->objects[i].object.id == object.id &&
+        slot->objects[i].object.type == object.type) {
+      // object alrady in the cache. Overwrite the old value
+      memset(&slot->objects[i], 0, sizeof(yubihsm_pkcs11_object_desc));
+      memcpy(&slot->objects[i].object, &object, sizeof(yh_object_descriptor));
+      return;
+    }
+  }
+
+  // object is not already cached. Find an empty cache slot tos tore it
+  for (int i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
+    if (slot->objects[i].object.id == 0) {
+      memcpy(&slot->objects[i].object, &object, sizeof(yh_object_descriptor));
+      return;
+    }
+  }
+
+  DBG_ERR("Failed to cache object 0x%x", id);
+}
+
 static pkcs11_meta_object *cache_meta_object(yubihsm_pkcs11_slot *slot,
                                              pkcs11_meta_object *meta_object) {
   if (meta_object == NULL) {
@@ -662,24 +696,35 @@ static pkcs11_meta_object *cache_meta_object(yubihsm_pkcs11_slot *slot,
     return NULL;
   }
 
+  int cache_index = -1;
   for (int i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
     if (slot->objects[i].meta_object.opaque_id == meta_object->opaque_id) {
       // meta object alrady in the cache. Overwrite the old value
-      memset(&slot->objects[i].meta_object, 0, sizeof(pkcs11_meta_object));
-      memcpy(&slot->objects[i].meta_object, meta_object,
-             sizeof(pkcs11_meta_object));
-      return &slot->objects[i].meta_object;
+      memset(&slot->objects[i], 0, sizeof(yubihsm_pkcs11_object_desc));
+      cache_index = i;
+    }
+  }
+  if (cache_index == -1) {
+    // meta object is not already cached. Find an empty cache slot tos tore it
+    for (int i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
+      if (slot->objects[i].object.id == 0) {
+        cache_index = i;
+      }
     }
   }
 
-  // meta object is not already cached. Find an empty cache slot tos tore it
-  for (int i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
-    if (slot->objects[i].object.id == 0 &&
-        slot->objects[i].meta_object.opaque_id == 0) {
-      memcpy(&slot->objects[i].meta_object, meta_object,
-             sizeof(pkcs11_meta_object));
-      return &slot->objects[i].meta_object;
+  if (cache_index != -1) {
+    yh_rc yrc =
+      yh_util_get_object_info(slot->device_session, meta_object->opaque_id,
+                              YH_OPAQUE, &slot->objects[cache_index].object);
+    if (yrc != YHR_SUCCESS) {
+      return NULL;
     }
+    memcpy(&slot->objects[cache_index].meta_object, meta_object,
+           sizeof(pkcs11_meta_object));
+    cache_non_meta_object(slot, meta_object->object_id,
+                          meta_object->object_type);
+    return &slot->objects[cache_index].meta_object;
   }
 
   DBG_ERR("Failed to cache meta object 0x%x", meta_object->opaque_id);
@@ -864,9 +909,9 @@ static bool match_meta_object(pkcs11_meta_object *object, uint16_t origin_id,
   return false;
 }
 
-static CK_RV read_meta_object_from_devic(yubihsm_pkcs11_slot *slot,
-                                         uint16_t opaque_id,
-                                         pkcs11_meta_object *meta_object) {
+static CK_RV read_meta_object_from_device(yubihsm_pkcs11_slot *slot,
+                                          uint16_t opaque_id,
+                                          pkcs11_meta_object *meta_object) {
   uint8_t opaque_value[YH_MSG_BUF_SIZE] = {0};
   size_t opaque_value_len = sizeof(opaque_value);
   yh_rc yrc = yh_util_get_opaque(slot->device_session, opaque_id, opaque_value,
@@ -887,13 +932,15 @@ static CK_RV read_meta_object_from_devic(yubihsm_pkcs11_slot *slot,
   return CKR_OK;
 }
 
-static CK_RV populate_meta_opaques(yubihsm_pkcs11_slot *slot) {
-  for (int i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
-    if (slot->objects[i].meta_object.opaque_id != 0) {
-      // If there are any meta_objects in the cache, then it had already been
-      // populated
-      return CKR_OK;
-    }
+CK_RV populate_meta_opaques(yubihsm_pkcs11_slot *slot) {
+  if (slot == NULL || slot->device_session == NULL) {
+    DBG_INFO("No device session available");
+    return CKR_OK;
+  }
+
+  if (slot->objects[0].object.id != 0) {
+    DBG_INFO("Cache already populated");
+    return CKR_OK;
   }
 
   yh_object_descriptor opaque_descs[YH_MAX_ITEMS_COUNT] = {0};
@@ -904,19 +951,31 @@ static CK_RV populate_meta_opaques(yubihsm_pkcs11_slot *slot) {
     return rv;
   }
 
+  size_t cache_index = 0;
   for (size_t i = 0; i < opaque_descs_len; i++) {
-    if (slot->objects[i].object.id != 0) {
-      // skip slot position if it already has a "normal" object cached in it
-      continue;
-    }
-
-    rv = read_meta_object_from_devic(slot, opaque_descs[i].id,
-                                     &slot->objects[i].meta_object);
+    memcpy(&slot->objects[cache_index].object, &opaque_descs[i],
+           sizeof(yh_object_descriptor));
+    rv = read_meta_object_from_device(slot, opaque_descs[i].id,
+                                      &slot->objects[cache_index].meta_object);
     if (rv != CKR_OK) {
       DBG_ERR("Failed to read meta object 0x%x from device",
               opaque_descs[i].id);
       return rv;
     }
+    cache_index++;
+
+    yh_rc yrc = yh_util_get_object_info(slot->device_session,
+                                        slot->objects[cache_index - 1]
+                                          .meta_object.object_id,
+                                        slot->objects[cache_index - 1]
+                                          .meta_object.object_type,
+                                        &slot->objects[cache_index].object);
+    if (yrc != YHR_SUCCESS) {
+      DBG_ERR("Failed to get object 0x%x from device",
+              slot->objects[cache_index - 1].meta_object.object_id);
+      return yrc_to_rv(yrc);
+    }
+    cache_index++;
   }
   return CKR_OK;
 }
@@ -937,7 +996,7 @@ find_meta_object_in_device(yubihsm_pkcs11_slot *slot, uint16_t origin_id,
 
   for (size_t i = 0; i < n_opaque_descs; i++) {
     pkcs11_meta_object meta_object = {0};
-    rv = read_meta_object_from_devic(slot, opaque_descs[i].id, &meta_object);
+    rv = read_meta_object_from_device(slot, opaque_descs[i].id, &meta_object);
     if (rv != CKR_OK) {
       DBG_ERR("Failed to get opaque object 0x%x from device",
               opaque_descs[i].id);
@@ -954,6 +1013,12 @@ find_meta_object_in_device(yubihsm_pkcs11_slot *slot, uint16_t origin_id,
   return NULL;
 }
 
+static CK_OBJECT_HANDLE
+get_object_handle(yh_object_descriptor *meta_object_desc) {
+  return meta_object_desc->sequence << 24 | meta_object_desc->type << 16 |
+         meta_object_desc->id;
+}
+
 /**
  * If 'refresh' is true, the meta object will be overwritten in the cache by it
  * value read from the device. Recommend to set to true only from
@@ -962,8 +1027,8 @@ find_meta_object_in_device(yubihsm_pkcs11_slot *slot, uint16_t origin_id,
 pkcs11_meta_object *find_meta_object(yubihsm_pkcs11_slot *slot,
                                      uint16_t origin_id, uint8_t type,
                                      uint8_t *ckaid, uint16_t ckaid_len,
-                                     uint8_t *cka_label, uint16_t cka_label_len,
-                                     bool refresh) {
+                                     uint8_t *cka_label,
+                                     uint16_t cka_label_len) {
 
   if (origin_id == 0 && ckaid_len == 0 && cka_label_len == 0) {
     DBG_INFO("No meta opaque object criteria to look for");
@@ -982,22 +1047,9 @@ pkcs11_meta_object *find_meta_object(yubihsm_pkcs11_slot *slot,
     }
     if (match_meta_object(&slot->objects[i].meta_object, origin_id, type, ckaid,
                           ckaid_len, cka_label, cka_label_len)) {
-      if (refresh) {
-        pkcs11_meta_object meta_object_in_device = {0};
-        CK_RV rv =
-          read_meta_object_from_devic(slot,
-                                      slot->objects[i].meta_object.opaque_id,
-                                      &meta_object_in_device);
-        if (rv != CKR_OK) {
-          DBG_ERR("Failed to retrieve meta object 0x%x from device",
-                  slot->objects[i].meta_object.opaque_id);
-          return NULL;
-        }
-        memset(&slot->objects[i].meta_object, 0, sizeof(pkcs11_meta_object));
-        memcpy(&slot->objects[i].meta_object, &meta_object_in_device,
-               sizeof(pkcs11_meta_object));
-      }
-      return &slot->objects[i].meta_object;
+      yubihsm_pkcs11_object_desc *object =
+        get_object_desc(slot, get_object_handle(&slot->objects[i].object));
+      return &object->meta_object;
     }
   }
 
@@ -1029,7 +1081,6 @@ bool create_session(yubihsm_pkcs11_slot *slot, CK_FLAGS flags,
   session.id = slot->max_session_id++;
   session.slot = slot;
   list_create(&session.ecdh_session_keys, sizeof(ecdh_session_key), NULL);
-  populate_meta_opaques(slot);
   *phSession = (slot->id << 16) + session.id;
   return list_append(&slot->pkcs11_sessions, &session);
 }
@@ -2168,7 +2219,7 @@ void delete_meta_object_from_cache(yubihsm_pkcs11_slot *slot,
   for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
     if (slot->objects[i].meta_object.opaque_id == opaque_id &&
         slot->objects[i].meta_object.object_type == type) {
-      memset(&slot->objects[i].meta_object, 0, sizeof(pkcs11_meta_object));
+      memset(&slot->objects[i], 0, sizeof(yubihsm_pkcs11_object_desc));
       return;
     }
   }
@@ -2178,6 +2229,7 @@ yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
                                             CK_OBJECT_HANDLE objHandle) {
 
   yubihsm_pkcs11_object_desc *object = NULL;
+  bool is_meta_object = FALSE;
   uint16_t id = objHandle & 0xffff;
   uint8_t type = objHandle >> 16;
   uint8_t sequence = objHandle >> 24;
@@ -2186,6 +2238,7 @@ yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
         slot->objects[i].object.type == (type & 0x7f) &&
         slot->objects[i].object.sequence == sequence) {
       object = &slot->objects[i];
+      is_meta_object = object->meta_object.opaque_id != 0;
       break;
     }
   }
@@ -2220,8 +2273,25 @@ yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
       return NULL;
     }
 
-    find_meta_object(slot, object->object.id, object->object.type, NULL, 0,
-                     NULL, 0, TRUE);
+    if (is_meta_object) {
+      // fill in the meta_object value
+      CK_RV rv = read_meta_object_from_device(slot, object->object.id,
+                                              &object->meta_object);
+      if (rv != CKR_OK) {
+        DBG_ERR("Failed to refresh meta object 0x%x", object->object.id);
+        return NULL;
+      }
+      // refresh the original object too if needed
+      yh_object_descriptor original_object = {0};
+      yrc = yh_util_get_object_info(slot->device_session,
+                                    object->meta_object.object_id,
+                                    object->meta_object.object_type,
+                                    &original_object);
+      if (yrc != YHR_SUCCESS) {
+        return NULL;
+      }
+      get_object_desc(slot, get_object_handle(&original_object));
+    }
 
     object->filled = true;
   }
@@ -5266,7 +5336,7 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
       yubihsm_pkcs11_object_desc *desc = object;
       pkcs11_meta_object *meta_object =
         find_meta_object(session->slot, desc->object.id, desc->object.type,
-                         NULL, 0, NULL, 0, FALSE);
+                         NULL, 0, NULL, 0);
       attribute_rc =
         get_attribute(pTemplate[i].type, desc, meta_object, tmp, &len, session);
     }

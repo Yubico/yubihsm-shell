@@ -163,14 +163,15 @@ CK_RV validate_derive_key_attribute(CK_ATTRIBUTE_TYPE type, void *value);
 CK_RV check_bool_attribute(void *value, bool check);
 CK_RV yrc_to_rv(yh_rc rc);
 
+CK_RV populate_meta_opaques(yubihsm_pkcs11_slot *slot);
 CK_RV write_meta_opaque(yubihsm_pkcs11_slot *slot,
                         pkcs11_meta_object *meta_opaque, bool replace);
 
 pkcs11_meta_object *find_meta_object(yubihsm_pkcs11_slot *slot,
                                      uint16_t origin_id, uint8_t type,
                                      uint8_t *ckaid, uint16_t ckaid_len,
-                                     uint8_t *cka_label, uint16_t cka_label_len,
-                                     bool refersh);
+                                     uint8_t *cka_label,
+                                     uint16_t cka_label_len);
 
 bool is_meta_object(yh_object_descriptor *object);
 #endif
