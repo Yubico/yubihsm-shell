@@ -733,7 +733,7 @@ static pkcs11_meta_object *cache_meta_object(yubihsm_pkcs11_slot *slot,
 
 #define PKCS11_ID_TAG 1
 #define PKCS11_LABEL_TAG 2
-uint8_t META_OBJECT_VERSION = 1;
+const char META_OBJECT_VERSION[4] = "MDB1";
 
 /*
  * Meta object value structure:
@@ -746,11 +746,12 @@ static CK_RV parse_meta_opaque_value(uint8_t *opaque_value,
                                      size_t opaque_value_len,
                                      pkcs11_meta_object *meta_object) {
   uint8_t *p = opaque_value;
-  if (*p != META_OBJECT_VERSION) {
+  if (memcmp(p, META_OBJECT_VERSION, sizeof(META_OBJECT_VERSION)) != 0) {
     DBG_ERR("Meta object value has unexpected version");
     return CKR_DATA_INVALID;
   }
-  meta_object->version = *p++;
+  memcpy(&meta_object->version, p, sizeof(META_OBJECT_VERSION));
+  p += sizeof(META_OBJECT_VERSION);
   meta_object->object_type = *p++;
   memcpy(&meta_object->object_id, p, 2);
   p += 2;
@@ -783,17 +784,21 @@ static CK_RV parse_meta_opaque_value(uint8_t *opaque_value,
 CK_RV write_meta_opaque(yubihsm_pkcs11_slot *slot,
                         pkcs11_meta_object *meta_opaque, bool replace) {
   size_t opaque_value_len =
-    4 /* 1 version + 1 original_object type + 2 original_object ID*/ +
+    7 /* 4 version + 1 original_object type + 2 original_object ID*/ +
     (meta_opaque->cka_id_len == 0 ? 0 : 3 + meta_opaque->cka_id_len) +
     (meta_opaque->cka_label_len == 0 ? 0 : 3 + meta_opaque->cka_label_len);
   // 3: 1 tag + 2 value length
-  uint8_t *opaque_value;
-  opaque_value = malloc(opaque_value_len * sizeof(uint8_t));
-  memset(opaque_value, 0, opaque_value_len * sizeof(uint8_t));
 
+  if (opaque_value_len > (YH_MSG_BUF_SIZE - 20)) {
+    DBG_ERR("Failed to write meta object to device. Meta object too large.");
+    return CKR_DATA_INVALID;
+  }
+
+  uint8_t opaque_value[YH_MSG_BUF_SIZE] = {0};
   uint8_t *p = opaque_value;
 
-  *p++ = META_OBJECT_VERSION;
+  memcpy(p, META_OBJECT_VERSION, sizeof(META_OBJECT_VERSION)); // ObjectID
+  p += sizeof(META_OBJECT_VERSION);
   *p++ = meta_opaque->object_type;
   memcpy(p, &meta_opaque->object_id, 2); // ObjectID
   p += 2;
