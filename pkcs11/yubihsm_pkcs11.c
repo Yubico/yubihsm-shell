@@ -1254,6 +1254,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
   }
 
   list_iterate(&session->slot->pkcs11_sessions, login_sessions);
+  populate_meta_opaques(session->slot);
 
   DOUT;
 
@@ -1742,7 +1743,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
         find_meta_object(session->slot, 0, YH_ASYMMETRIC_KEY, pkcs11meta.cka_id,
                          pkcs11meta.cka_id_len,
                          (uint8_t *) pkcs11meta.cka_label,
-                         pkcs11meta.cka_label_len, FALSE);
+                         pkcs11meta.cka_label_len);
       if (meta_object != NULL) {
         template.id = meta_object->object_id;
         pubkey_found = true;
@@ -1907,7 +1908,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
     yh_rc yrc;
     pkcs11_meta_object *meta_object =
       find_meta_object(session->slot, object->object.id, object->object.type,
-                       NULL, 0, NULL, 0, FALSE);
+                       NULL, 0, NULL, 0);
     if (meta_object != NULL) {
       yrc = yh_util_delete_object(session->slot->device_session,
                                   meta_object->opaque_id, YH_OPAQUE);
@@ -2144,7 +2145,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
 
     pkcs11_meta_object *meta_object =
       find_meta_object(session->slot, object->object.id, object->object.type,
-                       NULL, 0, NULL, 0, FALSE);
+                       NULL, 0, NULL, 0);
     if (meta_object != NULL) {
       bool changed = FALSE;
       if (new_ckaid_len != meta_object->cka_id_len ||
@@ -2426,7 +2427,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
   if (template_id_len > 0 || template_label_len > 0) {
     pkcs11_meta_object *meta_object =
       find_meta_object(session->slot, 0, type, template_id, template_id_len,
-                       template_label, template_label_len, FALSE);
+                       template_label, template_label_len);
     if (meta_object != NULL) {
       id = meta_object->object_id;
     }
