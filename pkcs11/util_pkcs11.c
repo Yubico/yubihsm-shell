@@ -624,6 +624,7 @@ static CK_RV get_all_meta_objects(yubihsm_pkcs11_slot *slot,
   yh_rc rc = YHR_SUCCESS;
   yh_object_descriptor opaques[YH_MAX_ITEMS_COUNT] = {0};
   size_t n_opaques = YH_MAX_ITEMS_COUNT;
+  size_t found_meta_objects = 0;
 
   int id = 0;
   uint8_t type = YH_OPAQUE;
@@ -646,12 +647,13 @@ static CK_RV get_all_meta_objects(yubihsm_pkcs11_slot *slot,
       return yrc_to_rv(rc);
     }
     if (is_meta_object(&opaques[i])) {
-      memcpy(meta_opaques + *meta_opaques_len, &opaques[i],
+      memcpy(meta_opaques + found_meta_objects, &opaques[i],
              sizeof(yh_object_descriptor));
-      *meta_opaques_len += 1;
+      found_meta_objects++;
     }
   }
 
+  *meta_opaques_len = found_meta_objects;
   return CKR_OK;
 }
 
@@ -955,7 +957,7 @@ CK_RV populate_meta_opaques(yubihsm_pkcs11_slot *slot) {
   }
 
   yh_object_descriptor opaque_descs[YH_MAX_ITEMS_COUNT] = {0};
-  size_t opaque_descs_len = 0;
+  size_t opaque_descs_len = YH_MAX_ITEMS_COUNT;
   CK_RV rv = get_all_meta_objects(slot, opaque_descs, &opaque_descs_len);
   if (rv != CKR_OK) {
     DBG_ERR("Failed to get all meta opaque objects from device");
@@ -998,7 +1000,7 @@ find_meta_object_in_device(yubihsm_pkcs11_slot *slot, uint16_t origin_id,
 
   CK_RV rv = CKR_OK;
   yh_object_descriptor opaque_descs[YH_MAX_ITEMS_COUNT] = {0};
-  size_t n_opaque_descs = 0;
+  size_t n_opaque_descs = YH_MAX_ITEMS_COUNT;
   rv = get_all_meta_objects(slot, opaque_descs, &n_opaque_descs);
   if (rv != CKR_OK) {
     DBG_ERR("Failed to obtain a list of opaque meta objects from device");
