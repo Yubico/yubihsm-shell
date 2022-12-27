@@ -750,11 +750,14 @@ static CK_RV parse_meta_opaque_value(uint8_t *opaque_value,
     DBG_ERR("Meta object value has unexpected version");
     return CKR_DATA_INVALID;
   }
-  memcpy(&meta_object->version, p, sizeof(META_OBJECT_VERSION));
   p += sizeof(META_OBJECT_VERSION);
+
   meta_object->object_type = *p++;
+
   memcpy(&meta_object->object_id, p, 2);
+  meta_object->object_id = ntohs(meta_object->object_id);
   p += 2;
+
   while (p < opaque_value + opaque_value_len) {
     switch (*p) {
       case PKCS11_ID_TAG:
@@ -799,8 +802,11 @@ CK_RV write_meta_opaque(yubihsm_pkcs11_slot *slot,
 
   memcpy(p, META_OBJECT_VERSION, sizeof(META_OBJECT_VERSION)); // ObjectID
   p += sizeof(META_OBJECT_VERSION);
+
   *p++ = meta_opaque->object_type;
-  memcpy(p, &meta_opaque->object_id, 2); // ObjectID
+
+  uint16_t object_id_serialized = htons(meta_opaque->object_id);
+  memcpy(p, &object_id_serialized, 2); // ObjectID
   p += 2;
 
   if (meta_opaque->cka_id_len > 0) {
@@ -829,11 +835,11 @@ CK_RV write_meta_opaque(yubihsm_pkcs11_slot *slot,
     rc = yh_util_delete_object(slot->device_session, meta_opaque->opaque_id,
                                YH_OPAQUE);
     if (rc != YHR_SUCCESS) {
-      DBG_ERR("Failed to delete opaque object 0x%x", meta_opaque->opaque_id);
-      return yrc_to_rv(rc);
+      DBG_INFO("Failed to delete opaque object 0x%x", meta_opaque->opaque_id);
+    } else {
+      DBG_INFO("Removed opaque object 0x%x with label %s",
+               meta_opaque->opaque_id, opaque_label);
     }
-    DBG_INFO("Removed opaque object 0x%x with label %s", meta_opaque->opaque_id,
-             opaque_label);
   }
   yh_capabilities capabilities = {{0}};
   rc =

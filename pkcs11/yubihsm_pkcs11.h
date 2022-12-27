@@ -49,8 +49,6 @@ typedef enum {
 #define SESSION_NOT_AUTHENTICATED (SESSION_RESERVED_RO | SESSION_RESERVED_RW)
 
 typedef struct {
-  // Value structure version
-  uint8_t version[4];
   // The ObjectID of the opaque object containing the metadata
   uint16_t opaque_id;
   // The ObjectID of the asymmetric key
