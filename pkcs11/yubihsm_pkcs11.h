@@ -51,6 +51,7 @@ typedef enum {
 typedef struct {
   // The ObjectID of the opaque object containing the metadata
   uint16_t opaque_id;
+  uint8_t opaque_sequence;
   // The ObjectID of the asymmetric key
   uint16_t object_id;
   /// Object type
