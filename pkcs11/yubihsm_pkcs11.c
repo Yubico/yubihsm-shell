@@ -31,7 +31,6 @@
 #include "yubihsm_pkcs11.h"
 #include "../common/insecure_memzero.h"
 #include "../common/parsing.h"
-#include "list.h"
 
 #ifdef __WIN32
 #include <winsock.h>
