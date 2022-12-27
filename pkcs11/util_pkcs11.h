@@ -168,9 +168,9 @@ CK_RV write_meta_opaque(yubihsm_pkcs11_slot *slot,
                         pkcs11_meta_object *meta_opaque, bool replace);
 
 pkcs11_meta_object *find_meta_object(yubihsm_pkcs11_slot *slot,
-                                     uint16_t origin_id, uint8_t type,
-                                     uint8_t *ckaid, uint16_t ckaid_len,
-                                     uint8_t *cka_label,
+                                     uint16_t origin_id, uint8_t origin_type,
+                                     uint8_t origin_sequence, uint8_t *ckaid,
+                                     uint16_t ckaid_len, uint8_t *cka_label,
                                      uint16_t cka_label_len);
 
 bool is_meta_object(yh_object_descriptor *object);
