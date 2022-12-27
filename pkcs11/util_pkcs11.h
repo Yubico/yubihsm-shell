@@ -174,4 +174,9 @@ pkcs11_meta_object *find_meta_object(yubihsm_pkcs11_slot *slot,
                                      uint16_t cka_label_len);
 
 bool is_meta_object(yh_object_descriptor *object);
+CK_RV parse_meta_id_template(pkcs11_meta_object *pkcs11meta, int *id,
+                             uint8_t *value, size_t value_len);
+CK_RV parse_meta_label_template(yubihsm_pkcs11_object_template *template,
+                                pkcs11_meta_object *pkcs11meta, bool label_set,
+                                uint8_t *value, size_t value_len);
 #endif
