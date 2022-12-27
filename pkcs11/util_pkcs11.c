@@ -739,14 +739,22 @@ const char META_OBJECT_VERSION[4] = "MDB1";
 
 /*
  * Meta object value structure:
- * byte 0 : META_OBJECT_VERSION (always present)
- * byte 1: Original object type (always present)
- * byte 2 and 3: Original object ID (always present)
- * byte 4 and onward: TLV tripplets
+ * byte 0-3 : META_OBJECT_VERSION (always present)
+ * byte 4: Opaque object sequence
+ * byte 5: Original object type (always present)
+ * byte 6 and 7: Original object ID (always present)
+ * byte 8 and onward: TLV tripplets
  */
 static CK_RV parse_meta_opaque_value(uint8_t *opaque_value,
                                      size_t opaque_value_len,
                                      pkcs11_meta_object *meta_object) {
+
+  // 4 (version) + 1 (sequence) + 1 (object type) + 2 (id)
+  if (opaque_value_len < 8) {
+    DBG_ERR("Opaque value to import is too small to be a meta obeject data");
+    return CKR_DATA_INVALID;
+  }
+
   uint8_t *p = opaque_value;
   if (memcmp(p, META_OBJECT_VERSION, sizeof(META_OBJECT_VERSION)) != 0) {
     DBG_ERR("Meta object value has unexpected version");
@@ -754,6 +762,7 @@ static CK_RV parse_meta_opaque_value(uint8_t *opaque_value,
   }
   p += sizeof(META_OBJECT_VERSION);
 
+  meta_object->opaque_sequence = *p++;
   meta_object->object_type = *p++;
 
   memcpy(&meta_object->object_id, p, 2);
@@ -789,7 +798,7 @@ static CK_RV parse_meta_opaque_value(uint8_t *opaque_value,
 CK_RV write_meta_opaque(yubihsm_pkcs11_slot *slot,
                         pkcs11_meta_object *meta_opaque, bool replace) {
   size_t opaque_value_len =
-    7 /* 4 version + 1 original_object type + 2 original_object ID*/ +
+    8 /* 4 version + 1 opaque sequence + 1 original type + 2 original ID*/ +
     (meta_opaque->cka_id_len == 0 ? 0 : 3 + meta_opaque->cka_id_len) +
     (meta_opaque->cka_label_len == 0 ? 0 : 3 + meta_opaque->cka_label_len);
   // 3: 1 tag + 2 value length
@@ -805,6 +814,10 @@ CK_RV write_meta_opaque(yubihsm_pkcs11_slot *slot,
   memcpy(p, META_OBJECT_VERSION, sizeof(META_OBJECT_VERSION)); // ObjectID
   p += sizeof(META_OBJECT_VERSION);
 
+  if (replace) {
+    meta_opaque->opaque_sequence = meta_opaque->opaque_sequence + 1;
+  }
+  *p++ = meta_opaque->opaque_sequence;
   *p++ = meta_opaque->object_type;
 
   uint16_t object_id_serialized = htons(meta_opaque->object_id);
