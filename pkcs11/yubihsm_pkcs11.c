@@ -1653,6 +1653,15 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       rv = CKR_ATTRIBUTE_VALUE_INVALID;
       goto c_co_out;
     }
+    if (pkcs11meta.cka_id_len > 0 || pkcs11meta.cka_label_len > 0) {
+      pkcs11meta.object_id = template.id;
+      pkcs11meta.object_type = YH_ASYMMETRIC_KEY;
+      rv = write_meta_opaque(session->slot, &pkcs11meta, false);
+      if (rv != CKR_OK) {
+        DBG_ERR("Failed writing meta opaque object to device");
+        goto c_co_out;
+      }
+    }
   } else if (class.d == CKO_CERTIFICATE || class.d == CKO_DATA) {
     yh_algorithm algo = YH_ALGO_OPAQUE_DATA;
     type = YH_OPAQUE;
@@ -3429,8 +3438,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Decrypt)
   pPtr += *pulDataLen;
 
   rv = apply_decrypt_mechanism_finalize(session->slot->device_session,
-                                        &session->operation,
-                                        pPtr, &ulRemainingSize);
+                                        &session->operation, pPtr,
+                                        &ulRemainingSize);
   if (rv != CKR_OK) {
     DBG_ERR("Unable to decrypt data");
     if (rv == CKR_BUFFER_TOO_SMALL) {
@@ -4849,6 +4858,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
   }
 
   yubihsm_pkcs11_object_template template = {0};
+  pkcs11_meta_object meta_object = {0};
   memset(&template, 0, sizeof(yubihsm_pkcs11_object_template));
   struct {
     bool set;
@@ -4878,9 +4888,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
 
       case CKA_ID:
         if (id.set == false) {
-          id.d = parse_id_value(pTemplate[i].pValue, pTemplate[i].ulValueLen);
-          if (id.d == (CK_ULONG) -1) {
-            rv = CKR_ATTRIBUTE_VALUE_INVALID;
+          rv = parse_meta_id_template(&meta_object, (int *) &id.d,
+                                      pTemplate[i].pValue,
+                                      pTemplate[i].ulValueLen);
+          if (rv != CKR_OK) {
             goto c_gk_out;
           }
           id.set = true;
@@ -4891,12 +4902,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
         break;
 
       case CKA_LABEL:
-        if (pTemplate[i].ulValueLen > YH_OBJ_LABEL_LEN) {
-          return CKR_ATTRIBUTE_VALUE_INVALID;
-        }
-
-        memcpy(template.label, pTemplate[i].pValue, pTemplate[i].ulValueLen);
-
+        rv = parse_meta_label_template(&template, &meta_object, FALSE,
+                                       pTemplate[i].pValue,
+                                       pTemplate[i].ulValueLen);
         break;
 
       case CKA_EXTRACTABLE:
@@ -5071,6 +5079,16 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
   } else {
     rv = CKR_TEMPLATE_INCONSISTENT;
     goto c_gk_out;
+  }
+
+  if (meta_object.cka_id_len > 0 || meta_object.cka_label_len > 0) {
+    meta_object.object_id = template.id;
+    meta_object.object_type = YH_ASYMMETRIC_KEY;
+    rv = write_meta_opaque(session->slot, &meta_object, false);
+    if (rv != CKR_OK) {
+      DBG_ERR("Failed to import meta data object 0x%lx", rv);
+      goto c_gk_out;
+    }
   }
 
   yh_object_descriptor object = {0};

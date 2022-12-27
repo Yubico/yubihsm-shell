@@ -1224,6 +1224,7 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
 
 static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
                                       yh_object_descriptor *object,
+                                      pkcs11_meta_object *meta_object,
                                       CK_VOID_PTR value, CK_ULONG_PTR length) {
   yh_object_type objtype;
   switch (type) {
@@ -1249,7 +1250,12 @@ static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_LABEL:
-      get_label_attribute(object, value, length);
+      if (meta_object != NULL && meta_object->cka_label_len > 0) {
+        *length = meta_object->cka_label_len;
+        memcpy(value, meta_object->cka_label, *length);
+      } else {
+        get_label_attribute(object, value, length);
+      }
       break;
 
       // NOTE(adma): Key Objects attributes
@@ -1324,7 +1330,12 @@ static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_ID:
-      get_id_attribute(object, value, length);
+      if (meta_object != NULL && meta_object->cka_id_len > 0) {
+        *length = meta_object->cka_id_len;
+        memcpy(value, meta_object->cka_id, *length);
+      } else {
+        get_id_attribute(object, value, length);
+      }
       break;
 
       // case CKA_START_DATE:
@@ -2112,10 +2123,9 @@ static CK_RV get_attribute(CK_ATTRIBUTE_TYPE type,
 
     case YH_WRAP_KEY:
     case YH_HMAC_KEY:
-      return get_attribute_secret_key(type, &object->object, value, length);
-
     case YH_SYMMETRIC_KEY:
-      return get_attribute_secret_key(type, &object->object, value, length);
+      return get_attribute_secret_key(type, &object->object, meta_object, value,
+                                      length);
 
     case YH_ASYMMETRIC_KEY:
       return get_attribute_private_key(type, object, meta_object, value, length,
@@ -2977,7 +2987,8 @@ static CK_RV perform_aes_update(yh_session *session,
   op_info->buffer_length = next;
 
   CK_RV rv;
-  if ((rv = do_aes_encdec(session, op_info, out, size, out, &size, false)) != CKR_OK) {
+  if ((rv = do_aes_encdec(session, op_info, out, size, out, &size, false)) !=
+      CKR_OK) {
     DBG_ERR("Failed to encrypt/decrypt data");
     return rv;
   }
@@ -4555,8 +4566,8 @@ CK_RV parse_hmac_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
   }
 }
 
-static CK_RV parse_meta_id_template(pkcs11_meta_object *pkcs11meta, int *id,
-                                    uint8_t *value, size_t value_len) {
+CK_RV parse_meta_id_template(pkcs11_meta_object *pkcs11meta, int *id,
+                             uint8_t *value, size_t value_len) {
   if (value_len != 2) {
     if (pkcs11meta->cka_id_len > 0) {
       if (pkcs11meta->cka_id_len != value_len ||
@@ -4580,10 +4591,9 @@ static CK_RV parse_meta_id_template(pkcs11_meta_object *pkcs11meta, int *id,
   return CKR_OK;
 }
 
-static CK_RV parse_meta_label_template(yubihsm_pkcs11_object_template *template,
-                                       pkcs11_meta_object *pkcs11meta,
-                                       bool label_set, uint8_t *value,
-                                       size_t value_len) {
+CK_RV parse_meta_label_template(yubihsm_pkcs11_object_template *template,
+                                pkcs11_meta_object *pkcs11meta, bool label_set,
+                                uint8_t *value, size_t value_len) {
   if (label_set == TRUE) {
     int eq = 0;
     if (value_len > YH_OBJ_LABEL_LEN) {
