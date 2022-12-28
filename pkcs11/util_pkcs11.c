@@ -613,44 +613,10 @@ CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
   return CKR_OK;
 }
 
-static pkcs11_meta_object *cache_meta_object(yubihsm_pkcs11_slot *slot,
-                                             pkcs11_meta_object *meta_object) {
-  if (meta_object == NULL) {
-    DBG_ERR("No meta object to cache");
-    return NULL;
-  }
-
-  int cache_index = -1;
-  for (int i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
-    if (slot->objects[i].meta_object.opaque_id == meta_object->opaque_id) {
-      // meta object alrady in the cache. Overwrite the old value
-      memset(&slot->objects[i], 0, sizeof(yubihsm_pkcs11_object_desc));
-      cache_index = i;
-    }
-  }
-  if (cache_index == -1) {
-    // meta object is not already cached. Find an empty cache slot tos tore it
-    for (int i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
-      if (slot->objects[i].object.id == 0) {
-        cache_index = i;
-      }
-    }
-  }
-
-  if (cache_index != -1) {
-    yh_rc yrc =
-      yh_util_get_object_info(slot->device_session, meta_object->opaque_id,
-                              YH_OPAQUE, &slot->objects[cache_index].object);
-    if (yrc != YHR_SUCCESS) {
-      return NULL;
-    }
-    memcpy(&slot->objects[cache_index].meta_object, meta_object,
-           sizeof(pkcs11_meta_object));
-    return &slot->objects[cache_index].meta_object;
-  }
-
-  DBG_ERR("Failed to cache meta object 0x%x", meta_object->opaque_id);
-  return NULL;
+static CK_OBJECT_HANDLE
+get_object_handle(yh_object_descriptor *meta_object_desc) {
+  return meta_object_desc->sequence << 24 | meta_object_desc->type << 16 |
+         meta_object_desc->id;
 }
 
 #define PKCS11_ID_TAG 1
@@ -665,9 +631,17 @@ const char META_OBJECT_VERSION[4] = "MDB1";
  * byte 7: original object sequence
  * byte 8 and onward: TLV tripplets
  */
-static CK_RV parse_meta_opaque_value(uint8_t *opaque_value,
-                                     size_t opaque_value_len,
-                                     pkcs11_meta_object *meta_object) {
+static CK_RV read_meta_object(yubihsm_pkcs11_slot *slot, uint16_t opaque_id,
+                              pkcs11_meta_object *meta_object) {
+
+  uint8_t opaque_value[YH_MSG_BUF_SIZE] = {0};
+  size_t opaque_value_len = sizeof(opaque_value);
+  yh_rc yrc = yh_util_get_opaque(slot->device_session, opaque_id, opaque_value,
+                                 &opaque_value_len);
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("Failed to read meta object 0x%x from device", opaque_id);
+    return yrc_to_rv(yrc);
+  }
 
   // 4 (version) + 1 (object type) + 2 (id) + 1 (sequence)
   if (opaque_value_len < 8) {
@@ -710,7 +684,85 @@ static CK_RV parse_meta_opaque_value(uint8_t *opaque_value,
         return CKR_DATA_INVALID;
     }
   }
+  meta_object->opaque_id = opaque_id;
   return CKR_OK;
+}
+
+static yubihsm_pkcs11_object_desc *
+get_object_desc_detailed(yubihsm_pkcs11_slot *slot, uint16_t id, uint8_t type,
+                         uint8_t sequence) {
+
+  yubihsm_pkcs11_object_desc *object = NULL;
+  for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
+    if (slot->objects[i].object.id == id &&
+        slot->objects[i].object.type == type) {
+      if (sequence == 0xff) {
+        object = &slot->objects[i];
+        break;
+      } else {
+        if (slot->objects[i].object.sequence == sequence) {
+          object = &slot->objects[i];
+          break;
+        }
+      }
+    }
+  }
+
+  if (!object) {
+    uint16_t low = 0;
+    struct timeval *low_time = NULL;
+
+    for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
+      if (slot->objects[i].tv.tv_sec == 0) {
+        low = i;
+        low_time = &slot->objects[i].tv;
+        break;
+      } else {
+        if (!low_time || slot->objects[i].tv.tv_sec < low_time->tv_sec ||
+            (slot->objects[i].tv.tv_sec == low_time->tv_sec &&
+             slot->objects[i].tv.tv_usec < low_time->tv_usec)) {
+
+          low_time = &slot->objects[i].tv;
+          low = i;
+        }
+      }
+    }
+    object = &slot->objects[low];
+    memset(object, 0, sizeof(yubihsm_pkcs11_object_desc));
+  }
+
+  if (!object->filled) {
+    yh_rc yrc =
+      yh_util_get_object_info(slot->device_session, id, type, &object->object);
+    if (yrc != YHR_SUCCESS) {
+      return NULL;
+    }
+
+    if (is_meta_object(&object->object)) {
+      // fill in the meta_object value
+      CK_RV rv =
+        read_meta_object(slot, object->object.id, &object->meta_object);
+      if (rv != CKR_OK) {
+        DBG_ERR("Failed to refresh meta object 0x%x", object->object.id);
+        return NULL;
+      }
+    }
+
+    object->filled = true;
+  }
+
+  object->object.type = type;
+  gettimeofday(&object->tv, NULL);
+
+  return object;
+}
+
+yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
+                                            CK_OBJECT_HANDLE objHandle) {
+  uint16_t id = objHandle & 0xffff;
+  uint8_t type = (objHandle >> 16) & 0x7f;
+  uint8_t sequence = objHandle >> 24;
+  return get_object_desc_detailed(slot, id, type, sequence);
 }
 
 CK_RV write_meta_opaque(yubihsm_pkcs11_slot *slot,
@@ -786,7 +838,7 @@ CK_RV write_meta_opaque(yubihsm_pkcs11_slot *slot,
   DBG_INFO("Successfully imported opaque object 0x%x with label: %s",
            meta_opaque->opaque_id, opaque_label);
 
-  cache_meta_object(slot, meta_opaque);
+  get_object_desc_detailed(slot, meta_opaque->opaque_id, YH_OPAQUE, 0xff);
 
   return CKR_OK;
 }
@@ -852,35 +904,6 @@ static bool match_meta_object(pkcs11_meta_object *object, uint16_t origin_id,
   return false;
 }
 
-static CK_RV read_meta_object_from_device(yubihsm_pkcs11_slot *slot,
-                                          uint16_t opaque_id,
-                                          pkcs11_meta_object *meta_object) {
-  uint8_t opaque_value[YH_MSG_BUF_SIZE] = {0};
-  size_t opaque_value_len = sizeof(opaque_value);
-  yh_rc yrc = yh_util_get_opaque(slot->device_session, opaque_id, opaque_value,
-                                 &opaque_value_len);
-  if (yrc != YHR_SUCCESS) {
-    DBG_ERR("Failed to read meta object 0x%x from device", opaque_id);
-    return yrc_to_rv(yrc);
-  }
-
-  CK_RV rv =
-    parse_meta_opaque_value(opaque_value, opaque_value_len, meta_object);
-  if (rv != CKR_OK) {
-    DBG_ERR("Failed to parse opaque value for meta object 0x%x", opaque_id);
-    return rv;
-  }
-
-  meta_object->opaque_id = opaque_id;
-  return CKR_OK;
-}
-
-static CK_OBJECT_HANDLE
-get_object_handle(yh_object_descriptor *meta_object_desc) {
-  return meta_object_desc->sequence << 24 | meta_object_desc->type << 16 |
-         meta_object_desc->id;
-}
-
 CK_RV populate_cache_with_data_opaques(yubihsm_pkcs11_slot *slot) {
   if (slot == NULL || slot->device_session == NULL) {
     DBG_INFO("No device session available");
@@ -910,11 +933,6 @@ CK_RV populate_cache_with_data_opaques(yubihsm_pkcs11_slot *slot) {
   return CKR_OK;
 }
 
-/**
- * If 'refresh' is true, the meta object will be overwritten in the cache by it
- * value read from the device. Recommend to set to true only from
- * get_object_desc
- */
 pkcs11_meta_object *find_meta_object(yubihsm_pkcs11_slot *slot,
                                      uint16_t origin_id, uint8_t origin_type,
                                      uint8_t origin_sequence, uint8_t *ckaid,
@@ -2130,71 +2148,6 @@ void delete_meta_object_from_cache(yubihsm_pkcs11_slot *slot,
       return;
     }
   }
-}
-
-yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
-                                            CK_OBJECT_HANDLE objHandle) {
-
-  yubihsm_pkcs11_object_desc *object = NULL;
-  uint16_t id = objHandle & 0xffff;
-  uint8_t type = objHandle >> 16;
-  uint8_t sequence = objHandle >> 24;
-  for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
-    if (slot->objects[i].object.id == id &&
-        slot->objects[i].object.type == (type & 0x7f) &&
-        slot->objects[i].object.sequence == sequence) {
-      object = &slot->objects[i];
-      break;
-    }
-  }
-
-  if (!object) {
-    uint16_t low = 0;
-    struct timeval *low_time = NULL;
-
-    for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
-      if (slot->objects[i].tv.tv_sec == 0) {
-        low = i;
-        low_time = &slot->objects[i].tv;
-        break;
-      } else {
-        if (!low_time || slot->objects[i].tv.tv_sec < low_time->tv_sec ||
-            (slot->objects[i].tv.tv_sec == low_time->tv_sec &&
-             slot->objects[i].tv.tv_usec < low_time->tv_usec)) {
-
-          low_time = &slot->objects[i].tv;
-          low = i;
-        }
-      }
-    }
-    object = &slot->objects[low];
-    memset(object, 0, sizeof(yubihsm_pkcs11_object_desc));
-  }
-
-  if (!object->filled) {
-    yh_rc yrc = yh_util_get_object_info(slot->device_session, id, type & 0x7f,
-                                        &object->object);
-    if (yrc != YHR_SUCCESS) {
-      return NULL;
-    }
-
-    if (is_meta_object(&object->object)) {
-      // fill in the meta_object value
-      CK_RV rv = read_meta_object_from_device(slot, object->object.id,
-                                              &object->meta_object);
-      if (rv != CKR_OK) {
-        DBG_ERR("Failed to refresh meta object 0x%x", object->object.id);
-        return NULL;
-      }
-    }
-
-    object->filled = true;
-  }
-
-  object->object.type = type;
-  gettimeofday(&object->tv, NULL);
-
-  return object;
 }
 
 CK_RV check_sign_mechanism(yubihsm_pkcs11_slot *slot,
