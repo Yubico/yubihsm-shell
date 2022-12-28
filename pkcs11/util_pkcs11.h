@@ -163,7 +163,7 @@ CK_RV validate_derive_key_attribute(CK_ATTRIBUTE_TYPE type, void *value);
 CK_RV check_bool_attribute(void *value, bool check);
 CK_RV yrc_to_rv(yh_rc rc);
 
-CK_RV populate_meta_opaques(yubihsm_pkcs11_slot *slot);
+CK_RV populate_cache_with_data_opaques(yubihsm_pkcs11_slot *slot);
 CK_RV write_meta_opaque(yubihsm_pkcs11_slot *slot,
                         pkcs11_meta_object *meta_opaque, bool replace);
 
