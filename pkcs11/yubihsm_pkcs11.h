@@ -52,11 +52,11 @@ typedef struct {
   // The ObjectID of the opaque object containing the metadata
   uint16_t opaque_id;
   // The ObjectID of the asymmetric key
-  uint16_t object_id;
+  uint16_t origin_id;
   /// Object type
-  yh_object_type object_type;
+  yh_object_type origin_type;
   /// Object sequence
-  uint8_t object_sequence;
+  uint8_t origin_sequence;
   /// The CKA_ID
   uint8_t cka_id[PKCS11_ID_SIZE];
   /// The CKA_ID length
