@@ -764,8 +764,7 @@ static CK_RV parse_meta_opaque_value(uint8_t *opaque_value,
 
   meta_object->object_type = *p++;
 
-  memcpy(&meta_object->object_id, p, 2);
-  meta_object->object_id = ntohs(meta_object->object_id);
+  meta_object->object_id = ntohs(*(uint16_t *) p);
   p += 2;
 
   meta_object->object_sequence = *p++;
@@ -774,16 +773,14 @@ static CK_RV parse_meta_opaque_value(uint8_t *opaque_value,
     switch (*p) {
       case PKCS11_ID_TAG:
         p++; // Tag byte
-        memcpy(&meta_object->cka_id_len, p, 2);
-        meta_object->cka_id_len = ntohs(meta_object->cka_id_len);
+        meta_object->cka_id_len = ntohs(*(uint16_t *) p);
         p += 2;
         memcpy(&meta_object->cka_id, p, meta_object->cka_id_len);
         p += meta_object->cka_id_len;
         break;
       case PKCS11_LABEL_TAG:
         p++; // Tag byte
-        memcpy(&meta_object->cka_label_len, p, 2);
-        meta_object->cka_label_len = ntohs(meta_object->cka_label_len);
+        meta_object->cka_label_len = ntohs(*(uint16_t *) p);
         p += 2;
         memcpy(&meta_object->cka_label, p, meta_object->cka_label_len);
         p += meta_object->cka_label_len;
