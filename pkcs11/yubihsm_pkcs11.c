@@ -1730,10 +1730,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     bool pubkey_found = false;
     if (template.id == 0) { // Check if a meta opaque object already exists
       yubihsm_pkcs11_object_desc *found_meta_desc =
-        find_meta_object(session->slot, 0, YH_ASYMMETRIC_KEY, 0xffff,
-                         meta_object.cka_id, meta_object.cka_id_len,
-                         (uint8_t *) meta_object.cka_label,
-                         meta_object.cka_label_len);
+        find_meta_object_by_attribute(session->slot, YH_ASYMMETRIC_KEY, 0xffff,
+                                      meta_object.cka_id,
+                                      meta_object.cka_id_len,
+                                      (uint8_t *) meta_object.cka_label,
+                                      meta_object.cka_label_len);
       if (found_meta_desc != NULL) {
         template.id = found_meta_desc->meta_object.target_id;
         pubkey_found = true;
@@ -1908,8 +1909,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
 
     yh_rc yrc;
     yubihsm_pkcs11_object_desc *meta_desc =
-      find_meta_object(session->slot, object->object.id, object->object.type,
-                       object->object.sequence, NULL, 0, NULL, 0);
+      find_meta_object_by_target(session->slot, object->object.id,
+                                 object->object.type, object->object.sequence);
     if (meta_desc != NULL) {
       yrc = yh_util_delete_object(session->slot->device_session,
                                   meta_desc->object.id, meta_desc->object.type);
@@ -2143,8 +2144,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
              "opaque object");
 
     yubihsm_pkcs11_object_desc *meta_desc =
-      find_meta_object(session->slot, object->object.id, object->object.type,
-                       object->object.sequence, NULL, 0, NULL, 0);
+      find_meta_object_by_target(session->slot, object->object.id,
+                                 object->object.type, object->object.sequence);
     if (meta_desc != NULL) {
       pkcs11_meta_object *meta_object = &meta_desc->meta_object;
       bool changed = FALSE;
@@ -2427,8 +2428,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
   // that ID and/or label
   if (template_id_len > 0 || template_label_len > 0) {
     yubihsm_pkcs11_object_desc *meta_desc =
-      find_meta_object(session->slot, 0, type, 0xffff, template_id,
-                       template_id_len, template_label, template_label_len);
+      find_meta_object_by_attribute(session->slot, type, 0xffff, template_id,
+                                    template_id_len, template_label,
+                                    template_label_len);
     if (meta_desc != NULL) {
       id = meta_desc->meta_object.target_id;
     }

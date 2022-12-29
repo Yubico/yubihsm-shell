@@ -813,8 +813,9 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
   uint16_t meta_object_id = 0;
   if (replace) {
     yubihsm_pkcs11_object_desc *meta_desc =
-      find_meta_object(slot, meta_object->target_id, meta_object->target_type,
-                       meta_object->target_sequence, NULL, 0, NULL, 0);
+      find_meta_object_by_target(slot, meta_object->target_id,
+                                 meta_object->target_type,
+                                 meta_object->target_sequence);
     if (meta_desc != NULL) {
       meta_object_id = meta_desc->object.id;
       rc =
@@ -858,56 +859,6 @@ static bool match_byte_array(uint8_t *a, uint16_t a_len, uint8_t *b,
   return a_len == b_len && memcmp(a, b, a_len) == 0;
 }
 
-static bool match_meta_object(pkcs11_meta_object *object, uint16_t target_id,
-                              uint8_t target_type, uint8_t *ckaid,
-                              uint16_t ckaid_len, uint8_t *cka_label,
-                              uint16_t cka_label_len) {
-  if (object->target_type != target_type) {
-    return false;
-  }
-
-  // If original objectID match, no need to look more. This is the right meta
-  // object
-  if (object->target_id == target_id) {
-    return true;
-  }
-
-  if (ckaid_len > 0) {
-
-    // If both CKA_ID and CKA_LAEBL are set, find object by matching both ID
-    // and label along with the type
-    if (cka_label_len > 0) {
-      if (match_byte_array(object->cka_id, object->cka_id_len, ckaid,
-                           ckaid_len) &&
-          match_byte_array((uint8_t *) object->cka_label, object->cka_label_len,
-                           cka_label, cka_label_len)) {
-        if (target_id == 0 || object->target_id == target_id) {
-          return true;
-        }
-      }
-    } else { // If CKA_LAEBL is not set, find object by matching only the ID
-             // and type
-      if (match_byte_array(object->cka_id, object->cka_id_len, ckaid,
-                           ckaid_len)) {
-        if (target_id == 0 || object->target_id == target_id) {
-          return true;
-        }
-      }
-    }
-  } else { // If SKA_ID is not set, find object by just matching the type and
-           // the label
-    if (cka_label_len > 0) {
-      if (match_byte_array((uint8_t *) object->cka_label, object->cka_label_len,
-                           cka_label, cka_label_len)) {
-        if (target_id == 0 || object->target_id == target_id) {
-          return true;
-        }
-      }
-    }
-  }
-  return false;
-}
-
 CK_RV populate_cache_with_data_opaques(yubihsm_pkcs11_slot *slot) {
   if (slot == NULL || slot->device_session == NULL) {
     DBG_INFO("No device session available");
@@ -938,15 +889,40 @@ CK_RV populate_cache_with_data_opaques(yubihsm_pkcs11_slot *slot) {
 }
 
 yubihsm_pkcs11_object_desc *
-find_meta_object(yubihsm_pkcs11_slot *slot, uint16_t target_id,
-                 uint8_t target_type, uint16_t target_sequence, uint8_t *ckaid,
-                 uint16_t ckaid_len, uint8_t *cka_label,
-                 uint16_t cka_label_len) {
+find_meta_object_by_target(yubihsm_pkcs11_slot *slot, uint16_t target_id,
+                           uint8_t target_type, uint16_t target_sequence) {
 
-  if (target_id == 0 && ckaid_len == 0 && cka_label_len == 0) {
+  if (target_id == 0 || target_type == 0) {
     DBG_INFO("No meta opaque object criteria to look for");
     return NULL;
   }
+
+  for (int i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
+    if (slot->objects[i].meta_object.target_id == 0) {
+      continue;
+    }
+    pkcs11_meta_object *current_meta = &slot->objects[i].meta_object;
+    if (current_meta->target_id == target_id &&
+        current_meta->target_type == target_type) {
+      if (target_sequence == 0xffff ||
+          current_meta->target_sequence == target_sequence) {
+        return &slot->objects[i];
+      } else {
+        yh_util_delete_object(slot->device_session, slot->objects[i].object.id,
+                              YH_OPAQUE);
+        memset(&slot->objects[i], 0, sizeof(yubihsm_pkcs11_object_desc));
+        return NULL;
+      }
+    }
+  }
+  return NULL;
+}
+
+yubihsm_pkcs11_object_desc *
+find_meta_object_by_attribute(yubihsm_pkcs11_slot *slot, uint8_t target_type,
+                              uint16_t target_sequence, uint8_t *ckaid,
+                              uint16_t ckaid_len, uint8_t *cka_label,
+                              uint16_t cka_label_len) {
 
   if ((ckaid_len > 0 && ckaid == NULL) ||
       (cka_label_len > 0 && cka_label == NULL)) {
@@ -958,19 +934,42 @@ find_meta_object(yubihsm_pkcs11_slot *slot, uint16_t target_id,
     if (slot->objects[i].meta_object.target_id == 0) {
       continue;
     }
-    if (match_meta_object(&slot->objects[i].meta_object, target_id, target_type,
-                          ckaid, ckaid_len, cka_label, cka_label_len)) {
-      yubihsm_pkcs11_object_desc *object =
-        get_object_desc(slot, get_object_handle(&slot->objects[i].object));
-      if (target_sequence == 0xffff ||
-          object->meta_object.target_sequence == target_sequence) {
-        return object;
-      } else {
-        yh_util_delete_object(slot->device_session, object->object.id,
-                              YH_OPAQUE);
-        memset(&slot->objects[i], 0, sizeof(yubihsm_pkcs11_object_desc));
-        return NULL;
-      }
+    pkcs11_meta_object *current_meta = &slot->objects[i].meta_object;
+
+    if (current_meta->target_type != target_type) {
+      continue;
+    }
+    if (ckaid_len > 0 && cka_label_len == 0 &&
+        !match_byte_array(current_meta->cka_id, current_meta->cka_id_len, ckaid,
+                          ckaid_len)) {
+      // match only cka_id
+      continue;
+    }
+    if (ckaid_len == 0 && cka_label_len > 0 &&
+        !match_byte_array((uint8_t *) current_meta->cka_label,
+                          current_meta->cka_label_len, cka_label,
+                          cka_label_len)) {
+      // match only cka_label
+      continue;
+    }
+    if (ckaid_len > 0 && cka_label_len > 0 &&
+        !(match_byte_array(current_meta->cka_id, current_meta->cka_id_len,
+                           ckaid, ckaid_len) &&
+          match_byte_array((uint8_t *) current_meta->cka_label,
+                           current_meta->cka_label_len, cka_label,
+                           cka_label_len))) {
+      // match both cka_id and cka_label
+      continue;
+    }
+
+    if (target_sequence == 0xffff ||
+        current_meta->target_sequence == target_sequence) {
+      return &slot->objects[i];
+    } else {
+      yh_util_delete_object(slot->device_session, slot->objects[i].object.id,
+                            YH_OPAQUE);
+      memset(&slot->objects[i], 0, sizeof(yubihsm_pkcs11_object_desc));
+      return NULL;
     }
   }
   return NULL;
@@ -5254,8 +5253,8 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
       yubihsm_pkcs11_object_desc *desc = object;
       pkcs11_meta_object *meta_object = NULL;
       yubihsm_pkcs11_object_desc *meta_desc =
-        find_meta_object(session->slot, desc->object.id, desc->object.type,
-                         desc->object.sequence, NULL, 0, NULL, 0);
+        find_meta_object_by_target(session->slot, desc->object.id,
+                                   desc->object.type, desc->object.sequence);
       if (meta_desc != NULL) {
         meta_object = &meta_desc->meta_object;
       }

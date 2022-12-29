@@ -166,10 +166,13 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
                         pkcs11_meta_object *meta_object, bool replace);
 
 yubihsm_pkcs11_object_desc *
-find_meta_object(yubihsm_pkcs11_slot *slot, uint16_t target_id,
-                 uint8_t target_type, uint16_t target_sequence, uint8_t *ckaid,
-                 uint16_t ckaid_len, uint8_t *cka_label,
-                 uint16_t cka_label_len);
+find_meta_object_by_target(yubihsm_pkcs11_slot *slot, uint16_t target_id,
+                           uint8_t target_type, uint16_t target_sequence);
+yubihsm_pkcs11_object_desc *
+find_meta_object_by_attribute(yubihsm_pkcs11_slot *slot, uint8_t target_type,
+                              uint16_t target_sequence, uint8_t *ckaid,
+                              uint16_t ckaid_len, uint8_t *cka_label,
+                              uint16_t cka_label_len);
 
 bool is_meta_object(yh_object_descriptor *object);
 CK_RV parse_meta_id_template(pkcs11_meta_object *pkcs11meta, int *id,
