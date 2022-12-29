@@ -1730,7 +1730,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     bool pubkey_found = false;
     if (template.id == 0) { // Check if a meta opaque object already exists
       yubihsm_pkcs11_object_desc *found_meta_desc =
-        find_meta_object(session->slot, 0, YH_ASYMMETRIC_KEY, 0xff,
+        find_meta_object(session->slot, 0, YH_ASYMMETRIC_KEY, 0xffff,
                          meta_object.cka_id, meta_object.cka_id_len,
                          (uint8_t *) meta_object.cka_label,
                          meta_object.cka_label_len);
@@ -1919,10 +1919,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
         goto c_do_out;
       }
       DBG_INFO("Deleted meta object 0x%x", meta_desc->object.id);
-      CK_OBJECT_HANDLE meta_handle = meta_desc->object.sequence << 24 |
-                                     meta_desc->object.type << 16 |
-                                     meta_desc->object.id;
-      delete_object_from_cache(session->slot, meta_handle);
+      memset(meta_desc, 0, sizeof(yubihsm_pkcs11_object_desc));
     }
 
     yrc = yh_util_delete_object(session->slot->device_session,
@@ -1932,9 +1929,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
       rv = yrc_to_rv(yrc);
       goto c_do_out;
     }
-
     DBG_INFO("Deleted object %08lx", hObject);
-    delete_object_from_cache(session->slot, hObject);
+    memset(&object->object, 0, sizeof(yubihsm_pkcs11_object_desc));
   }
 
   DOUT;
@@ -2431,7 +2427,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
   // that ID and/or label
   if (template_id_len > 0 || template_label_len > 0) {
     yubihsm_pkcs11_object_desc *meta_desc =
-      find_meta_object(session->slot, 0, type, 0xff, template_id,
+      find_meta_object(session->slot, 0, type, 0xffff, template_id,
                        template_id_len, template_label, template_label_len);
     if (meta_desc != NULL) {
       id = meta_desc->meta_object.target_id;
