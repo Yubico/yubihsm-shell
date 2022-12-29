@@ -695,16 +695,14 @@ yubihsm_pkcs11_object_desc *_get_object_desc(yubihsm_pkcs11_slot *slot,
   for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
     if (slot->objects[i].object.id == id &&
         slot->objects[i].object.type == (type & 0x7f)) {
-      if (sequence == 0xffff) {
-        object = &slot->objects[i];
-        break;
-      } else {
-        if (slot->objects[i].object.sequence == (uint8_t) sequence) {
-          object = &slot->objects[i];
-          break;
-        }
-      }
+      object = &slot->objects[i];
+      break;
     }
+  }
+
+  if (object && sequence != 0xffff &&
+      object->object.sequence != (uint8_t) sequence) {
+    memset(object, 0, sizeof(yubihsm_pkcs11_object_desc));
   }
 
   if (!object) {
