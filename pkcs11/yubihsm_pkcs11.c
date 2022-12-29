@@ -1816,7 +1816,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
   if (meta_object.origin_id != 0) {
     meta_object.origin_type = object.type;
     meta_object.origin_sequence = object.sequence;
-    rv = write_meta_opaque(session->slot, &meta_object, false);
+    rv = write_meta_object(session->slot, &meta_object, false);
     if (rv != CKR_OK) {
       DBG_ERR("Failed writing meta opaque object to device");
       goto c_co_out;
@@ -2170,7 +2170,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
         memcpy(meta_object->cka_label, new_ckalabel, new_ckalabel_len);
       }
       if (changed) {
-        rv = write_meta_opaque(session->slot, meta_object, true);
+        rv = write_meta_object(session->slot, meta_object, true);
         if (rv != CKR_OK) {
           DBG_ERR("Failed to update meta opaque object to update CKA_ID");
           goto c_sav_out;
@@ -2190,7 +2190,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
         new_meta_object.cka_label_len = new_ckalabel_len;
         memcpy(new_meta_object.cka_label, new_ckalabel, new_ckalabel_len);
       }
-      rv = write_meta_opaque(session->slot, &new_meta_object, false);
+      rv = write_meta_object(session->slot, &new_meta_object, false);
       if (rv != CKR_OK) {
         DBG_ERR("Failed to create a new meta opaque object to store CKA_ID");
         goto c_sav_out;
@@ -5090,7 +5090,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
     meta_object.origin_id = object.id;
     meta_object.origin_type = object.type;
     meta_object.origin_sequence = object.sequence;
-    rv = write_meta_opaque(session->slot, &meta_object, false);
+    rv = write_meta_object(session->slot, &meta_object, false);
     if (rv != CKR_OK) {
       DBG_ERR("Failed to import meta data object 0x%lx", rv);
       goto c_gk_out;
@@ -5246,7 +5246,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
     meta_object.origin_id = object.id;
     meta_object.origin_type = object.type;
     meta_object.origin_sequence = object.sequence;
-    rv = write_meta_opaque(session->slot, &meta_object, false);
+    rv = write_meta_object(session->slot, &meta_object, false);
     if (rv != CKR_OK) {
       DBG_ERR("Failed to import meta data object 0x%lx", rv);
       goto c_gkp_out;
