@@ -67,7 +67,6 @@ typedef struct {
 
 typedef struct {
   struct timeval tv;
-  bool filled;
   yh_object_descriptor object;
   pkcs11_meta_object meta_object;
 } yubihsm_pkcs11_object_desc;

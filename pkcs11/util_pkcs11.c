@@ -730,7 +730,7 @@ yubihsm_pkcs11_object_desc *_get_object_desc(yubihsm_pkcs11_slot *slot,
     memset(object, 0, sizeof(yubihsm_pkcs11_object_desc));
   }
 
-  if (!object->filled) {
+  if (object->tv.tv_sec == 0) {
     yh_rc yrc = yh_util_get_object_info(slot->device_session, id, type & 0x7f,
                                         &object->object);
     if (yrc != YHR_SUCCESS) {
@@ -746,8 +746,6 @@ yubihsm_pkcs11_object_desc *_get_object_desc(yubihsm_pkcs11_slot *slot,
         return NULL;
       }
     }
-
-    object->filled = true;
   }
 
   object->object.type = type;
@@ -831,7 +829,7 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
                  meta_desc->object.id, opaque_label);
       }
     }
-    delete_object_from_cache(slot, get_object_handle(&meta_desc->object));
+    memset(meta_desc, 0, sizeof(yubihsm_pkcs11_object_desc)); // Clear cache entry
   }
   yh_capabilities capabilities = {{0}};
   rc =
@@ -944,7 +942,7 @@ CK_RV populate_cache_with_data_opaques(yubihsm_pkcs11_slot *slot) {
 
 yubihsm_pkcs11_object_desc *
 find_meta_object(yubihsm_pkcs11_slot *slot, uint16_t origin_id,
-                 uint8_t origin_type, uint8_t origin_sequence, uint8_t *ckaid,
+                 uint8_t origin_type, uint16_t origin_sequence, uint8_t *ckaid,
                  uint16_t ckaid_len, uint8_t *cka_label,
                  uint16_t cka_label_len) {
 
@@ -960,21 +958,19 @@ find_meta_object(yubihsm_pkcs11_slot *slot, uint16_t origin_id,
   }
 
   for (int i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
-    if (slot->objects[i].meta_object.target_id == 0) {
+    yubihsm_pkcs11_object_desc *object = &slot->objects[i];
+    if (object->meta_object.target_id == 0) {
       continue;
     }
-    if (match_meta_object(&slot->objects[i].meta_object, origin_id, origin_type,
+    if (match_meta_object(&object->meta_object, origin_id, origin_type,
                           ckaid, ckaid_len, cka_label, cka_label_len)) {
-      yubihsm_pkcs11_object_desc *object =
-        get_object_desc(slot, get_object_handle(&slot->objects[i].object));
-      if (origin_sequence == 0xff ||
+      if (origin_sequence == 0xffff ||
           object->meta_object.target_sequence == origin_sequence) {
         return object;
       } else {
         yh_util_delete_object(slot->device_session, object->object.id,
                               YH_OPAQUE);
-        delete_object_from_cache(slot,
-                                 get_object_handle(&slot->objects[i].object));
+        memset(object, 0, sizeof(yubihsm_pkcs11_object_desc)); // Clear cache entry
         return NULL;
       }
     }
@@ -2131,21 +2127,6 @@ static CK_RV get_attribute_ecsession_key(CK_ATTRIBUTE_TYPE type,
   }
 
   return CKR_OK;
-}
-
-void delete_object_from_cache(yubihsm_pkcs11_slot *slot,
-                              CK_OBJECT_HANDLE objHandle) {
-  uint16_t id = objHandle & 0xffff;
-  uint8_t type = objHandle >> 16;
-  uint8_t sequence = objHandle >> 24;
-  for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
-    if (slot->objects[i].object.id == id &&
-        (slot->objects[i].object.type & 0x7f) == (type & 0x7f) &&
-        slot->objects[i].object.sequence == sequence) {
-      memset(&slot->objects[i], 0, sizeof(yubihsm_pkcs11_object_desc));
-      return;
-    }
-  }
 }
 
 CK_RV check_sign_mechanism(yubihsm_pkcs11_slot *slot,
