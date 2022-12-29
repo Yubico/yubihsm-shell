@@ -1506,7 +1506,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     }
 
     if (meta_object.cka_id_len > 0 || meta_object.cka_label_len > 0) {
-      meta_object.origin_id = template.id;
+      meta_object.target_id = template.id;
     }
   } else if (class.d == CKO_SECRET_KEY) {
     if (key_type.set == false) {
@@ -1647,7 +1647,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       goto c_co_out;
     }
     if (meta_object.cka_id_len > 0 || meta_object.cka_label_len > 0) {
-      meta_object.origin_id = template.id;
+      meta_object.target_id = template.id;
     }
   } else if (class.d == CKO_CERTIFICATE || class.d == CKO_DATA) {
     yh_algorithm algo = YH_ALGO_OPAQUE_DATA;
@@ -1724,7 +1724,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     }
     if (algo == YH_ALGO_OPAQUE_X509_CERTIFICATE &&
         (meta_object.cka_id_len > 0 || meta_object.cka_label_len > 0)) {
-      meta_object.origin_id = template.id;
+      meta_object.target_id = template.id;
     }
   } else if (class.d == CKO_PUBLIC_KEY) {
     bool pubkey_found = false;
@@ -1735,7 +1735,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
                          (uint8_t *) meta_object.cka_label,
                          meta_object.cka_label_len);
       if (found_meta_desc != NULL) {
-        template.id = found_meta_desc->meta_object.origin_id;
+        template.id = found_meta_desc->meta_object.target_id;
         pubkey_found = true;
       }
     }
@@ -1804,7 +1804,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
   }
 
   yubihsm_pkcs11_object_desc *object_desc =
-    get_object_desc_detailed(session->slot, template.id, type, 0xffff);
+    _get_object_desc(session->slot, template.id, type, 0xffff);
   if (object_desc == NULL) {
     DBG_ERR("Failed executing get object info after creating: %s",
             yh_strerror(rc));
@@ -1813,9 +1813,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
   }
   yh_object_descriptor *object = &object_desc->object;
 
-  if (meta_object.origin_id != 0) {
-    meta_object.origin_type = object->type;
-    meta_object.origin_sequence = object->sequence;
+  if (meta_object.target_id != 0) {
+    meta_object.target_type = object->type;
+    meta_object.target_sequence = object->sequence;
     rv = write_meta_object(session->slot, &meta_object, false);
     if (rv != CKR_OK) {
       DBG_ERR("Failed writing meta opaque object to device");
@@ -2180,9 +2180,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
     } else {
       // Create new opaque object and add it to the session
       pkcs11_meta_object new_meta_object = {0};
-      new_meta_object.origin_id = object->object.id;
-      new_meta_object.origin_type = object->object.type;
-      new_meta_object.origin_sequence = object->object.sequence;
+      new_meta_object.target_id = object->object.id;
+      new_meta_object.target_type = object->object.type;
+      new_meta_object.target_sequence = object->object.sequence;
       if (new_ckaid_len > 0) {
         new_meta_object.cka_id_len = new_ckaid_len;
         memcpy(new_meta_object.cka_id, new_ckaid, new_ckaid_len);
@@ -2434,7 +2434,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
       find_meta_object(session->slot, 0, type, 0xff, template_id,
                        template_id_len, template_label, template_label_len);
     if (meta_desc != NULL) {
-      id = meta_desc->meta_object.origin_id;
+      id = meta_desc->meta_object.target_id;
     }
 
     if (id == 0) {
@@ -5078,7 +5078,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
   }
 
   yubihsm_pkcs11_object_desc *object_desc =
-    get_object_desc_detailed(session->slot, template.id, type, 0xffff);
+    _get_object_desc(session->slot, template.id, type, 0xffff);
   if (object_desc == NULL) {
     DBG_ERR("Failed getting new object %04x: %s", template.id, yh_strerror(rc));
     rv = yrc_to_rv(rc);
@@ -5089,9 +5089,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
   *phKey = object->sequence << 24 | object->type << 16 | object->id;
 
   if (meta_object.cka_id_len > 0 || meta_object.cka_label_len > 0) {
-    meta_object.origin_id = object->id;
-    meta_object.origin_type = object->type;
-    meta_object.origin_sequence = object->sequence;
+    meta_object.target_id = object->id;
+    meta_object.target_type = object->type;
+    meta_object.target_sequence = object->sequence;
     rv = write_meta_object(session->slot, &meta_object, false);
     if (rv != CKR_OK) {
       DBG_ERR("Failed to import meta data object 0x%lx", rv);
@@ -5238,8 +5238,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
   }
 
   yubihsm_pkcs11_object_desc *object_desc =
-    get_object_desc_detailed(session->slot, template.id, YH_ASYMMETRIC_KEY,
-                             0xffff);
+    _get_object_desc(session->slot, template.id, YH_ASYMMETRIC_KEY, 0xffff);
   if (object_desc == NULL) {
     rv = yrc_to_rv(rc);
     goto c_gkp_out;
@@ -5247,9 +5246,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
   yh_object_descriptor *object = &object_desc->object;
 
   if (meta_object.cka_id_len > 0 || meta_object.cka_label_len > 0) {
-    meta_object.origin_id = object->id;
-    meta_object.origin_type = object->type;
-    meta_object.origin_sequence = object->sequence;
+    meta_object.target_id = object->id;
+    meta_object.target_type = object->type;
+    meta_object.target_sequence = object->sequence;
     rv = write_meta_object(session->slot, &meta_object, false);
     if (rv != CKR_OK) {
       DBG_ERR("Failed to import meta data object 0x%lx", rv);

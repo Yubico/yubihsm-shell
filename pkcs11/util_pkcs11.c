@@ -656,12 +656,12 @@ static CK_RV read_meta_object(yubihsm_pkcs11_slot *slot, uint16_t opaque_id,
   }
   p += sizeof(META_OBJECT_VERSION);
 
-  meta_object->origin_type = *p++;
+  meta_object->target_type = *p++;
 
-  meta_object->origin_id = ntohs(*(uint16_t *) p);
+  meta_object->target_id = ntohs(*(uint16_t *) p);
   p += 2;
 
-  meta_object->origin_sequence = *p++;
+  meta_object->target_sequence = *p++;
 
   while (p < opaque_value + opaque_value_len) {
     switch (*p) {
@@ -687,9 +687,9 @@ static CK_RV read_meta_object(yubihsm_pkcs11_slot *slot, uint16_t opaque_id,
   return CKR_OK;
 }
 
-yubihsm_pkcs11_object_desc *get_object_desc_detailed(yubihsm_pkcs11_slot *slot,
-                                                     uint16_t id, uint8_t type,
-                                                     uint16_t sequence) {
+yubihsm_pkcs11_object_desc *_get_object_desc(yubihsm_pkcs11_slot *slot,
+                                             uint16_t id, uint8_t type,
+                                             uint16_t sequence) {
 
   yubihsm_pkcs11_object_desc *object = NULL;
   for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
@@ -758,10 +758,13 @@ yubihsm_pkcs11_object_desc *get_object_desc_detailed(yubihsm_pkcs11_slot *slot,
 
 yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
                                             CK_OBJECT_HANDLE objHandle) {
+  if (objHandle == 0) {
+    return NULL;
+  }
   uint16_t id = objHandle & 0xffff;
   uint8_t type = (objHandle >> 16);
   uint8_t sequence = objHandle >> 24;
-  return get_object_desc_detailed(slot, id, type, sequence);
+  return _get_object_desc(slot, id, type, sequence);
 }
 
 CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
@@ -783,13 +786,13 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
   memcpy(p, META_OBJECT_VERSION, sizeof(META_OBJECT_VERSION)); // ObjectID
   p += sizeof(META_OBJECT_VERSION);
 
-  *p++ = meta_object->origin_type;
+  *p++ = meta_object->target_type;
 
-  uint16_t object_id_serialized = htons(meta_object->origin_id);
+  uint16_t object_id_serialized = htons(meta_object->target_id);
   memcpy(p, &object_id_serialized, 2); // ObjectID
   p += 2;
 
-  *p++ = meta_object->origin_sequence;
+  *p++ = meta_object->target_sequence;
 
   if (meta_object->cka_id_len > 0) {
     *p++ = PKCS11_ID_TAG;
@@ -809,14 +812,14 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
   }
 
   char opaque_label[YH_OBJ_LABEL_LEN] = {0};
-  sprintf(opaque_label, "Meta object for 0x%x", meta_object->origin_id);
+  sprintf(opaque_label, "Meta object for 0x%x", meta_object->target_id);
 
   yh_rc rc = YHR_SUCCESS;
   uint16_t meta_object_id = 0;
   if (replace) {
     yubihsm_pkcs11_object_desc *meta_desc =
-      find_meta_object(slot, meta_object->origin_id, meta_object->origin_type,
-                       meta_object->origin_sequence, NULL, 0, NULL, 0);
+      find_meta_object(slot, meta_object->target_id, meta_object->target_type,
+                       meta_object->target_sequence, NULL, 0, NULL, 0);
     if (meta_desc != NULL) {
       meta_object_id = meta_desc->object.id;
       rc =
@@ -838,13 +841,13 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
 
   if (rc != YHR_SUCCESS) {
     DBG_ERR("Failed to import opaque meta object for object 0x%x",
-            meta_object->origin_id);
+            meta_object->target_id);
     return yrc_to_rv(rc);
   }
   DBG_INFO("Successfully imported opaque object 0x%x with label: %s",
            meta_object_id, opaque_label);
 
-  get_object_desc_detailed(slot, meta_object_id, YH_OPAQUE, 0xffff);
+  _get_object_desc(slot, meta_object_id, YH_OPAQUE, 0xffff);
 
   return CKR_OK;
 }
@@ -864,13 +867,13 @@ static bool match_meta_object(pkcs11_meta_object *object, uint16_t origin_id,
                               uint8_t origin_type, uint8_t *ckaid,
                               uint16_t ckaid_len, uint8_t *cka_label,
                               uint16_t cka_label_len) {
-  if (object->origin_type != origin_type) {
+  if (object->target_type != origin_type) {
     return false;
   }
 
   // If original objectID match, no need to look more. This is the right meta
   // object
-  if (object->origin_id == origin_id) {
+  if (object->target_id == origin_id) {
     return true;
   }
 
@@ -883,7 +886,7 @@ static bool match_meta_object(pkcs11_meta_object *object, uint16_t origin_id,
                            ckaid_len) &&
           match_byte_array((uint8_t *) object->cka_label, object->cka_label_len,
                            cka_label, cka_label_len)) {
-        if (origin_id == 0 || object->origin_id == origin_id) {
+        if (origin_id == 0 || object->target_id == origin_id) {
           return true;
         }
       }
@@ -891,7 +894,7 @@ static bool match_meta_object(pkcs11_meta_object *object, uint16_t origin_id,
              // and type
       if (match_byte_array(object->cka_id, object->cka_id_len, ckaid,
                            ckaid_len)) {
-        if (origin_id == 0 || object->origin_id == origin_id) {
+        if (origin_id == 0 || object->target_id == origin_id) {
           return true;
         }
       }
@@ -901,7 +904,7 @@ static bool match_meta_object(pkcs11_meta_object *object, uint16_t origin_id,
     if (cka_label_len > 0) {
       if (match_byte_array((uint8_t *) object->cka_label, object->cka_label_len,
                            cka_label, cka_label_len)) {
-        if (origin_id == 0 || object->origin_id == origin_id) {
+        if (origin_id == 0 || object->target_id == origin_id) {
           return true;
         }
       }
@@ -957,7 +960,7 @@ find_meta_object(yubihsm_pkcs11_slot *slot, uint16_t origin_id,
   }
 
   for (int i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
-    if (slot->objects[i].meta_object.origin_id == 0) {
+    if (slot->objects[i].meta_object.target_id == 0) {
       continue;
     }
     if (match_meta_object(&slot->objects[i].meta_object, origin_id, origin_type,
@@ -965,7 +968,7 @@ find_meta_object(yubihsm_pkcs11_slot *slot, uint16_t origin_id,
       yubihsm_pkcs11_object_desc *object =
         get_object_desc(slot, get_object_handle(&slot->objects[i].object));
       if (origin_sequence == 0xff ||
-          object->meta_object.origin_sequence == origin_sequence) {
+          object->meta_object.target_sequence == origin_sequence) {
         return object;
       } else {
         yh_util_delete_object(slot->device_session, object->object.id,
