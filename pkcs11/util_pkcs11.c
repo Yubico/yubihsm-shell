@@ -689,17 +689,17 @@ static CK_RV read_meta_object(yubihsm_pkcs11_slot *slot, uint16_t opaque_id,
 
 static yubihsm_pkcs11_object_desc *
 get_object_desc_detailed(yubihsm_pkcs11_slot *slot, uint16_t id, uint8_t type,
-                         uint8_t sequence) {
+                         uint16_t sequence) {
 
   yubihsm_pkcs11_object_desc *object = NULL;
   for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
     if (slot->objects[i].object.id == id &&
         slot->objects[i].object.type == (type & 0x7f)) {
-      if (sequence == 0xff) {
+      if (sequence == 0xffff) {
         object = &slot->objects[i];
         break;
       } else {
-        if (slot->objects[i].object.sequence == sequence) {
+        if (slot->objects[i].object.sequence == (uint8_t) sequence) {
           object = &slot->objects[i];
           break;
         }
@@ -844,7 +844,7 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
   DBG_INFO("Successfully imported opaque object 0x%x with label: %s",
            meta_object_id, opaque_label);
 
-  get_object_desc_detailed(slot, meta_object_id, YH_OPAQUE, 0xff);
+  get_object_desc_detailed(slot, meta_object_id, YH_OPAQUE, 0xffff);
 
   return CKR_OK;
 }
