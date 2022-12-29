@@ -1803,19 +1803,19 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     goto c_co_out;
   }
 
-  yh_object_descriptor object = {0};
-  rc = yh_util_get_object_info(session->slot->device_session, template.id, type,
-                               &object);
-  if (rc != YHR_SUCCESS) {
+  yubihsm_pkcs11_object_desc *object_desc =
+    get_object_desc_detailed(session->slot, template.id, type, 0xffff);
+  if (object_desc == NULL) {
     DBG_ERR("Failed executing get object info after creating: %s",
             yh_strerror(rc));
     rv = yrc_to_rv(rc);
     goto c_co_out;
   }
+  yh_object_descriptor *object = &object_desc->object;
 
   if (meta_object.origin_id != 0) {
-    meta_object.origin_type = object.type;
-    meta_object.origin_sequence = object.sequence;
+    meta_object.origin_type = object->type;
+    meta_object.origin_sequence = object->sequence;
     rv = write_meta_object(session->slot, &meta_object, false);
     if (rv != CKR_OK) {
       DBG_ERR("Failed writing meta opaque object to device");
@@ -1824,9 +1824,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
   }
 
   if (class.d == CKO_PUBLIC_KEY) {
-    *phObject = object.sequence << 24 | (object.type | 0x80) << 16 | object.id;
+    *phObject =
+      object->sequence << 24 | (object->type | 0x80) << 16 | object->id;
   } else {
-    *phObject = object.sequence << 24 | object.type << 16 | object.id;
+    *phObject = object->sequence << 24 | object->type << 16 | object->id;
   }
 
   DBG_INFO("Created object %08lx", *phObject);
@@ -5076,20 +5077,21 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
     goto c_gk_out;
   }
 
-  yh_object_descriptor object = {0};
-  rc = yh_util_get_object_info(session->slot->device_session, template.id, type,
-                               &object);
-  if (rc != YHR_SUCCESS) {
+  yubihsm_pkcs11_object_desc *object_desc =
+    get_object_desc_detailed(session->slot, template.id, type, 0xffff);
+  if (object_desc == NULL) {
     DBG_ERR("Failed getting new object %04x: %s", template.id, yh_strerror(rc));
     rv = yrc_to_rv(rc);
     goto c_gk_out;
   }
-  *phKey = object.sequence << 24 | object.type << 16 | object.id;
+  yh_object_descriptor *object = &object_desc->object;
+
+  *phKey = object->sequence << 24 | object->type << 16 | object->id;
 
   if (meta_object.cka_id_len > 0 || meta_object.cka_label_len > 0) {
-    meta_object.origin_id = object.id;
-    meta_object.origin_type = object.type;
-    meta_object.origin_sequence = object.sequence;
+    meta_object.origin_id = object->id;
+    meta_object.origin_type = object->type;
+    meta_object.origin_sequence = object->sequence;
     rv = write_meta_object(session->slot, &meta_object, false);
     if (rv != CKR_OK) {
       DBG_ERR("Failed to import meta data object 0x%lx", rv);
@@ -5235,25 +5237,28 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
     }
   }
 
-  yh_object_descriptor object = {0};
-  rc = yh_util_get_object_info(session->slot->device_session, template.id,
-                               YH_ASYMMETRIC_KEY, &object);
-  if (rc != YHR_SUCCESS) {
+  yubihsm_pkcs11_object_desc *object_desc =
+    get_object_desc_detailed(session->slot, template.id, YH_ASYMMETRIC_KEY,
+                             0xffff);
+  if (object_desc == NULL) {
     rv = yrc_to_rv(rc);
     goto c_gkp_out;
   }
+  yh_object_descriptor *object = &object_desc->object;
+
   if (meta_object.cka_id_len > 0 || meta_object.cka_label_len > 0) {
-    meta_object.origin_id = object.id;
-    meta_object.origin_type = object.type;
-    meta_object.origin_sequence = object.sequence;
+    meta_object.origin_id = object->id;
+    meta_object.origin_type = object->type;
+    meta_object.origin_sequence = object->sequence;
     rv = write_meta_object(session->slot, &meta_object, false);
     if (rv != CKR_OK) {
       DBG_ERR("Failed to import meta data object 0x%lx", rv);
       goto c_gkp_out;
     }
   }
-  *phPublicKey = object.sequence << 24 | (object.type | 0x80) << 16 | object.id;
-  *phPrivateKey = object.sequence << 24 | object.type << 16 | object.id;
+  *phPublicKey =
+    object->sequence << 24 | (object->type | 0x80) << 16 | object->id;
+  *phPrivateKey = object->sequence << 24 | object->type << 16 | object->id;
 
   DOUT;
 

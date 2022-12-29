@@ -35,7 +35,9 @@ void destroy_session(yubihsm_pkcs11_context *ctx, CK_SESSION_HANDLE hSession);
 
 yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
                                             CK_OBJECT_HANDLE objectHandle);
-
+yubihsm_pkcs11_object_desc *get_object_desc_detailed(yubihsm_pkcs11_slot *slot,
+                                                     uint16_t id, uint8_t type,
+                                                     uint16_t sequence);
 void delete_object_from_cache(yubihsm_pkcs11_slot *slot,
                               CK_OBJECT_HANDLE objHandle);
 

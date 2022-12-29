@@ -687,9 +687,9 @@ static CK_RV read_meta_object(yubihsm_pkcs11_slot *slot, uint16_t opaque_id,
   return CKR_OK;
 }
 
-static yubihsm_pkcs11_object_desc *
-get_object_desc_detailed(yubihsm_pkcs11_slot *slot, uint16_t id, uint8_t type,
-                         uint16_t sequence) {
+yubihsm_pkcs11_object_desc *get_object_desc_detailed(yubihsm_pkcs11_slot *slot,
+                                                     uint16_t id, uint8_t type,
+                                                     uint16_t sequence) {
 
   yubihsm_pkcs11_object_desc *object = NULL;
   for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
