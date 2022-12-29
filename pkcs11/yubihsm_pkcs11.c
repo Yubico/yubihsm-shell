@@ -1729,13 +1729,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
   } else if (class.d == CKO_PUBLIC_KEY) {
     bool pubkey_found = false;
     if (template.id == 0) { // Check if a meta opaque object already exists
-      pkcs11_meta_object *found_meta =
+      yubihsm_pkcs11_object_desc *found_meta_desc =
         find_meta_object(session->slot, 0, YH_ASYMMETRIC_KEY, 0xff,
                          meta_object.cka_id, meta_object.cka_id_len,
                          (uint8_t *) meta_object.cka_label,
                          meta_object.cka_label_len);
-      if (found_meta != NULL) {
-        template.id = found_meta->origin_id;
+      if (found_meta_desc != NULL) {
+        template.id = found_meta_desc->meta_object.origin_id;
         pubkey_found = true;
       }
     }
@@ -1906,20 +1906,22 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
     }
 
     yh_rc yrc;
-    pkcs11_meta_object *meta_object =
+    yubihsm_pkcs11_object_desc *meta_desc =
       find_meta_object(session->slot, object->object.id, object->object.type,
                        object->object.sequence, NULL, 0, NULL, 0);
-    if (meta_object != NULL) {
+    if (meta_desc != NULL) {
       yrc = yh_util_delete_object(session->slot->device_session,
-                                  meta_object->opaque_id, YH_OPAQUE);
+                                  meta_desc->object.id, meta_desc->object.type);
       if (yrc != YHR_SUCCESS) {
         DBG_ERR("Failed to delete meta opaque object: %s", yh_strerror(yrc));
         rv = yrc_to_rv(yrc);
         goto c_do_out;
       }
-      DBG_INFO("Deleted meta object 0x%x", meta_object->opaque_id);
-      delete_meta_object_from_cache(session->slot, meta_object->opaque_id,
-                                    meta_object->origin_type);
+      DBG_INFO("Deleted meta object 0x%x", meta_desc->object.id);
+      CK_OBJECT_HANDLE meta_handle = meta_desc->object.sequence << 24 |
+                                     meta_desc->object.type << 16 |
+                                     meta_desc->object.id;
+      delete_object_from_cache(session->slot, meta_handle);
     }
 
     yrc = yh_util_delete_object(session->slot->device_session,
@@ -2143,10 +2145,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
     DBG_INFO("New ID or label different from existing ones. Creating metadata "
              "opaque object");
 
-    pkcs11_meta_object *meta_object =
+    yubihsm_pkcs11_object_desc *meta_desc =
       find_meta_object(session->slot, object->object.id, object->object.type,
                        object->object.sequence, NULL, 0, NULL, 0);
-    if (meta_object != NULL) {
+    if (meta_desc != NULL) {
+      pkcs11_meta_object *meta_object = &meta_desc->meta_object;
       bool changed = FALSE;
       if (new_ckaid_len != meta_object->cka_id_len ||
           memcmp(new_ckaid, meta_object->cka_id, new_ckaid_len) != 0) {
@@ -2426,11 +2429,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
   // If CKA_ID or CKA_LABEL are filters, find if there's an opaque object with
   // that ID and/or label
   if (template_id_len > 0 || template_label_len > 0) {
-    pkcs11_meta_object *meta_object =
+    yubihsm_pkcs11_object_desc *meta_desc =
       find_meta_object(session->slot, 0, type, 0xff, template_id,
                        template_id_len, template_label, template_label_len);
-    if (meta_object != NULL) {
-      id = meta_object->origin_id;
+    if (meta_desc != NULL) {
+      id = meta_desc->meta_object.origin_id;
     }
 
     if (id == 0) {
