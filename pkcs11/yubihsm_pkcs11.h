@@ -50,11 +50,11 @@ typedef enum {
 
 typedef struct {
   // The ObjectID of the asymmetric key
-  uint16_t origin_id;
+  uint16_t target_id;
   /// Object type
-  yh_object_type origin_type;
+  yh_object_type target_type;
   /// Object sequence
-  uint8_t origin_sequence;
+  uint8_t target_sequence;
   /// The CKA_ID
   uint8_t cka_id[PKCS11_ID_SIZE];
   /// The CKA_ID length
