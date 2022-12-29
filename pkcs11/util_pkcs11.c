@@ -684,7 +684,6 @@ static CK_RV read_meta_object(yubihsm_pkcs11_slot *slot, uint16_t opaque_id,
         return CKR_DATA_INVALID;
     }
   }
-  meta_object->opaque_id = opaque_id;
   return CKR_OK;
 }
 
@@ -765,12 +764,12 @@ yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
   return get_object_desc_detailed(slot, id, type, sequence);
 }
 
-CK_RV write_meta_opaque(yubihsm_pkcs11_slot *slot,
-                        pkcs11_meta_object *meta_opaque, bool replace) {
+CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
+                        pkcs11_meta_object *meta_object, bool replace) {
   size_t opaque_value_len =
     8 /* 4 version + 1 original type + 2 original ID 1 opaque sequence */ +
-    (meta_opaque->cka_id_len == 0 ? 0 : 3 + meta_opaque->cka_id_len) +
-    (meta_opaque->cka_label_len == 0 ? 0 : 3 + meta_opaque->cka_label_len);
+    (meta_object->cka_id_len == 0 ? 0 : 3 + meta_object->cka_id_len) +
+    (meta_object->cka_label_len == 0 ? 0 : 3 + meta_object->cka_label_len);
   // 3: 1 tag + 2 value length
 
   if (opaque_value_len > (YH_MSG_BUF_SIZE - 20)) {
@@ -784,61 +783,68 @@ CK_RV write_meta_opaque(yubihsm_pkcs11_slot *slot,
   memcpy(p, META_OBJECT_VERSION, sizeof(META_OBJECT_VERSION)); // ObjectID
   p += sizeof(META_OBJECT_VERSION);
 
-  *p++ = meta_opaque->origin_type;
+  *p++ = meta_object->origin_type;
 
-  uint16_t object_id_serialized = htons(meta_opaque->origin_id);
+  uint16_t object_id_serialized = htons(meta_object->origin_id);
   memcpy(p, &object_id_serialized, 2); // ObjectID
   p += 2;
 
-  *p++ = meta_opaque->origin_sequence;
+  *p++ = meta_object->origin_sequence;
 
-  if (meta_opaque->cka_id_len > 0) {
+  if (meta_object->cka_id_len > 0) {
     *p++ = PKCS11_ID_TAG;
-    uint16_t len_serialized = htons(meta_opaque->cka_id_len);
+    uint16_t len_serialized = htons(meta_object->cka_id_len);
     memcpy(p, &len_serialized, 2);
     p += 2;
-    memcpy(p, &meta_opaque->cka_id, meta_opaque->cka_id_len);
-    p += meta_opaque->cka_id_len;
+    memcpy(p, &meta_object->cka_id, meta_object->cka_id_len);
+    p += meta_object->cka_id_len;
   }
 
-  if (meta_opaque->cka_label_len > 0) {
+  if (meta_object->cka_label_len > 0) {
     *p++ = PKCS11_LABEL_TAG;
-    uint16_t len_serialized = htons(meta_opaque->cka_label_len);
+    uint16_t len_serialized = htons(meta_object->cka_label_len);
     memcpy(p, &len_serialized, 2);
     p += 2;
-    memcpy(p, &meta_opaque->cka_label, meta_opaque->cka_label_len);
+    memcpy(p, &meta_object->cka_label, meta_object->cka_label_len);
   }
 
   char opaque_label[YH_OBJ_LABEL_LEN] = {0};
-  sprintf(opaque_label, "Meta object for 0x%x", meta_opaque->origin_id);
+  sprintf(opaque_label, "Meta object for 0x%x", meta_object->origin_id);
 
   yh_rc rc = YHR_SUCCESS;
-
+  uint16_t meta_object_id = 0;
   if (replace) {
-    rc = yh_util_delete_object(slot->device_session, meta_opaque->opaque_id,
-                               YH_OPAQUE);
-    if (rc != YHR_SUCCESS) {
-      DBG_INFO("Failed to delete opaque object 0x%x", meta_opaque->opaque_id);
-    } else {
-      DBG_INFO("Removed opaque object 0x%x with label %s",
-               meta_opaque->opaque_id, opaque_label);
+    yubihsm_pkcs11_object_desc *meta_desc =
+      find_meta_object(slot, meta_object->origin_id, meta_object->origin_type,
+                       meta_object->origin_sequence, NULL, 0, NULL, 0);
+    if (meta_desc != NULL) {
+      meta_object_id = meta_desc->object.id;
+      rc =
+        yh_util_delete_object(slot->device_session, meta_object_id, YH_OPAQUE);
+      if (rc != YHR_SUCCESS) {
+        DBG_INFO("Failed to delete opaque object 0x%x", meta_desc->object.id);
+      } else {
+        DBG_INFO("Removed opaque object 0x%x with label %s",
+                 meta_desc->object.id, opaque_label);
+      }
     }
+    delete_object_from_cache(slot, get_object_handle(&meta_desc->object));
   }
   yh_capabilities capabilities = {{0}};
   rc =
-    yh_util_import_opaque(slot->device_session, &meta_opaque->opaque_id,
-                          opaque_label, 0xffff, &capabilities,
-                          YH_ALGO_OPAQUE_DATA, opaque_value, opaque_value_len);
+    yh_util_import_opaque(slot->device_session, &meta_object_id, opaque_label,
+                          0xffff, &capabilities, YH_ALGO_OPAQUE_DATA,
+                          opaque_value, opaque_value_len);
 
   if (rc != YHR_SUCCESS) {
     DBG_ERR("Failed to import opaque meta object for object 0x%x",
-            meta_opaque->origin_id);
+            meta_object->origin_id);
     return yrc_to_rv(rc);
   }
   DBG_INFO("Successfully imported opaque object 0x%x with label: %s",
-           meta_opaque->opaque_id, opaque_label);
+           meta_object_id, opaque_label);
 
-  get_object_desc_detailed(slot, meta_opaque->opaque_id, YH_OPAQUE, 0xff);
+  get_object_desc_detailed(slot, meta_object_id, YH_OPAQUE, 0xff);
 
   return CKR_OK;
 }
@@ -951,7 +957,7 @@ find_meta_object(yubihsm_pkcs11_slot *slot, uint16_t origin_id,
   }
 
   for (int i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
-    if (slot->objects[i].meta_object.opaque_id == 0) {
+    if (slot->objects[i].meta_object.origin_id == 0) {
       continue;
     }
     if (match_meta_object(&slot->objects[i].meta_object, origin_id, origin_type,
@@ -962,8 +968,8 @@ find_meta_object(yubihsm_pkcs11_slot *slot, uint16_t origin_id,
           object->meta_object.origin_sequence == origin_sequence) {
         return object;
       } else {
-        yh_util_delete_object(slot->device_session,
-                              object->meta_object.opaque_id, YH_OPAQUE);
+        yh_util_delete_object(slot->device_session, object->object.id,
+                              YH_OPAQUE);
         delete_object_from_cache(slot,
                                  get_object_handle(&slot->objects[i].object));
         return NULL;
