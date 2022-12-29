@@ -695,7 +695,7 @@ get_object_desc_detailed(yubihsm_pkcs11_slot *slot, uint16_t id, uint8_t type,
   yubihsm_pkcs11_object_desc *object = NULL;
   for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
     if (slot->objects[i].object.id == id &&
-        slot->objects[i].object.type == type) {
+        slot->objects[i].object.type == (type & 0x7f)) {
       if (sequence == 0xff) {
         object = &slot->objects[i];
         break;
@@ -732,8 +732,8 @@ get_object_desc_detailed(yubihsm_pkcs11_slot *slot, uint16_t id, uint8_t type,
   }
 
   if (!object->filled) {
-    yh_rc yrc =
-      yh_util_get_object_info(slot->device_session, id, type, &object->object);
+    yh_rc yrc = yh_util_get_object_info(slot->device_session, id, type & 0x7f,
+                                        &object->object);
     if (yrc != YHR_SUCCESS) {
       return NULL;
     }
@@ -760,7 +760,7 @@ get_object_desc_detailed(yubihsm_pkcs11_slot *slot, uint16_t id, uint8_t type,
 yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
                                             CK_OBJECT_HANDLE objHandle) {
   uint16_t id = objHandle & 0xffff;
-  uint8_t type = (objHandle >> 16) & 0x7f;
+  uint8_t type = (objHandle >> 16);
   uint8_t sequence = objHandle >> 24;
   return get_object_desc_detailed(slot, id, type, sequence);
 }
@@ -933,11 +933,11 @@ CK_RV populate_cache_with_data_opaques(yubihsm_pkcs11_slot *slot) {
   return CKR_OK;
 }
 
-pkcs11_meta_object *find_meta_object(yubihsm_pkcs11_slot *slot,
-                                     uint16_t origin_id, uint8_t origin_type,
-                                     uint8_t origin_sequence, uint8_t *ckaid,
-                                     uint16_t ckaid_len, uint8_t *cka_label,
-                                     uint16_t cka_label_len) {
+yubihsm_pkcs11_object_desc *
+find_meta_object(yubihsm_pkcs11_slot *slot, uint16_t origin_id,
+                 uint8_t origin_type, uint8_t origin_sequence, uint8_t *ckaid,
+                 uint16_t ckaid_len, uint8_t *cka_label,
+                 uint16_t cka_label_len) {
 
   if (origin_id == 0 && ckaid_len == 0 && cka_label_len == 0) {
     DBG_INFO("No meta opaque object criteria to look for");
@@ -960,12 +960,12 @@ pkcs11_meta_object *find_meta_object(yubihsm_pkcs11_slot *slot,
         get_object_desc(slot, get_object_handle(&slot->objects[i].object));
       if (origin_sequence == 0xff ||
           object->meta_object.origin_sequence == origin_sequence) {
-        return &object->meta_object;
+        return object;
       } else {
         yh_util_delete_object(slot->device_session,
                               object->meta_object.opaque_id, YH_OPAQUE);
-        delete_meta_object_from_cache(slot, object->meta_object.opaque_id,
-                                      object->meta_object.origin_type);
+        delete_object_from_cache(slot,
+                                 get_object_handle(&slot->objects[i].object));
         return NULL;
       }
     }
@@ -5249,9 +5249,13 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
         get_attribute_ecsession_key(pTemplate[i].type, key, tmp, &len);
     } else {
       yubihsm_pkcs11_object_desc *desc = object;
-      pkcs11_meta_object *meta_object =
+      pkcs11_meta_object *meta_object = NULL;
+      yubihsm_pkcs11_object_desc *meta_desc =
         find_meta_object(session->slot, desc->object.id, desc->object.type,
                          desc->object.sequence, NULL, 0, NULL, 0);
+      if (meta_desc != NULL) {
+        meta_object = &meta_desc->meta_object;
+      }
       attribute_rc =
         get_attribute(pTemplate[i].type, desc, meta_object, tmp, &len, session);
     }
