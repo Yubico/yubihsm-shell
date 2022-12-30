@@ -60,7 +60,7 @@ typedef struct {
   /// The CKA_ID length
   uint16_t cka_id_len;
   /// Object label
-  char cka_label[PKCS11_LABEL_SIZE];
+  uint8_t cka_label[PKCS11_LABEL_SIZE];
   /// The CKA_LABEL length
   uint16_t cka_label_len;
 } pkcs11_meta_object;

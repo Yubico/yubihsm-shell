@@ -1733,7 +1733,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
         find_meta_object_by_attribute(session->slot, YH_ASYMMETRIC_KEY,
                                       meta_object.cka_id,
                                       meta_object.cka_id_len,
-                                      (uint8_t *) meta_object.cka_label,
+                                      meta_object.cka_label,
                                       meta_object.cka_label_len);
       if (found_meta_desc != NULL) {
         template.id = found_meta_desc->meta_object.target_id;
