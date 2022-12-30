@@ -1807,9 +1807,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
   yubihsm_pkcs11_object_desc *object_desc =
     _get_object_desc(session->slot, template.id, type, 0xffff);
   if (object_desc == NULL) {
-    DBG_ERR("Failed executing get object info after creating: %s",
-            yh_strerror(rc));
-    rv = yrc_to_rv(rc);
+    DBG_ERR("Failed executing get object info after creating: id 0x%x",
+            template.id);
+    rv = CKR_OBJECT_HANDLE_INVALID;
     goto c_co_out;
   }
   yh_object_descriptor *object = &object_desc->object;
@@ -5079,7 +5079,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
     _get_object_desc(session->slot, template.id, type, 0xffff);
   if (object_desc == NULL) {
     DBG_ERR("Failed getting new object %04x: %s", template.id, yh_strerror(rc));
-    rv = yrc_to_rv(rc);
+    rv = CKR_OBJECT_HANDLE_INVALID;
     goto c_gk_out;
   }
   yh_object_descriptor *object = &object_desc->object;
@@ -5238,7 +5238,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
   yubihsm_pkcs11_object_desc *object_desc =
     _get_object_desc(session->slot, template.id, YH_ASYMMETRIC_KEY, 0xffff);
   if (object_desc == NULL) {
-    rv = yrc_to_rv(rc);
+    rv = CKR_OBJECT_HANDLE_INVALID;
     goto c_gkp_out;
   }
   yh_object_descriptor *object = &object_desc->object;

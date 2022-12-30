@@ -694,14 +694,15 @@ yubihsm_pkcs11_object_desc *_get_object_desc(yubihsm_pkcs11_slot *slot,
   yubihsm_pkcs11_object_desc *object = NULL;
   for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
     if (slot->objects[i].object.id == id &&
-        slot->objects[i].object.type == (type & 0x7f)) {
+        (slot->objects[i].object.type & 0x7f) == (type & 0x7f)) {
       object = &slot->objects[i];
+      if (sequence != 0xffff &&
+          object->object.sequence !=
+            sequence) { // Force refresh if cache entry has wrong sequence
+        memset(object, 0, sizeof(yubihsm_pkcs11_object_desc));
+      }
       break;
     }
-  }
-
-  if (object && sequence != 0xffff && object->object.sequence != sequence) {
-    memset(object, 0, sizeof(yubihsm_pkcs11_object_desc));
   }
 
   if (!object) {
@@ -748,6 +749,9 @@ yubihsm_pkcs11_object_desc *_get_object_desc(yubihsm_pkcs11_slot *slot,
   object->object.type = type;
   gettimeofday(&object->tv, NULL);
 
+  if (sequence != 0xffff && object->object.sequence != sequence) {
+    return NULL; // Only return for correct sequence
+  }
   return object;
 }
 
@@ -2121,99 +2125,6 @@ static CK_RV get_attribute_ecsession_key(CK_ATTRIBUTE_TYPE type,
   }
 
   return CKR_OK;
-}
-
-void delete_object_from_cache(yubihsm_pkcs11_slot *slot,
-                              CK_OBJECT_HANDLE objHandle) {
-  uint16_t id = objHandle & 0xffff;
-  uint8_t type = objHandle >> 16;
-  uint8_t sequence = objHandle >> 24;
-  for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
-    if (slot->objects[i].object.id == id &&
-        (slot->objects[i].object.type & 0x7f) == (type & 0x7f) &&
-        slot->objects[i].object.sequence == sequence) {
-      memset(&slot->objects[i], 0, sizeof(yubihsm_pkcs11_object_desc));
-      return;
-    }
-  }
-}
-
-void delete_meta_object_from_cache(yubihsm_pkcs11_slot *slot,
-                                   uint16_t opaque_id, yh_object_type type) {
-  for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
-    if (slot->objects[i].meta_object.opaque_id == opaque_id &&
-        slot->objects[i].meta_object.origin_type == type) {
-      memset(&slot->objects[i], 0, sizeof(yubihsm_pkcs11_object_desc));
-      return;
-    }
-  }
-}
-
-yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
-                                            CK_OBJECT_HANDLE objHandle) {
-
-  yubihsm_pkcs11_object_desc *object = NULL;
-  uint16_t id = objHandle & 0xffff;
-  uint8_t type = objHandle >> 16;
-  uint8_t sequence = objHandle >> 24;
-  for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
-    if (slot->objects[i].object.id == id &&
-        (slot->objects[i].object.type & 0x7f) == (type & 0x7f)) {
-      object = &slot->objects[i];
-      if(object->object.sequence != sequence) { // Force refresh if cache entry has wrong sequence
-        memset(object, 0, sizeof(yubihsm_pkcs11_object_desc));
-      }
-      break;
-    }
-  }
-
-  if (!object) {
-    uint16_t low = 0;
-    struct timeval *low_time = NULL;
-
-    for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
-      if (slot->objects[i].tv.tv_sec == 0) {
-        low = i;
-        low_time = &slot->objects[i].tv;
-        break;
-      } else {
-        if (!low_time || slot->objects[i].tv.tv_sec < low_time->tv_sec ||
-            (slot->objects[i].tv.tv_sec == low_time->tv_sec &&
-             slot->objects[i].tv.tv_usec < low_time->tv_usec)) {
-
-          low_time = &slot->objects[i].tv;
-          low = i;
-        }
-      }
-    }
-    object = &slot->objects[low];
-    memset(object, 0, sizeof(yubihsm_pkcs11_object_desc));
-  }
-
-  if (!object->filled) {
-    yh_rc yrc = yh_util_get_object_info(slot->device_session, id, type & 0x7f,
-                                        &object->object);
-    if (yrc != YHR_SUCCESS) {
-      return NULL;
-    }
-
-    if (is_meta_object(&object->object)) {
-      // fill in the meta_object value
-      CK_RV rv = read_meta_object_from_device(slot, object->object.id,
-                                              &object->meta_object);
-      if (rv != CKR_OK) {
-        DBG_ERR("Failed to refresh meta object 0x%x", object->object.id);
-        return NULL;
-      }
-    }
-
-    object->filled = true;
-  }
-
-  object->object.type = type;
-  gettimeofday(&object->tv, NULL);
-
-  return object->object.sequence == sequence ? object : 0; // Only return for correct sequence
 }
 
 CK_RV check_sign_mechanism(yubihsm_pkcs11_slot *slot,
