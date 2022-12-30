@@ -613,12 +613,6 @@ CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
   return CKR_OK;
 }
 
-static CK_OBJECT_HANDLE
-get_object_handle(yh_object_descriptor *meta_object_desc) {
-  return meta_object_desc->sequence << 24 | meta_object_desc->type << 16 |
-         meta_object_desc->id;
-}
-
 #define PKCS11_ID_TAG 1
 #define PKCS11_LABEL_TAG 2
 const char META_OBJECT_VERSION[4] = "MDB1";
@@ -884,7 +878,7 @@ CK_RV populate_cache_with_data_opaques(yubihsm_pkcs11_slot *slot) {
     return yrc_to_rv(rc);
   }
   for (size_t i = 0; i < n_opaques; i++) {
-    get_object_desc(slot, get_object_handle(&opaques[i]));
+    _get_object_desc(slot, opaques[i].id, opaques[i].type, opaques[i].sequence);
   }
   return CKR_OK;
 }
