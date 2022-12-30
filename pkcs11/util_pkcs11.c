@@ -894,20 +894,10 @@ find_meta_object_by_target(yubihsm_pkcs11_slot *slot, uint16_t target_id,
 
   for (int i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
     pkcs11_meta_object *current_meta = &slot->objects[i].meta_object;
-    if (current_meta->target_id == 0) {
-      continue;
-    }
-
     if (current_meta->target_id == target_id &&
-        current_meta->target_type == target_type) {
-      if (current_meta->target_sequence == target_sequence) {
-        return &slot->objects[i];
-      } else {
-        yh_util_delete_object(slot->device_session, slot->objects[i].object.id,
-                              YH_OPAQUE);
-        memset(&slot->objects[i], 0, sizeof(yubihsm_pkcs11_object_desc));
-        return NULL;
-      }
+        current_meta->target_type == target_type &&
+        current_meta->target_sequence == target_sequence) {
+      return &slot->objects[i];
     }
   }
   return NULL;
