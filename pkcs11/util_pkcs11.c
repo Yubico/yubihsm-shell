@@ -885,7 +885,7 @@ CK_RV populate_cache_with_data_opaques(yubihsm_pkcs11_slot *slot) {
 
 yubihsm_pkcs11_object_desc *
 find_meta_object_by_target(yubihsm_pkcs11_slot *slot, uint16_t target_id,
-                           uint8_t target_type, uint16_t target_sequence) {
+                           uint8_t target_type, uint8_t target_sequence) {
 
   if (target_id == 0 || target_type == 0) {
     DBG_INFO("No meta opaque object criteria to look for");
@@ -893,14 +893,14 @@ find_meta_object_by_target(yubihsm_pkcs11_slot *slot, uint16_t target_id,
   }
 
   for (int i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
-    if (slot->objects[i].meta_object.target_id == 0) {
+    pkcs11_meta_object *current_meta = &slot->objects[i].meta_object;
+    if (current_meta->target_id == 0) {
       continue;
     }
-    pkcs11_meta_object *current_meta = &slot->objects[i].meta_object;
+
     if (current_meta->target_id == target_id &&
         current_meta->target_type == target_type) {
-      if (target_sequence == 0xffff ||
-          current_meta->target_sequence == target_sequence) {
+      if (current_meta->target_sequence == target_sequence) {
         return &slot->objects[i];
       } else {
         yh_util_delete_object(slot->device_session, slot->objects[i].object.id,
@@ -915,9 +915,8 @@ find_meta_object_by_target(yubihsm_pkcs11_slot *slot, uint16_t target_id,
 
 yubihsm_pkcs11_object_desc *
 find_meta_object_by_attribute(yubihsm_pkcs11_slot *slot, uint8_t target_type,
-                              uint16_t target_sequence, uint8_t *ckaid,
-                              uint16_t ckaid_len, uint8_t *cka_label,
-                              uint16_t cka_label_len) {
+                              uint8_t *ckaid, uint16_t ckaid_len,
+                              uint8_t *cka_label, uint16_t cka_label_len) {
 
   if ((ckaid_len > 0 && ckaid == NULL) ||
       (cka_label_len > 0 && cka_label == NULL)) {
@@ -926,46 +925,28 @@ find_meta_object_by_attribute(yubihsm_pkcs11_slot *slot, uint8_t target_type,
   }
 
   for (int i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
-    if (slot->objects[i].meta_object.target_id == 0) {
+    pkcs11_meta_object *current_meta = &slot->objects[i].meta_object;
+    if (current_meta->target_id == 0) {
       continue;
     }
-    pkcs11_meta_object *current_meta = &slot->objects[i].meta_object;
 
     if (current_meta->target_type != target_type) {
       continue;
     }
-    if (ckaid_len > 0 && cka_label_len == 0 &&
+    if (ckaid_len > 0 &&
         !match_byte_array(current_meta->cka_id, current_meta->cka_id_len, ckaid,
                           ckaid_len)) {
       // match only cka_id
       continue;
     }
-    if (ckaid_len == 0 && cka_label_len > 0 &&
+    if (cka_label_len > 0 &&
         !match_byte_array((uint8_t *) current_meta->cka_label,
                           current_meta->cka_label_len, cka_label,
                           cka_label_len)) {
       // match only cka_label
       continue;
     }
-    if (ckaid_len > 0 && cka_label_len > 0 &&
-        !(match_byte_array(current_meta->cka_id, current_meta->cka_id_len,
-                           ckaid, ckaid_len) &&
-          match_byte_array((uint8_t *) current_meta->cka_label,
-                           current_meta->cka_label_len, cka_label,
-                           cka_label_len))) {
-      // match both cka_id and cka_label
-      continue;
-    }
-
-    if (target_sequence == 0xffff ||
-        current_meta->target_sequence == target_sequence) {
-      return &slot->objects[i];
-    } else {
-      yh_util_delete_object(slot->device_session, slot->objects[i].object.id,
-                            YH_OPAQUE);
-      memset(&slot->objects[i], 0, sizeof(yubihsm_pkcs11_object_desc));
-      return NULL;
-    }
+    return &slot->objects[i];
   }
   return NULL;
 }

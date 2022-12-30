@@ -1730,7 +1730,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     bool pubkey_found = false;
     if (template.id == 0) { // Check if a meta opaque object already exists
       yubihsm_pkcs11_object_desc *found_meta_desc =
-        find_meta_object_by_attribute(session->slot, YH_ASYMMETRIC_KEY, 0xffff,
+        find_meta_object_by_attribute(session->slot, YH_ASYMMETRIC_KEY,
                                       meta_object.cka_id,
                                       meta_object.cka_id_len,
                                       (uint8_t *) meta_object.cka_label,
@@ -1765,7 +1765,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       yh_object_descriptor asym_keys[YH_MAX_ITEMS_COUNT] = {0};
       size_t asym_keys_len = sizeof(asym_keys);
       rc = yh_util_list_objects(session->slot->device_session, 0,
-                                YH_ASYMMETRIC_KEY, 0, &capabilities, 0, "",
+                                YH_ASYMMETRIC_KEY, 0, &capabilities, 0, NULL,
                                 asym_keys, &asym_keys_len);
       if (rc != YHR_SUCCESS) {
         DBG_ERR("Failed to get object list");
@@ -2428,7 +2428,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
   // that ID and/or label
   if (template_id_len > 0 || template_label_len > 0) {
     yubihsm_pkcs11_object_desc *meta_desc =
-      find_meta_object_by_attribute(session->slot, type, 0xffff, template_id,
+      find_meta_object_by_attribute(session->slot, type, template_id,
                                     template_id_len, template_label,
                                     template_label_len);
     if (meta_desc != NULL) {
