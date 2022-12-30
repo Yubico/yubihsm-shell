@@ -700,8 +700,7 @@ yubihsm_pkcs11_object_desc *_get_object_desc(yubihsm_pkcs11_slot *slot,
     }
   }
 
-  if (object && sequence != 0xffff &&
-      object->object.sequence != (uint8_t) sequence) {
+  if (object && sequence != 0xffff && object->object.sequence != sequence) {
     memset(object, 0, sizeof(yubihsm_pkcs11_object_desc));
   }
 
@@ -1791,7 +1790,7 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
         *length = meta_object->cka_label_len;
         memcpy(value, meta_object->cka_label, *length);
       } else {
-        get_id_attribute(&object->object, value, length);
+        get_label_attribute(&object->object, value, length);
       }
     } break;
 
