@@ -1725,9 +1725,11 @@ yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
   uint8_t sequence = objHandle >> 24;
   for (uint16_t i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
     if (slot->objects[i].object.id == id &&
-        slot->objects[i].object.type == (type & 0x7f) &&
-        slot->objects[i].object.sequence == sequence) {
+        (slot->objects[i].object.type & 0x7f) == (type & 0x7f)) {
       object = &slot->objects[i];
+      if(object->object.sequence != sequence) { // Force refresh if cache entry has wrong sequence
+        memset(object, 0, sizeof(yubihsm_pkcs11_object_desc));
+      }
       break;
     }
   }
@@ -1768,7 +1770,7 @@ yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
   object->object.type = type;
   gettimeofday(&object->tv, NULL);
 
-  return object;
+  return object->object.sequence == sequence ? object : 0; // Only return for correct sequence
 }
 
 CK_RV check_sign_mechanism(yubihsm_pkcs11_slot *slot,
