@@ -919,21 +919,32 @@ bool create_session(yubihsm_pkcs11_slot *slot, CK_FLAGS flags,
   return list_append(&slot->pkcs11_sessions, &session);
 }
 
-static void get_label_attribute(yh_object_descriptor *object, CK_VOID_PTR value,
-                                CK_ULONG_PTR length) {
-
-  *length = strlen(object->label);
-  memcpy(value, object->label, *length);
-  // NOTE(adma): we have seen some weird behvior with different
-  // PKCS#11 tools. We decided not to add '\0' for now. This *seems*
-  // to be a good solution ...
+static void get_label_attribute(yh_object_descriptor *object,
+                                pkcs11_meta_object *meta_object,
+                                CK_VOID_PTR value, CK_ULONG_PTR length) {
+  if (meta_object != NULL && meta_object->cka_label_len > 0) {
+    *length = meta_object->cka_label_len;
+    memcpy(value, meta_object->cka_label, *length);
+  } else {
+    *length = strlen(object->label);
+    memcpy(value, object->label, *length);
+    // NOTE(adma): we have seen some weird behvior with different
+    // PKCS#11 tools. We decided not to add '\0' for now. This *seems*
+    // to be a good solution ...
+  }
 }
 
-static void get_id_attribute(yh_object_descriptor *object, CK_VOID_PTR value,
+static void get_id_attribute(yh_object_descriptor *object,
+                             pkcs11_meta_object *meta_object, CK_VOID_PTR value,
                              CK_ULONG_PTR length) {
-  uint16_t *ptr = value;
-  *ptr = ntohs(object->id);
-  *length = sizeof(uint16_t);
+  if (meta_object != NULL && meta_object->cka_id_len > 0) {
+    *length = meta_object->cka_id_len;
+    memcpy(value, meta_object->cka_id, *length);
+  } else {
+    uint16_t *ptr = value;
+    *ptr = ntohs(object->id);
+    *length = sizeof(uint16_t);
+  }
 }
 
 static void get_capability_attribute(yh_object_descriptor *object,
@@ -988,24 +999,13 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
       *length = sizeof(CK_BBOOL);
       break;
 
-    case CKA_LABEL: {
-      if (meta_object != NULL && meta_object->cka_label_len > 0) {
-        *length = meta_object->cka_label_len;
-        memcpy(value, meta_object->cka_label, *length);
-      } else {
-        get_label_attribute(object, value, length);
-      }
+    case CKA_LABEL:
+      get_label_attribute(object, meta_object, value, length);
+      break;
 
-    } break;
-
-    case CKA_ID: {
-      if (meta_object != NULL && meta_object->cka_id_len > 0) {
-        *length = meta_object->cka_id_len;
-        memcpy(value, meta_object->cka_id, *length);
-      } else {
-        get_id_attribute(object, value, length);
-      }
-    } break;
+    case CKA_ID:
+      get_id_attribute(object, meta_object, value, length);
+      break;
 
       // NOTE(adma): Data Objects attributes
 
@@ -1079,12 +1079,7 @@ static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_LABEL:
-      if (meta_object != NULL && meta_object->cka_label_len > 0) {
-        *length = meta_object->cka_label_len;
-        memcpy(value, meta_object->cka_label, *length);
-      } else {
-        get_label_attribute(object, value, length);
-      }
+      get_label_attribute(object, meta_object, value, length);
       break;
 
       // NOTE(adma): Key Objects attributes
@@ -1159,12 +1154,7 @@ static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_ID:
-      if (meta_object != NULL && meta_object->cka_id_len > 0) {
-        *length = meta_object->cka_id_len;
-        memcpy(value, meta_object->cka_id, *length);
-      } else {
-        get_id_attribute(object, value, length);
-      }
+      get_id_attribute(object, meta_object, value, length);
       break;
 
       // case CKA_START_DATE:
@@ -1303,14 +1293,9 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       *length = sizeof(CK_BBOOL);
       break;
 
-    case CKA_LABEL: {
-      if (meta_object != NULL && meta_object->cka_label_len > 0) {
-        *length = meta_object->cka_label_len;
-        memcpy(value, meta_object->cka_label, *length);
-      } else {
-        get_label_attribute(object, value, length);
-      }
-    } break;
+    case CKA_LABEL:
+      get_label_attribute(object, meta_object, value, length);
+      break;
 
       // NOTE(adma): Key Objects attributes
 
@@ -1328,14 +1313,9 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       }
       break;
 
-    case CKA_ID: {
-      if (meta_object != NULL && meta_object->cka_id_len > 0) {
-        *length = meta_object->cka_id_len;
-        memcpy(value, meta_object->cka_id, *length);
-      } else {
-        get_id_attribute(object, value, length);
-      }
-    } break;
+    case CKA_ID:
+      get_id_attribute(object, meta_object, value, length);
+      break;
 
       // case CKA_START_DATE:
       // case CKA_END_DATE:
@@ -1701,14 +1681,9 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       }
       break;
 
-    case CKA_LABEL: {
-      if (meta_object != NULL && meta_object->cka_label_len > 0) {
-        *length = meta_object->cka_label_len;
-        memcpy(value, meta_object->cka_label, *length);
-      } else {
-        get_label_attribute(object, value, length);
-      }
-    } break;
+    case CKA_LABEL:
+      get_label_attribute(object, meta_object, value, length);
+      break;
 
       // NOTE(adma): Key Objects attributes
 
@@ -1764,14 +1739,9 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       }
       break;
 
-    case CKA_ID: {
-      if (meta_object != NULL && meta_object->cka_id_len > 0) {
-        *length = meta_object->cka_id_len;
-        memcpy(value, meta_object->cka_id, *length);
-      } else {
-        get_id_attribute(object, value, length);
-      }
-    } break;
+    case CKA_ID:
+      get_id_attribute(object, meta_object, value, length);
+      break;
 
       // case CKA_START_DATE:
       // case CKA_END_DATE:
