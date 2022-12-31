@@ -2491,8 +2491,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           }
         }
       } else {
-
-        // NOTE(Aveen): Filter away opaque meta objects
         yh_object_descriptor
           tmp_objects[YH_MAX_ITEMS_COUNT + MAX_ECDH_SESSION_KEYS] = {0};
         size_t tmp_n_objects = YH_MAX_ITEMS_COUNT + MAX_ECDH_SESSION_KEYS;
@@ -2510,10 +2508,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
             _get_object_desc(session->slot, tmp_objects[i].id,
                              tmp_objects[i].type, tmp_objects[i].sequence);
 
-          if (tmp_objects[i].type == YH_OPAQUE) {
-            if (object_desc && is_meta_object(&object_desc->object)) {
-              continue;
-            }
+          if (object_desc && is_meta_object(&object_desc->object)) {
+            continue;
           }
 
           if (match_meta_attributes(session, &object_desc->object, template_id,
