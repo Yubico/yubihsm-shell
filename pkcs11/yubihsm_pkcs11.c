@@ -1728,69 +1728,59 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     }
   } else if (class.d == CKO_PUBLIC_KEY) {
     bool pubkey_found = false;
-    if (template.id == 0) { // Check if a meta opaque object already exists
-      yubihsm_pkcs11_object_desc *found_meta_desc =
-        find_meta_object_by_attribute(session->slot, YH_ASYMMETRIC_KEY,
-                                      meta_object.cka_id,
-                                      meta_object.cka_id_len,
-                                      (uint8_t *) meta_object.cka_label,
-                                      meta_object.cka_label_len);
-      if (found_meta_desc != NULL) {
-        template.id = found_meta_desc->meta_object.target_id;
-        pubkey_found = true;
+    // Read the value of the public key
+    for (CK_ULONG i = 0; i < ulCount; i++) {
+      switch (pTemplate[i].type) {
+        case CKA_VALUE:
+          if (template.obj.buf == NULL) {
+            template.obj.buf = (CK_BYTE_PTR) pTemplate[i].pValue;
+            template.objlen = pTemplate[i].ulValueLen;
+            DBG_INFO("Object will be stored with length %d", template.objlen);
+          } else {
+            DBG_ERR("Object buffer already set");
+            rv = CKR_TEMPLATE_INCONSISTENT;
+            goto c_co_out;
+          }
+          break;
       }
     }
 
-    // If the asym key not found among meta opaque object, check in the YubiHSM
-    if (pubkey_found == false) {
+    // Get a list of all asym objects in the YubiHSM
+    yh_object_descriptor asym_keys[YH_MAX_ITEMS_COUNT] = {0};
+    size_t asym_keys_len = sizeof(asym_keys);
+    rc = yh_util_list_objects(session->slot->device_session, 0,
+                              YH_ASYMMETRIC_KEY, 0, &capabilities, 0, NULL,
+                              asym_keys, &asym_keys_len);
+    if (rc != YHR_SUCCESS) {
+      DBG_ERR("Failed to get object list");
+      rv = yrc_to_rv(rc);
+      goto c_co_out;
+    }
 
-      // Read the value of the public key
-      for (CK_ULONG i = 0; i < ulCount; i++) {
-        switch (pTemplate[i].type) {
-          case CKA_VALUE:
-            if (template.obj.buf == NULL) {
-              template.obj.buf = (CK_BYTE_PTR) pTemplate[i].pValue;
-              template.objlen = pTemplate[i].ulValueLen;
-              DBG_INFO("Object will be stored with length %d", template.objlen);
-            } else {
-              DBG_ERR("Object buffer already set");
-              rv = CKR_TEMPLATE_INCONSISTENT;
-              goto c_co_out;
-            }
-            break;
-        }
+    // Check which asym public key matches the one in the request
+    for (size_t i = 0; i < asym_keys_len; i++) {
+      if (!match_meta_attributes(session, &asym_keys[i], meta_object.cka_id,
+                                 meta_object.cka_id_len,
+                                 (uint8_t *) meta_object.cka_label,
+                                 meta_object.cka_label_len)) {
+        continue;
       }
 
-      // Get a list of all asym objects in the YubiHSM
-      yh_object_descriptor asym_keys[YH_MAX_ITEMS_COUNT] = {0};
-      size_t asym_keys_len = sizeof(asym_keys);
-      rc = yh_util_list_objects(session->slot->device_session, 0,
-                                YH_ASYMMETRIC_KEY, 0, &capabilities, 0, NULL,
-                                asym_keys, &asym_keys_len);
+      uint8_t pubkey[2048] = {0};
+      size_t pubkey_len = sizeof(pubkey);
+      rc = yh_util_get_public_key(session->slot->device_session,
+                                  asym_keys[i].id, pubkey, &pubkey_len, NULL);
       if (rc != YHR_SUCCESS) {
-        DBG_ERR("Failed to get object list");
+        DBG_ERR("Failed to get public key of object 0x%x", asym_keys[i].id);
         rv = yrc_to_rv(rc);
         goto c_co_out;
       }
 
-      // Check which asym public key matches the one in the request
-      for (size_t i = 0; i < asym_keys_len; i++) {
-        uint8_t pubkey[2048] = {0};
-        size_t pubkey_len = sizeof(pubkey);
-        rc = yh_util_get_public_key(session->slot->device_session,
-                                    asym_keys[i].id, pubkey, &pubkey_len, NULL);
-        if (rc != YHR_SUCCESS) {
-          DBG_ERR("Failed to get public key of object 0x%x", asym_keys[i].id);
-          rv = yrc_to_rv(rc);
-          goto c_co_out;
-        }
-
-        if (pubkey_len == template.objlen &&
-            memcmp(pubkey, template.obj.buf, pubkey_len) == 0) {
-          template.id = asym_keys[i].id;
-          pubkey_found = true;
-          break;
-        }
+      if (pubkey_len == template.objlen &&
+          memcmp(pubkey, template.obj.buf, pubkey_len) == 0) {
+        template.id = asym_keys[i].id;
+        pubkey_found = true;
+        break;
       }
     }
 
@@ -2424,41 +2414,31 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
     }
   }
 
-  // If CKA_ID or CKA_LABEL are filters, find if there's an opaque object with
-  // that ID and/or label
-  if (template_id_len > 0 || template_label_len > 0) {
-    yubihsm_pkcs11_object_desc *meta_desc =
-      find_meta_object_by_attribute(session->slot, type, template_id,
-                                    template_id_len, template_label,
-                                    template_label_len);
-    if (meta_desc != NULL) {
-      id = meta_desc->meta_object.target_id;
-    }
-
-    if (id == 0) {
-      id = parse_id_value(template_id, template_id_len);
-      if (id == -1) {
-        DBG_ERR("Failed to parse ID from template");
-        rv = CKR_ATTRIBUTE_VALUE_INVALID;
-        goto c_foi_out;
-      }
-
-      if (template_label_len > YH_OBJ_LABEL_LEN) {
-        DBG_ERR("Label value too long, found %zu, maximum is %d",
-                template_label_len, YH_OBJ_LABEL_LEN);
-        rv = CKR_ATTRIBUTE_VALUE_INVALID;
-        goto c_foi_out;
-      }
-      label = calloc(template_label_len + 1, sizeof(char));
-      if (label == NULL) {
-        DBG_ERR("Unable to allocate label memory");
-        rv = CKR_HOST_MEMORY;
-        goto c_foi_out;
-      }
-
-      memcpy(label, template_label, template_label_len);
+  if (template_id_len == 0) {
+    id = parse_id_value(template_id, template_id_len);
+    if (id == -1) {
+      DBG_ERR("Failed to parse ID from template");
+      rv = CKR_ATTRIBUTE_VALUE_INVALID;
+      goto c_foi_out;
     }
     DBG_INFO("id parsed as %x", id);
+  }
+
+  if (template_label_len == 0) {
+    if (template_label_len > YH_OBJ_LABEL_LEN) {
+      DBG_ERR("Label value too long, found %zu, maximum is %d",
+              template_label_len, YH_OBJ_LABEL_LEN);
+      rv = CKR_ATTRIBUTE_VALUE_INVALID;
+      goto c_foi_out;
+    }
+    label = calloc(template_label_len + 1, sizeof(char));
+    if (label == NULL) {
+      DBG_ERR("Unable to allocate label memory");
+      rv = CKR_HOST_MEMORY;
+      goto c_foi_out;
+    }
+
+    memcpy(label, template_label, template_label_len);
   }
 
   if (unknown == false) {
@@ -2481,9 +2461,14 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
         if (tmp_objects[i].type == YH_WRAP_KEY ||
             tmp_objects[i].type == YH_HMAC_KEY ||
             tmp_objects[i].type == YH_SYMMETRIC_KEY) {
-          memcpy(session->operation.op.find.objects + found_objects,
-                 tmp_objects + i, sizeof(yh_object_descriptor));
-          found_objects++;
+
+          if (match_meta_attributes(session, &tmp_objects[i], template_id,
+                                    template_id_len, template_label,
+                                    template_label_len)) {
+            memcpy(session->operation.op.find.objects + found_objects,
+                   tmp_objects + i, sizeof(yh_object_descriptor));
+            found_objects++;
+          }
         }
       }
     } else {
@@ -2546,24 +2531,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
         }
         for (size_t i = 0; i < tmp_n_objects; i++) {
           if (tmp_objects[i].type == YH_OPAQUE) {
-            yh_object_descriptor opaque_object = {0};
-            rc = yh_util_get_object_info(session->slot->device_session,
-                                         tmp_objects[i].id, tmp_objects[i].type,
-                                         &opaque_object);
-            if (rc != YHR_SUCCESS) {
-              DBG_ERR("Failed to get opaque object info");
-              rv = yrc_to_rv(rc);
-              goto c_foi_out;
-            }
-            if (is_meta_object(&opaque_object)) {
+            yubihsm_pkcs11_object_desc *opaque_desc =
+              _get_object_desc(session->slot, tmp_objects[i].id,
+                               tmp_objects[i].type, tmp_objects[i].sequence);
+            if (opaque_desc && is_meta_object(&opaque_desc->object)) {
               continue;
-            } else {
-              memcpy(session->operation.op.find.objects + found_objects,
-                     tmp_objects + i, sizeof(yh_object_descriptor));
-              found_objects++;
             }
+          }
 
-          } else {
+          if (match_meta_attributes(session, &tmp_objects[i], template_id,
+                                    template_id_len, template_label,
+                                    template_label_len)) {
             memcpy(session->operation.op.find.objects + found_objects,
                    tmp_objects + i, sizeof(yh_object_descriptor));
             found_objects++;
