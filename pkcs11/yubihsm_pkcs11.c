@@ -1775,8 +1775,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
         goto c_co_out;
       }
 
-      if (pubkey_len == template.objlen &&
-          memcmp(pubkey, template.obj.buf, pubkey_len) == 0) {
+      if (match_byte_array(pubkey, pubkey_len, template.obj.buf,
+                           template.objlen)) {
         template.id = asym_keys[i].id;
         pubkey_found = true;
         break;
@@ -2138,8 +2138,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
     if (meta_desc != NULL) {
       pkcs11_meta_object *meta_object = &meta_desc->meta_object;
       bool changed = FALSE;
-      if (new_ckaid_len != meta_object->cka_id_len ||
-          memcmp(new_ckaid, meta_object->cka_id, new_ckaid_len) != 0) {
+      if (!match_byte_array(new_ckaid, new_ckaid_len, meta_object->cka_id,
+                            meta_object->cka_id_len)) {
         changed = TRUE;
         if (meta_object->cka_id_len > 0) {
           memset(&meta_object->cka_id, 0, meta_object->cka_id_len);
@@ -2147,8 +2147,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
         meta_object->cka_id_len = new_ckaid_len;
         memcpy(meta_object->cka_id, new_ckaid, new_ckaid_len);
       }
-      if (new_ckalabel_len != meta_object->cka_label_len ||
-          memcmp(new_ckalabel, meta_object->cka_label, new_ckalabel_len) != 0) {
+      if (!match_byte_array(new_ckalabel, new_ckalabel_len,
+                            meta_object->cka_label,
+                            meta_object->cka_label_len)) {
         changed = TRUE;
         if (meta_object->cka_label_len > 0) {
           memset(&meta_object->cka_label, 0, meta_object->cka_label_len);
@@ -2478,8 +2479,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
               goto c_foi_out;
             }
 
-            if (cert_len == template_value_len &&
-                memcmp(template_value, cert, cert_len) == 0) {
+            if (match_byte_array(template_value, template_value_len, cert,
+                                 cert_len)) {
               session->operation.op.find.objects[0].id = tmp_objects[i].id;
               session->operation.op.find.objects[0].type = tmp_objects[i].type;
               session->operation.op.find.objects[0].sequence =
@@ -5419,14 +5420,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_UnwrapKey)
     goto c_uk_out;
   }
 
-  yh_object_descriptor object = {0};
-  yrc = yh_util_get_object_info(session->slot->device_session, target_id,
-                                target_type, &object);
-  if (yrc != YHR_SUCCESS) {
-    rv = yrc_to_rv(yrc);
+  yubihsm_pkcs11_object_desc *object_desc =
+    _get_object_desc(session->slot, target_id, target_type, 0xffff);
+  if (object_desc == NULL) {
+    DBG_ERR("Failed executing get object info after creating: id 0x%x",
+            target_id);
+    rv = CKR_OBJECT_HANDLE_INVALID;
     goto c_uk_out;
   }
-  *phKey = object.sequence << 24 | object.type << 16 | object.id;
+  yh_object_descriptor *object = &object_desc->object;
+
+  *phKey = object->sequence << 24 | object->type << 16 | object->id;
 
   DBG_INFO("Unwrapped object %08lx", *phKey);
 

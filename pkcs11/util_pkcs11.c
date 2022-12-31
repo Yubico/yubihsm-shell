@@ -23,7 +23,6 @@
 #include "../common/platform-config.h"
 #include "../common/util.h"
 #include "../common/time_win.h"
-#include "list.h"
 
 #ifdef __WIN32
 #include <winsock.h>
@@ -852,8 +851,7 @@ bool is_meta_object(yh_object_descriptor *object) {
           strncmp(object->label, "Meta object", strlen("Meta object")) == 0);
 }
 
-static bool match_byte_array(uint8_t *a, uint16_t a_len, uint8_t *b,
-                             uint16_t b_len) {
+bool match_byte_array(uint8_t *a, uint16_t a_len, uint8_t *b, uint16_t b_len) {
   return a_len == b_len && memcmp(a, b, a_len) == 0;
 }
 
@@ -889,12 +887,6 @@ CK_RV populate_cache_with_data_opaques(yubihsm_pkcs11_slot *slot) {
 yubihsm_pkcs11_object_desc *
 find_meta_object_by_target(yubihsm_pkcs11_slot *slot, uint16_t target_id,
                            uint8_t target_type, uint8_t target_sequence) {
-
-  if (target_id == 0 || target_type == 0) {
-    DBG_INFO("No meta opaque object criteria to look for");
-    return NULL;
-  }
-
   for (int i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
     pkcs11_meta_object *current_meta = &slot->objects[i].meta_object;
     if (current_meta->target_id == target_id &&

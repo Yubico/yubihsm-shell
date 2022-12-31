@@ -49,19 +49,19 @@ typedef enum {
 #define SESSION_NOT_AUTHENTICATED (SESSION_RESERVED_RO | SESSION_RESERVED_RW)
 
 typedef struct {
-  // The ObjectID of the asymmetric key
+  /// Original objectID of the asymmetric key/certificate/symmetric key
   uint16_t target_id;
-  /// Object type
+  /// Original object type
   yh_object_type target_type;
-  /// Object sequence
+  /// Original object sequence
   uint8_t target_sequence;
-  /// The CKA_ID
+  /// CKA_ID value
   uint8_t cka_id[PKCS11_ID_SIZE];
-  /// The CKA_ID length
+  /// CKA_ID length
   uint16_t cka_id_len;
-  /// Object label
+  /// CKA_LABEL value
   uint8_t cka_label[PKCS11_LABEL_SIZE];
-  /// The CKA_LABEL length
+  /// CKA_LABEL length
   uint16_t cka_label_len;
 } pkcs11_meta_object;
 

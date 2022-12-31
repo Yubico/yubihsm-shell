@@ -180,4 +180,5 @@ CK_RV parse_meta_id_template(pkcs11_meta_object *pkcs11meta, int *id,
 CK_RV parse_meta_label_template(yubihsm_pkcs11_object_template *template,
                                 pkcs11_meta_object *pkcs11meta, bool label_set,
                                 uint8_t *value, size_t value_len);
+bool match_byte_array(uint8_t *a, uint16_t a_len, uint8_t *b, uint16_t b_len);
 #endif
