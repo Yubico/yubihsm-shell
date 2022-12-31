@@ -777,16 +777,14 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
 
   *p++ = meta_object->target_type;
 
-  uint16_t object_id_serialized = htons(meta_object->target_id);
-  memcpy(p, &object_id_serialized, 2); // ObjectID
+  *(uint16_t *) p = htons(meta_object->target_id);
   p += 2;
 
   *p++ = meta_object->target_sequence;
 
   if (meta_object->cka_id_len > 0) {
     *p++ = PKCS11_ID_TAG;
-    uint16_t len_serialized = htons(meta_object->cka_id_len);
-    memcpy(p, &len_serialized, 2);
+    *(uint16_t *) p = htons(meta_object->cka_id_len);
     p += 2;
     memcpy(p, &meta_object->cka_id, meta_object->cka_id_len);
     p += meta_object->cka_id_len;
@@ -794,8 +792,7 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
 
   if (meta_object->cka_label_len > 0) {
     *p++ = PKCS11_LABEL_TAG;
-    uint16_t len_serialized = htons(meta_object->cka_label_len);
-    memcpy(p, &len_serialized, 2);
+    *(uint16_t *) p = htons(meta_object->cka_label_len);
     p += 2;
     memcpy(p, &meta_object->cka_label, meta_object->cka_label_len);
   }
@@ -843,9 +840,6 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
 }
 
 bool is_meta_object(yh_object_descriptor *object) {
-  if (!object) {
-    return false;
-  }
   return (object->type == YH_OPAQUE &&
           object->algorithm == YH_ALGO_OPAQUE_DATA &&
           strncmp(object->label, "Meta object", strlen("Meta object")) == 0);
