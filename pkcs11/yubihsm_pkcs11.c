@@ -1760,8 +1760,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     // Check which asym public key matches the one in the request
     for (size_t i = 0; i < asym_keys_len; i++) {
       if (!match_meta_attributes(session, &asym_keys[i], meta_object.cka_id,
-                                 meta_object.cka_id_len,
-                                 (uint8_t *) meta_object.cka_label,
+                                 meta_object.cka_id_len, meta_object.cka_label,
                                  meta_object.cka_label_len)) {
         continue;
       }
