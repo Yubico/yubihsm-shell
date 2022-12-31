@@ -2413,33 +2413,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
     }
   }
 
-  if (template_id_len == 0) {
-    id = parse_id_value(template_id, template_id_len);
-    if (id == -1) {
-      DBG_ERR("Failed to parse ID from template");
-      rv = CKR_ATTRIBUTE_VALUE_INVALID;
-      goto c_foi_out;
-    }
-    DBG_INFO("id parsed as %x", id);
-  }
-
-  if (template_label_len == 0) {
-    if (template_label_len > YH_OBJ_LABEL_LEN) {
-      DBG_ERR("Label value too long, found %zu, maximum is %d",
-              template_label_len, YH_OBJ_LABEL_LEN);
-      rv = CKR_ATTRIBUTE_VALUE_INVALID;
-      goto c_foi_out;
-    }
-    label = calloc(template_label_len + 1, sizeof(char));
-    if (label == NULL) {
-      DBG_ERR("Unable to allocate label memory");
-      rv = CKR_HOST_MEMORY;
-      goto c_foi_out;
-    }
-
-    memcpy(label, template_label, template_label_len);
-  }
-
   if (unknown == false) {
     uint16_t found_objects = 0;
     if (secret_key == true) {
@@ -2557,16 +2530,26 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
       }
     }
 
+    id = parse_id_value(template_id, template_id_len);
+    if (id == -1) {
+      DBG_ERR("Failed to parse ID from template");
+      rv = CKR_ATTRIBUTE_VALUE_INVALID;
+      goto c_foi_out;
+    }
+    DBG_INFO("id parsed as %x", id);
+
     if (ulCount == 0 ||
         should_include_sessionkeys(secret_key, extractable_set,
                                    session->operation.op.find.only_private,
                                    id)) {
+
       ListItem *item = NULL;
       for (item = session->ecdh_session_keys.head; item != NULL;
            item = item->next) {
         ecdh_session_key *key = (ecdh_session_key *) item->data;
 
-        if (label == NULL || strcmp(label, key->label) == 0) {
+        if (template_label_len == 0 ||
+            strcmp((const char *) template_label, key->label) == 0) {
 
           yh_object_descriptor desc = {0};
           desc.id = key->id & 0xffff;
