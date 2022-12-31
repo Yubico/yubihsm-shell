@@ -2433,8 +2433,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
         if (tmp_objects[i].type == YH_WRAP_KEY ||
             tmp_objects[i].type == YH_HMAC_KEY ||
             tmp_objects[i].type == YH_SYMMETRIC_KEY) {
+          yubihsm_pkcs11_object_desc *object_desc =
+            _get_object_desc(session->slot, tmp_objects[i].id,
+                             tmp_objects[i].type, tmp_objects[i].sequence);
 
-          if (match_meta_attributes(session, &tmp_objects[i], template_id,
+          if (match_meta_attributes(session, &object_desc->object, template_id,
                                     template_id_len, template_label,
                                     template_label_len)) {
             memcpy(session->operation.op.find.objects + found_objects,
@@ -2502,16 +2505,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           goto c_foi_out;
         }
         for (size_t i = 0; i < tmp_n_objects; i++) {
+          yubihsm_pkcs11_object_desc *object_desc =
+            _get_object_desc(session->slot, tmp_objects[i].id,
+                             tmp_objects[i].type, tmp_objects[i].sequence);
+
           if (tmp_objects[i].type == YH_OPAQUE) {
-            yubihsm_pkcs11_object_desc *opaque_desc =
-              _get_object_desc(session->slot, tmp_objects[i].id,
-                               tmp_objects[i].type, tmp_objects[i].sequence);
-            if (opaque_desc && is_meta_object(&opaque_desc->object)) {
+            if (object_desc && is_meta_object(&object_desc->object)) {
               continue;
             }
           }
 
-          if (match_meta_attributes(session, &tmp_objects[i], template_id,
+          if (match_meta_attributes(session, &object_desc->object, template_id,
                                     template_id_len, template_label,
                                     template_label_len)) {
             memcpy(session->operation.op.find.objects + found_objects,
