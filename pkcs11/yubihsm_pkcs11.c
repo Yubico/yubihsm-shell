@@ -1253,6 +1253,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
   }
 
   list_iterate(&session->slot->pkcs11_sessions, login_sessions);
+  populate_cache_with_data_opaques(session->slot);
 
   DOUT;
 
@@ -1342,6 +1343,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     CK_ULONG d;
   } class = {0}, key_type = {0}, id = {0};
   yubihsm_pkcs11_object_template template = {0};
+  pkcs11_meta_object meta_object = {0};
   for (CK_ULONG i = 0; i < ulCount; i++) {
     switch (pTemplate[i].type) {
       case CKA_CLASS:
@@ -1366,10 +1368,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
 
       case CKA_ID:
         if (id.set == false) {
-          id.d = parse_id_value(pTemplate[i].pValue, pTemplate[i].ulValueLen);
-          if (id.d == (CK_ULONG) -1) {
-            rv = CKR_ATTRIBUTE_VALUE_INVALID;
-            goto c_co_out;
+          if (pTemplate[i].ulValueLen != 2) {
+            meta_object.cka_id_len = pTemplate[i].ulValueLen;
+            memcpy(meta_object.cka_id, pTemplate[i].pValue,
+                   pTemplate[i].ulValueLen);
+            id.d = 0;
+          } else {
+            id.d = parse_id_value(pTemplate[i].pValue, pTemplate[i].ulValueLen);
+            if (id.d == (CK_ULONG) -1) {
+              rv = CKR_ATTRIBUTE_VALUE_INVALID;
+              goto c_co_out;
+            }
           }
           id.set = true;
         } else {
@@ -1380,12 +1389,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
 
       case CKA_LABEL:
         if (pTemplate[i].ulValueLen > YH_OBJ_LABEL_LEN) {
-          rv = CKR_ATTRIBUTE_VALUE_INVALID;
-          goto c_co_out;
+          meta_object.cka_label_len = pTemplate[i].ulValueLen;
+          memcpy(meta_object.cka_label, pTemplate[i].pValue,
+                 pTemplate[i].ulValueLen);
+          memcpy(template.label, pTemplate[i].pValue, YH_OBJ_LABEL_LEN);
+        } else {
+          memcpy(template.label, pTemplate[i].pValue, pTemplate[i].ulValueLen);
         }
-
-        memcpy(template.label, pTemplate[i].pValue, pTemplate[i].ulValueLen);
-
         break;
 
       case CKA_EXTRACTABLE:
@@ -1493,6 +1503,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     } else {
       rv = CKR_ATTRIBUTE_VALUE_INVALID;
       goto c_co_out;
+    }
+
+    if (meta_object.cka_id_len > 0 || meta_object.cka_label_len > 0) {
+      meta_object.target_id = template.id;
     }
   } else if (class.d == CKO_SECRET_KEY) {
     if (key_type.set == false) {
@@ -1632,11 +1646,16 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       rv = CKR_ATTRIBUTE_VALUE_INVALID;
       goto c_co_out;
     }
+    if (meta_object.cka_id_len > 0 || meta_object.cka_label_len > 0) {
+      meta_object.target_id = template.id;
+    }
   } else if (class.d == CKO_CERTIFICATE || class.d == CKO_DATA) {
     yh_algorithm algo = YH_ALGO_OPAQUE_DATA;
     type = YH_OPAQUE;
     if (class.d == CKO_CERTIFICATE) {
       algo = YH_ALGO_OPAQUE_X509_CERTIFICATE;
+    } else {
+      algo = YH_ALGO_OPAQUE_DATA;
     }
     for (CK_ULONG i = 0; i < ulCount; i++) {
       switch (pTemplate[i].type) {
@@ -1683,6 +1702,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
         case CKA_LABEL:
         case CKA_APPLICATION:
         case CKA_OBJECT_ID:
+        case CKA_SUBJECT:
+        case CKA_ISSUER:
+        case CKA_SERIAL_NUMBER:
           break;
         default:
           DBG_ERR("Invalid attribute type in key template: 0x%lx",
@@ -1700,21 +1722,103 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       rv = yrc_to_rv(rc);
       goto c_co_out;
     }
+    if (algo == YH_ALGO_OPAQUE_X509_CERTIFICATE &&
+        (meta_object.cka_id_len > 0 || meta_object.cka_label_len > 0)) {
+      meta_object.target_id = template.id;
+    }
+  } else if (class.d == CKO_PUBLIC_KEY) {
+    bool pubkey_found = false;
+    // Read the value of the public key
+    for (CK_ULONG i = 0; i < ulCount; i++) {
+      switch (pTemplate[i].type) {
+        case CKA_VALUE:
+          if (template.obj.buf == NULL) {
+            template.obj.buf = (CK_BYTE_PTR) pTemplate[i].pValue;
+            template.objlen = pTemplate[i].ulValueLen;
+            DBG_INFO("Object will be stored with length %d", template.objlen);
+          } else {
+            DBG_ERR("Object buffer already set");
+            rv = CKR_TEMPLATE_INCONSISTENT;
+            goto c_co_out;
+          }
+          break;
+      }
+    }
+
+    // Get a list of all asym objects in the YubiHSM
+    yh_object_descriptor asym_keys[YH_MAX_ITEMS_COUNT] = {0};
+    size_t asym_keys_len = sizeof(asym_keys);
+    rc = yh_util_list_objects(session->slot->device_session, 0,
+                              YH_ASYMMETRIC_KEY, 0, &capabilities, 0, NULL,
+                              asym_keys, &asym_keys_len);
+    if (rc != YHR_SUCCESS) {
+      DBG_ERR("Failed to get object list");
+      rv = yrc_to_rv(rc);
+      goto c_co_out;
+    }
+
+    // Check which asym public key matches the one in the request
+    for (size_t i = 0; i < asym_keys_len; i++) {
+      if (!match_meta_attributes(session, &asym_keys[i], meta_object.cka_id,
+                                 meta_object.cka_id_len, meta_object.cka_label,
+                                 meta_object.cka_label_len)) {
+        continue;
+      }
+
+      uint8_t pubkey[2048] = {0};
+      size_t pubkey_len = sizeof(pubkey);
+      rc = yh_util_get_public_key(session->slot->device_session,
+                                  asym_keys[i].id, pubkey, &pubkey_len, NULL);
+      if (rc != YHR_SUCCESS) {
+        DBG_ERR("Failed to get public key of object 0x%x", asym_keys[i].id);
+        rv = yrc_to_rv(rc);
+        goto c_co_out;
+      }
+
+      if (match_byte_array(pubkey, pubkey_len, template.obj.buf,
+                           template.objlen)) {
+        template.id = asym_keys[i].id;
+        pubkey_found = true;
+        break;
+      }
+    }
+
+    if (pubkey_found == false) {
+      rv = CKR_ATTRIBUTE_VALUE_INVALID;
+      goto c_co_out;
+    }
+    type = YH_ASYMMETRIC_KEY;
   } else {
     rv = CKR_TEMPLATE_INCONSISTENT;
     goto c_co_out;
   }
 
-  yh_object_descriptor object = {0};
-  rc = yh_util_get_object_info(session->slot->device_session, template.id, type,
-                               &object);
-  if (rc != YHR_SUCCESS) {
-    DBG_ERR("Failed executing get object info after creating: %s",
-            yh_strerror(rc));
-    rv = yrc_to_rv(rc);
+  yubihsm_pkcs11_object_desc *object_desc =
+    _get_object_desc(session->slot, template.id, type, 0xffff);
+  if (object_desc == NULL) {
+    DBG_ERR("Failed executing get object info after creating: id 0x%x",
+            template.id);
+    rv = CKR_OBJECT_HANDLE_INVALID;
     goto c_co_out;
   }
-  *phObject = object.sequence << 24 | object.type << 16 | object.id;
+  yh_object_descriptor *object = &object_desc->object;
+
+  if (meta_object.target_id != 0) {
+    meta_object.target_type = object->type;
+    meta_object.target_sequence = object->sequence;
+    rv = write_meta_object(session->slot, &meta_object, false);
+    if (rv != CKR_OK) {
+      DBG_ERR("Failed writing meta opaque object to device");
+      goto c_co_out;
+    }
+  }
+
+  if (class.d == CKO_PUBLIC_KEY) {
+    *phObject =
+      object->sequence << 24 | (object->type | 0x80) << 16 | object->id;
+  } else {
+    *phObject = object->sequence << 24 | object->type << 16 | object->id;
+  }
 
   DBG_INFO("Created object %08lx", *phObject);
 
@@ -1779,7 +1883,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
       DBG_INFO("No ECDH session key with ID %08lx was found", hObject);
     }
   } else {
-    if (((uint8_t) (hObject >> 16)) == YH_PUBLIC_KEY) {
+    if (((uint8_t)(hObject >> 16)) == YH_PUBLIC_KEY) {
       DBG_INFO("Trying to delete public key, returning success with noop");
       goto c_do_out;
     }
@@ -1792,16 +1896,31 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
       goto c_do_out;
     }
 
-    yh_rc yrc = yh_util_delete_object(session->slot->device_session,
-                                      object->object.id, object->object.type);
+    yh_rc yrc;
+    yubihsm_pkcs11_object_desc *meta_desc =
+      find_meta_object_by_target(session->slot, object->object.id,
+                                 object->object.type, object->object.sequence);
+    if (meta_desc != NULL) {
+      yrc = yh_util_delete_object(session->slot->device_session,
+                                  meta_desc->object.id, meta_desc->object.type);
+      if (yrc != YHR_SUCCESS) {
+        DBG_ERR("Failed to delete meta opaque object: %s", yh_strerror(yrc));
+        rv = yrc_to_rv(yrc);
+        goto c_do_out;
+      }
+      DBG_INFO("Deleted meta object 0x%x", meta_desc->object.id);
+      memset(meta_desc, 0, sizeof(yubihsm_pkcs11_object_desc));
+    }
+
+    yrc = yh_util_delete_object(session->slot->device_session,
+                                object->object.id, object->object.type);
     if (yrc != YHR_SUCCESS) {
-      DBG_ERR("Failed deleting object: %s", yh_strerror(yrc));
+      DBG_ERR("Failed to delete object: %s", yh_strerror(yrc));
       rv = yrc_to_rv(yrc);
       goto c_do_out;
     }
-
     DBG_INFO("Deleted object %08lx", hObject);
-    delete_object_from_cache(session->slot, hObject);
+    memset(&object->object, 0, sizeof(yubihsm_pkcs11_object_desc));
   }
 
   DOUT;
@@ -1899,8 +2018,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
                "Key id: 0x%lx",
                hObject);
       ecdh_session_key *key = (ecdh_session_key *) item->data;
-      rv = populate_template(type, key, pTemplate, ulCount,
-                             session->slot->device_session);
+      rv = populate_template(type, key, pTemplate, ulCount, session);
     }
 
     if ((rv == CKR_OK) && !object_found) {
@@ -1921,8 +2039,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
       goto c_gav_out;
     }
 
-    rv = populate_template(type, object, pTemplate, ulCount,
-                           session->slot->device_session);
+    rv = populate_template(type, object, pTemplate, ulCount, session);
     if (rv != CKR_OK) {
       goto c_gav_out;
     }
@@ -1974,16 +2091,20 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
     rv = CKR_OBJECT_HANDLE_INVALID;
     goto c_sav_out;
   }
+
+  uint8_t new_ckaid[PKCS11_ID_SIZE] = {0};
+  int new_ckaid_len = 0;
+  uint8_t new_ckalabel[PKCS11_LABEL_SIZE] = {0};
+  int new_ckalabel_len = 0;
+
   for (CK_ULONG i = 0; i < ulCount; i++) {
     switch (pTemplate[i].type) {
       case CKA_ID: {
         int new_id =
           parse_id_value(pTemplate[i].pValue, pTemplate[i].ulValueLen);
         if (new_id != object->object.id) {
-          DBG_INFO("Refusing to change id of object (old:%x, new:%x",
-                   object->object.id, new_id);
-          rv = CKR_FUNCTION_NOT_SUPPORTED;
-          goto c_sav_out;
+          new_ckaid_len = pTemplate[i].ulValueLen;
+          memcpy(new_ckaid, pTemplate[i].pValue, pTemplate[i].ulValueLen);
         }
       } break;
 
@@ -1991,10 +2112,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
         if (pTemplate[i].ulValueLen != strlen(object->object.label) ||
             memcmp(pTemplate[i].pValue, object->object.label,
                    pTemplate[i].ulValueLen) != 0) {
-          DBG_INFO("Refusing to change label of object");
-          rv = CKR_FUNCTION_NOT_SUPPORTED;
-          goto c_sav_out;
+          new_ckalabel_len = pTemplate[i].ulValueLen;
+          memcpy(new_ckalabel, pTemplate[i].pValue, pTemplate[i].ulValueLen);
         }
+        break;
+
+      case CKA_SUBJECT:
         break;
 
       default:
@@ -2002,6 +2125,64 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
                  pTemplate[i].type);
         rv = CKR_FUNCTION_NOT_SUPPORTED;
         goto c_sav_out;
+    }
+  }
+
+  if (new_ckaid_len > 0 || new_ckalabel_len > 0) {
+    DBG_INFO("New ID or label different from existing ones. Creating metadata "
+             "opaque object");
+
+    yubihsm_pkcs11_object_desc *meta_desc =
+      find_meta_object_by_target(session->slot, object->object.id,
+                                 object->object.type, object->object.sequence);
+    if (meta_desc != NULL) {
+      pkcs11_meta_object *meta_object = &meta_desc->meta_object;
+      bool changed = FALSE;
+      if (!match_byte_array(new_ckaid, new_ckaid_len, meta_object->cka_id,
+                            meta_object->cka_id_len)) {
+        changed = TRUE;
+        if (meta_object->cka_id_len > 0) {
+          memset(&meta_object->cka_id, 0, meta_object->cka_id_len);
+        }
+        meta_object->cka_id_len = new_ckaid_len;
+        memcpy(meta_object->cka_id, new_ckaid, new_ckaid_len);
+      }
+      if (!match_byte_array(new_ckalabel, new_ckalabel_len,
+                            meta_object->cka_label,
+                            meta_object->cka_label_len)) {
+        changed = TRUE;
+        if (meta_object->cka_label_len > 0) {
+          memset(&meta_object->cka_label, 0, meta_object->cka_label_len);
+        }
+        meta_object->cka_label_len = new_ckalabel_len;
+        memcpy(meta_object->cka_label, new_ckalabel, new_ckalabel_len);
+      }
+      if (changed) {
+        rv = write_meta_object(session->slot, meta_object, true);
+        if (rv != CKR_OK) {
+          DBG_ERR("Failed to update meta opaque object to update CKA_ID");
+          goto c_sav_out;
+        }
+      }
+    } else {
+      // Create new opaque object and add it to the session
+      pkcs11_meta_object new_meta_object = {0};
+      new_meta_object.target_id = object->object.id;
+      new_meta_object.target_type = object->object.type;
+      new_meta_object.target_sequence = object->object.sequence;
+      if (new_ckaid_len > 0) {
+        new_meta_object.cka_id_len = new_ckaid_len;
+        memcpy(new_meta_object.cka_id, new_ckaid, new_ckaid_len);
+      }
+      if (new_ckalabel_len > 0) {
+        new_meta_object.cka_label_len = new_ckalabel_len;
+        memcpy(new_meta_object.cka_label, new_ckalabel, new_ckalabel_len);
+      }
+      rv = write_meta_object(session->slot, &new_meta_object, false);
+      if (rv != CKR_OK) {
+        DBG_ERR("Failed to create a new meta opaque object to store CKA_ID");
+        goto c_sav_out;
+      }
     }
   }
 
@@ -2050,6 +2231,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
   }
 
   char *label = NULL;
+  uint8_t *template_value = NULL;
 
   if (session->operation.type != OPERATION_NOOP) {
     DBG_ERR("Another operation is already active %d", session->operation.type);
@@ -2082,23 +2264,23 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
   bool unknown = false;
   bool secret_key = false;
   bool extractable_set = false;
+  size_t template_value_len = 0;
+  uint8_t template_id[PKCS11_ID_SIZE] = {0};
+  size_t template_id_len = 0;
+  uint8_t template_label[PKCS11_LABEL_SIZE] = {0};
+  size_t template_label_len = 0;
 
   DBG_INFO("find with %lu attributes", ulCount);
   if (ulCount != 0) {
     for (CK_ULONG i = 0; i < ulCount; i++) {
       switch (pTemplate[i].type) {
         case CKA_ID:
-          id = parse_id_value(pTemplate[i].pValue, pTemplate[i].ulValueLen);
-          if (id == -1) {
-            DBG_ERR("Failed to parse ID from template");
-            rv = CKR_ATTRIBUTE_VALUE_INVALID;
-            goto c_foi_out;
-          }
-          DBG_INFO("id parsed as %x", id);
+          template_id_len = pTemplate[i].ulValueLen;
+          memcpy(template_id, pTemplate[i].pValue, template_id_len);
           break;
 
         case CKA_CLASS: {
-          uint32_t value = *((CK_ULONG_PTR) (pTemplate[i].pValue));
+          uint32_t value = *((CK_ULONG_PTR)(pTemplate[i].pValue));
           switch (value) {
             case CKO_CERTIFICATE:
               DBG_INFO("Filtering for certificate");
@@ -2124,30 +2306,14 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
 
             default:
               unknown = true;
-              DBG_INFO("Asking for unknown class %x, returning empty set",
-                       (uint32_t) pTemplate[i].type);
+              DBG_INFO("Asking for unknown class %x, returning empty set. %x",
+                       (uint32_t) pTemplate[i].type, value);
           }
         } break;
-
-        case CKA_LABEL: {
-          CK_ULONG len = pTemplate[i].ulValueLen;
-
-          if (len > YH_OBJ_LABEL_LEN) {
-            DBG_ERR("Label value too long, found %lu, maximum is %d", len,
-                    YH_OBJ_LABEL_LEN);
-            rv = CKR_ATTRIBUTE_VALUE_INVALID;
-            goto c_foi_out;
-          }
-
-          label = calloc(len + 1, sizeof(char));
-          if (label == NULL) {
-            DBG_ERR("Unable to allocate label memory");
-            rv = CKR_HOST_MEMORY;
-            goto c_foi_out;
-          }
-
-          memcpy(label, pTemplate[i].pValue, len);
-        } break;
+        case CKA_LABEL:
+          template_label_len = pTemplate[i].ulValueLen;
+          memcpy(template_label, pTemplate[i].pValue, template_label_len);
+          break;
 
         case CKA_SIGN:
           if (*((CK_BBOOL *) pTemplate[i].pValue) == CK_TRUE) {
@@ -2221,6 +2387,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           }
           break;
 
+        case CKA_VALUE:
+          template_value_len = pTemplate[i].ulValueLen;
+          template_value = malloc(template_value_len * sizeof(uint8_t));
+          memcpy(template_value, pTemplate[i].pValue, template_value_len);
+          break;
+
         case CKA_TOKEN:
         case CKA_PRIVATE:
         case CKA_SENSITIVE:
@@ -2262,43 +2434,123 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
         if (tmp_objects[i].type == YH_WRAP_KEY ||
             tmp_objects[i].type == YH_HMAC_KEY ||
             tmp_objects[i].type == YH_SYMMETRIC_KEY) {
-          memcpy(session->operation.op.find.objects + found_objects,
-                 tmp_objects + i, sizeof(yh_object_descriptor));
-          found_objects++;
+          yubihsm_pkcs11_object_desc *object_desc =
+            _get_object_desc(session->slot, tmp_objects[i].id,
+                             tmp_objects[i].type, tmp_objects[i].sequence);
+
+          if (match_meta_attributes(session, &object_desc->object, template_id,
+                                    template_id_len, template_label,
+                                    template_label_len)) {
+            memcpy(session->operation.op.find.objects + found_objects,
+                   tmp_objects + i, sizeof(yh_object_descriptor));
+            found_objects++;
+          }
         }
       }
     } else {
-      session->operation.op.find.n_objects =
-        YH_MAX_ITEMS_COUNT + MAX_ECDH_SESSION_KEYS;
-      rc = yh_util_list_objects(session->slot->device_session, id, type,
-                                domains, &capabilities, algorithm, label,
-                                session->operation.op.find.objects,
-                                &session->operation.op.find.n_objects);
-      if (rc != YHR_SUCCESS) {
-        DBG_ERR("Failed to get object list: %s", yh_strerror(rc));
-        rv = yrc_to_rv(rc);
-        goto c_foi_out;
-      }
-      found_objects = session->operation.op.find.n_objects;
+      if (template_value != NULL) {
+        // Find by certificate
+        if (algorithm != 0 && algorithm != YH_ALGO_OPAQUE_X509_CERTIFICATE) {
+          DBG_ERR(
+            "Value in template not an X509Certificate. Cannot perform search.");
+          rv = CKR_ATTRIBUTE_VALUE_INVALID;
+          goto c_foi_out;
+        } else {
+          yh_object_descriptor tmp_objects[YH_MAX_ITEMS_COUNT] = {0};
+          size_t tmp_n_objects = sizeof(tmp_objects);
+          rc = yh_util_list_objects(session->slot->device_session, id,
+                                    YH_OPAQUE, domains, &capabilities,
+                                    YH_ALGO_OPAQUE_X509_CERTIFICATE, label,
+                                    tmp_objects, &tmp_n_objects);
+          if (rc != YHR_SUCCESS) {
+            DBG_ERR("Failed to get object list");
+            rv = yrc_to_rv(rc);
+            goto c_foi_out;
+          }
 
-      if (pub) {
-        for (size_t i = 0; i < session->operation.op.find.n_objects; i++) {
-          if (session->operation.op.find.objects[i].type == YH_ASYMMETRIC_KEY) {
-            session->operation.op.find.objects[i].type |= 0x80;
+          for (size_t i = 0; i < tmp_n_objects; i++) {
+            uint8_t cert[2048] = {0};
+            size_t cert_len = sizeof(cert);
+            rc = yh_util_get_opaque(session->slot->device_session,
+                                    tmp_objects[i].id, cert, &cert_len);
+            if (rc != YHR_SUCCESS) {
+              DBG_ERR("Failed to get opaque object 0x%x", tmp_objects[i].id);
+              rv = yrc_to_rv(rc);
+              goto c_foi_out;
+            }
+
+            if (match_byte_array(template_value, template_value_len, cert,
+                                 cert_len)) {
+              session->operation.op.find.objects[0].id = tmp_objects[i].id;
+              session->operation.op.find.objects[0].type = tmp_objects[i].type;
+              session->operation.op.find.objects[0].sequence =
+                tmp_objects[i].sequence;
+              found_objects = 1;
+              break;
+            }
+          }
+        }
+      } else {
+        yh_object_descriptor
+          tmp_objects[YH_MAX_ITEMS_COUNT + MAX_ECDH_SESSION_KEYS] = {0};
+        size_t tmp_n_objects = YH_MAX_ITEMS_COUNT + MAX_ECDH_SESSION_KEYS;
+        rc = yh_util_list_objects(session->slot->device_session, id, type,
+                                  domains, &capabilities, algorithm, label,
+                                  tmp_objects, &tmp_n_objects);
+
+        if (rc != YHR_SUCCESS) {
+          DBG_ERR("Failed to get object list");
+          rv = yrc_to_rv(rc);
+          goto c_foi_out;
+        }
+        for (size_t i = 0; i < tmp_n_objects; i++) {
+          yubihsm_pkcs11_object_desc *object_desc =
+            _get_object_desc(session->slot, tmp_objects[i].id,
+                             tmp_objects[i].type, tmp_objects[i].sequence);
+
+          if (object_desc && is_meta_object(&object_desc->object)) {
+            continue;
+          }
+
+          if (match_meta_attributes(session, &object_desc->object, template_id,
+                                    template_id_len, template_label,
+                                    template_label_len)) {
+            memcpy(session->operation.op.find.objects + found_objects,
+                   tmp_objects + i, sizeof(yh_object_descriptor));
+            found_objects++;
+          }
+        }
+        if (pub) {
+          for (size_t i = 0; i < found_objects; i++) {
+            if (session->operation.op.find.objects[i].type ==
+                YH_ASYMMETRIC_KEY) {
+              session->operation.op.find.objects[i].type |= 0x80;
+            }
           }
         }
       }
     }
 
+    id = parse_id_value(template_id, template_id_len);
+    if (id == -1) {
+      DBG_ERR("Failed to parse ID from template");
+      rv = CKR_ATTRIBUTE_VALUE_INVALID;
+      goto c_foi_out;
+    }
+    DBG_INFO("id parsed as %x", id);
+
     if (ulCount == 0 ||
         should_include_sessionkeys(secret_key, extractable_set,
                                    session->operation.op.find.only_private,
                                    id)) {
-      for (ListItem *item = session->ecdh_session_keys.head; item != NULL;
+
+      ListItem *item = NULL;
+      for (item = session->ecdh_session_keys.head; item != NULL;
            item = item->next) {
         ecdh_session_key *key = (ecdh_session_key *) item->data;
 
-        if (label == NULL || strcmp(label, key->label) == 0) {
+        if (template_label_len == 0 ||
+            strcmp((const char *) template_label, key->label) == 0) {
 
           yh_object_descriptor desc = {0};
           desc.id = key->id & 0xffff;
@@ -2326,6 +2578,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
   DOUT;
 
 c_foi_out:
+  if (template_value != NULL) {
+    free(template_value);
+    template_value = NULL;
+  }
 
   if (label != NULL) {
     free(label);
@@ -3137,8 +3393,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Decrypt)
   pPtr += *pulDataLen;
 
   rv = apply_decrypt_mechanism_finalize(session->slot->device_session,
-                                        &session->operation,
-                                        pPtr, &ulRemainingSize);
+                                        &session->operation, pPtr,
+                                        &ulRemainingSize);
   if (rv != CKR_OK) {
     DBG_ERR("Unable to decrypt data");
     if (rv == CKR_BUFFER_TOO_SMALL) {
@@ -4557,6 +4813,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
   }
 
   yubihsm_pkcs11_object_template template = {0};
+  pkcs11_meta_object meta_object = {0};
   memset(&template, 0, sizeof(yubihsm_pkcs11_object_template));
   struct {
     bool set;
@@ -4586,9 +4843,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
 
       case CKA_ID:
         if (id.set == false) {
-          id.d = parse_id_value(pTemplate[i].pValue, pTemplate[i].ulValueLen);
-          if (id.d == (CK_ULONG) -1) {
-            rv = CKR_ATTRIBUTE_VALUE_INVALID;
+          rv = parse_meta_id_template(&meta_object, (int *) &id.d,
+                                      pTemplate[i].pValue,
+                                      pTemplate[i].ulValueLen);
+          if (rv != CKR_OK) {
             goto c_gk_out;
           }
           id.set = true;
@@ -4599,12 +4857,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
         break;
 
       case CKA_LABEL:
-        if (pTemplate[i].ulValueLen > YH_OBJ_LABEL_LEN) {
-          return CKR_ATTRIBUTE_VALUE_INVALID;
-        }
-
-        memcpy(template.label, pTemplate[i].pValue, pTemplate[i].ulValueLen);
-
+        rv = parse_meta_label_template(&template, &meta_object, FALSE,
+                                       pTemplate[i].pValue,
+                                       pTemplate[i].ulValueLen);
         break;
 
       case CKA_EXTRACTABLE:
@@ -4781,15 +5036,27 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
     goto c_gk_out;
   }
 
-  yh_object_descriptor object = {0};
-  rc = yh_util_get_object_info(session->slot->device_session, template.id, type,
-                               &object);
-  if (rc != YHR_SUCCESS) {
+  yubihsm_pkcs11_object_desc *object_desc =
+    _get_object_desc(session->slot, template.id, type, 0xffff);
+  if (object_desc == NULL) {
     DBG_ERR("Failed getting new object %04x: %s", template.id, yh_strerror(rc));
-    rv = yrc_to_rv(rc);
+    rv = CKR_OBJECT_HANDLE_INVALID;
     goto c_gk_out;
   }
-  *phKey = object.sequence << 24 | object.type << 16 | object.id;
+  yh_object_descriptor *object = &object_desc->object;
+
+  *phKey = object->sequence << 24 | object->type << 16 | object->id;
+
+  if (meta_object.cka_id_len > 0 || meta_object.cka_label_len > 0) {
+    meta_object.target_id = object->id;
+    meta_object.target_type = object->type;
+    meta_object.target_sequence = object->sequence;
+    rv = write_meta_object(session->slot, &meta_object, false);
+    if (rv != CKR_OK) {
+      DBG_ERR("Failed to import meta data object 0x%lx", rv);
+      goto c_gk_out;
+    }
+  }
 
   DBG_INFO("Created object %08lx", *phKey);
 
@@ -4836,17 +5103,20 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
   }
 
   yubihsm_pkcs11_object_template template = {0};
+  pkcs11_meta_object meta_object = {0};
 
   if (pMechanism->mechanism == CKM_RSA_PKCS_KEY_PAIR_GEN) {
     rv =
       parse_rsa_generate_template(pPublicKeyTemplate, ulPublicKeyAttributeCount,
                                   pPrivateKeyTemplate,
-                                  ulPrivateKeyAttributeCount, &template);
+                                  ulPrivateKeyAttributeCount, &template,
+                                  &meta_object);
   } else if (pMechanism->mechanism == CKM_EC_KEY_PAIR_GEN) {
     rv =
       parse_ec_generate_template(pPublicKeyTemplate, ulPublicKeyAttributeCount,
                                  pPrivateKeyTemplate,
-                                 ulPrivateKeyAttributeCount, &template);
+                                 ulPrivateKeyAttributeCount, &template,
+                                 &meta_object);
   } else {
     DBG_ERR("Invalid mechanism for key generation: %lu", pMechanism->mechanism);
     rv = CKR_MECHANISM_INVALID;
@@ -4926,15 +5196,27 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
     }
   }
 
-  yh_object_descriptor object = {0};
-  rc = yh_util_get_object_info(session->slot->device_session, template.id,
-                               YH_ASYMMETRIC_KEY, &object);
-  if (rc != YHR_SUCCESS) {
-    rv = yrc_to_rv(rc);
+  yubihsm_pkcs11_object_desc *object_desc =
+    _get_object_desc(session->slot, template.id, YH_ASYMMETRIC_KEY, 0xffff);
+  if (object_desc == NULL) {
+    rv = CKR_OBJECT_HANDLE_INVALID;
     goto c_gkp_out;
   }
-  *phPublicKey = object.sequence << 24 | (object.type | 0x80) << 16 | object.id;
-  *phPrivateKey = object.sequence << 24 | object.type << 16 | object.id;
+  yh_object_descriptor *object = &object_desc->object;
+
+  if (meta_object.cka_id_len > 0 || meta_object.cka_label_len > 0) {
+    meta_object.target_id = object->id;
+    meta_object.target_type = object->type;
+    meta_object.target_sequence = object->sequence;
+    rv = write_meta_object(session->slot, &meta_object, false);
+    if (rv != CKR_OK) {
+      DBG_ERR("Failed to import meta data object 0x%lx", rv);
+      goto c_gkp_out;
+    }
+  }
+  *phPublicKey =
+    object->sequence << 24 | (object->type | 0x80) << 16 | object->id;
+  *phPrivateKey = object->sequence << 24 | object->type << 16 | object->id;
 
   DOUT;
 
@@ -5134,14 +5416,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_UnwrapKey)
     goto c_uk_out;
   }
 
-  yh_object_descriptor object = {0};
-  yrc = yh_util_get_object_info(session->slot->device_session, target_id,
-                                target_type, &object);
-  if (yrc != YHR_SUCCESS) {
-    rv = yrc_to_rv(yrc);
+  yubihsm_pkcs11_object_desc *object_desc =
+    _get_object_desc(session->slot, target_id, target_type, 0xffff);
+  if (object_desc == NULL) {
+    DBG_ERR("Failed executing get object info after creating: id 0x%x",
+            target_id);
+    rv = CKR_OBJECT_HANDLE_INVALID;
     goto c_uk_out;
   }
-  *phKey = object.sequence << 24 | object.type << 16 | object.id;
+  yh_object_descriptor *object = &object_desc->object;
+
+  *phKey = object->sequence << 24 | object->type << 16 | object->id;
 
   DBG_INFO("Unwrapped object %08lx", *phKey);
 

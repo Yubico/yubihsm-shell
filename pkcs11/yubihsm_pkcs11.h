@@ -34,6 +34,8 @@
 #ifndef AES_BLOCK_SIZE
 #define AES_BLOCK_SIZE 16
 #endif
+#define PKCS11_ID_SIZE 255
+#define PKCS11_LABEL_SIZE 255
 
 typedef enum {
   SESSION_RESERVED_RO = 1 << 0,
@@ -47,9 +49,26 @@ typedef enum {
 #define SESSION_NOT_AUTHENTICATED (SESSION_RESERVED_RO | SESSION_RESERVED_RW)
 
 typedef struct {
+  /// Original objectID of the asymmetric key/certificate/symmetric key
+  uint16_t target_id;
+  /// Original object type
+  yh_object_type target_type;
+  /// Original object sequence
+  uint8_t target_sequence;
+  /// CKA_ID value
+  uint8_t cka_id[PKCS11_ID_SIZE];
+  /// CKA_ID length
+  uint16_t cka_id_len;
+  /// CKA_LABEL value
+  uint8_t cka_label[PKCS11_LABEL_SIZE];
+  /// CKA_LABEL length
+  uint16_t cka_label_len;
+} pkcs11_meta_object;
+
+typedef struct {
   struct timeval tv;
-  bool filled;
   yh_object_descriptor object;
+  pkcs11_meta_object meta_object;
 } yubihsm_pkcs11_object_desc;
 
 typedef enum {
