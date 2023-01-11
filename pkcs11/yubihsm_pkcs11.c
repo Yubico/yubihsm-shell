@@ -2103,6 +2103,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
         int new_id =
           parse_id_value(pTemplate[i].pValue, pTemplate[i].ulValueLen);
         if (new_id != object->object.id) {
+          if (pTemplate[i].ulValueLen > sizeof(new_ckaid)) {
+            DBG_ERR("CKA_ID value is too long");
+            rv = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto c_sav_out;
+          }
           new_ckaid_len = pTemplate[i].ulValueLen;
           memcpy(new_ckaid, pTemplate[i].pValue, pTemplate[i].ulValueLen);
         }
@@ -2112,6 +2117,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
         if (pTemplate[i].ulValueLen != strlen(object->object.label) ||
             memcmp(pTemplate[i].pValue, object->object.label,
                    pTemplate[i].ulValueLen) != 0) {
+          if (pTemplate[i].ulValueLen > sizeof(new_ckalabel)) {
+            DBG_ERR("CKA_LABEL value is too long");
+            rv = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto c_sav_out;
+          }
           new_ckalabel_len = pTemplate[i].ulValueLen;
           memcpy(new_ckalabel, pTemplate[i].pValue, pTemplate[i].ulValueLen);
         }
