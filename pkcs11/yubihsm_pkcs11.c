@@ -613,10 +613,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetSlotInfo)
   yh_get_connector_version(slot->connector, &major, &minor, &patch);
 
   pInfo->hardwareVersion.major = major;
-  pInfo->hardwareVersion.minor = (minor * 100) + patch;
+  pInfo->hardwareVersion.minor = (minor * 10) + patch;
 
   pInfo->firmwareVersion.major = major;
-  pInfo->firmwareVersion.minor = (minor * 100) + patch;
+  pInfo->firmwareVersion.minor = (minor * 10) + patch;
 
   release_slot(&g_ctx, slot);
 
@@ -712,7 +712,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetTokenInfo)
   pInfo->ulTotalPrivateMemory = CK_UNAVAILABLE_INFORMATION;
   pInfo->ulFreePrivateMemory = CK_UNAVAILABLE_INFORMATION;
 
-  CK_VERSION ver = {major, (minor * 100) + patch};
+  CK_VERSION ver = {major, (minor * 10) + patch};
 
   pInfo->hardwareVersion = ver;
 
