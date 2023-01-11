@@ -661,6 +661,10 @@ static CK_RV read_meta_object(yubihsm_pkcs11_slot *slot, uint16_t opaque_id,
       case PKCS11_ID_TAG:
         p++; // Tag byte
         meta_object->cka_id_len = ntohs(*(uint16_t *) p);
+        if (meta_object->cka_id_len > PKCS11_ID_SIZE) {
+          DBG_ERR("Parsed CKA_ID length is too long");
+          return CKR_DATA_INVALID;
+        }
         p += 2;
         memcpy(&meta_object->cka_id, p, meta_object->cka_id_len);
         p += meta_object->cka_id_len;
@@ -668,6 +672,10 @@ static CK_RV read_meta_object(yubihsm_pkcs11_slot *slot, uint16_t opaque_id,
       case PKCS11_LABEL_TAG:
         p++; // Tag byte
         meta_object->cka_label_len = ntohs(*(uint16_t *) p);
+        if (meta_object->cka_label_len > PKCS11_LABEL_SIZE) {
+          DBG_ERR("Parsed CKA_LABEL length is too long");
+          return CKR_DATA_INVALID;
+        }
         p += 2;
         memcpy(&meta_object->cka_label, p, meta_object->cka_label_len);
         p += meta_object->cka_label_len;
