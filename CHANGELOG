@@ -1,4 +1,19 @@
-Version 2.3.2
+=== Version 2.4.0
+
+lib: shell: pkcs11: Add support for symmetric encryption, AES-ECB and AES-CBC
+shell: Enable asymmetric authentication by default
+shell: Allow hex format when creating symmetric authentication key
+shell: Improve usage of the list command
+shell: Allow yubihsm-auth reader to be specified
+shell: Enable backend TLS support in the command line
+pkcs11: Add support for modifying CKA_ID and CKA_LABEL attribute values
+pkcs11: Improve handling of attributes
+pkcs11: Improve debug output
+pkcs11: Improve error handling
+pkcs11: Change in firmware/harware version representation. The version as reported by C_GetSlotInfo and C_GetTokenInfo will now show minor*10+patch, instead of minor*100+patch
+build: Dependecy updates
+
+=== Version 2.3.2
 
 shell: Remove limit on input file size
 shell: pkcs11: build: Minor improvements
