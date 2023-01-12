@@ -375,7 +375,7 @@ is_fedora=$?
 cat /etc/os-release | grep 'CentOS Linux 7'
 is_centos7=$?
 set -e
-if [ $is_fedora -ne 0 ] && [ $is_centos -ne 0 ]; then
+if [ $is_fedora -ne 0 ] && [ $is_centos7 -ne 0 ]; then
   echo "------------- Brainpool256"
   echo "Generate key:"
   test_with_resp "$BIN -p password -a generate-asymmetric-key -i 0 -l ecKey -d 5,8,13 -c sign-ecdsa,derive-ecdh,sign-attestation-certificate -A ecbp256" "   Generate key"
