@@ -1,4 +1,5 @@
 #!/bin/bash
+set -u
 
 if [ "$#" -ne 1 ]; then
   BIN="yubihsm-shell"
