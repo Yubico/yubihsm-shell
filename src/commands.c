@@ -481,37 +481,14 @@ int yh_com_derive_ecdh(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(in_fmt);
   UNUSED(ctx);
 
-  BIO *bio = BIO_new(BIO_s_mem());
-  if (bio == NULL) {
-    return false;
-  }
+  yh_algorithm algo = 0;
+  uint8_t data[YH_MSG_BUF_SIZE] = {0};
+  size_t data_len = sizeof(data);
 
-  (void) BIO_write(bio, argv[2].x, argv[2].len);
-
-  EVP_PKEY *pubkey = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
-  BIO_free_all(bio);
-  if (pubkey == NULL) {
+  if(!read_public_key(argv[2].x, argv[2].len, &algo, data, &data_len)) {
     fprintf(stderr, "Failed to load public key\n");
     return -1;
   }
-  if (EVP_PKEY_base_id(pubkey) != EVP_PKEY_EC) {
-    EVP_PKEY_free(pubkey);
-    fprintf(stderr, "Key is not an EC key.\n");
-    return -1;
-  }
-
-  EC_KEY *ec = EVP_PKEY_get1_EC_KEY(pubkey);
-  EVP_PKEY_free(pubkey);
-  if (ec == NULL) {
-    fprintf(stderr, "Failed to retrive key.\n");
-    return -1;
-  }
-
-  uint8_t data[YH_MSG_BUF_SIZE] = {0};
-  uint8_t *ptr = data;
-  size_t data_len = i2o_ECPublicKey(ec, &ptr);
-
-  EC_KEY_free(ec);
 
   uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
@@ -1674,6 +1651,17 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
               yh_strerror(yrc));
       return -1;
     }
+  } else if (in_fmt == fmt_PEM) {
+    yh_algorithm algo;
+    size_t len = sizeof(privkey);
+    if(!read_private_key(argv[1].x, argv[1].len, &algo, privkey, &len, false)) {
+      fprintf(stderr, "Failed to PEM decode asymmetric authentication key\n");
+      return -1;
+    }
+    if(len != sizeof(privkey)) {
+      fprintf(stderr, "Invalid asymmetric authentication key\n");
+      return -1;
+    }
   } else if (argv[1].len <= sizeof(privkey)) {
     memset(privkey, 0, sizeof(privkey) - argv[1].len);
     memcpy(privkey + sizeof(privkey) - argv[1].len, argv[1].x, argv[1].len);
@@ -2136,6 +2124,17 @@ int yh_com_put_authentication_asym(yubihsm_context *ctx, Argument *argv,
     for (size_t i = 0; i < sizeof(pubkey); i++)
       fprintf(stderr, "%02x", pubkey[i]);
     fprintf(stderr, "\n");
+  } else if (in_fmt == fmt_PEM) {
+    yh_algorithm algo = 0;
+    size_t pubkey_len = sizeof(pubkey);
+    if(!read_public_key(argv[6].x, argv[6].len, &algo, pubkey, &pubkey_len)) {
+      fprintf(stderr, "Failed to load public key\n");
+      return -1;
+    }
+    if(pubkey_len != sizeof(pubkey)) {
+      fprintf(stderr, "Invalid public key\n");
+      return -1;
+    }
   } else if (argv[6].len <= sizeof(pubkey)) {
     memset(pubkey, 0, sizeof(pubkey) - argv[6].len);
     memcpy(pubkey + sizeof(pubkey) - argv[6].len, argv[6].x, argv[6].len);
@@ -3740,6 +3739,17 @@ int yh_com_change_authentication_key_asym(yubihsm_context *ctx, Argument *argv,
     for (size_t i = 0; i < sizeof(pubkey); i++)
       fprintf(stderr, "%02x", pubkey[i]);
     fprintf(stderr, "\n");
+  } else if (in_fmt == fmt_PEM) {
+    yh_algorithm algo = 0;
+    size_t pubkey_len = sizeof(pubkey);
+    if(!read_public_key(argv[2].x, argv[2].len, &algo, pubkey, &pubkey_len)) {
+      fprintf(stderr, "Failed to load public key\n");
+      return -1;
+    }
+    if(pubkey_len != sizeof(pubkey)) {
+      fprintf(stderr, "Invalid public key\n");
+      return -1;
+    }
   } else if (argv[2].len <= sizeof(pubkey)) {
     memset(pubkey, 0, sizeof(pubkey) - argv[2].len);
     memcpy(pubkey + sizeof(pubkey) - argv[2].len, argv[2].x, argv[2].len);

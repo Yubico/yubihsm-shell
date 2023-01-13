@@ -361,6 +361,74 @@ cleanup:
   return ret;
 }
 
+bool read_public_key(uint8_t *buf, size_t len, yh_algorithm *algo,
+                      uint8_t *bytes, size_t *bytes_len) {
+  BIO *bio = BIO_new(BIO_s_mem());
+  if (bio == NULL) {
+    return false;
+  }
+
+  (void) BIO_write(bio, buf, len);
+
+  EVP_PKEY *pubkey = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
+  BIO_free_all(bio);
+  if (pubkey == NULL) {
+    return false;
+  }
+
+  if (EVP_PKEY_base_id(pubkey) != EVP_PKEY_EC) {
+    EVP_PKEY_free(pubkey);
+    return false;
+  }
+
+  EC_KEY *ec = EVP_PKEY_get1_EC_KEY(pubkey);
+  EVP_PKEY_free(pubkey);
+  if (ec == NULL) {
+    return false;
+  }
+
+  const EC_GROUP *group = EC_KEY_get0_group(ec);
+  int curve = EC_GROUP_get_curve_name(group);
+
+  if (curve == NID_X9_62_prime256v1) {
+    *algo = YH_ALGO_EC_P256;
+  } else if (curve == NID_secp384r1) {
+    *algo = YH_ALGO_EC_P384;
+  } else if (curve == NID_secp521r1) {
+    *algo = YH_ALGO_EC_P521;
+  } else if (curve == NID_secp224r1) {
+    *algo = YH_ALGO_EC_P224;
+#ifdef NID_brainpoolP256r1
+  } else if (curve == NID_brainpoolP256r1) {
+    *algo = YH_ALGO_EC_BP256;
+#endif
+#ifdef NID_brainpoolP384r1
+  } else if (curve == NID_brainpoolP384r1) {
+    *algo = YH_ALGO_EC_BP384;
+#endif
+#ifdef NID_brainpoolP512r1
+  } else if (curve == NID_brainpoolP512r1) {
+    *algo = YH_ALGO_EC_BP512;
+#endif
+  } else if (curve == NID_secp256k1) {
+    *algo = YH_ALGO_EC_K256;
+  } else {
+    *algo = 0;
+  }
+
+  size_t data_len = i2o_ECPublicKey(ec, 0);
+  if(data_len == 0 || data_len > *bytes_len) {
+    EC_KEY_free(ec);
+    return false;
+  }
+
+  (void) i2o_ECPublicKey(ec, &bytes);
+  EC_KEY_free(ec);
+
+  *bytes_len = data_len;
+  return true;
+}
+
 void format_digest(uint8_t *digest, char *str, uint16_t len) {
 
   for (uint32_t i = 0; i < len; i++) {
