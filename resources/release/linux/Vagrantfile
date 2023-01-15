@@ -75,7 +75,7 @@ Vagrant.configure("2") do |config|
   end
 
   config.vm.define "jammy" do |jammy|
-    jammy.vm.box = "generic/ubuntu2204"
+    jammy.vm.box = "alvistack/ubuntu-22.04"
     jammy.vm.synced_folder "../../..", "/shared", type: "rsync",
       rsync__args: ["--verbose", "--archive", "-z", "--copy-links"]
     jammy.vm.provision "shell", :path => "build-pkg.sh", :args => "ubuntu2204", :privileged => false
