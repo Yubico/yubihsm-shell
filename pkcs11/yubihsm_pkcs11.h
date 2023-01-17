@@ -63,6 +63,14 @@ typedef struct {
   uint8_t cka_label[PKCS11_LABEL_SIZE];
   /// CKA_LABEL length
   uint16_t cka_label_len;
+  /// CKA_ID value of the public key
+  uint8_t pubkey_cka_id[PKCS11_ID_SIZE];
+  /// CKA_ID length of the public key
+  uint16_t pubkey_cka_id_len;
+  /// CKA_LABEL value of the public key
+  uint8_t pubkey_cka_label[PKCS11_LABEL_SIZE];
+  /// CKA_LABEL length public key
+  uint16_t pubkey_cka_label_len;
 } pkcs11_meta_object;
 
 typedef struct {
