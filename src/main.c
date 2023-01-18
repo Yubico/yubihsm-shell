@@ -472,8 +472,8 @@ static void create_command_list(CommandList *c) {
                       (Command){"authkey_asym", yh_com_put_authentication_asym,
                                 "e:session,w:key_id,s:label,d:domains,c:"
                                 "capabilities,c:delegated_capabilities,i:"
-                                "password=-",
-                                fmt_password, fmt_nofmt,
+                                "pubkey=-",
+                                fmt_PEM, fmt_nofmt,
                                 "Store an asymmetric authentication key", NULL,
                                 NULL});
 #endif
@@ -537,7 +537,7 @@ static void create_command_list(CommandList *c) {
                                     NULL, NULL});
 #ifdef USE_ASYMMETRIC_AUTH
   register_subcommand(*c, (Command){"open_asym", yh_com_open_session_asym,
-                                    "w:authkey,i:password=-", fmt_password,
+                                    "w:authkey,i:privkey=-", fmt_PEM,
                                     fmt_nofmt,
                                     "Open a session with a device using a "
                                     "specific Asymmetric Authentication Key",
@@ -679,8 +679,8 @@ static void create_command_list(CommandList *c) {
 #ifdef USE_ASYMMETRIC_AUTH
   register_subcommand(*c, (Command){"authkey_asym",
                                     yh_com_change_authentication_key_asym,
-                                    "e:session,w:key_id,i:password=-",
-                                    fmt_password, fmt_nofmt,
+                                    "e:session,w:key_id,i:pubkey=-",
+                                    fmt_PEM, fmt_nofmt,
                                     "Change an asymmetric authentication key",
                                     NULL, NULL});
 #endif
