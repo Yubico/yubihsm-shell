@@ -1828,7 +1828,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
               memcpy(pMeta_object->meta_object.cka_label_pubkey.value,
                      cka_label, cka_label_len);
             }
-            write_meta_object(session->slot, &pMeta_object->meta_object, true);
+            rv = write_meta_object(session->slot, &pMeta_object->meta_object,
+                                   true);
+            if (rv != CKR_OK) {
+              DBG_ERR("Failed writing meta opaque object to device");
+              goto c_co_out;
+            }
           } else { // meta object does not exist. Create it
             meta_object.target_id = asym_keys[i].id;
             if (cka_id_len > 0) {
@@ -1973,7 +1978,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
       goto c_do_out;
     }
     DBG_INFO("Deleted object %08lx", hObject);
-    memset(&object->object, 0, sizeof(yubihsm_pkcs11_object_desc));
+    memset(object, 0, sizeof(yubihsm_pkcs11_object_desc));
 
     if (meta_desc != NULL) {
       yrc = yh_util_delete_object(session->slot->device_session,
