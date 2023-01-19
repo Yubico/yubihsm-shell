@@ -935,7 +935,7 @@ find_meta_object_by_target(yubihsm_pkcs11_slot *slot, uint16_t target_id,
   for (int i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
     pkcs11_meta_object *current_meta = &slot->objects[i].meta_object;
     if (current_meta->target_id == target_id &&
-        current_meta->target_type == (target_type & 0x7f) &&
+        current_meta->target_type == target_type &&
         current_meta->target_sequence == target_sequence) {
       return &slot->objects[i];
     }
@@ -1967,7 +1967,7 @@ static CK_RV get_attribute(CK_ATTRIBUTE_TYPE type, yh_object_descriptor *object,
                            yubihsm_pkcs11_session *session) {
 
   yubihsm_pkcs11_object_desc *meta_desc =
-    find_meta_object_by_target(session->slot, object->id, object->type,
+    find_meta_object_by_target(session->slot, object->id, (object->type & 0x7f),
                                object->sequence);
   pkcs11_meta_object *meta_object = meta_desc ? &meta_desc->meta_object : NULL;
 

@@ -1962,7 +1962,19 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
     yh_rc yrc;
     yubihsm_pkcs11_object_desc *meta_desc =
       find_meta_object_by_target(session->slot, object->object.id,
-                                 object->object.type, object->object.sequence);
+                                 (object->object.type & 0x7f),
+                                 object->object.sequence);
+
+    yrc = yh_util_delete_object(session->slot->device_session,
+                                object->object.id, object->object.type);
+    if (yrc != YHR_SUCCESS) {
+      DBG_ERR("Failed to delete object: %s", yh_strerror(yrc));
+      rv = yrc_to_rv(yrc);
+      goto c_do_out;
+    }
+    DBG_INFO("Deleted object %08lx", hObject);
+    memset(&object->object, 0, sizeof(yubihsm_pkcs11_object_desc));
+
     if (meta_desc != NULL) {
       yrc = yh_util_delete_object(session->slot->device_session,
                                   meta_desc->object.id, meta_desc->object.type);
@@ -1974,16 +1986,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
       DBG_INFO("Deleted meta object 0x%x", meta_desc->object.id);
       memset(meta_desc, 0, sizeof(yubihsm_pkcs11_object_desc));
     }
-
-    yrc = yh_util_delete_object(session->slot->device_session,
-                                object->object.id, object->object.type);
-    if (yrc != YHR_SUCCESS) {
-      DBG_ERR("Failed to delete object: %s", yh_strerror(yrc));
-      rv = yrc_to_rv(yrc);
-      goto c_do_out;
-    }
-    DBG_INFO("Deleted object %08lx", hObject);
-    memset(&object->object, 0, sizeof(yubihsm_pkcs11_object_desc));
   }
 
   DOUT;
@@ -2207,7 +2209,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
 
     yubihsm_pkcs11_object_desc *meta_desc =
       find_meta_object_by_target(session->slot, object->object.id,
-                                 object->object.type, object->object.sequence);
+                                 (object->object.type & 0x7f),
+                                 object->object.sequence);
     if (meta_desc != NULL) {
       pkcs11_meta_object *meta_object = &meta_desc->meta_object;
       bool changed = FALSE;
