@@ -1963,8 +1963,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
     yh_rc yrc;
     yubihsm_pkcs11_object_desc *meta_desc =
       find_meta_object_by_target(session->slot, object->object.id,
-                                 (object->object.type & 0x7f),
-                                 object->object.sequence);
+                                 object->object.type, object->object.sequence);
 
     yrc = yh_util_delete_object(session->slot->device_session,
                                 object->object.id, object->object.type);
@@ -2273,15 +2272,27 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
       // Create new opaque object and add it to the session
       pkcs11_meta_object new_meta_object = {0};
       new_meta_object.target_id = object->object.id;
-      new_meta_object.target_type = object->object.type;
+      new_meta_object.target_type = YH_ASYMMETRIC_KEY;
       new_meta_object.target_sequence = object->object.sequence;
       if (new_ckaid_len > 0) {
-        new_meta_object.cka_id.len = new_ckaid_len;
-        memcpy(new_meta_object.cka_id.value, new_ckaid, new_ckaid_len);
+        if (object->object.type == YH_PUBLIC_KEY) {
+          new_meta_object.cka_id_pubkey.len = new_ckaid_len;
+          memcpy(new_meta_object.cka_id_pubkey.value, new_ckaid, new_ckaid_len);
+        } else {
+          new_meta_object.cka_id.len = new_ckaid_len;
+          memcpy(new_meta_object.cka_id.value, new_ckaid, new_ckaid_len);
+        }
       }
       if (new_ckalabel_len > 0) {
-        new_meta_object.cka_label.len = new_ckalabel_len;
-        memcpy(new_meta_object.cka_label.value, new_ckalabel, new_ckalabel_len);
+        if (object->object.type == YH_PUBLIC_KEY) {
+          new_meta_object.cka_label_pubkey.len = new_ckalabel_len;
+          memcpy(new_meta_object.cka_label_pubkey.value, new_ckalabel,
+                 new_ckalabel_len);
+        } else {
+          new_meta_object.cka_label.len = new_ckalabel_len;
+          memcpy(new_meta_object.cka_label.value, new_ckalabel,
+                 new_ckalabel_len);
+        }
       }
       rv = write_meta_object(session->slot, &new_meta_object, false);
       if (rv != CKR_OK) {

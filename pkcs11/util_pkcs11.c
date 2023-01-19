@@ -848,6 +848,7 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
     p += 2;
     memcpy(p, &meta_object->cka_label_pubkey.value,
            meta_object->cka_label_pubkey.len);
+    p += meta_object->cka_label_pubkey.len;
   }
 
   char opaque_label[YH_OBJ_LABEL_LEN] = {0};

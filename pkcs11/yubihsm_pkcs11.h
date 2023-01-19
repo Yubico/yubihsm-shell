@@ -34,7 +34,7 @@
 #ifndef AES_BLOCK_SIZE
 #define AES_BLOCK_SIZE 16
 #endif
-#define CKA_ATTRIBUTE_VALUE_SIZE 255
+#define CKA_ATTRIBUTE_VALUE_SIZE 256
 
 typedef enum {
   SESSION_RESERVED_RO = 1 << 0,
@@ -49,7 +49,7 @@ typedef enum {
 
 typedef struct {
   uint16_t len;
-  uint8_t value[256];
+  uint8_t value[CKA_ATTRIBUTE_VALUE_SIZE];
 } cka_meta_item;
 
 typedef struct {
