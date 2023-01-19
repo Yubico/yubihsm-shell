@@ -662,48 +662,49 @@ static CK_RV read_meta_object(yubihsm_pkcs11_slot *slot, uint16_t opaque_id,
     switch (*p) {
       case PKCS11_ID_TAG:
         p++; // Tag byte
-        meta_object->cka_id_len = ntohs(*(uint16_t *) p);
-        if (meta_object->cka_id_len > PKCS11_ID_SIZE) {
+        meta_object->cka_id.len = ntohs(*(uint16_t *) p);
+        if (meta_object->cka_id.len > CKA_ATTRIBUTE_VALUE_SIZE) {
           DBG_ERR("Parsed CKA_ID length is too long");
           return CKR_DATA_INVALID;
         }
         p += 2;
-        memcpy(&meta_object->cka_id, p, meta_object->cka_id_len);
-        p += meta_object->cka_id_len;
+        memcpy(&meta_object->cka_id.value, p, meta_object->cka_id.len);
+        p += meta_object->cka_id.len;
         break;
       case PKCS11_LABEL_TAG:
         p++; // Tag byte
-        meta_object->cka_label_len = ntohs(*(uint16_t *) p);
-        if (meta_object->cka_label_len > PKCS11_LABEL_SIZE) {
+        meta_object->cka_label.len = ntohs(*(uint16_t *) p);
+        if (meta_object->cka_label.len > CKA_ATTRIBUTE_VALUE_SIZE) {
           DBG_ERR("Parsed CKA_LABEL length is too long");
           return CKR_DATA_INVALID;
         }
         p += 2;
-        memcpy(&meta_object->cka_label, p, meta_object->cka_label_len);
-        p += meta_object->cka_label_len;
+        memcpy(&meta_object->cka_label.value, p, meta_object->cka_label.len);
+        p += meta_object->cka_label.len;
         break;
       case PUBKEY_PKCS11_ID_TAG:
         p++; // Tag byte
-        meta_object->pubkey_cka_id_len = ntohs(*(uint16_t *) p);
-        if (meta_object->pubkey_cka_id_len > PKCS11_ID_SIZE) {
+        meta_object->cka_id_pubkey.len = ntohs(*(uint16_t *) p);
+        if (meta_object->cka_id_pubkey.len > CKA_ATTRIBUTE_VALUE_SIZE) {
           DBG_ERR("Parsed public key CKA_ID length is too long");
           return CKR_DATA_INVALID;
         }
         p += 2;
-        memcpy(&meta_object->pubkey_cka_id, p, meta_object->pubkey_cka_id_len);
-        p += meta_object->pubkey_cka_id_len;
+        memcpy(&meta_object->cka_id_pubkey.value, p,
+               meta_object->cka_id_pubkey.len);
+        p += meta_object->cka_id_pubkey.len;
         break;
       case PUBKEY_PKCS11_LABEL_TAG:
         p++; // Tag byte
-        meta_object->pubkey_cka_label_len = ntohs(*(uint16_t *) p);
-        if (meta_object->pubkey_cka_label_len > PKCS11_LABEL_SIZE) {
+        meta_object->cka_label_pubkey.len = ntohs(*(uint16_t *) p);
+        if (meta_object->cka_label_pubkey.len > CKA_ATTRIBUTE_VALUE_SIZE) {
           DBG_ERR("Parsed public key CKA_LABEL length is too long");
           return CKR_DATA_INVALID;
         }
         p += 2;
-        memcpy(&meta_object->pubkey_cka_label, p,
-               meta_object->pubkey_cka_label_len);
-        p += meta_object->pubkey_cka_label_len;
+        memcpy(&meta_object->cka_label_pubkey.value, p,
+               meta_object->cka_label_pubkey.len);
+        p += meta_object->cka_label_pubkey.len;
         break;
       default:
         DBG_ERR("Unknown tag in value of opaque PKCS11 object");
@@ -793,8 +794,13 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
                         pkcs11_meta_object *meta_object, bool replace) {
   size_t opaque_value_len =
     8 /* 4 version + 1 original type + 2 original ID 1 opaque sequence */ +
-    (meta_object->cka_id_len == 0 ? 0 : 3 + meta_object->cka_id_len) +
-    (meta_object->cka_label_len == 0 ? 0 : 3 + meta_object->cka_label_len);
+    (meta_object->cka_id.len == 0 ? 0 : 3 + meta_object->cka_id.len) +
+    (meta_object->cka_label.len == 0 ? 0 : 3 + meta_object->cka_label.len) +
+    (meta_object->cka_id_pubkey.len == 0 ? 0
+                                         : 3 + meta_object->cka_id_pubkey.len) +
+    (meta_object->cka_label_pubkey.len == 0
+       ? 0
+       : 3 + meta_object->cka_label_pubkey.len);
   // 3: 1 tag + 2 value length
 
   if (opaque_value_len > (YH_MSG_BUF_SIZE - 20)) {
@@ -815,35 +821,37 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
 
   *p++ = meta_object->target_sequence;
 
-  if (meta_object->cka_id_len > 0) {
+  if (meta_object->cka_id.len > 0) {
     *p++ = PKCS11_ID_TAG;
-    *(uint16_t *) p = htons(meta_object->cka_id_len);
+    *(uint16_t *) p = htons(meta_object->cka_id.len);
     p += 2;
-    memcpy(p, &meta_object->cka_id, meta_object->cka_id_len);
-    p += meta_object->cka_id_len;
+    memcpy(p, &meta_object->cka_id.value, meta_object->cka_id.len);
+    p += meta_object->cka_id.len;
   }
 
-  if (meta_object->cka_label_len > 0) {
+  if (meta_object->cka_label.len > 0) {
     *p++ = PKCS11_LABEL_TAG;
-    *(uint16_t *) p = htons(meta_object->cka_label_len);
+    *(uint16_t *) p = htons(meta_object->cka_label.len);
     p += 2;
-    memcpy(p, &meta_object->cka_label, meta_object->cka_label_len);
+    memcpy(p, &meta_object->cka_label.value, meta_object->cka_label.len);
+    p += meta_object->cka_label.len;
   }
 
-  if (meta_object->pubkey_cka_id_len > 0) {
+  if (meta_object->cka_id_pubkey.len > 0) {
     *p++ = PUBKEY_PKCS11_ID_TAG;
-    *(uint16_t *) p = htons(meta_object->pubkey_cka_id_len);
+    *(uint16_t *) p = htons(meta_object->cka_id_pubkey.len);
     p += 2;
-    memcpy(p, &meta_object->pubkey_cka_id, meta_object->pubkey_cka_id_len);
-    p += meta_object->pubkey_cka_id_len;
+    memcpy(p, &meta_object->cka_id_pubkey.value,
+           meta_object->cka_id_pubkey.len);
+    p += meta_object->cka_id_pubkey.len;
   }
 
-  if (meta_object->pubkey_cka_label_len > 0) {
+  if (meta_object->cka_label_pubkey.len > 0) {
     *p++ = PUBKEY_PKCS11_LABEL_TAG;
-    *(uint16_t *) p = htons(meta_object->pubkey_cka_label_len);
+    *(uint16_t *) p = htons(meta_object->cka_label_pubkey.len);
     p += 2;
-    memcpy(p, &meta_object->pubkey_cka_label,
-           meta_object->pubkey_cka_label_len);
+    memcpy(p, &meta_object->cka_label_pubkey.value,
+           meta_object->cka_label_pubkey.len);
   }
 
   char opaque_label[YH_OBJ_LABEL_LEN] = {0};
@@ -973,13 +981,13 @@ bool create_session(yubihsm_pkcs11_slot *slot, CK_FLAGS flags,
 static void get_label_attribute(yh_object_descriptor *object, bool public,
                                 pkcs11_meta_object *meta_object,
                                 CK_VOID_PTR value, CK_ULONG_PTR length) {
-  if (meta_object != NULL && !public && meta_object->cka_label_len > 0) {
-    *length = meta_object->cka_label_len;
-    memcpy(value, meta_object->cka_label, *length);
+  if (meta_object != NULL && !public && meta_object->cka_label.len > 0) {
+    *length = meta_object->cka_label.len;
+    memcpy(value, meta_object->cka_label.value, *length);
   } else if (meta_object != NULL && public &&
-             meta_object->pubkey_cka_label_len > 0) {
-    *length = meta_object->pubkey_cka_label_len;
-    memcpy(value, meta_object->pubkey_cka_label, *length);
+             meta_object->cka_label_pubkey.len > 0) {
+    *length = meta_object->cka_label_pubkey.len;
+    memcpy(value, meta_object->cka_label_pubkey.value, *length);
   } else {
     *length = strlen(object->label);
     memcpy(value, object->label, *length);
@@ -992,13 +1000,13 @@ static void get_label_attribute(yh_object_descriptor *object, bool public,
 static void get_id_attribute(yh_object_descriptor *object, bool public,
                              pkcs11_meta_object *meta_object, CK_VOID_PTR value,
                              CK_ULONG_PTR length) {
-  if (meta_object != NULL && !public && meta_object->cka_id_len > 0) {
-    *length = meta_object->cka_id_len;
-    memcpy(value, meta_object->cka_id, *length);
+  if (meta_object != NULL && !public && meta_object->cka_id.len > 0) {
+    *length = meta_object->cka_id.len;
+    memcpy(value, meta_object->cka_id.value, *length);
   } else if (meta_object != NULL && public &&
-             meta_object->pubkey_cka_id_len > 0) {
-    *length = meta_object->pubkey_cka_id_len;
-    memcpy(value, meta_object->pubkey_cka_id, *length);
+             meta_object->cka_id_pubkey.len > 0) {
+    *length = meta_object->cka_id_pubkey.len;
+    memcpy(value, meta_object->cka_id_pubkey.value, *length);
   } else {
     uint16_t *ptr = value;
     *ptr = ntohs(object->id);
@@ -4320,11 +4328,11 @@ CK_RV parse_meta_id_template(pkcs11_meta_object *pkcs11meta, bool pubkey,
                              int *id, uint8_t *value, size_t value_len) {
   if (value_len != 2) {
     if (pubkey) {
-      pkcs11meta->pubkey_cka_id_len = value_len;
-      memcpy(pkcs11meta->pubkey_cka_id, value, value_len);
+      pkcs11meta->cka_id_pubkey.len = value_len;
+      memcpy(pkcs11meta->cka_id_pubkey.value, value, value_len);
     } else {
-      pkcs11meta->cka_id_len = value_len;
-      memcpy(pkcs11meta->cka_id, value, value_len);
+      pkcs11meta->cka_id.len = value_len;
+      memcpy(pkcs11meta->cka_id.value, value, value_len);
       *id = 0;
     }
   } else {
@@ -4345,11 +4353,11 @@ void parse_meta_label_template(yubihsm_pkcs11_object_template *template,
                                uint8_t *value, size_t value_len) {
   if (value_len > YH_OBJ_LABEL_LEN) {
     if (pubkey) {
-      pkcs11meta->pubkey_cka_label_len = value_len;
-      memcpy(pkcs11meta->pubkey_cka_label, value, value_len);
+      pkcs11meta->cka_label_pubkey.len = value_len;
+      memcpy(pkcs11meta->cka_label_pubkey.value, value, value_len);
     } else {
-      pkcs11meta->cka_label_len = value_len;
-      memcpy(pkcs11meta->cka_label, value, value_len);
+      pkcs11meta->cka_label.len = value_len;
+      memcpy(pkcs11meta->cka_label.value, value, value_len);
       memcpy(template->label, value, YH_OBJ_LABEL_LEN);
     }
   } else {

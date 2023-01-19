@@ -1344,9 +1344,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
   } class = {0}, key_type = {0}, id = {0};
   yubihsm_pkcs11_object_template template = {0};
   pkcs11_meta_object meta_object = {0};
-  uint8_t cka_id[PKCS11_ID_SIZE] = {0};
+  uint8_t cka_id[CKA_ATTRIBUTE_VALUE_SIZE] = {0};
   uint16_t cka_id_len = 0;
-  uint8_t cka_label[PKCS11_LABEL_SIZE] = {0};
+  uint8_t cka_label[CKA_ATTRIBUTE_VALUE_SIZE] = {0};
   uint16_t cka_label_len = 0;
   for (CK_ULONG i = 0; i < ulCount; i++) {
     switch (pTemplate[i].type) {
@@ -1373,7 +1373,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       case CKA_ID:
         if (id.set == false) {
           if (pTemplate[i].ulValueLen != 2) {
-            if (pTemplate[i].ulValueLen > PKCS11_ID_SIZE) {
+            if (pTemplate[i].ulValueLen > CKA_ATTRIBUTE_VALUE_SIZE) {
               DBG_ERR("CKA_ID too long");
               rv = CKR_ATTRIBUTE_VALUE_INVALID;
               goto c_co_out;
@@ -1397,7 +1397,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
 
       case CKA_LABEL:
         if (pTemplate[i].ulValueLen > YH_OBJ_LABEL_LEN) {
-          if (pTemplate[i].ulValueLen > PKCS11_LABEL_SIZE) {
+          if (pTemplate[i].ulValueLen > CKA_ATTRIBUTE_VALUE_SIZE) {
             DBG_ERR("CKA_LABEL too long");
             rv = CKR_ATTRIBUTE_VALUE_INVALID;
             goto c_co_out;
@@ -1520,12 +1520,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     if (cka_id_len > 0 || cka_label_len > 0) {
       meta_object.target_id = template.id;
       if (cka_id_len > 0) {
-        meta_object.cka_id_len = cka_id_len;
-        memcpy(meta_object.cka_id, cka_id, cka_id_len);
+        meta_object.cka_id.len = cka_id_len;
+        memcpy(meta_object.cka_id.value, cka_id, cka_id_len);
       }
       if (cka_label_len > 0) {
-        meta_object.cka_label_len = cka_label_len;
-        memcpy(meta_object.cka_label, cka_label, cka_label_len);
+        meta_object.cka_label.len = cka_label_len;
+        memcpy(meta_object.cka_label.value, cka_label, cka_label_len);
       }
     }
   } else if (class.d == CKO_SECRET_KEY) {
@@ -1669,12 +1669,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     if (cka_id_len > 0 || cka_label_len > 0) {
       meta_object.target_id = template.id;
       if (cka_id_len > 0) {
-        meta_object.cka_id_len = cka_id_len;
-        memcpy(meta_object.cka_id, cka_id, cka_id_len);
+        meta_object.cka_id.len = cka_id_len;
+        memcpy(meta_object.cka_id.value, cka_id, cka_id_len);
       }
       if (cka_label_len > 0) {
-        meta_object.cka_label_len = cka_label_len;
-        memcpy(meta_object.cka_label, cka_label, cka_label_len);
+        meta_object.cka_label.len = cka_label_len;
+        memcpy(meta_object.cka_label.value, cka_label, cka_label_len);
       }
     }
   } else if (class.d == CKO_CERTIFICATE || class.d == CKO_DATA) {
@@ -1754,12 +1754,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
         (cka_id_len > 0 || cka_label_len > 0)) {
       meta_object.target_id = template.id;
       if (cka_id_len > 0) {
-        meta_object.cka_id_len = cka_id_len;
-        memcpy(meta_object.cka_id, cka_id, cka_id_len);
+        meta_object.cka_id.len = cka_id_len;
+        memcpy(meta_object.cka_id.value, cka_id, cka_id_len);
       }
       if (cka_label_len > 0) {
-        meta_object.cka_label_len = cka_label_len;
-        memcpy(meta_object.cka_label, cka_label, cka_label_len);
+        meta_object.cka_label.len = cka_label_len;
+        memcpy(meta_object.cka_label.value, cka_label, cka_label_len);
       }
     }
   } else if (class.d == CKO_PUBLIC_KEY) {
@@ -1819,25 +1819,26 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
 
           if (pMeta_object != NULL) { // meta object already exists. Update it.
             if (cka_id_len > 0) {
-              pMeta_object->meta_object.pubkey_cka_id_len = cka_id_len;
-              memcpy(pMeta_object->meta_object.pubkey_cka_id, cka_id,
+              pMeta_object->meta_object.cka_id_pubkey.len = cka_id_len;
+              memcpy(pMeta_object->meta_object.cka_id_pubkey.value, cka_id,
                      cka_id_len);
             }
             if (cka_label_len > 0) {
-              pMeta_object->meta_object.pubkey_cka_label_len = cka_label_len;
-              memcpy(pMeta_object->meta_object.pubkey_cka_label, cka_label,
-                     cka_label_len);
+              pMeta_object->meta_object.cka_label_pubkey.len = cka_label_len;
+              memcpy(pMeta_object->meta_object.cka_label_pubkey.value,
+                     cka_label, cka_label_len);
             }
             write_meta_object(session->slot, &pMeta_object->meta_object, true);
           } else { // meta object does not exist. Create it
             meta_object.target_id = asym_keys[i].id;
             if (cka_id_len > 0) {
-              meta_object.pubkey_cka_id_len = cka_id_len;
-              memcpy(meta_object.pubkey_cka_id, cka_id, cka_id_len);
+              meta_object.cka_id_pubkey.len = cka_id_len;
+              memcpy(meta_object.cka_id_pubkey.value, cka_id, cka_id_len);
             }
             if (cka_label_len > 0) {
-              meta_object.pubkey_cka_label_len = cka_label_len;
-              memcpy(meta_object.pubkey_cka_label, cka_label, cka_label_len);
+              meta_object.cka_label_pubkey.len = cka_label_len;
+              memcpy(meta_object.cka_label_pubkey.value, cka_label,
+                     cka_label_len);
             }
             // No need to write this meta object now becase we will do it later
           }
@@ -2157,9 +2158,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
     goto c_sav_out;
   }
 
-  uint8_t new_ckaid[PKCS11_ID_SIZE] = {0};
+  uint8_t new_ckaid[CKA_ATTRIBUTE_VALUE_SIZE] = {0};
   int new_ckaid_len = 0;
-  uint8_t new_ckalabel[PKCS11_LABEL_SIZE] = {0};
+  uint8_t new_ckalabel[CKA_ATTRIBUTE_VALUE_SIZE] = {0};
   int new_ckalabel_len = 0;
 
   for (CK_ULONG i = 0; i < ulCount; i++) {
@@ -2216,46 +2217,49 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
       bool changed = FALSE;
       if (object->object.type == YH_PUBLIC_KEY) {
         if (!match_byte_array(new_ckaid, new_ckaid_len,
-                              meta_object->pubkey_cka_id,
-                              meta_object->pubkey_cka_id_len)) {
+                              meta_object->cka_id_pubkey.value,
+                              meta_object->cka_id_pubkey.len)) {
           changed = TRUE;
-          if (meta_object->pubkey_cka_id_len > 0) {
-            memset(&meta_object->pubkey_cka_id, 0,
-                   meta_object->pubkey_cka_id_len);
+          if (meta_object->cka_id_pubkey.len > 0) {
+            memset(&meta_object->cka_id_pubkey.value, 0,
+                   meta_object->cka_id_pubkey.len);
           }
-          meta_object->pubkey_cka_id_len = new_ckaid_len;
-          memcpy(meta_object->pubkey_cka_id, new_ckaid, new_ckaid_len);
+          meta_object->cka_id_pubkey.len = new_ckaid_len;
+          memcpy(meta_object->cka_id_pubkey.value, new_ckaid, new_ckaid_len);
         }
         if (!match_byte_array(new_ckalabel, new_ckalabel_len,
-                              meta_object->pubkey_cka_label,
-                              meta_object->pubkey_cka_label_len)) {
+                              meta_object->cka_label_pubkey.value,
+                              meta_object->cka_label_pubkey.len)) {
           changed = TRUE;
-          if (meta_object->pubkey_cka_label_len > 0) {
-            memset(&meta_object->pubkey_cka_label, 0,
-                   meta_object->pubkey_cka_label_len);
+          if (meta_object->cka_label_pubkey.len > 0) {
+            memset(&meta_object->cka_label_pubkey.value, 0,
+                   meta_object->cka_label_pubkey.len);
           }
-          meta_object->pubkey_cka_label_len = new_ckalabel_len;
-          memcpy(meta_object->pubkey_cka_label, new_ckalabel, new_ckalabel_len);
+          meta_object->cka_label_pubkey.len = new_ckalabel_len;
+          memcpy(meta_object->cka_label_pubkey.value, new_ckalabel,
+                 new_ckalabel_len);
         }
       } else {
-        if (!match_byte_array(new_ckaid, new_ckaid_len, meta_object->cka_id,
-                              meta_object->cka_id_len)) {
+        if (!match_byte_array(new_ckaid, new_ckaid_len,
+                              meta_object->cka_id.value,
+                              meta_object->cka_id.len)) {
           changed = TRUE;
-          if (meta_object->cka_id_len > 0) {
-            memset(&meta_object->cka_id, 0, meta_object->cka_id_len);
+          if (meta_object->cka_id.len > 0) {
+            memset(&meta_object->cka_id.value, 0, meta_object->cka_id.len);
           }
-          meta_object->cka_id_len = new_ckaid_len;
-          memcpy(meta_object->cka_id, new_ckaid, new_ckaid_len);
+          meta_object->cka_id.len = new_ckaid_len;
+          memcpy(meta_object->cka_id.value, new_ckaid, new_ckaid_len);
         }
         if (!match_byte_array(new_ckalabel, new_ckalabel_len,
-                              meta_object->cka_label,
-                              meta_object->cka_label_len)) {
+                              meta_object->cka_label.value,
+                              meta_object->cka_label.len)) {
           changed = TRUE;
-          if (meta_object->cka_label_len > 0) {
-            memset(&meta_object->cka_label, 0, meta_object->cka_label_len);
+          if (meta_object->cka_label.len > 0) {
+            memset(&meta_object->cka_label.value, 0,
+                   meta_object->cka_label.len);
           }
-          meta_object->cka_label_len = new_ckalabel_len;
-          memcpy(meta_object->cka_label, new_ckalabel, new_ckalabel_len);
+          meta_object->cka_label.len = new_ckalabel_len;
+          memcpy(meta_object->cka_label.value, new_ckalabel, new_ckalabel_len);
         }
       }
       if (changed) {
@@ -2272,12 +2276,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
       new_meta_object.target_type = object->object.type;
       new_meta_object.target_sequence = object->object.sequence;
       if (new_ckaid_len > 0) {
-        new_meta_object.cka_id_len = new_ckaid_len;
-        memcpy(new_meta_object.cka_id, new_ckaid, new_ckaid_len);
+        new_meta_object.cka_id.len = new_ckaid_len;
+        memcpy(new_meta_object.cka_id.value, new_ckaid, new_ckaid_len);
       }
       if (new_ckalabel_len > 0) {
-        new_meta_object.cka_label_len = new_ckalabel_len;
-        memcpy(new_meta_object.cka_label, new_ckalabel, new_ckalabel_len);
+        new_meta_object.cka_label.len = new_ckalabel_len;
+        memcpy(new_meta_object.cka_label.value, new_ckalabel, new_ckalabel_len);
       }
       rv = write_meta_object(session->slot, &new_meta_object, false);
       if (rv != CKR_OK) {
@@ -2366,9 +2370,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
   bool secret_key = false;
   bool extractable_set = false;
   size_t template_value_len = 0;
-  uint8_t template_id[PKCS11_ID_SIZE] = {0};
+  uint8_t template_id[CKA_ATTRIBUTE_VALUE_SIZE] = {0};
   size_t template_id_len = 0;
-  uint8_t template_label[PKCS11_LABEL_SIZE] = {0};
+  uint8_t template_label[CKA_ATTRIBUTE_VALUE_SIZE] = {0};
   size_t template_label_len = 0;
 
   DBG_INFO("find with %lu attributes", ulCount);
@@ -5147,7 +5151,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
 
   *phKey = object->sequence << 24 | object->type << 16 | object->id;
 
-  if (meta_object.cka_id_len > 0 || meta_object.cka_label_len > 0) {
+  if (meta_object.cka_id.len > 0 || meta_object.cka_label.len > 0) {
     meta_object.target_id = object->id;
     meta_object.target_type = object->type;
     meta_object.target_sequence = object->sequence;
@@ -5304,9 +5308,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
   }
   yh_object_descriptor *object = &object_desc->object;
 
-  if (meta_object.cka_id_len > 0 || meta_object.cka_label_len > 0 ||
-      meta_object.pubkey_cka_id_len > 0 ||
-      meta_object.pubkey_cka_label_len > 0) {
+  if (meta_object.cka_id.len > 0 || meta_object.cka_label.len > 0 ||
+      meta_object.cka_id_pubkey.len > 0 ||
+      meta_object.cka_label_pubkey.len > 0) {
     meta_object.target_id = object->id;
     meta_object.target_type = object->type;
     meta_object.target_sequence = object->sequence;
