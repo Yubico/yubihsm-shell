@@ -659,9 +659,8 @@ static CK_RV read_meta_object(yubihsm_pkcs11_slot *slot, uint16_t opaque_id,
   meta_object->target_sequence = *p++;
 
   while (p < opaque_value + opaque_value_len) {
-    switch (*p) {
+    switch ((*p++)) {
       case PKCS11_ID_TAG:
-        p++; // Tag byte
         meta_object->cka_id.len = ntohs(*(uint16_t *) p);
         if (meta_object->cka_id.len > CKA_ATTRIBUTE_VALUE_SIZE) {
           DBG_ERR("Parsed CKA_ID length is too long");
@@ -672,7 +671,6 @@ static CK_RV read_meta_object(yubihsm_pkcs11_slot *slot, uint16_t opaque_id,
         p += meta_object->cka_id.len;
         break;
       case PKCS11_LABEL_TAG:
-        p++; // Tag byte
         meta_object->cka_label.len = ntohs(*(uint16_t *) p);
         if (meta_object->cka_label.len > CKA_ATTRIBUTE_VALUE_SIZE) {
           DBG_ERR("Parsed CKA_LABEL length is too long");
@@ -683,7 +681,6 @@ static CK_RV read_meta_object(yubihsm_pkcs11_slot *slot, uint16_t opaque_id,
         p += meta_object->cka_label.len;
         break;
       case PUBKEY_PKCS11_ID_TAG:
-        p++; // Tag byte
         meta_object->cka_id_pubkey.len = ntohs(*(uint16_t *) p);
         if (meta_object->cka_id_pubkey.len > CKA_ATTRIBUTE_VALUE_SIZE) {
           DBG_ERR("Parsed public key CKA_ID length is too long");
@@ -695,7 +692,6 @@ static CK_RV read_meta_object(yubihsm_pkcs11_slot *slot, uint16_t opaque_id,
         p += meta_object->cka_id_pubkey.len;
         break;
       case PUBKEY_PKCS11_LABEL_TAG:
-        p++; // Tag byte
         meta_object->cka_label_pubkey.len = ntohs(*(uint16_t *) p);
         if (meta_object->cka_label_pubkey.len > CKA_ATTRIBUTE_VALUE_SIZE) {
           DBG_ERR("Parsed public key CKA_LABEL length is too long");
