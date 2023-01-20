@@ -52,6 +52,8 @@ jobs:
 
           cd $YHSHELL_SRC_DIR/resources/release/win
           ./make_release_binaries.ps1 Win32 C:/vcpkg
+
+          cd yubihsm-shell-x86/bin
           ./yubihsm-shell.exe --version
           ./yubihsm-shell.exe --help
 
@@ -106,6 +108,8 @@ jobs:
 
           cd $YHSHELL_SRC_DIR/resources/release/win
           ./make_release_binaries.ps1 Win32 C:/vcpkg
+
+          cd yubihsm-shell-x86/bin
           ./yubihsm-shell.exe --version
           ./yubihsm-shell.exe --help
 
@@ -134,6 +138,8 @@ jobs:
 
           cd $YHSHELL_SRC_DIR/resources/release/win
           ./make_release_binaries.ps1 x64 C:/vcpkg
+
+          cd yubihsm-shell-x64/bin
           ./yubihsm-shell.exe --version
           ./yubihsm-shell.exe --help
 
