@@ -829,12 +829,14 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
           meta_object->target_id);
 
   yh_rc rc = YHR_SUCCESS;
+  uint16_t meta_object_id = 0;
   if (replace) {
     yubihsm_pkcs11_object_desc *meta_desc =
       find_meta_object_by_target(slot, meta_object->target_id,
                                  meta_object->target_type,
                                  meta_object->target_sequence);
     if (meta_desc != NULL) {
+      meta_object_id = meta_desc->object.id;
       rc = yh_util_delete_object(slot->device_session, meta_desc->object.id,
                                  YH_OPAQUE);
       if (rc != YHR_SUCCESS) {
@@ -847,7 +849,6 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
     }
   }
   yh_capabilities capabilities = {{0}};
-  uint16_t meta_object_id = 0;
   rc =
     yh_util_import_opaque(slot->device_session, &meta_object_id, opaque_label,
                           0xffff, &capabilities, YH_ALGO_OPAQUE_DATA,
