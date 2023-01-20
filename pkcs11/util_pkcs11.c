@@ -618,18 +618,29 @@ CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
 #define PKCS11_PUBKEY_LABEL_TAG 4
 const char META_OBJECT_VERSION[4] = "MDB1";
 
-static CK_RV fill_meta_item(uint8_t **value, cka_meta_item *meta_item) {
-  uint8_t *p = *value;
+static uint16_t read_meta_item(uint8_t *target_value, uint8_t tag,
+                               cka_meta_item *meta_item) {
+  if (meta_item->len <= 0) {
+    return 0;
+  }
+  uint8_t *p = target_value;
+  *p++ = tag;
+  *(uint16_t *) p = htons(meta_item->len);
+  p += 2;
+  memcpy(p, &meta_item->value, meta_item->len);
+  return meta_item->len + 3;
+}
+
+static uint16_t write_meta_item(uint8_t *value, cka_meta_item *meta_item) {
+  uint8_t *p = value;
   meta_item->len = ntohs(*(uint16_t *) p);
   if (meta_item->len > CKA_ATTRIBUTE_VALUE_SIZE) {
     DBG_ERR("Parsed meta item length is too long");
-    return CKR_DATA_INVALID;
+    return 0;
   }
   p += 2;
   memcpy(&meta_item->value, p, meta_item->len);
-  p += meta_item->len;
-  *value = p;
-  return CKR_OK;
+  return meta_item->len + 2;
 }
 
 /*
@@ -672,28 +683,29 @@ static CK_RV read_meta_object(yubihsm_pkcs11_slot *slot, uint16_t opaque_id,
 
   meta_object->target_sequence = *p++;
 
-  CK_RV rv = CKR_OK;
   while (p < opaque_value + opaque_value_len) {
+    uint16_t len = 0;
     switch (*p++) {
       case PKCS11_ID_TAG:
-        rv = fill_meta_item(&p, &meta_object->cka_id);
+        len = write_meta_item(p, &meta_object->cka_id);
         break;
       case PKCS11_LABEL_TAG:
-        rv = fill_meta_item(&p, &meta_object->cka_label);
+        len = write_meta_item(p, &meta_object->cka_label);
         break;
       case PKCS11_PUBKEY_ID_TAG:
-        rv = fill_meta_item(&p, &meta_object->cka_id_pubkey);
+        len = write_meta_item(p, &meta_object->cka_id_pubkey);
         break;
       case PKCS11_PUBKEY_LABEL_TAG:
-        rv = fill_meta_item(&p, &meta_object->cka_label_pubkey);
+        len = write_meta_item(p, &meta_object->cka_label_pubkey);
         break;
       default:
         DBG_ERR("Unknown tag in value of opaque PKCS11 object");
         return CKR_DATA_INVALID;
     }
-    if (rv != CKR_OK) {
-      return rv;
+    if (len == 0) {
+      return CKR_DATA_INVALID;
     }
+    p += len;
   }
   return CKR_OK;
 }
@@ -774,19 +786,6 @@ yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
   return _get_object_desc(slot, id, type, sequence);
 }
 
-static void fill_value_from_meta_item(uint8_t **target_value, uint8_t tag,
-                                      cka_meta_item *meta_item) {
-  if (meta_item->len > 0) {
-    uint8_t *p = *target_value;
-    *p++ = tag;
-    *(uint16_t *) p = htons(meta_item->len);
-    p += 2;
-    memcpy(p, &meta_item->value, meta_item->len);
-    p += meta_item->len;
-    *target_value = p;
-  }
-}
-
 CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
                         pkcs11_meta_object *meta_object, bool replace) {
   size_t opaque_value_len =
@@ -818,12 +817,11 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
 
   *p++ = meta_object->target_sequence;
 
-  fill_value_from_meta_item(&p, PKCS11_ID_TAG, &meta_object->cka_id);
-  fill_value_from_meta_item(&p, PKCS11_LABEL_TAG, &meta_object->cka_label);
-  fill_value_from_meta_item(&p, PKCS11_PUBKEY_ID_TAG,
-                            &meta_object->cka_id_pubkey);
-  fill_value_from_meta_item(&p, PKCS11_PUBKEY_LABEL_TAG,
-                            &meta_object->cka_label_pubkey);
+  p += read_meta_item(p, PKCS11_ID_TAG, &meta_object->cka_id);
+  p += read_meta_item(p, PKCS11_LABEL_TAG, &meta_object->cka_label);
+  p += read_meta_item(p, PKCS11_PUBKEY_ID_TAG, &meta_object->cka_id_pubkey);
+  p +=
+    read_meta_item(p, PKCS11_PUBKEY_LABEL_TAG, &meta_object->cka_label_pubkey);
 
   char opaque_label[YH_OBJ_LABEL_LEN] = {0};
   sprintf(opaque_label, "Meta object for 0x%02x%02x%04x",
