@@ -67,7 +67,7 @@ jobs:
       - name: Install yubihsm-shell
         run: |
           Set-PSDebug -Trace 1
-          cd "$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-\resources\release\win"
+          cd "$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:VERSION\resources\release\win"
           msiexec /i yubihsm-shell-x86.msi /quiet /log $env:GITHUB_WORKSPACE/artifact/log_x86.txt
 
       - name: Upload artifact
@@ -113,7 +113,7 @@ jobs:
       - name: Install yubihsm-shell
         run: |
           Set-PSDebug -Trace 1
-          cd "$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-\resources\release\win"
+          cd "$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:VERSION\resources\release\win"
           msiexec /i yubihsm-shell-x64.msi /quiet /log $env:GITHUB_WORKSPACE/artifact/log_x64.txt
 
       - name: Upload artifact
