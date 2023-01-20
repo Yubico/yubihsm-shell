@@ -837,13 +837,13 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
                                  meta_object->target_sequence);
     if (meta_desc != NULL) {
       meta_object_id = meta_desc->object.id;
-      rc = yh_util_delete_object(slot->device_session, meta_desc->object.id,
-                                 YH_OPAQUE);
+      rc =
+        yh_util_delete_object(slot->device_session, meta_object_id, YH_OPAQUE);
       if (rc != YHR_SUCCESS) {
-        DBG_INFO("Failed to delete opaque object 0x%x", meta_desc->object.id);
+        DBG_INFO("Failed to delete opaque object 0x%x", meta_object_id);
       } else {
-        DBG_INFO("Removed opaque object 0x%x with label %s",
-                 meta_desc->object.id, opaque_label);
+        DBG_INFO("Removed opaque object 0x%x with label %s", meta_object_id,
+                 opaque_label);
       }
       memset(meta_desc, 0, sizeof(yubihsm_pkcs11_object_desc));
     }
