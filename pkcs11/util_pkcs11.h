@@ -175,10 +175,10 @@ bool match_meta_attributes(yubihsm_pkcs11_session *session,
                            uint16_t cka_label_len);
 
 bool is_meta_object(yh_object_descriptor *object);
-CK_RV parse_meta_id_template(pkcs11_meta_object *pkcs11meta, int *id,
-                             uint8_t *value, size_t value_len);
-CK_RV parse_meta_label_template(yubihsm_pkcs11_object_template *template,
-                                pkcs11_meta_object *pkcs11meta, bool label_set,
-                                uint8_t *value, size_t value_len);
+CK_RV parse_meta_id_template(pkcs11_meta_object *pkcs11meta, bool public,
+                             int *id, uint8_t *value, size_t value_len);
+void parse_meta_label_template(yubihsm_pkcs11_object_template *template,
+                               pkcs11_meta_object *pkcs11meta, bool public,
+                               uint8_t *value, size_t value_len);
 bool match_byte_array(uint8_t *a, uint16_t a_len, uint8_t *b, uint16_t b_len);
 #endif
