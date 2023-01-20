@@ -64,6 +64,12 @@ jobs:
           cp -r $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-x86 $env:GITHUB_WORKSPACE/artifact/
           cp -r $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-x86.msi $env:GITHUB_WORKSPACE/artifact/
 
+      - name: Install yubihsm-shell
+        run: |
+          Set-PSDebug -Trace 1
+          cd "$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:VERSION\resources\release\win"
+          msiexec /i yubihsm-shell-x86.msi /quiet /log $env:GITHUB_WORKSPACE/artifact/log_x86.txt
+
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
@@ -103,6 +109,12 @@ jobs:
           mkdir $env:GITHUB_WORKSPACE/artifact
           cp -r $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-x64 $env:GITHUB_WORKSPACE/artifact/
           cp -r $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-x64.msi $env:GITHUB_WORKSPACE/artifact/
+
+      - name: Install yubihsm-shell
+        run: |
+          Set-PSDebug -Trace 1
+          cd "$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:VERSION\resources\release\win"
+          msiexec /i yubihsm-shell-x64.msi /quiet /log $env:GITHUB_WORKSPACE/artifact/log_x64.txt
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
