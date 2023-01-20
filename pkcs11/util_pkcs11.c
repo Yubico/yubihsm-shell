@@ -4293,7 +4293,7 @@ CK_RV parse_hmac_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
 }
 
 CK_RV parse_meta_id_template(pkcs11_meta_object *pkcs11meta, bool pubkey,
-                             int *id, uint8_t *value, size_t value_len) {
+                             uint16_t *id, uint8_t *value, size_t value_len) {
   if (value_len != 2) {
     if (pubkey) {
       pkcs11meta->cka_id_pubkey.len = value_len;
@@ -4306,10 +4306,6 @@ CK_RV parse_meta_id_template(pkcs11_meta_object *pkcs11meta, bool pubkey,
   } else {
     if (!pubkey) {
       *id = parse_id_value(value, value_len);
-      if (*id == -1) {
-        DBG_ERR("CKA_ID invalid in template");
-        return CKR_ATTRIBUTE_VALUE_INVALID;
-      }
     }
   }
 
@@ -4342,7 +4338,6 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
 
   uint8_t *e = NULL;
   CK_RV rv;
-  int id = 0;
 
   memset(template->label, 0, sizeof(template->label));
   for (CK_ULONG i = 0; i < ulPublicKeyAttributeCount; i++) {
@@ -4481,14 +4476,13 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_ID: {
-        rv = parse_meta_id_template(pkcs11meta, false, &id,
+        rv = parse_meta_id_template(pkcs11meta, false, &template->id,
                                     pPrivateKeyTemplate[i].pValue,
                                     pPrivateKeyTemplate[i].ulValueLen);
         if (rv != CKR_OK) {
           DBG_ERR("Failed to parse CKA_ID in PrivateKeyTemplate");
           return rv;
         }
-        template->id = id;
       } break;
 
       case CKA_DECRYPT:
@@ -4571,7 +4565,7 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
   return CKR_OK;
 }
 
-int parse_id_value(void *value, CK_ULONG len) {
+uint16_t parse_id_value(void *value, CK_ULONG len) {
   switch (len) {
     case 0:
       return 0;
@@ -4595,7 +4589,6 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
   uint8_t *ecparams = NULL;
   uint16_t ecparams_len = 0;
   CK_RV rv;
-  int id;
 
   memset(template->label, 0, sizeof(template->label));
   for (CK_ULONG i = 0; i < ulPublicKeyAttributeCount; i++) {
@@ -4700,15 +4693,13 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_ID: {
-        rv = parse_meta_id_template(pkcs11meta, false, &id,
+        rv = parse_meta_id_template(pkcs11meta, false, &template->id,
                                     pPrivateKeyTemplate[i].pValue,
                                     pPrivateKeyTemplate[i].ulValueLen);
         if (rv != CKR_OK) {
           DBG_ERR("Failed to parse CKA_ID in PrivateKeyTemplate");
           return rv;
         }
-        template->id = id;
-
       } break;
 
       case CKA_SIGN:

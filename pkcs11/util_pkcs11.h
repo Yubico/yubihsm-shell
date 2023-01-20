@@ -151,7 +151,7 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
                                  yubihsm_pkcs11_object_template *template,
                                  pkcs11_meta_object *pkcs11meta);
 
-int parse_id_value(void *value, CK_ULONG len);
+uint16_t parse_id_value(void *value, CK_ULONG len);
 
 CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
                         CK_ULONG ulCount, yubihsm_pkcs11_session *session);
@@ -176,7 +176,7 @@ bool match_meta_attributes(yubihsm_pkcs11_session *session,
 
 bool is_meta_object(yh_object_descriptor *object);
 CK_RV parse_meta_id_template(pkcs11_meta_object *pkcs11meta, bool public,
-                             int *id, uint8_t *value, size_t value_len);
+                             uint16_t *id, uint8_t *value, size_t value_len);
 void parse_meta_label_template(yubihsm_pkcs11_object_template *template,
                                pkcs11_meta_object *pkcs11meta, bool public,
                                uint8_t *value, size_t value_len);
