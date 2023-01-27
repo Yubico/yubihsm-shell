@@ -1383,10 +1383,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
             id.d = 0;
           } else {
             id.d = parse_id_value(pTemplate[i].pValue, pTemplate[i].ulValueLen);
-            if (id.d == (CK_ULONG) -1) {
-              rv = CKR_ATTRIBUTE_VALUE_INVALID;
-              goto c_co_out;
-            }
           }
           id.set = true;
         } else {
@@ -2200,7 +2196,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
             }
           }
         } else {
-          int new_id =
+          uint16_t new_id =
             parse_id_value(pTemplate[i].pValue, pTemplate[i].ulValueLen);
           if (pTemplate[i].ulValueLen != 2 || new_id != object->object.id) {
             if (object->object.type == YH_PUBLIC_KEY) {
@@ -2360,7 +2356,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
 
   yh_rc rc = YHR_SUCCESS;
 
-  int id = 0;
   uint8_t type = 0;
   uint16_t domains = 0;
   yh_capabilities capabilities = {{0}};
@@ -2527,7 +2522,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
       yh_object_descriptor
         tmp_objects[YH_MAX_ITEMS_COUNT + MAX_ECDH_SESSION_KEYS] = {0};
       size_t tmp_n_objects = YH_MAX_ITEMS_COUNT + MAX_ECDH_SESSION_KEYS;
-      rc = yh_util_list_objects(session->slot->device_session, id, 0, domains,
+      rc = yh_util_list_objects(session->slot->device_session, 0, 0, domains,
                                 &capabilities, algorithm, label, tmp_objects,
                                 &tmp_n_objects);
       if (rc != YHR_SUCCESS) {
@@ -2563,7 +2558,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
         } else {
           yh_object_descriptor tmp_objects[YH_MAX_ITEMS_COUNT] = {0};
           size_t tmp_n_objects = sizeof(tmp_objects);
-          rc = yh_util_list_objects(session->slot->device_session, id,
+          rc = yh_util_list_objects(session->slot->device_session, 0,
                                     YH_OPAQUE, domains, &capabilities,
                                     YH_ALGO_OPAQUE_X509_CERTIFICATE, label,
                                     tmp_objects, &tmp_n_objects);
@@ -2599,7 +2594,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
         yh_object_descriptor
           tmp_objects[YH_MAX_ITEMS_COUNT + MAX_ECDH_SESSION_KEYS] = {0};
         size_t tmp_n_objects = YH_MAX_ITEMS_COUNT + MAX_ECDH_SESSION_KEYS;
-        rc = yh_util_list_objects(session->slot->device_session, id, type,
+        rc = yh_util_list_objects(session->slot->device_session, 0, type,
                                   domains, &capabilities, algorithm, label,
                                   tmp_objects, &tmp_n_objects);
 
@@ -2636,12 +2631,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
       }
     }
 
-    id = parse_id_value(template_id, template_id_len);
-    if (id == -1) {
-      DBG_ERR("Failed to parse ID from template");
-      rv = CKR_ATTRIBUTE_VALUE_INVALID;
-      goto c_foi_out;
-    }
+    uint16_t id = parse_id_value(template_id, template_id_len);
     DBG_INFO("id parsed as %x", id);
 
     if (ulCount == 0 ||
@@ -4948,12 +4938,14 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
 
       case CKA_ID:
         if (id.set == false) {
-          rv = parse_meta_id_template(&meta_object, FALSE, (int *) &id.d,
+          uint16_t d;
+          rv = parse_meta_id_template(&meta_object, FALSE, &d,
                                       pTemplate[i].pValue,
                                       pTemplate[i].ulValueLen);
           if (rv != CKR_OK) {
             goto c_gk_out;
           }
+          id.d = d;
           id.set = true;
         } else {
           rv = CKR_TEMPLATE_INCONSISTENT;
