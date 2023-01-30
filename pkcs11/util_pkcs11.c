@@ -2720,7 +2720,7 @@ static CK_RV perform_aes_update(yh_session *session,
     return rv;
   }
 
-  DBG_INFO("Returning %lu bytes (buffered %lu bytes)", size, next);
+  DBG_INFO("Returning %zu bytes (buffered %zu bytes)", size, next);
   *out_len = size;
 
   return CKR_OK;
