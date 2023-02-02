@@ -79,6 +79,10 @@ jobs:
         run: |
           Set-PSDebug -Trace 1
           $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-"
+          $MERGEDPATH = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC141_CRT_x86.msm"
+
+          cd $YHSHELL_SRC_DIR/resources/release/win
+          ./repack_installer.ps1 x64 $env:WIX\bin "$MERGEDPATH"
 
           $PKCS11_CONFIG="connector=http://127.0.0.1:12345"
           $PKCS11_CONFIG | Out-File $env:GITHUB_WORKSPACE\yubihsm_pkcs11.conf
@@ -96,17 +100,23 @@ jobs:
           $log = "$env:GITHUB_WORKSPACE\opensc_install.log"
           $procMain = Start-Process "msiexec" "/i `"OpenSC-0.23.0.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
           $procMain.WaitForExit()
+          $procMain = Start-Process "msiexec" "/i `"$YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$env:ARCH.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
+          $procMain.WaitForExit()
+
 
           if($env:ARCH -eq "x86")
           {
             $env:PATH += ";C:\Program Files (x86)\OpenSC Project\OpenSC\tools"
-            ls 'C:\Program Files (x86)\OpenSC Project'
-            pkcs11-tool.exe
+            $env:PATH += ";C:\Program Files (x86)\Yubico\YubiHSM Shell\bin"
+            $PKCS11_MODULE = "C:\Program Files (x86)\Yubico\YubiHSM Shell\bin\pkcs11\yubihsm_pkcs11.dll"
           }
           else
           {
             $env:PATH += ";C:\Program Files\OpenSC Project\OpenSC\tools"
+            $env:PATH += ";C:\Program Files\Yubico\YubiHSM Shell\bin"
+            $PKCS11_MODULE = "C:\Program Files\Yubico\YubiHSM Shell\bin\pkcs11\yubihsm_pkcs11.dll"
           }
 
-          $env:PATH += ";$YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$env:ARCH/bin"
-          pkcs11-tool.exe --module $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$env:ARCH/bin/pkcs11/yubihsm_pkcs11.dll --show-info
+          yubihsm-shell.exe --version
+          yubihsm-shell.exe --help
+          pkcs11-tool.exe --module '$PKCS11_MODULE' --show-info
