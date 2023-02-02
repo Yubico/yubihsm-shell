@@ -84,11 +84,27 @@ jobs:
           $PKCS11_CONFIG | Out-File $env:GITHUB_WORKSPACE\yubihsm_pkcs11.conf
           $env:YUBIHSM_PKCS11_CONF="$env:GITHUB_WORKSPACE\yubihsm_pkcs11.conf"
 
-          Invoke-WebRequest -Uri  https://github.com/OpenSC/OpenSC/releases/download/0.23.0/OpenSC-0.23.0_win64.msi -OutFile OpenSC-0.23.0_win64.msi -UseBasicParsing
+          if($env:ARCH -eq "x86")
+          {
+            Invoke-WebRequest -Uri  https://github.com/OpenSC/OpenSC/releases/download/0.23.0/OpenSC-0.23.0_win32.msi -OutFile OpenSC-0.23.0.msi -UseBasicParsing
+          }
+          else
+          {
+            Invoke-WebRequest -Uri  https://github.com/OpenSC/OpenSC/releases/download/0.23.0/OpenSC-0.23.0_win64.msi -OutFile OpenSC-0.23.0.msi -UseBasicParsing
+          }
+
           $log = "$env:GITHUB_WORKSPACE\opensc_install.log"
-          $procMain = Start-Process "msiexec" "/i `"OpenSC-0.23.0_win64.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
+          $procMain = Start-Process "msiexec" "/i `"OpenSC-0.23.0.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
           $procMain.WaitForExit()
 
-          $env:PATH += ";C:\Program Files\OpenSC Project\OpenSC\tools"
+          if($env:ARCH -eq "x86")
+          {
+            $env:PATH += ";C:\Program Files\OpenSC Project (x86)\OpenSC\tools"
+          }
+          else
+          {
+            $env:PATH += ";C:\Program Files\OpenSC Project\OpenSC\tools"
+          }
+
           $env:PATH += ";$YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$env:ARCH/bin"
           pkcs11-tool.exe --module $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$env:ARCH/bin/pkcs11/yubihsm_pkcs11.dll --show-info
