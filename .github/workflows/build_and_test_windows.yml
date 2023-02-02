@@ -90,7 +90,6 @@ jobs:
           $log = "$env:GITHUB_WORKSPACE\opensc_install.log"
           $procMain = Start-Process "msiexec" "/i `"OpenSC-0.23.0_win64.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
           $procMain.WaitForExit()
-          $procLog.Kill()
           mkdir $env:GITHUB_WORKSPACE/artifact
           cp $log $env:GITHUB_WORKSPACE/artifact/
 
