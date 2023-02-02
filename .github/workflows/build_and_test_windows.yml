@@ -99,8 +99,8 @@ jobs:
 
           if($env:ARCH -eq "x86")
           {
-            $env:PATH += ";C:\Program Files\OpenSC Project (x86)\OpenSC\tools"
-            ls 'C:\Program Files\OpenSC Project (x86)'
+            $env:PATH += ";C:\Program Files (x86)\OpenSC Project\OpenSC\tools"
+            ls 'C:\Program Files (x86)\OpenSC Project'
             pkcs11-tool.exe
           }
           else
