@@ -79,10 +79,13 @@ jobs:
         run: |
           Set-PSDebug -Trace 1
           $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-"
+          ls 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist'
+          ls 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC'
           $MERGEDPATH = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC141_CRT_x86.msm"
 
+
           cd $YHSHELL_SRC_DIR/resources/release/win
-          ./repack_installer.ps1 x64 $env:WIX\bin "$MERGEDPATH"
+          ./repack_installer.ps1 $env:ARCH $env:WIX\bin "$MERGEDPATH"
 
           $PKCS11_CONFIG="connector=http://127.0.0.1:12345"
           $PKCS11_CONFIG | Out-File $env:GITHUB_WORKSPACE\yubihsm_pkcs11.conf
