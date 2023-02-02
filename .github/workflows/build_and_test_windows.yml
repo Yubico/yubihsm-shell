@@ -96,7 +96,7 @@ jobs:
           $env:PATH += ";C:\Program Files\OpenSC Project\OpenSC\tools"
           pkcs11-tool.exe
 
-          ls $YHSHELL_SRC_DIR/resources/release/win/build_release/yubihsm-shell-$env:ARCH/bin
+          ls $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$env:ARCH/bin
 
           $env:PATH += ";$YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$env:ARCH/bin"
           pkcs11-tool.exe --module $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$env:ARCH/bin/pkcs11/yubihsm_pkcs11.dll --show-info
