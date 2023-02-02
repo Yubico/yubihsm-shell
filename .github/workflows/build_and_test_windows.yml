@@ -94,13 +94,12 @@ jobs:
           cp $log $env:GITHUB_WORKSPACE/artifact/
 
           $env:PATH += ";C:\Program Files\OpenSC Project\OpenSC\tools"
-
           pkcs11-tool.exe
 
-          ls $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$ARCH/bin
+          ls $YHSHELL_SRC_DIR/resources/release/win/build_release/yubihsm-shell-$env:ARCH/bin
 
-          $env:PATH += ";$YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$ARCH/bin"
-          pkcs11-tool.exe --module $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$ARCH/bin/pkcs11/yubihsm_pkcs11.dll --show-info
+          $env:PATH += ";$YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$env:ARCH/bin"
+          pkcs11-tool.exe --module $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$env:ARCH/bin/pkcs11/yubihsm_pkcs11.dll --show-info
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
