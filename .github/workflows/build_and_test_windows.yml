@@ -87,16 +87,24 @@ jobs:
           $env:YUBIHSM_PKCS11_CONF="$env:GITHUB_WORKSPACE\yubihsm_pkcs11.conf"
 
           Invoke-WebRequest -Uri  https://github.com/OpenSC/OpenSC/releases/download/0.23.0/OpenSC-0.23.0_win64.msi -OutFile OpenSC-0.23.0_win64.msi -UseBasicParsing
-          $log = "install.log"
+          $log = "$env:GITHUB_WORKSPACE\opensc_install.log"
           $procMain = Start-Process "msiexec" "/i `"OpenSC-0.23.0_win64.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
           $procLog = Start-Process "powershell" "Get-Content -Path `"$log`" -Wait" -NoNewWindow -PassThru
           $procMain.WaitForExit()
           $procLog.Kill()
+          mkdir $env:GITHUB_WORKSPACE/artifact
+          cp $log $env:GITHUB_WORKSPACE/artifact/
 
           pkcs11-tool.exe
 
           $env:PATH += ";$YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$ARCH/bin"
           pkcs11-tool.exe --module $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$ARCH/bin/pkcs11/yubihsm_pkcs11.dll --show-info
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: opensc_install_log
+          path: artifact
 
 
 
