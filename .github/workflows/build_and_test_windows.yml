@@ -1,0 +1,99 @@
+name: Build and Test
+
+on: [push, pull_request]
+
+jobs:
+  source:
+    name: Build dist with Linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: Install prerequisites
+        run: |
+          set -x
+          sudo apt -q update
+          sudo apt install libpcsclite-dev gengetopt help2man libedit-dev libcurl4-openssl-dev libssl-dev libusb-1.0-0-dev
+      - name: Create tar.gz
+        run: |
+          set -x
+          ./resources/make_src_dist.sh
+          cd ..
+          mkdir artifact
+          mv $GITHUB_WORKSPACE/yubihsm-shell-.tar.gz artifact/
+      - name: Upload artifact
+        uses: actions/upload-artifact@v1
+        with:
+          name: yubihsm-shell-src
+          path: ../artifact
+
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2019
+            arch: x86
+            arch_cmake: Win32
+          - os: windows-2019
+            arch: x64
+            arch_cmake: x64
+          - os: windows-2022
+            arch: x86
+            arch_cmake: Win32
+          - os: windows-2022
+            arch: x64
+            arch_cmake: x64
+
+    steps:
+      - name: Download source from job_1
+        uses: actions/download-artifact@v1
+        with:
+          name: yubihsm-shell-src
+
+      - name: Extract source
+        run: |
+          Set-PSDebug -Trace 1
+          cd yubihsm-shell-src
+          tar xf yubihsm-shell-.tar.gz
+
+      - name: Build and make MSI installer
+        env:
+          ARCH_CMAKE: ${{ matrix.arch_cmake }}
+        run: |
+          Set-PSDebug -Trace 1
+          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-"
+
+          cd $YHSHELL_SRC_DIR/resources/release/win
+          ./make_release_binaries.ps1 $env:ARCH_CMAKE C:/vcpkg
+          ./yubihsm-shell.exe --version
+          ./yubihsm-shell.exe --help
+
+
+
+      - name: Test PKCS11 module
+        env:
+          ARCH: ${{ matrix.arch }}
+
+        run: |
+          Set-PSDebug -Trace 1
+          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-"
+
+          $PKCS11_CONFIG="connector=http://127.0.0.1:12345"
+          $PKCS11_CONFIG | Out-File $env:GITHUB_WORKSPACE\yubihsm_pkcs11.conf
+          $env:YUBIHSM_PKCS11_CONF=$env:GITHUB_WORKSPACE\yubihsm_pkcs11.conf
+
+          Invoke-WebRequest -Uri  https://github.com/OpenSC/OpenSC/releases/download/0.23.0/OpenSC-0.23.0_win64.msi -OutFile OpenSC-0.23.0_win64.msi -UseBasicParsing
+          $log = "install.log"
+          $procMain = Start-Process "msiexec" "/i `"OpenSC-0.23.0_win64.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
+          $procLog = Start-Process "powershell" "Get-Content -Path `"$log`" -Wait" -NoNewWindow -PassThru
+          $procMain.WaitForExit()
+          $procLog.Kill()
+
+          pkcs11-tool.exe
+
+          pkcs11-tool.exe --module $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$ARCH/bin/pkcs11/yubihsm_pkcs11.dll --show-info
+
+
+
