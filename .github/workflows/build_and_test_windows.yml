@@ -84,7 +84,7 @@ jobs:
 
           $PKCS11_CONFIG="connector=http://127.0.0.1:12345"
           $PKCS11_CONFIG | Out-File $env:GITHUB_WORKSPACE\yubihsm_pkcs11.conf
-          $env:YUBIHSM_PKCS11_CONF=$env:GITHUB_WORKSPACE\yubihsm_pkcs11.conf
+          $env:YUBIHSM_PKCS11_CONF="$env:GITHUB_WORKSPACE\yubihsm_pkcs11.conf"
 
           Invoke-WebRequest -Uri  https://github.com/OpenSC/OpenSC/releases/download/0.23.0/OpenSC-0.23.0_win64.msi -OutFile OpenSC-0.23.0_win64.msi -UseBasicParsing
           $log = "install.log"
@@ -95,6 +95,7 @@ jobs:
 
           pkcs11-tool.exe
 
+          $env:PATH += ";$YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$ARCH/bin"
           pkcs11-tool.exe --module $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$ARCH/bin/pkcs11/yubihsm_pkcs11.dll --show-info
 
 
