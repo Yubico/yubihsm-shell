@@ -32,7 +32,7 @@ jobs:
     needs: source
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include:
           - os: windows-2019
@@ -72,8 +72,6 @@ jobs:
           ./yubihsm-shell.exe --version
           ./yubihsm-shell.exe --help
 
-
-
       - name: Test PKCS11 module
         env:
           ARCH: ${{ matrix.arch }}
@@ -90,22 +88,7 @@ jobs:
           $log = "$env:GITHUB_WORKSPACE\opensc_install.log"
           $procMain = Start-Process "msiexec" "/i `"OpenSC-0.23.0_win64.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
           $procMain.WaitForExit()
-          mkdir $env:GITHUB_WORKSPACE/artifact
-          cp $log $env:GITHUB_WORKSPACE/artifact/
 
           $env:PATH += ";C:\Program Files\OpenSC Project\OpenSC\tools"
-          pkcs11-tool.exe
-
-          ls $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$env:ARCH/bin
-
           $env:PATH += ";$YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$env:ARCH/bin"
           pkcs11-tool.exe --module $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$env:ARCH/bin/pkcs11/yubihsm_pkcs11.dll --show-info
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: opensc_install_log
-          path: artifact
-
-
-
