@@ -79,12 +79,8 @@ jobs:
         run: |
           Set-PSDebug -Trace 1
           $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-"
-
-          Get-Childitem –Path C:\ -Include *Microsoft_VC141_CRT*.msm -Recurse -ErrorAction SilentlyContinue
-
-          ls 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist'
-          ls 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC'
-          $MERGEDPATH = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC141_CRT_x86.msm"
+          $MERGEDPATH = Get-ChildItem "C:\Program Files*\Microsoft Visual Studio\*\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC141_CRT_x86.msm"
+          ls $MERGEDPATH
 
 
           cd $YHSHELL_SRC_DIR/resources/release/win
@@ -106,7 +102,7 @@ jobs:
           $log = "$env:GITHUB_WORKSPACE\opensc_install.log"
           $procMain = Start-Process "msiexec" "/i `"OpenSC-0.23.0.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
           $procMain.WaitForExit()
-          ls '$YHSHELL_SRC_DIR/resources/release/win/'
+          ls $YHSHELL_SRC_DIR/resources/release/win/
           $procMain = Start-Process "msiexec" "/i `"$YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$env:ARCH.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
           $procMain.WaitForExit()
 
@@ -126,4 +122,4 @@ jobs:
 
           yubihsm-shell.exe --version
           yubihsm-shell.exe --help
-          pkcs11-tool.exe --module '$PKCS11_MODULE' --show-info
+          pkcs11-tool.exe --module $PKCS11_MODULE --show-info
