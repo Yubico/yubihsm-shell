@@ -63,29 +63,28 @@ jobs:
       - name: Build and make MSI installer
         env:
           ARCH_CMAKE: ${{ matrix.arch_cmake }}
+          ARCH: ${{ matrix.arch }}
         run: |
           Set-PSDebug -Trace 1
           $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-"
+          $MERGEDPATH = Get-ChildItem "C:\Program Files*\Microsoft Visual Studio\*\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC141_CRT_$env:ARCH.msm"
 
           cd $YHSHELL_SRC_DIR/resources/release/win
           ./make_release_binaries.ps1 $env:ARCH_CMAKE C:/vcpkg
           ./yubihsm-shell.exe --version
           ./yubihsm-shell.exe --help
+          cd $YHSHELL_SRC_DIR/resources/release/win
+          ./repack_installer.ps1 $env:ARCH $env:WIX\bin "$MERGEDPATH"
+          cp yubihsm-shell-$env:ARCH.msi yubihsm-shell.msi
 
-      - name: Test PKCS11 module
+      - name: Test installer and PKCS11 module
         env:
           ARCH: ${{ matrix.arch }}
 
         run: |
           Set-PSDebug -Trace 1
-          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-"
-          $MERGEDPATH = Get-ChildItem "C:\Program Files*\Microsoft Visual Studio\*\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC141_CRT_$env:ARCH.msm"
-          ls $MERGEDPATH
 
-
-          cd $YHSHELL_SRC_DIR/resources/release/win
-          ./repack_installer.ps1 $env:ARCH $env:WIX\bin "$MERGEDPATH"
-          cp yubihsm-shell-$env:ARCH.msi yubihsm-shell.msi
+          cd $env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-\resources\release\win
 
           $PKCS11_CONFIG="connector=http://127.0.0.1:12345"
           $PKCS11_CONFIG | Out-File $env:GITHUB_WORKSPACE\yubihsm_pkcs11.conf
@@ -100,11 +99,9 @@ jobs:
             Invoke-WebRequest -Uri  https://github.com/OpenSC/OpenSC/releases/download/0.23.0/OpenSC-0.23.0_win64.msi -OutFile OpenSC-0.23.0.msi -UseBasicParsing
           }
 
-          $log = "$env:GITHUB_WORKSPACE\opensc_install.log"
+          $log = "$env:GITHUB_WORKSPACE\install.log"
           $procMain = Start-Process "msiexec" "/i `"OpenSC-0.23.0.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
           $procMain.WaitForExit()
-          ls
-          ls $YHSHELL_SRC_DIR/resources/release/win/
           $procMain = Start-Process "msiexec" "/i `"yubihsm-shell.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
           $procMain.WaitForExit()
 
@@ -122,6 +119,11 @@ jobs:
             $PKCS11_MODULE = "C:\Program Files\Yubico\YubiHSM Shell\bin\pkcs11\yubihsm_pkcs11.dll"
           }
 
-          yubihsm-shell.exe --version
-          yubihsm-shell.exe --help
+          yubihsm-shell.exe --version | findstr "yubihsm-shell"
+          $?
+          yubihsm-shell.exe --help | findstr "Usage: yubihsm-shell [OPTION]"
+          $?
           pkcs11-tool.exe --module $PKCS11_MODULE --show-info
+          $?
+          pkcs11-tool.exe --module $PKCS11_MODULE --show-info | findstr "YubiHSM"
+          $?
