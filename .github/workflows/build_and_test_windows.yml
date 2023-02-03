@@ -86,6 +86,7 @@ jobs:
 
           cd $env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-\resources\release\win
 
+          # No actual connection, but this is enough to make sure that the PKCS11 module is found and loaded
           $PKCS11_CONFIG="connector=http://127.0.0.1:12345"
           $PKCS11_CONFIG | Out-File $env:GITHUB_WORKSPACE\yubihsm_pkcs11.conf
           $env:YUBIHSM_PKCS11_CONF="$env:GITHUB_WORKSPACE\yubihsm_pkcs11.conf"
@@ -120,12 +121,6 @@ jobs:
           }
 
           yubihsm-shell.exe --version | findstr "yubihsm-shell"
-          $?
           yubihsm-shell.exe --help | findstr "Usage: yubihsm-shell [OPTION]"
-          $?
-          pkcs11-tool.exe --module $PKCS11_MODULE --show-info
-          $?
           pkcs11-tool.exe --module $PKCS11_MODULE --show-info *> .\outputFile.txt
-          $?
-          type .\outputFile.txt | findstr "YubiHSMFOO"
-          $?
+          type .\outputFile.txt | findstr "YubiHS"
