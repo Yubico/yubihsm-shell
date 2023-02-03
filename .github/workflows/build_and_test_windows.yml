@@ -127,5 +127,5 @@ jobs:
           $?
           pkcs11-tool.exe --module $PKCS11_MODULE --show-info *> .\outputFile.txt
           $?
-          type .\outputFile.txt | findstr "YubiHSM"
+          type .\outputFile.txt | findstr "YubiHSMFOO"
           $?
