@@ -79,12 +79,13 @@ jobs:
         run: |
           Set-PSDebug -Trace 1
           $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-"
-          $MERGEDPATH = Get-ChildItem "C:\Program Files*\Microsoft Visual Studio\*\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC141_CRT_x86.msm"
+          $MERGEDPATH = Get-ChildItem "C:\Program Files*\Microsoft Visual Studio\*\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC141_CRT_$env:ARCH.msm"
           ls $MERGEDPATH
 
 
           cd $YHSHELL_SRC_DIR/resources/release/win
           ./repack_installer.ps1 $env:ARCH $env:WIX\bin "$MERGEDPATH"
+          cp yubihsm-shell-$env:ARCH.msi yubihsm-shell.msi
 
           $PKCS11_CONFIG="connector=http://127.0.0.1:12345"
           $PKCS11_CONFIG | Out-File $env:GITHUB_WORKSPACE\yubihsm_pkcs11.conf
@@ -102,8 +103,9 @@ jobs:
           $log = "$env:GITHUB_WORKSPACE\opensc_install.log"
           $procMain = Start-Process "msiexec" "/i `"OpenSC-0.23.0.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
           $procMain.WaitForExit()
+          ls
           ls $YHSHELL_SRC_DIR/resources/release/win/
-          $procMain = Start-Process "msiexec" "/i `"$YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$env:ARCH.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
+          $procMain = Start-Process "msiexec" "/i `"yubihsm-shell.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
           $procMain.WaitForExit()
 
 
