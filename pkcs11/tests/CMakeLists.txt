@@ -242,12 +242,12 @@ set (
   )
 
 set (
-   SOURCE_META_OBJECT
-   meta_object_test.c
-   common.c
+  SOURCE_META_OBJECT
+  meta_object_test.c
+  common.c
   )
 
-set(
+set (
   SOURCE_AES_ENCRYPT
   aes_encrypt_test.c
   common.c
@@ -293,7 +293,7 @@ add_test (
 add_test (
   NAME meta_object_test
   COMMAND ${CMAKE_CURRENT_BINARY_DIR}/meta_object_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
-)
+  )
 
 if (NOT ${LIBCRYPTO_VERSION} VERSION_LESS 1.1)
   add_executable (rsa_enc_test ${SOURCE_RSA_ENC_TEST})
