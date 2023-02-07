@@ -242,6 +242,12 @@ set (
   )
 
 set (
+  SOURCE_META_OBJECT
+  meta_object_test.c
+  common.c
+  )
+
+set (
   SOURCE_AES_ENCRYPT
   aes_encrypt_test.c
   common.c
@@ -256,6 +262,7 @@ set (
 if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 add_executable (aes_encrypt_test ${SOURCE_AES_ENCRYPT})
 add_executable (ecdh_derive_test ${SOURCE_ECDH_DERIVE})
+add_executable (meta_object_test ${SOURCE_META_OBJECT})
 
 target_link_libraries(
   aes_encrypt_test
@@ -272,9 +279,19 @@ target_link_libraries (
   ${LIBCRYPTO_LDFLAGS}
   "-ldl")
 
+target_link_libraries(
+  meta_object_test
+  ${LIBCRYPTO_LDFLAGS}
+  "-ldl")
+
 add_test (
   NAME ecdh_derive_test
   COMMAND ${CMAKE_CURRENT_BINARY_DIR}/ecdh_derive_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
+  )
+
+add_test (
+  NAME meta_object_test
+  COMMAND ${CMAKE_CURRENT_BINARY_DIR}/meta_object_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
   )
 
 if (NOT ${LIBCRYPTO_VERSION} VERSION_LESS 1.1)
