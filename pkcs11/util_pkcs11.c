@@ -4293,30 +4293,38 @@ CK_RV parse_hmac_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
   }
 }
 
-CK_RV parse_meta_id_template(pkcs11_meta_object *pkcs11meta, bool pubkey,
-                             uint16_t *id, uint8_t *value, size_t value_len) {
+CK_RV parse_meta_id_template(yubihsm_pkcs11_object_template *template, 
+                            pkcs11_meta_object *pkcs11meta, bool pubkey,
+                            uint8_t *value, size_t value_len) {
   if (value_len != 2) {
+    if(value_len > CKA_ATTRIBUTE_VALUE_SIZE) {
+      DBG_ERR("Failed to parse too large CKA_ID");
+      return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
     if (pubkey) {
       pkcs11meta->cka_id_pubkey.len = value_len;
       memcpy(pkcs11meta->cka_id_pubkey.value, value, value_len);
     } else {
       pkcs11meta->cka_id.len = value_len;
       memcpy(pkcs11meta->cka_id.value, value, value_len);
-      *id = 0;
+      template->id = 0;
     }
   } else {
     if (!pubkey) {
-      *id = parse_id_value(value, value_len);
+      template->id = parse_id_value(value, value_len);
     }
   }
-
   return CKR_OK;
 }
 
-void parse_meta_label_template(yubihsm_pkcs11_object_template *template,
+CK_RV parse_meta_label_template(yubihsm_pkcs11_object_template *template,
                                pkcs11_meta_object *pkcs11meta, bool pubkey,
                                uint8_t *value, size_t value_len) {
   if (value_len > YH_OBJ_LABEL_LEN) {
+    if(value_len > CKA_ATTRIBUTE_VALUE_SIZE) {
+      DBG_ERR("Failed to parse too large CKA_LABEL");
+      return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
     if (pubkey) {
       pkcs11meta->cka_label_pubkey.len = value_len;
       memcpy(pkcs11meta->cka_label_pubkey.value, value, value_len);
@@ -4328,6 +4336,7 @@ void parse_meta_label_template(yubihsm_pkcs11_object_template *template,
   } else {
     memcpy(template->label, value, value_len);
   }
+  return CKR_OK;
 }
 
 CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
@@ -4358,11 +4367,10 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_ID:
-        rv = parse_meta_id_template(pkcs11meta, true, NULL,
+        rv = parse_meta_id_template(template, pkcs11meta, true,
                                     pPublicKeyTemplate[i].pValue,
                                     pPublicKeyTemplate[i].ulValueLen);
-        if (rv != CKR_OK) {
-          DBG_ERR("Failed to parse CKA_ID in PublicKeyTemplate");
+        if(rv != CKR_OK) {
           return rv;
         }
         break;
@@ -4405,9 +4413,12 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_LABEL:
-        parse_meta_label_template(template, pkcs11meta, true,
+        rv = parse_meta_label_template(template, pkcs11meta, true,
                                   pPublicKeyTemplate[i].pValue,
                                   pPublicKeyTemplate[i].ulValueLen);
+        if(rv != CKR_OK) {
+          return rv;
+        }
         break;
 
       case CKA_TOKEN:
@@ -4477,11 +4488,10 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_ID: {
-        rv = parse_meta_id_template(pkcs11meta, false, &template->id,
+        rv = parse_meta_id_template(template, pkcs11meta, false,
                                     pPrivateKeyTemplate[i].pValue,
                                     pPrivateKeyTemplate[i].ulValueLen);
-        if (rv != CKR_OK) {
-          DBG_ERR("Failed to parse CKA_ID in PrivateKeyTemplate");
+        if(rv != CKR_OK) {
           return rv;
         }
       } break;
@@ -4514,9 +4524,12 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_LABEL:
-        parse_meta_label_template(template, pkcs11meta, false,
+        rv = parse_meta_label_template(template, pkcs11meta, false,
                                   pPrivateKeyTemplate[i].pValue,
                                   pPrivateKeyTemplate[i].ulValueLen);
+        if(rv != CKR_OK) {
+          return rv;
+        }
         break;
 
       case CKA_TOKEN:
@@ -4609,11 +4622,10 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_ID:
-        rv = parse_meta_id_template(pkcs11meta, true, NULL,
+        rv = parse_meta_id_template(template, pkcs11meta, true,
                                     pPublicKeyTemplate[i].pValue,
                                     pPublicKeyTemplate[i].ulValueLen);
-        if (rv != CKR_OK) {
-          DBG_ERR("Failed to parse CKA_ID in PublicKeyTemplate");
+        if(rv != CKR_OK) {
           return rv;
         }
         break;
@@ -4629,9 +4641,12 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_LABEL:
-        parse_meta_label_template(template, pkcs11meta, true,
+        rv = parse_meta_label_template(template, pkcs11meta, true,
                                   pPublicKeyTemplate[i].pValue,
                                   pPublicKeyTemplate[i].ulValueLen);
+        if(rv != CKR_OK) {
+          return rv;
+        }
         break;
 
       case CKA_TOKEN:
@@ -4694,11 +4709,10 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_ID: {
-        rv = parse_meta_id_template(pkcs11meta, false, &template->id,
+        rv = parse_meta_id_template(template, pkcs11meta, false,
                                     pPrivateKeyTemplate[i].pValue,
                                     pPrivateKeyTemplate[i].ulValueLen);
-        if (rv != CKR_OK) {
-          DBG_ERR("Failed to parse CKA_ID in PrivateKeyTemplate");
+        if(rv != CKR_OK) {
           return rv;
         }
       } break;
@@ -4731,9 +4745,12 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_LABEL:
-        parse_meta_label_template(template, pkcs11meta, false,
+        rv = parse_meta_label_template(template, pkcs11meta, false,
                                   pPrivateKeyTemplate[i].pValue,
                                   pPrivateKeyTemplate[i].ulValueLen);
+        if(rv != CKR_OK) {
+          return rv;
+        }
         break;
 
       case CKA_TOKEN:
