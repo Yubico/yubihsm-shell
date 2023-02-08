@@ -1,7 +1,7 @@
 === Version 2.4.0
 
-lib: shell: pkcs11: Add support for symmetric encryption, AES-ECB and AES-CBC
-shell: Enable asymmetric authentication by default
+lib: shell: pkcs11: Add support for symmetric encryption, AES-ECB and AES-CBC (Requires firmware version 2.3 and later)
+shell: Enable asymmetric authentication by default (Requires firmware version 2.3 and later)
 shell: Allow hex format when creating symmetric authentication key
 shell: Improve usage of the list command
 shell: Allow yubihsm-auth reader to be specified
