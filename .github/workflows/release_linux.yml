@@ -126,7 +126,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: "yubihsm-shell-${{ env.PLATFORM_NAME }}-amd64"
-          path: ${{ env.PLATFORM_NAME }}/yubihsm-shell-${{ env.PLATFORM_NAME }}-amd64.tar.gz
+          path: ${{ env.PLATFORM_NAME }}
 
   build_centos_fedora:
     strategy:
@@ -134,6 +134,7 @@ jobs:
       matrix:
         environment: [
             "fedora:36",
+            "fedora:37",
             "centos:7"
         ]
 

@@ -36,7 +36,7 @@ elif [ "$PLATFORM" == "centos8" ]; then
   dnf group -y install "Development Tools"
   dnf config-manager -y --set-enabled powertools
 
-yum -y install chrpath              \
+  yum -y install chrpath              \
                     git                  \
                     cmake3               \
                     gengetopt            \
@@ -51,17 +51,22 @@ yum -y install chrpath              \
 elif [ "${PLATFORM:0:6}" == "fedora" ]; then
   dnf -y update
   dnf -y install binutils         \
-                      gcc              \
-                      gcc-c++          \
-                      chrpath          \
-                      cmake            \
-                      gengetopt        \
-                      openssl-devel    \
-                      libusb-devel     \
-                      libedit-devel    \
-                      libcurl-devel    \
-                      rpmdevtools      \
-                      pcsc-lite-devel
+                 gcc              \
+                 gcc-c++          \
+                 chrpath          \
+                 cmake            \
+                 gengetopt        \
+                 openssl-devel    \
+                 libedit-devel    \
+                 libcurl-devel    \
+                 rpmdevtools      \
+                 pcsc-lite-devel
+
+  if [ $PLATFORM == "fedora37" ]; then
+    dnf -y install libusb1-devel
+  else
+    dnf -y install libusb-devel
+  fi
 
   export CMAKE="cmake"
 fi
@@ -78,25 +83,10 @@ echo '%_topdir %(echo $HOME)/rpmbuild' > $GITHUB_WORKSPACE/.rpmmacros
 
 RPM_DIR=$GITHUB_WORKSPACE/rpmbuild
 
-echo "INPUT=$INPUT"
-echo "OUTPUT=$OUTPUT"
-ls $INPUT
-echo "---------"
-sleep 5
-ls $INPUT/yubihsm-shell
-echo "---------"
-sleep 5
-
-
-
 cp yubihsm-shell-in-githubactions.spec $RPM_DIR/SPECS/
 
 QA_SKIP_BUILD_ROOT=1 QA_RPATHS=$(( 0x0001|0x0010 )) rpmbuild -bb $RPM_DIR/SPECS/yubihsm-shell-in-githubactions.spec
-sleep 5
-ls
-sleep 5
 cp /github/home/rpmbuild/RPMS/x86_64/*.rpm $OUTPUT
-sleep 5
 LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
 mkdir -p $LICENSE_DIR
 
