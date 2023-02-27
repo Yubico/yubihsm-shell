@@ -89,8 +89,9 @@ jobs:
         env:
           PLATFORM: ${{ env.PLATFORM_NAME }}
         run: |
+          set -x
           # Create directory containing all output
-          OUTPUT=$PLATFORM/yubihsm-shell
+          OUTPUT=$GITHUB_WORKSPACE/$PLATFORM/yubihsm-shell
           mkdir -p $OUTPUT
 
           if [ $PLATFORM == "debian9" ] || [ $PLATFORM == "debian10" ] || [ $PLATFORM == "debian11" ] || [ $PLATFORM == "ubuntu1804" ]; then
@@ -99,14 +100,16 @@ jobs:
             dpkg-buildpackage
           fi
           ls
+          echo "-----------------------------"
 
           cd ..
           ls
-          cp *.deb $OUTPUT
+          cp *.deb $OUTPUT/
+          echo "-----------------------------"
 
           LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
           mkdir -p $LICENSE_DIR
-          cp -r yubihsm-shell/resources/release/linux/licenses $LICENSE_DIR/
+          cp -r $GITHUB_WORKSPACE/resources/release/linux/licenses $LICENSE_DIR/
           for lf in $LICENSE_DIR/licenses/*; do
             chmod 644 $lf
           done
@@ -173,6 +176,7 @@ jobs:
         run: |
           pwd
           ls
+          echo "---------------------"
           cd resources/release/linux
           pwd
           ls -l
