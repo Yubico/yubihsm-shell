@@ -32,7 +32,9 @@ if [ "$PLATFORM" == "centos7" ]; then
                  libusbx-devel   \
                  pcsc-lite-devel \
                  help2man        \
-                 chrpath
+                 chrpath         \
+                 rpm-build       \
+                 redhat-rpm-config
 
 #  . /opt/rh/devtoolset-7/enable
 
