@@ -401,7 +401,7 @@ jobs:
     strategy:
       matrix:
         environment: [
-          "ubuntu:21.10",
+          "ubuntu:22.10",
           "debian:11",
           "fedora:34",
           "centos:7"
