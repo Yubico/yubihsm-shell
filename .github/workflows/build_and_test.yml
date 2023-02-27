@@ -146,11 +146,11 @@ jobs:
           echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_${CC}" >> $GITHUB_ENV
 
       - name: create compressed tar file
-        if: ${{ (matrix.environment == 'ubuntu:21.10' || matrix.environment == 'debian:11') && matrix.cc == 'gcc' }}
+        if: ${{ (matrix.environment == 'ubuntu:22.10' || matrix.environment == 'debian:11') && matrix.cc == 'gcc' }}
         run: tar cfz yubihsm-shell.tar.gz yubihsm-shell
 
       - name: upload artifacts for the test job
-        if: ${{ (matrix.environment == 'ubuntu:21.10' || matrix.environment == 'debian:11') && matrix.cc == 'gcc' }}
+        if: ${{ (matrix.environment == 'ubuntu:22.10' || matrix.environment == 'debian:11') && matrix.cc == 'gcc' }}
         uses: actions/upload-artifact@v2
         with:
           name: "${{ env.ARTIFACT_NAME }}"
@@ -416,7 +416,7 @@ jobs:
       - name: install dependencies from package management (debian based)
         env:
           DEBIAN_FRONTEND: noninteractive
-        if: ${{ matrix.environment == 'ubuntu:21.10' || matrix.environment == 'debian:11' }}
+        if: ${{ matrix.environment == 'ubuntu:22.10' || matrix.environment == 'debian:11' }}
         run: |
           apt update
           apt install -q -y build-essential cmake python3 python3-pip python3-setuptools curl libedit2 libssl1.1 libpcsclite1 libengine-pkcs11-openssl opensc swig openjdk-11-jdk-headless

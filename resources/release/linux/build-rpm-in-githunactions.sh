@@ -91,7 +91,7 @@ sleep 5
 
 cp yubihsm-shell-in-githubactions.spec $RPM_DIR/SPECS/
 
-QA_SKIP_BUILD_ROOT=1 rpmbuild -bb $RPM_DIR/SPECS/yubihsm-shell-in-githubactions.spec
+QA_SKIP_BUILD_ROOT=1 QA_RPATHS=$(( 0x0001|0x0010 )) rpmbuild -bb $RPM_DIR/SPECS/yubihsm-shell-in-githubactions.spec
 sleep 5
 ls
 sleep 5
@@ -101,7 +101,7 @@ LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
 mkdir -p $LICENSE_DIR
 
 cd $INPUT
-cp -r resources/release/linux/licenses $LICENSE_DIR/
+cp -r licenses $LICENSE_DIR/
 for lf in $LICENSE_DIR/licenses/*; do
  chmod 644 $lf
 done
