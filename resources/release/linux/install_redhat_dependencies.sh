@@ -9,20 +9,32 @@ if [ "$PLATFORM" == "centos7" ]; then
   yum -y update && yum -y upgrade
 
   # devtoolset-7-gcc devtoolset-7-gcc-c++
-  yum -y install gcc gcc-c++          \
-                 devtoolset-7-make    \
-                 chrpath              \
-                 git                  \
-                 cmake                \
-                 openssl-devel        \
-                 libedit-devel        \
-                 libcurl-devel        \
-                 libusbx-devel        \
-                 rpm-build            \
-                 redhat-rpm-config    \
-                 pcsc-lite-devel
+#  yum -y install gcc gcc-c++          \
+#                 devtoolset-7-make    \
+#                 chrpath              \
+#                 git                  \
+#                 cmake                \
+#                 openssl-devel        \
+#                 libedit-devel        \
+#                 libcurl-devel        \
+#                 libusbx-devel        \
+#                 rpm-build            \
+#                 redhat-rpm-config    \
+#                 pcsc-lite-devel
 
-  . /opt/rh/devtoolset-7/enable
+  yum -y install gcc gcc-c++     \
+                 cmake           \
+                 gengetopt       \
+                 openssl         \
+                 openssl-devel   \
+                 libedit-devel   \
+                 libcurl-devel   \
+                 libusbx-devel   \
+                 pcsc-lite-devel \
+                 help2man        \
+                 chrpath
+
+#  . /opt/rh/devtoolset-7/enable
 
   GENGETOPT_VER=2.23
   curl -o gengetopt-${GENGETOPT_VER}.rpm https://download-ib01.fedoraproject.org/pub/epel/7/x86_64/Packages/g/gengetopt-2.23-1.el7.x86_64.rpm
