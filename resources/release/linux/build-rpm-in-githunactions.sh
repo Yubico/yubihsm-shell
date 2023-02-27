@@ -75,7 +75,7 @@ mkdir -p $OUTPUT
 mkdir -p $GITHUB_WORKSPACE/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 echo '%_topdir %(echo $HOME)/rpmbuild' > $GITHUB_WORKSPACE/.rpmmacros
 
-export RPM_DIR=$GITHUB_WORKSPACE/rpmbuild
+RPM_DIR=$GITHUB_WORKSPACE/rpmbuild
 
 echo "INPUT=$INPUT"
 echo "OUTPUT=$OUTPUT"
@@ -91,7 +91,7 @@ sleep 5
 cp yubihsm-shell-in-githubactions.spec $RPM_DIR/SPECS/
 
 QA_SKIP_BUILD_ROOT=1 rpmbuild -bb $RPM_DIR/SPECS/yubihsm-shell-in-githubactions.spec
-cp $RPM_DIR/RPMS/x86_64/*.rpm $OUTPUT
+cp $GITHUB_WORKSPACE/rpmbuild/RPMS/x86_64/*.rpm $OUTPUT
 
 LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
 mkdir -p $LICENSE_DIR

@@ -134,8 +134,8 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: "yubihsm-shell-${{ env.ARTIFACT_NAME }}-amd64"
-          path: $GITHUB_WORKSPACE/${{ env.PLATFORM_NAME }}/yubihsm-shell
+          name: "yubihsm-shell-${{ env.PLATFORM_NAME }}-amd64"
+          path: ${{ env.$GITHUB_WORKSPACE }}/${{ env.PLATFORM_NAME }}/yubihsm-shell
 
   build_centos_fedora:
     strategy:
@@ -183,6 +183,7 @@ jobs:
         working-directory: yubihsm-shell
         env:
           PLATFORM: ${{ env.PLATFORM_NAME }}
+          CC: "gcc"
         run: |
           pwd
           ls
@@ -196,4 +197,4 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: "yubihsm-shell-${{ env.PLATFORM_NAME }}-amd64"
-          path: $GITHUB_WORKSPACE/${{ env.PLATFORM_NAME }}/yubihsm-shell
+          path: ${{ env.$GITHUB_WORKSPACE }}/${{ env.PLATFORM_NAME }}/yubihsm-shell
