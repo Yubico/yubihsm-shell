@@ -105,15 +105,7 @@ jobs:
           else
             dpkg-buildpackage
           fi
-          ls
-          echo "-----------------------------"
-          sleep 5
-
-          cd ..
-          ls
-          cp *.deb $OUTPUT/
-          echo "-----------------------------"
-          sleep 5
+          cp ../*.deb $OUTPUT/
 
           LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
           mkdir -p $LICENSE_DIR
@@ -123,13 +115,12 @@ jobs:
             chmod 644 $lf
           done
 
-          pushd "$OUTPUT" &>/dev/null
-            rm -f yubihsm-shell-$PLATFORM-amd64.tar.gz
-            tar -C .. -zcvf ../yubihsm-shell-$PLATFORM-amd64.tar.gz yubihsm-shell
-            rm -f *.deb
-            rm -rf licenses
-            rm -rf ../yubihsm-shell
-          popd &>/dev/null
+          cd $OUTPUT
+          rm -f yubihsm-shell-$PLATFORM-amd64.tar.gz
+          tar -C .. -zcvf ../yubihsm-shell-$PLATFORM-amd64.tar.gz yubihsm-shell
+          rm -f *.deb
+          rm -rf licenses
+          rm -rf ../yubihsm-shell
 
       - name: upload artifacts
         uses: actions/upload-artifact@v2
@@ -184,12 +175,7 @@ jobs:
         env:
           PLATFORM: ${{ env.PLATFORM_NAME }}
         run: |
-          pwd
-          ls
-          echo "---------------------"
           cd resources/release/linux
-          pwd
-          ls -l
           ./build-rpm-in-githunactions.sh $PLATFORM
 
       - name: upload artifacts

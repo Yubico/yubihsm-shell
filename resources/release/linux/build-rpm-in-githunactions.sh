@@ -101,7 +101,7 @@ LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
 mkdir -p $LICENSE_DIR
 
 cd $INPUT
-cp -r licenses $LICENSE_DIR/
+cp -r yubihsm-shell/resources/release/linux/licenses $LICENSE_DIR/
 for lf in $LICENSE_DIR/licenses/*; do
  chmod 644 $lf
 done
