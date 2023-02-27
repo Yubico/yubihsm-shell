@@ -92,7 +92,7 @@ jobs:
           OUTPUT=$PLATFORM/yubihsm-shell
           mkdir -p $OUTPUT
 
-          if [ "${$PLATFORM:0:6}" == "debian" ] || [ $PLATFORM == "ubuntu1804" ]; then
+          if [ $PLATFORM == "debian9" ] || [ $PLATFORM == "debian10" ] || [ $PLATFORM == "debian11" ] || [ $PLATFORM == "ubuntu1804" ]; then
             dpkg-buildpackage -b --no-sign
           else
             dpkg-buildpackage
@@ -172,9 +172,11 @@ jobs:
           PLATFORM: ${{ env.PLATFORM_NAME }}
         run: |
           pwd
+          ls
           cd resources/release/linux
           pwd
-          ./build-rpm-in-githubactions.sh $PLATFORM
+          ls -l
+          ./build-rpm-in-githunactions.sh $PLATFORM
 
       - name: upload artifacts
         uses: actions/upload-artifact@v2
