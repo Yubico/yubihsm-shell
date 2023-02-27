@@ -171,13 +171,50 @@ jobs:
           PLATFORM=$(echo -n "$PLATFORM" | sed -e 's/[ \t.\/\\"<>|*?]/-/g' -e 's/--*//g')
           echo "PLATFORM_NAME=$PLATFORM" >> $GITHUB_ENV
 
+      - name: install dependencies
+        env:
+          PLATFORM: ${{ env.PLATFORM_NAME }}
+        run: |
+          cd resources/release/linux
+          ./install_redhat_dependencies.sh $PLATFORM
+
       - name: build release
         working-directory: yubihsm-shell
         env:
           PLATFORM: ${{ env.PLATFORM_NAME }}
         run: |
-          cd resources/release/linux
-          ./build-rpm-in-githunactions.sh $PLATFORM
+          #cd resources/release/linux
+          #./build-rpm-in-githunactions.sh $PLATFORM
+
+          export INPUT=$GITHUB_WORKSPACE/yubihsm-shell
+          export OUTPUT=$GITHUB_WORKSPACE/$PLATFORM/yubihsm-shell
+          rm -rf $OUTPUT
+          mkdir -p $OUTPUT
+
+          # These 2 lines can be replaced by the command "rpmdev-setuptree", but this command seems to add macros that force check paths that do not exist
+          mkdir -p $GITHUB_WORKSPACE/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+          echo '%_topdir %(echo $HOME)/rpmbuild' > $GITHUB_WORKSPACE/.rpmmacros
+
+          RPM_DIR=$GITHUB_WORKSPACE/rpmbuild
+
+          cp resources/release/linux/yubihsm-shell.spec $RPM_DIR/SPECS/
+
+          QA_SKIP_BUILD_ROOT=1 QA_RPATHS=$(( 0x0001|0x0010 )) rpmbuild -bb $RPM_DIR/SPECS/yubihsm-shell-in-githubactions.spec
+          cp /github/home/rpmbuild/RPMS/x86_64/*.rpm $OUTPUT
+
+          LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
+          mkdir -p $LICENSE_DIR
+          cp -r $INPUT/yubihsm-shell/resources/release/linux/licenses $LICENSE_DIR/
+          for lf in $LICENSE_DIR/licenses/*; do
+           chmod 644 $lf
+          done
+
+          cd $OUTPUT
+          rm -f "yubihsm-shell-$PLATFORM-amd64.tar.gz"
+          tar -C ".." -zcvf "../yubihsm-shell-$PLATFORM-amd64.tar.gz" "yubihsm-shell"
+          rm -f *.rpm
+          rm -rf licenses
+          rm -rf ../yubihsm-shell
 
       - name: upload artifacts
         uses: actions/upload-artifact@v2
