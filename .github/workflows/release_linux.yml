@@ -175,7 +175,7 @@ jobs:
         env:
           PLATFORM: ${{ env.PLATFORM_NAME }}
         run: |
-          cd resources/release/linux
+          cd yubihsm-shell/resources/release/linux
           ./install_redhat_dependencies.sh $PLATFORM
 
       - name: build release
