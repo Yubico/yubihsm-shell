@@ -51,7 +51,8 @@ yum -y install chrpath              \
 elif [ "${PLATFORM:0:6}" == "fedora" ]; then
   dnf -y update
   dnf -y install binutils         \
-                      git              \
+                      gcc              \
+                      gcc-c++          \
                       chrpath          \
                       cmake            \
                       gengetopt        \
@@ -91,8 +92,11 @@ sleep 5
 cp yubihsm-shell-in-githubactions.spec $RPM_DIR/SPECS/
 
 QA_SKIP_BUILD_ROOT=1 rpmbuild -bb $RPM_DIR/SPECS/yubihsm-shell-in-githubactions.spec
-cp $GITHUB_WORKSPACE/rpmbuild/RPMS/x86_64/*.rpm $OUTPUT
-
+sleep 5
+ls
+sleep 5
+cp /github/home/rpmbuild/RPMS/x86_64/*.rpm $OUTPUT
+sleep 5
 LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
 mkdir -p $LICENSE_DIR
 
