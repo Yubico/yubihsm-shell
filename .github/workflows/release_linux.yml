@@ -186,6 +186,7 @@ jobs:
           #cd resources/release/linux
           #./build-rpm-in-githunactions.sh $PLATFORM
 
+          export CMAKE="cmake"
           export INPUT=$GITHUB_WORKSPACE/yubihsm-shell
           export OUTPUT=$GITHUB_WORKSPACE/$PLATFORM/yubihsm-shell
           rm -rf $OUTPUT
