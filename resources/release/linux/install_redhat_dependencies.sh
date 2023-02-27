@@ -7,19 +7,20 @@ PLATFORM=$1
 if [ "$PLATFORM" == "centos7" ]; then
   yum -y install centos-release-scl
   yum -y update && yum -y upgrade
-  yum -y install devtoolset-7-gcc     \
-                      devtoolset-7-gcc-c++ \
-                      devtoolset-7-make    \
-                      chrpath              \
-                      git                  \
-                      cmake                \
-                      openssl-devel        \
-                      libedit-devel        \
-                      libcurl-devel        \
-                      libusbx-devel        \
-                      rpm-build            \
-                      redhat-rpm-config    \
-                      pcsc-lite-devel
+
+  # devtoolset-7-gcc devtoolset-7-gcc-c++
+  yum -y install gcc gcc-c++          \
+                 devtoolset-7-make    \
+                 chrpath              \
+                 git                  \
+                 cmake                \
+                 openssl-devel        \
+                 libedit-devel        \
+                 libcurl-devel        \
+                 libusbx-devel        \
+                 rpm-build            \
+                 redhat-rpm-config    \
+                 pcsc-lite-devel
 
   . /opt/rh/devtoolset-7/enable
 
