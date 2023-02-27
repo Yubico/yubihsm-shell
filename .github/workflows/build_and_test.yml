@@ -29,10 +29,10 @@ jobs:
             cc: "gcc"
             libcurl_package: "libcurl4-nss-dev"
           # we do not perform clang builds for all environments, only some newer ones
-          - environment: "ubuntu:21.10"
+          - environment: "ubuntu:22.10"
             libcurl_package: "libcurl4-openssl-dev"
             cc: "clang"
-          - environment: "ubuntu:21.04"
+          - environment: "ubuntu:22.04"
             libcurl_package: "libcurl4-openssl-dev"
             cc: "clang"
           - environment: "debian:11"

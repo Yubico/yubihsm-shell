@@ -117,8 +117,8 @@ jobs:
 
           LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
           mkdir -p $LICENSE_DIR
-          ls $GITHUB_WORKSPACE/resources/release/linux
-          cp -r $GITHUB_WORKSPACE/resources/release/linux/licenses $LICENSE_DIR/
+          ls $GITHUB_WORKSPACE/yubihsm-shell/resources/release/linux
+          cp -r $GITHUB_WORKSPACE/yubihsm-shell/resources/release/linux/licenses $LICENSE_DIR/
           for lf in $LICENSE_DIR/licenses/*; do
             chmod 644 $lf
           done
@@ -135,7 +135,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: "yubihsm-shell-${{ env.ARTIFACT_NAME }}-amd64"
-          path: ${{ env.PLATFORM_NAME }}
+          path: $GITHUB_WORKSPACE/${{ env.PLATFORM_NAME }}/yubihsm-shell
 
   build_centos_fedora:
     strategy:
@@ -196,4 +196,4 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: "yubihsm-shell-${{ env.PLATFORM_NAME }}-amd64"
-          path: $GITHUB_WORKSPACE/resources/release/linux/build/${{ env.PLATFORM_NAME }}
+          path: $GITHUB_WORKSPACE/${{ env.PLATFORM_NAME }}/yubihsm-shell

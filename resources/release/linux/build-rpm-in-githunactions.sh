@@ -82,6 +82,11 @@ echo "OUTPUT=$OUTPUT"
 ls $INPUT
 echo "---------"
 sleep 5
+ls $INPUT/yubihsm-shell
+echo "---------"
+sleep 5
+
+
 
 cp yubihsm-shell-in-githubactions.spec $RPM_DIR/SPECS/
 

@@ -21,7 +21,7 @@ Development libraries for working with yubihsm 2.
 %prep
 cd %{_builddir}
 rm -rf *
-cp -r $INPUT/* .
+cp -r $INPUT/yubihsm-shell/* .
 
 
 %build
