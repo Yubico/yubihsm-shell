@@ -182,4 +182,4 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: "yubihsm-shell-${{ env.PLATFORM_NAME }}-amd64"
-          path: ${{ env.PLATFORM_NAME }}/yubihsm-shell-${{ env.PLATFORM_NAME }}-amd64.tar.gz
+          path: ${{ env.PLATFORM_NAME }}
