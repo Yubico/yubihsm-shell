@@ -86,14 +86,13 @@ jobs:
       - name: build release
         working-directory: yubihsm-shell
         env:
-          BUILD_ENVIRONMENT: ${{ matrix.environment }}
           PLATFORM: ${{ env.PLATFORM_NAME }}
         run: |
           # Create directory containing all output
           OUTPUT=$PLATFORM/yubihsm-shell
           mkdir -p $OUTPUT
 
-          if [ "${$PLATFORM:0:6}" == "debian" ] || [ $BUILD_ENVIRONMENT == "ubuntu:1804" ]; then
+          if [ "${$PLATFORM:0:6}" == "debian" ] || [ $PLATFORM == "ubuntu1804" ]; then
             dpkg-buildpackage -b --no-sign
           else
             dpkg-buildpackage
@@ -172,11 +171,13 @@ jobs:
         env:
           PLATFORM: ${{ env.PLATFORM_NAME }}
         run: |
+          pwd
           cd resources/release/linux
+          pwd
           ./build-rpm-in-githubactions.sh $PLATFORM
 
       - name: upload artifacts
         uses: actions/upload-artifact@v2
         with:
           name: "yubihsm-shell-${{ env.PLATFORM_NAME }}-amd64"
-          path: $GITHUB_WORKSPACE/resources/release/linux/build/$PLATFORM
+          path: $GITHUB_WORKSPACE/resources/release/linux/build/${{ env.PLATFORM_NAME }}
