@@ -22,7 +22,7 @@ jobs:
         cc: [ "gcc" ]
         libcurl_package: [ "libcurl4-openssl-dev" ]
 
-    name: build on ${{ matrix.environment }} with ${{ matrix.cc }}
+    name: build on ${{ matrix.environment }}
     runs-on: ubuntu-latest
     container: ${{ matrix.environment }}
 
@@ -90,6 +90,12 @@ jobs:
           PLATFORM: ${{ env.PLATFORM_NAME }}
         run: |
           set -x
+
+          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+          ls $GITHUB_WORKSPACE
+          sleep 5
+
+
           # Create directory containing all output
           OUTPUT=$GITHUB_WORKSPACE/$PLATFORM/yubihsm-shell
           mkdir -p $OUTPUT
@@ -101,11 +107,13 @@ jobs:
           fi
           ls
           echo "-----------------------------"
+          sleep 5
 
           cd ..
           ls
           cp *.deb $OUTPUT/
           echo "-----------------------------"
+          sleep 5
 
           LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
           mkdir -p $LICENSE_DIR
@@ -131,6 +139,7 @@ jobs:
 
   build_centos_fedora:
     strategy:
+      fail-fast: false
       matrix:
         environment: [
             "fedora:36",
