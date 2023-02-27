@@ -199,7 +199,7 @@ jobs:
 
           cp resources/release/linux/yubihsm-shell.spec $RPM_DIR/SPECS/
 
-          QA_SKIP_BUILD_ROOT=1 QA_RPATHS=$(( 0x0001|0x0010 )) rpmbuild -bb $RPM_DIR/SPECS/yubihsm-shell-in-githubactions.spec
+          QA_SKIP_BUILD_ROOT=1 QA_RPATHS=$(( 0x0001|0x0010 )) rpmbuild -bb $RPM_DIR/SPECS/yubihsm-shell.spec
           cp /github/home/rpmbuild/RPMS/x86_64/*.rpm $OUTPUT
 
           LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
