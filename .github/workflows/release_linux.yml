@@ -205,7 +205,7 @@ jobs:
 
           LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
           mkdir -p $LICENSE_DIR
-          cp -r $INPUT/yubihsm-shell/resources/release/linux/licenses $LICENSE_DIR/
+          cp -r $INPUT/resources/release/linux/licenses $LICENSE_DIR/
           for lf in $LICENSE_DIR/licenses/*; do
            chmod 644 $lf
           done
