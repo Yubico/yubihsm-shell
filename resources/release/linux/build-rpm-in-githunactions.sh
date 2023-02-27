@@ -76,7 +76,16 @@ mkdir -p $GITHUB_WORKSPACE/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 echo '%_topdir %(echo $HOME)/rpmbuild' > $GITHUB_WORKSPACE/.rpmmacros
 
 export RPM_DIR=$GITHUB_WORKSPACE/rpmbuild
+
+pwd
+ls
+echo "-------"
+ls $GITHUB_WORKSPACE/resources
+echo "-------"
+ls $GITHUB_WORKSPACE/resources/release
+echo "-------"
 ls $GITHUB_WORKSPACE/resources/release/linux
+echo "-------"
 cp $GITHUB_WORKSPACE/resources/release/linux/yubihsm-shell-in-githubactions.spec $RPM_DIR/SPECS/
 
 QA_SKIP_BUILD_ROOT=1 rpmbuild -bb $RPM_DIR/SPECS/yubihsm-shell-in-githubactions.spec
