@@ -358,7 +358,7 @@ jobs:
       matrix:
         environment: [
             "ubuntu:22.04",
-            "ubuntu:14.04"
+            "ubuntu:14.04",
             "debian:11",
             "fedora:37",
             "centos:7"
