@@ -167,11 +167,11 @@ jobs:
           echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_${CC}" >> $GITHUB_ENV
 
       - name: create compressed tar file
-        if: ${{ (matrix.upload_for_test == 'true' }}
+        if: ${{ matrix.upload_for_test == 'true' }}
         run: tar cfz yubihsm-shell.tar.gz yubihsm-shell
 
       - name: upload artifacts for the test job
-        if: ${{ (matrix.upload_for_test == 'true' }}
+        if: ${{ matrix.upload_for_test == 'true' }}
         uses: actions/upload-artifact@v2
         with:
           name: "${{ env.ARTIFACT_NAME }}"
@@ -302,11 +302,11 @@ jobs:
           echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_${CC}" >> $GITHUB_ENV
 
       - name: create compressed tar file
-        if: ${{ (matrix.upload_for_test == 'true' }}
+        if: ${{ matrix.upload_for_test == 'true' }}
         run: tar cfz yubihsm-shell.tar.gz yubihsm-shell
 
       - name: upload artifacts for the test job
-        if: ${{ (matrix.upload_for_test == 'true' }}
+        if: ${{ matrix.upload_for_test == 'true' }}
         uses: actions/upload-artifact@v2
         with:
           name: "${{ env.ARTIFACT_NAME }}"
