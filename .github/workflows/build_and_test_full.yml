@@ -231,15 +231,21 @@ jobs:
           PLATFORM: ${{ env.PLATFORM_NAME }}
           CC: ${{ matrix.cc }}
         run: |
-          echo "cc: $CC"
-          echo "platform: $PLATFORM"
           if [ $PLATFORM = "centos7" ]; then
             # enable the epel repository for centos
             yum install -y epel-release
           fi
-          cd yubihsm-shell/resources/release/linux
-          ./install_redhat_dependencies.sh $PLATFORM
-          yum -y install checksec procps-ng jq file which curl
+          # the name of the libusb package in centos:7 is libusbx-devel
+          yum install -y gcc gcc-c++ cmake gengetopt openssl openssl-devel libedit-devel libcurl-devel pcsc-lite-devel help2man chrpath checksec procps-ng jq file which curl
+
+          if [ $PLATFORM = "centos7" ]; then
+            yum install -y libusbx-devel
+          elif [ $PLATFORM = "fedora37" ]; then
+            yum install -y libusb1-devel
+          else
+            yum install -y libusb-devel
+          fi
+
           if [ "$CC" = "clang" ]; then
             yum install -y clang llvm lld
           fi
