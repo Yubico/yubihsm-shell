@@ -231,7 +231,6 @@ jobs:
           cd yubihsm-shell/resources/release/linux
           ./install_redhat_dependencies.sh $PLATFORM
 
-          yum install -y checksec procps-ng jq file which curl
           if [ "$CC" = "clang" ]; then
             yum install -y clang llvm lld
           fi
@@ -297,6 +296,8 @@ jobs:
       - name: check binaries for hardening
         working-directory: yubihsm-shell
         run: |
+          yum install -y checksec procps-ng jq file which curl
+
           cs() {
             checksec --file=build/src/yubihsm-shell --format=json | jq -r ".[] | .$1"
           }
