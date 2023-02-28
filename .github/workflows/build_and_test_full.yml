@@ -220,6 +220,8 @@ jobs:
         env:
           DOCKER_IMAGE: ${{ matrix.environment }}
         run: |
+          echo "platform: $DOCKER_IMAGE"
+
           PLATFORM=$(echo -n "$DOCKER_IMAGE" | sed -e 's/[ \t:\/\\"<>|*?]/-/g' -e 's/--*//g')
           PLATFORM=$(echo -n "$PLATFORM" | sed -e 's/[ \t.\/\\"<>|*?]/-/g' -e 's/--*//g')
           echo "PLATFORM_NAME=$PLATFORM" >> $GITHUB_ENV
@@ -227,7 +229,10 @@ jobs:
       - name: install dependencies
         env:
           PLATFORM: ${{ env.PLATFORM_NAME }}
+          CC: ${{ env.cc }}
         run: |
+          echo "cc: $CC"
+
           cd yubihsm-shell/resources/release/linux
           ./install_redhat_dependencies.sh $PLATFORM
 
@@ -296,7 +301,8 @@ jobs:
       - name: check binaries for hardening
         working-directory: yubihsm-shell
         run: |
-          yum install -y checksec procps-ng jq file which curl
+          yum makecache
+          yum -y install checksec procps-ng jq file which curl
 
           cs() {
             checksec --file=build/src/yubihsm-shell --format=json | jq -r ".[] | .$1"
