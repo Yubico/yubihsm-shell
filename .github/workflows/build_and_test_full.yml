@@ -487,7 +487,7 @@ jobs:
       - name: install dependencies from package management (debian based)
         env:
           DEBIAN_FRONTEND: noninteractive
-          PLATFORM: ${{ env.environment }}
+          PLATFORM: ${{ matrix.environment }}
         if: ${{ matrix.environment == 'ubuntu:22.04' || matrix.environment == 'debian:11' }}
         run: |
           apt update
@@ -504,12 +504,11 @@ jobs:
         if: ${{ matrix.environment == 'fedora:37' || matrix.environment == 'centos:7' }}
         working-directory: yubihsm-shell
         run: |
-          PLATFORM=$(echo -n "$DOCKER_IMAGE" | sed -e 's/[ \t:\/\\"<>|*?]/-/g' -e 's/--*//g')
-          PLATFORM=$(echo -n "$PLATFORM" | sed -e 's/[ \t.\/\\"<>|*?]/-/g' -e 's/--*//g')
-          echo "PLATFORM_NAME=$PLATFORM" >> $GITHUB_ENV
-
-          cd resources/release/linux
-          ./install_redhat_dependencies.sh $PLATFORM
+          if [ $BUILD_ENVIRONMENT = "centos:7" ]; then
+            # enable the epel repository for centos
+            yum install -y epel-release
+          fi
+          yum install -y gcc gcc-c++ cmake python3-devel python3-pip python3-setuptools curl libedit gengetopt openssl libcurl pcsc-lite swig java-11-openjdk-headless which
 
       - name: prepare ghostunnel
         env:
