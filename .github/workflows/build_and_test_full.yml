@@ -1,4 +1,4 @@
-name: Build and Test
+name: Build and Test Full
 
 on: [push, pull_request]
 
@@ -231,6 +231,11 @@ jobs:
           cd yubihsm-shell/resources/release/linux
           ./install_redhat_dependencies.sh $PLATFORM
 
+          yum install -y checksec procps-ng jq file which curl
+          if [ "$CC" = "clang" ]; then
+            yum install -y clang llvm lld
+          fi
+
       - name: apply environment specific changes to CMakeLists.txt
         working-directory: yubihsm-shell
         if: ${{ matrix.environment == 'centos:7' }}
@@ -435,6 +440,7 @@ jobs:
             "fedora:37",
             "centos:7"
         ]
+        cc: [ "gcc", "clang" ]
     name: run unit tests
     runs-on: ubuntu-latest
     container: ${{ matrix.environment }}
@@ -447,8 +453,10 @@ jobs:
           DOCKER_IMAGE: ${{ matrix.environment }}
           CC: ${{ matrix.cc }}
         run: |
+          echo "platform: $DOCKER_IMAGE"
+          echo "cc: $CC"
           ESCAPED_IMAGE=$(echo -n "$DOCKER_IMAGE" | sed -e 's/[ \t:\/\\"<>|*?]/-/g' -e 's/--*/-/g')
-          echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_gcc" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_${CC}" >> $GITHUB_ENV
 
       - name: download artifacts from the build job
         uses: actions/download-artifact@v2
