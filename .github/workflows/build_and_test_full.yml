@@ -185,13 +185,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [
-            "fedora:37",
-            "fedora:36",
-            "centos:7"
-        ]
-        cc: [ "gcc" ]
-        upload_for_test: [ "false" ]
         include:
           # we do not perform clang builds for all environments, only fedora
           - environment: "fedora:37"
@@ -200,6 +193,9 @@ jobs:
           - environment: "fedora:37"
             cc: "clang"
             upload_for_test: "true"
+          - environment: "fedora:36"
+            cc: "gcc"
+            upload_for_test: "false"
           - environment: "fedora:36"
             cc: "clang"
             upload_for_test: "false"
@@ -447,14 +443,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [
-            "ubuntu:22.04",
-            "ubuntu:14.04",
-            "debian:11",
-            "fedora:37",
-            "centos:7"
-        ]
-        cc: [ "gcc", "clang" ]
+        include:
+          - environment: "ubuntu:22.04"
+            cc: "gcc"
+          - environment: "ubuntu:22.04"
+            cc: "clang"
+          - environment: "ubuntu:14.04"
+            cc: "gcc"
+          - environment: "debian:11"
+            cc: "gcc"
+          - environment: "debian:11"
+            cc: "clang"
+          - environment: "fedora:37"
+            cc: "gcc"
+          - environment: "fedora:37"
+            cc: "clang"
+          - environment: "centos:7"
+            cc: "gcc"
+            
     name: run unit tests
     runs-on: ubuntu-latest
     container: ${{ matrix.environment }}
