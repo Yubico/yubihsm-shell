@@ -8,8 +8,8 @@ if [ "$PLATFORM" == "centos7" ]; then
   yum -y install centos-release-scl
   yum -y update && yum -y upgrade
 
-  # devtoolset-7-gcc devtoolset-7-gcc-c++
-#  yum -y install gcc gcc-c++          \
+#  yum -y install devtoolset-7-gcc     \
+#                 devtoolset-7-gcc-c++ \
 #                 devtoolset-7-make    \
 #                 chrpath              \
 #                 git                  \
