@@ -29,20 +29,11 @@ jobs:
           - environment: "ubuntu:18.04"
             cc: "gcc"
             upload_for_test: "false"
-          - environment: "ubuntu:18.04"
-            cc: "clang"
-            upload_for_test: "false"
           - environment: "ubuntu:16.04"
             cc: "gcc"
             upload_for_test: "false"
-          - environment: "ubuntu:16.04"
-            cc: "clang"
-            upload_for_test: "false"
           - environment: "ubuntu:14.04"
             cc: "gcc"
-            upload_for_test: "true"
-          - environment: "ubuntu:14.04"
-            cc: "clang"
             upload_for_test: "true"
           - environment: "debian:11"
             cc: "gcc"
@@ -53,17 +44,11 @@ jobs:
           - environment: "debian:10"
             cc: "gcc"
             upload_for_test: "false"
-          - environment: "debian:10"
-            cc: "clang"
-            upload_for_test: "false"
           - environment: "debian:9"
             cc: "gcc"
-            upload_for_test: "false"
-          - environment: "debian:9"
-            cc: "clang"
             upload_for_test: "false"
 
-    name: build on ${{ matrix.environment }} with ${{ matrix.cc }}
+    name: build on ${{ matrix.environment }} with ${{ matrix.cc }} - ${{ matrix.upload_for_test }}
     runs-on: ubuntu-latest
     container: ${{ matrix.environment }}
 
@@ -75,8 +60,27 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
           LIBCURL_PACKAGE: ${{ matrix.libcurl_package }}
         run: |
-          apt update
-          apt install -q -y build-essential cmake pkg-config gengetopt help2man libcurl4-openssl-dev libedit-dev libpcsclite-dev libusb-1.0-0-dev libssl-dev file curl jq
+          apt-get update && apt-get dist-upgrade -y
+          apt-get install -y build-essential      \
+                                  chrpath              \
+                                  cmake                \
+                                  pkg-config           \
+                                  gengetopt            \
+                                  help2man             \
+                                  libedit-dev          \
+                                  libcurl4-openssl-dev \
+                                  liblzma-dev          \
+                                  libssl-dev           \
+                                  libseccomp-dev       \
+                                  libusb-1.0.0-dev     \
+                                  dh-exec              \
+                                  git-buildpackage     \
+                                  curl                 \
+                                  libpcsclite-dev      \
+                                  file                 \
+                                  curl                 \
+                                  jq
+
           if [ "$CC" = "clang" ]; then
             apt install -q -y clang llvm lld
           fi
@@ -179,6 +183,7 @@ jobs:
 
   build_centos_fedora:
     strategy:
+      fail-fast: false
       matrix:
         environment: [
             "fedora:37",
@@ -190,15 +195,18 @@ jobs:
         include:
           # we do not perform clang builds for all environments, only fedora
           - environment: "fedora:37"
-            cc: "clang"
+            cc: "gcc"
             upload_for_test: "true"
           - environment: "fedora:37"
+            cc: "clang"
             upload_for_test: "true"
           - environment: "fedora:36"
             cc: "clang"
+            upload_for_test: "false"
           - environment: "centos:7"
+            cc: "gcc"
             upload_for_test: "true"
-    name: build on ${{ matrix.environment }} with ${{ matrix.cc }}
+    name: build on ${{ matrix.environment }} with ${{ matrix.cc }} - ${{ matrix.upload_for_test }}
     runs-on: ubuntu-latest
     container: ${{ matrix.environment }}
 
