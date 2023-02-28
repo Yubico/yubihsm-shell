@@ -229,7 +229,7 @@ jobs:
       - name: install dependencies
         env:
           PLATFORM: ${{ env.PLATFORM_NAME }}
-          CC: ${{ env.cc }}
+          CC: ${{ matrix.cc }}
         run: |
           echo "cc: $CC"
 
@@ -301,8 +301,10 @@ jobs:
       - name: check binaries for hardening
         working-directory: yubihsm-shell
         run: |
-          yum makecache
-          yum -y install checksec procps-ng jq file which curl
+          #yum makecache
+          #yum -y install checksec procps-ng jq file which curl
+          dnf makecache
+          dnf -y install checksec procps-ng jq file which curl
 
           cs() {
             checksec --file=build/src/yubihsm-shell --format=json | jq -r ".[] | .$1"
