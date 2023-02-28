@@ -34,7 +34,7 @@ jobs:
             upload_for_test: "false"
           - environment: "ubuntu:14.04"
             cc: "gcc"
-            upload_for_test: "true"
+            upload_for_test: "false"
           - environment: "debian:11"
             cc: "gcc"
             upload_for_test: "true"
@@ -448,8 +448,6 @@ jobs:
             cc: "gcc"
           - environment: "ubuntu:22.04"
             cc: "clang"
-          - environment: "ubuntu:14.04"
-            cc: "gcc"
           - environment: "debian:11"
             cc: "gcc"
           - environment: "debian:11"
@@ -460,7 +458,7 @@ jobs:
             cc: "clang"
           - environment: "centos:7"
             cc: "gcc"
-            
+
     name: run unit tests
     runs-on: ubuntu-latest
     container: ${{ matrix.environment }}
@@ -489,10 +487,18 @@ jobs:
       - name: install dependencies from package management (debian based)
         env:
           DEBIAN_FRONTEND: noninteractive
-        if: ${{ matrix.environment == 'ubuntu:22.04' || matrix.environment == 'ubuntu:14.04' || matrix.environment == 'debian:11' }}
+          PLATFORM: ${{ env.environment }}
+        if: ${{ matrix.environment == 'ubuntu:22.04' || matrix.environment == 'debian:11' }}
         run: |
           apt update
-          apt install -q -y build-essential cmake python3 python3-pip python3-setuptools curl libedit2 libssl1.1 libpcsclite1 libengine-pkcs11-openssl opensc swig openjdk-11-jdk-headless
+          apt install -q -y build-essential cmake python3 python3-pip python3-setuptools curl libedit2 libpcsclite1 libengine-pkcs11-openssl opensc swig openjdk-11-jdk-headless
+
+          if [ $PLATFORM = "ubuntu:22.04" ]; then
+            apt install -q -y libssl3
+          else
+            apt install -q -y libssl1.1
+          fi
+
 
       - name: install dependencies from package management (rpm based)
         if: ${{ matrix.environment == 'fedora:37' || matrix.environment == 'centos:7' }}
@@ -502,7 +508,7 @@ jobs:
           PLATFORM=$(echo -n "$PLATFORM" | sed -e 's/[ \t.\/\\"<>|*?]/-/g' -e 's/--*//g')
           echo "PLATFORM_NAME=$PLATFORM" >> $GITHUB_ENV
 
-          cd yubihsm-shell/resources/release/linux
+          cd resources/release/linux
           ./install_redhat_dependencies.sh $PLATFORM
 
       - name: prepare ghostunnel
