@@ -75,7 +75,8 @@ elif [ "${PLATFORM:0:6}" == "fedora" ]; then
                  libedit-devel    \
                  libcurl-devel    \
                  rpmdevtools      \
-                 pcsc-lite-devel
+                 pcsc-lite-devel  \
+                 help2man
 
   if [ $PLATFORM == "fedora37" ]; then
     dnf -y install libusb1-devel
