@@ -186,7 +186,7 @@ jobs:
         ]
         # perform gcc builds for all environments
         cc: [ "gcc" ]
-        libcurl_package: [ "libcurl4-openssl-dev" ]
+        version_number: [ "2.4.0" ]
 
     name: build on ${{ matrix.environment }}
     runs-on: ubuntu-latest
@@ -198,7 +198,6 @@ jobs:
         env:
           CC: ${{ matrix.cc }}
           DEBIAN_FRONTEND: noninteractive
-          LIBCURL_PACKAGE: ${{ matrix.libcurl_package }}
         run: |
           export DEBIAN_FRONTEND=noninteractive
 
@@ -246,14 +245,14 @@ jobs:
         env:
           DOCKER_IMAGE: ${{ matrix.environment }}
         run: |
-          PLATFORM=$(echo -n "$DOCKER_IMAGE" | sed -e 's/[ \t:\/\\"<>|*?]/-/g' -e 's/--*//g')
-          PLATFORM=$(echo -n "$PLATFORM" | sed -e 's/[ \t.\/\\"<>|*?]/-/g' -e 's/--*//g')
-          echo "PLATFORM_NAME=$PLATFORM" >> $GITHUB_ENV
+          # Remove everything from DOCKER_IMAGE that is not a letter or a number
+          PLATFORM=$(echo -n "$DOCKER_IMAGE" | sed -E 's/[^a-zA-Z0-9]//g')
+          echo "PLATFORM=$PLATFORM" >> $GITHUB_ENV
 
       - name: build release
         working-directory: yubihsm-shell
         env:
-          PLATFORM: ${{ env.PLATFORM_NAME }}
+          PLATFORM: ${{ env.PLATFORM }}
         run: |
           set -x
 
@@ -282,11 +281,32 @@ jobs:
           rm -rf licenses
           rm -rf ../yubihsm-shell
 
+      - name: install binaries
+        env:
+          VERSION: ${{ matrix.version_number }}
+        run: |
+          set -x
+          dpkg -i ./libykhsmauth1_*.deb ./libyubihsm-usb1_*.deb ./libyubihsm-http1_*.deb ./libyubihsm1_*.deb  ./yubihsm-shell_*.deb
+
+      - name: check binaries for hardening
+        run: |
+          curl -o checksec.sh-2.5.0.tar.gz -L https://github.com/slimm609/checksec.sh/archive/refs/tags/2.5.0.tar.gz
+          tar xfz checksec.sh-2.5.0.tar.gz
+          cs() {
+            checksec.sh-2.5.0/checksec --file=/usr/bin/yubihsm-shell --format=json | jq -r ".[] | .$1"
+          }
+          if [ "`cs relro`" != "full" ]; then echo "relro is `cs relro`"; exit 1; fi
+          if [ "`cs canary`" != "yes" ]; then echo "canary is `cs canary`"; exit 1; fi
+          if [ "`cs nx`" != "yes" ]; then echo "nx is `cs nx`"; exit 1; fi
+          if [ "`cs pie`" != "yes" ]; then echo "pie is `cs pie`"; exit 1; fi
+          if [ "`cs fortify_source`" != "yes" ]; then echo "fortify_source is `cs fortify_source`"; exit 1; fi
+
+
       - name: upload artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: "yubihsm-shell-${{ env.PLATFORM_NAME }}-amd64"
-          path: ${{ env.PLATFORM_NAME }}
+          name: "yubihsm-shell-${{ env.PLATFORM }}-amd64"
+          path: ${{ env.PLATFORM }}
 
   redhat_based:
     strategy:
@@ -298,7 +318,7 @@ jobs:
             "centos:7"
         ]
 
-    name: build on ${{ matrix.environment }} with ${{ matrix.cc }}
+    name: build on ${{ matrix.environment }}
     runs-on: ubuntu-latest
     container: ${{ matrix.environment }}
 
@@ -327,25 +347,28 @@ jobs:
         env:
           DOCKER_IMAGE: ${{ matrix.environment }}
         run: |
-          PLATFORM=$(echo -n "$DOCKER_IMAGE" | sed -e 's/[ \t:\/\\"<>|*?]/-/g' -e 's/--*//g')
-          PLATFORM=$(echo -n "$PLATFORM" | sed -e 's/[ \t.\/\\"<>|*?]/-/g' -e 's/--*//g')
-          echo "PLATFORM_NAME=$PLATFORM" >> $GITHUB_ENV
+          # Remove everything from DOCKER_IMAGE that is not a letter or a number
+          PLATFORM=$(echo -n "$DOCKER_IMAGE" | sed -E 's/[^a-zA-Z0-9]//g')
+          echo "PLATFORM=$PLATFORM" >> $GITHUB_ENV
 
       - name: install dependencies
         env:
-          PLATFORM: ${{ env.PLATFORM_NAME }}
+          PLATFORM: ${{ env.PLATFORM }}
         run: |
           cd yubihsm-shell/resources/release/linux
           ./install_redhat_dependencies.sh $PLATFORM
 
+          if [ $PLATFORM = "centos7" ]; then
+            # enable the epel repository for centos
+            yum install -y epel-release
+          fi
+          yum install -y checksec procps-ng jq file which curl
+
       - name: build release
         working-directory: yubihsm-shell
         env:
-          PLATFORM: ${{ env.PLATFORM_NAME }}
+          PLATFORM: ${{ env.PLATFORM }}
         run: |
-          #cd resources/release/linux
-          #./build-rpm-in-githunactions.sh $PLATFORM
-
           export CMAKE="cmake"
           export INPUT=$GITHUB_WORKSPACE/yubihsm-shell
           export OUTPUT=$GITHUB_WORKSPACE/$PLATFORM/yubihsm-shell
@@ -361,7 +384,7 @@ jobs:
           cp resources/release/linux/yubihsm-shell.spec $RPM_DIR/SPECS/
 
           QA_SKIP_BUILD_ROOT=1 QA_RPATHS=$(( 0x0001|0x0010 )) rpmbuild -bb $RPM_DIR/SPECS/yubihsm-shell.spec
-          cp /github/home/rpmbuild/RPMS/x86_64/*.rpm $OUTPUT
+          cp /github/home/rpmbuild/RPMS/x86_64/*.rpm $OUTPUT/
 
           LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
           mkdir -p $LICENSE_DIR
@@ -377,8 +400,25 @@ jobs:
           rm -rf licenses
           rm -rf ../yubihsm-shell
 
+      - name: install binaries
+        working-directory: /github/home/rpmbuild/RPMS/x86_64
+        run: |
+          yum install -y ./yubihsm-shell-*.rpm
+
+      - name: check binaries for hardening
+        run: |
+          cs() {
+            checksec --file=/usr/bin/yubihsm-shell --format=json | jq -r ".[] | .$1"
+          }
+          if [ "`cs relro`" != "full" ]; then echo "relro is `cs relro`"; exit 1; fi
+          if [ "`cs canary`" != "yes" ]; then echo "canary is `cs canary`"; exit 1; fi
+          if [ "`cs nx`" != "yes" ]; then echo "nx is `cs nx`"; exit 1; fi
+          if [ "`cs pie`" != "yes" ]; then echo "pie is `cs pie`"; exit 1; fi
+          if [ "`cs fortify_source`" != "yes" ]; then echo "fortify_source is `cs fortify_source`"; exit 1; fi
+
+
       - name: upload artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: "yubihsm-shell-${{ env.PLATFORM_NAME }}-amd64"
-          path: ${{ env.PLATFORM_NAME }}
+          name: "yubihsm-shell-${{ env.PLATFORM }}-amd64"
+          path: ${{ env.PLATFORM }}

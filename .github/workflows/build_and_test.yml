@@ -140,26 +140,12 @@ jobs:
           fi
           cmake --build .
 
-      - name: check binaries for hardening
-        working-directory: yubihsm-shell
-        run: |
-          curl -o checksec.sh-2.5.0.tar.gz -L https://github.com/slimm609/checksec.sh/archive/refs/tags/2.5.0.tar.gz
-          tar xfz checksec.sh-2.5.0.tar.gz
-          cs() {
-            checksec.sh-2.5.0/checksec --file=build/src/yubihsm-shell --format=json | jq -r ".[] | .$1"
-          }
-          if [ "`cs relro`" != "full" ]; then echo "relro is `cs relro`"; exit 1; fi
-          if [ "`cs canary`" != "yes" ]; then echo "canary is `cs canary`"; exit 1; fi
-          if [ "`cs nx`" != "yes" ]; then echo "nx is `cs nx`"; exit 1; fi
-          if [ "`cs pie`" != "yes" ]; then echo "pie is `cs pie`"; exit 1; fi
-          if [ "`cs fortify_source`" != "yes" ]; then echo "fortify_source is `cs fortify_source`"; exit 1; fi
-
       - name: prepare name for upload-artifact action
         env:
           DOCKER_IMAGE: ${{ matrix.environment }}
           CC: ${{ matrix.cc }}
         run: |
-          ESCAPED_IMAGE=$(echo -n "$DOCKER_IMAGE" | sed -e 's/[ \t:\/\\"<>|*?]/-/g' -e 's/--*/-/g')
+          ESCAPED_IMAGE=$(echo -n "$DOCKER_IMAGE" | sed -E 's/[^a-zA-Z0-9]//g')
           echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_${CC}" >> $GITHUB_ENV
 
       - name: create compressed tar file
@@ -206,36 +192,13 @@ jobs:
           CC: ${{ matrix.cc }}
           BUILD_ENVIRONMENT: ${{ matrix.environment }}
         run: |
-          if [ $BUILD_ENVIRONMENT = "centos:7" ]; then
+          cd yubihsm-shell/resources/release/linux
+          ./install_redhat_dependencies.sh $PLATFORM
+
+          if [ $PLATFORM = "centos7" ]; then
             # enable the epel repository for centos
             yum install -y epel-release
           fi
-          # the name of the libusb package in centos:7 is libusbx-devel
-          if [ $BUILD_ENVIRONMENT = "centos:7" ]; then
-            LIBUSB_PACKAGE="libusbx-devel"
-          elif [ $BUILD_ENVIRONMENT = "fedora:37" ]; then
-            LIBUSB_PACKAGE="libusb1-devel"
-          else
-            LIBUSB_PACKAGE="libusb-devel"
-          fi
-          yum install -y gcc              \
-                         gcc-c++          \
-                         cmake            \
-                         gengetopt        \
-                         openssl          \
-                         openssl-devel    \
-                         libedit-devel    \
-                         libcurl-devel    \
-                         $LIBUSB_PACKAGE  \
-                         pcsc-lite-devel  \
-                         help2man         \
-                         chrpath          \
-                         checksec         \
-                         procps-ng        \
-                         jq               \
-                         file             \
-                         which            \
-                         curl
 
           if [ "$CC" = "clang" ]; then
             yum install -y clang llvm lld
@@ -267,11 +230,6 @@ jobs:
           sed -i '/COMMAND encrypt_aes/I,+3 d' lib/CMakeLists.txt
           sed -i 's/add_executable (aes_encrypt_test/#add_executable (aes_encrypt_test/' pkcs11/tests/CMakeLists.txt
           vim -e -c 'g/set_tests_properties(aes_encrypt_test PROPERTIES SKIP_RETURN_CODE 64)/.-8,.d' -c 'wq' pkcs11/tests/CMakeLists.txt
-
-          # Skip AES example since the hardware does not support it and cmake version is too old to skip it manually
-          #sed -i '/add_executable(encrypt_aes/I,+5 d' examples/CMakeLists.txt
-          #vim -e -c 'g/SOURCE_ENCRYPT_AES/.-1,.d' -c 'wq' examples/CMakeLists.txt
-          #sed -i '/encrypt_aes.c/I,+1 d' examples/CMakeLists.txt
 
       - name: do build
         working-directory: yubihsm-shell
@@ -317,24 +275,12 @@ jobs:
           fi
           cmake --build .
 
-      - name: check binaries for hardening
-        working-directory: yubihsm-shell
-        run: |
-          cs() {
-            checksec --file=build/src/yubihsm-shell --format=json | jq -r ".[] | .$1"
-          }
-          if [ "`cs relro`" != "full" ]; then echo "relro is `cs relro`"; exit 1; fi
-          if [ "`cs canary`" != "yes" ]; then echo "canary is `cs canary`"; exit 1; fi
-          if [ "`cs nx`" != "yes" ]; then echo "nx is `cs nx`"; exit 1; fi
-          if [ "`cs pie`" != "yes" ]; then echo "pie is `cs pie`"; exit 1; fi
-          if [ "`cs fortify_source`" != "yes" ]; then echo "fortify_source is `cs fortify_source`"; exit 1; fi
-
       - name: prepare name for upload-artifact action
         env:
           DOCKER_IMAGE: ${{ matrix.environment }}
           CC: ${{ matrix.cc }}
         run: |
-          ESCAPED_IMAGE=$(echo -n "$DOCKER_IMAGE" | sed -e 's/[ \t:\/\\"<>|*?]/-/g' -e 's/--*/-/g')
+          ESCAPED_IMAGE=$(echo -n "$DOCKER_IMAGE" | sed -E 's/[^a-zA-Z0-9]//g')
           echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_${CC}" >> $GITHUB_ENV
 
       - name: create compressed tar file
@@ -387,69 +333,7 @@ jobs:
       - name: check binaries for hardening
         working-directory: yubihsm-shell
         run: |
-          otool -hv build/src/yubihsm-shell
-          # awk only looks at the fourth (last) output line of otool
-          # the first line is the path to the file
-          # the second line is simply 'Mach header'
-          # the thirt line contains the column names
-          otool -hv build/src/yubihsm-shell | awk 'NR == 4 {
-            split($0, stdin_split, " ");
-
-            flag_pie = 0;
-            flag_allow_stack_execution = 0;
-            flag_no_heap_execution = 0;
-
-            # first 7 tokens are unrelated to the header flags
-            # so we start looking tokens from the 8th position
-            for (i = 8; i <= length(stdin_split); i++) {
-              flag = stdin_split[i]
-              if (flag == "PIE") {
-                flag_pie = 1;
-              }
-              if (flag == "ALLOW_STACK_EXECUTION") {
-                flag_allow_stack_execution = 1;
-              }
-              if (flag == "NO_HEAP_EXECUTION") {
-                flag_no_heap_execution = 1;
-              }
-            }
-
-            fail = 0;
-            if (flag_pie == 0) {
-              print "BINARY DOES NOT HAVE THE PIE FLAG";
-              fail = 1;
-            }
-            if (flag_allow_stack_execution == 1) {
-              print "BINARY ALLOWS EXECUTION FROM THE STACK";
-              fail = 1;
-            }
-            if (flag_no_heap_execution == 0) {
-              print "BINARY ALLOWS EXECUTION FROM THE HEAP";
-              # currently we do not treat this as an error
-            }
-            if (fail == 1) {
-              exit 1;
-            }
-          }'
-          if [ $? = 1 ]; then
-            exit 1
-          fi
-
-          check_import() {
-            nm -u build/src/yubihsm-shell | grep $1 > /dev/null
-            # return code of grep is 0 when it finds something
-            if [ $? == 0 ]; then
-              echo 1
-            else
-              echo 0
-            fi
-          }
-          chk_fail=$(check_import '___stack_chk_fail')
-          chk_guard=$(check_import '___stack_chk_guard')
-          if [ $chk_fail = 0 ] | [ $chk_guard = 0 ]; then
-            echo "BINARY DOES NOT HAVE STACK CANARIES"
-            exit 1
-          fi
+          ./resources/release/macos/check_hardening.sh "build/src/yubihsm-shell"
 
   test:
     strategy:
@@ -514,8 +398,8 @@ jobs:
           DOCKER_IMAGE: ${{ matrix.environment }}
           CC: ${{ matrix.cc }}
         run: |
-          ESCAPED_IMAGE=$(echo -n "$DOCKER_IMAGE" | sed -e 's/[ \t:\/\\"<>|*?]/-/g' -e 's/--*/-/g')
-          echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_gcc" >> $GITHUB_ENV
+          ESCAPED_IMAGE=$(echo -n "$DOCKER_IMAGE" | sed -E 's/[^a-zA-Z0-9]//g')
+          echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_${CC}" >> $GITHUB_ENV
 
       - name: download artifacts from the build job
         uses: actions/download-artifact@v2
@@ -524,13 +408,6 @@ jobs:
 
       - name: decompress yubihsm-shell.tar.gz
         run: tar xfz yubihsm-shell.tar.gz
-
-      - name: apply environment specific changes to CMakeLists.txt
-        working-directory: yubihsm-shell
-        if: ${{ matrix.environment == 'centos:7' }}
-        run: |
-          # Exclude AES test "manually" since this cmake version is too old
-          echo "set(CTEST_CUSTOM_TESTS_IGNORE encrypt_aes)" > build/lib/tests/CTestCustom.cmake
 
       - name: prepare ghostunnel
         env:
