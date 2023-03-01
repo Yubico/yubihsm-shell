@@ -260,6 +260,17 @@ jobs:
           # append the following flags: -Wno-missing-braces -Wno-missing-field-initializers -Wno-implicit-function-declaration
           sed -i 's/-Wall -Wextra -Werror/-Wall -Wextra -Werror -Wno-missing-braces -Wno-missing-field-initializers/' cmake/SecurityFlags.cmake
 
+          # Skip AES tests since the hardware does not support it and cmake version is too old to skip it manually
+          vim -e -c 'g/NAME encrypt_aes/.-1,.d' -c 'wq' lib/CMakeLists.txt
+          sed -i '/COMMAND encrypt_aes/I,+3 d' lib/CMakeLists.txt
+
+          # Skip AES example since the hardware does not support it and cmake version is too old to skip it manually
+          sed -i '/add_executable(encrypt_aes/I,+5 d' examples/CMakeLists.txt
+          vim -e -c 'g/SOURCE_ENCRYPT_AES/.-1,.d' -c 'wq' examples/CMakeLists.txt
+          sed -i '/encrypt_aes.c/I,+1 d' examples/CMakeLists.txt
+
+
+
       - name: do build
         working-directory: yubihsm-shell
         env:
