@@ -198,11 +198,11 @@ jobs:
           cd yubihsm-shell/resources/release/linux
           ./install_redhat_dependencies.sh $PLATFORM
 
-        if [ $BUILD_ENVIRONMENT = "centos:7" ]; then
-          # enable the epel repository for centos
-          yum install -y epel-release
-        fi
-        yum install -y checksec procps-ng jq file which curl
+          if [ $BUILD_ENVIRONMENT = "centos:7" ]; then
+            # enable the epel repository for centos
+            yum install -y epel-release
+          fi
+          yum install -y checksec procps-ng jq file which curl
 
       - name: build release
         working-directory: yubihsm-shell
