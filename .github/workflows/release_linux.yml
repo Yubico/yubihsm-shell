@@ -91,11 +91,6 @@ jobs:
         run: |
           set -x
 
-          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
-          ls $GITHUB_WORKSPACE
-          sleep 5
-
-
           # Create directory containing all output
           OUTPUT=$GITHUB_WORKSPACE/$PLATFORM/yubihsm-shell
           mkdir -p $OUTPUT
@@ -109,7 +104,6 @@ jobs:
 
           LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
           mkdir -p $LICENSE_DIR
-          ls $GITHUB_WORKSPACE/yubihsm-shell/resources/release/linux
           cp -r $GITHUB_WORKSPACE/yubihsm-shell/resources/release/linux/licenses $LICENSE_DIR/
           for lf in $LICENSE_DIR/licenses/*; do
             chmod 644 $lf
@@ -121,6 +115,18 @@ jobs:
           rm -f *.deb
           rm -rf licenses
           rm -rf ../yubihsm-shell
+
+      - name: install binaries
+        working-directory: yubihsm-shell
+        run: |
+          set -x
+
+          apt install -y ./yubihsm-shell_*_amd64.deb
+          ls /usr/local/bin/yubihsm*
+          ls /usr/bin/yubihsm*
+
+          find / -name "yubihsm-shell"
+
 
       - name: upload artifacts
         uses: actions/upload-artifact@v2
@@ -201,7 +207,7 @@ jobs:
           cp resources/release/linux/yubihsm-shell.spec $RPM_DIR/SPECS/
 
           QA_SKIP_BUILD_ROOT=1 QA_RPATHS=$(( 0x0001|0x0010 )) rpmbuild -bb $RPM_DIR/SPECS/yubihsm-shell.spec
-          cp /github/home/rpmbuild/RPMS/x86_64/*.rpm $OUTPUT
+          cp /github/home/rpmbuild/RPMS/x86_64/*.rpm $OUTPUT/
 
           LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
           mkdir -p $LICENSE_DIR
@@ -216,6 +222,17 @@ jobs:
           rm -f *.rpm
           rm -rf licenses
           rm -rf ../yubihsm-shell
+
+      - name: install binaries
+        working-directory: /github/home/rpmbuild/RPMS/x86_64
+        run: |
+          set -x
+          yum install -y ./yubihsm-shell-*.rpm
+          ls /usr/local/bin/yubihsm*
+          ls /usr/bin/yubihsm*
+
+          find / -name "yubihsm-shell"
+
 
       - name: upload artifacts
         uses: actions/upload-artifact@v2

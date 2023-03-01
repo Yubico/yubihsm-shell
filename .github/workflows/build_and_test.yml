@@ -7,42 +7,48 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [
-          "ubuntu:22.10",
-          "ubuntu:22.04",
-          "ubuntu:20.04",
-          "ubuntu:18.04",
-          "ubuntu:16.04",
-          "ubuntu:14.04",
-          "debian:11",
-          "debian:10",
-          "debian:9"
-        ]
-        # perform gcc builds for all environments
-        cc: [ "gcc" ]
-        libcurl_package: [ "libcurl4-openssl-dev" ]
         include:
-          # debian 9 has a different version of openssl in libcurl4-openssl-dev
-          # as such, for that environment in particular we install libcurl4-nss-dev
-          # for all other environments we use the standard libcurl4-openssl-dev
-          - environment: "debian:9"
-            cc: "gcc"
-            libcurl_package: "libcurl4-nss-dev"
-          # we do not perform clang builds for all environments, only some newer ones
           - environment: "ubuntu:22.10"
-            libcurl_package: "libcurl4-openssl-dev"
+            cc: "gcc"
+            upload_for_test: "false"
+          - environment: "ubuntu:22.10"
             cc: "clang"
+            upload_for_test: "false"
           - environment: "ubuntu:22.04"
-            libcurl_package: "libcurl4-openssl-dev"
+            cc: "gcc"
+            upload_for_test: "true"
+          - environment: "ubuntu:22.04"
             cc: "clang"
+            upload_for_test: "true"
+          - environment: "ubuntu:20.04"
+            cc: "gcc"
+            upload_for_test: "false"
+          - environment: "ubuntu:20.04"
+            cc: "clang"
+            upload_for_test: "false"
+          - environment: "ubuntu:18.04"
+            cc: "gcc"
+            upload_for_test: "false"
+          - environment: "ubuntu:16.04"
+            cc: "gcc"
+            upload_for_test: "false"
+          - environment: "ubuntu:14.04"
+            cc: "gcc"
+            upload_for_test: "false"
           - environment: "debian:11"
-            libcurl_package: "libcurl4-openssl-dev"
+            cc: "gcc"
+            upload_for_test: "true"
+          - environment: "debian:11"
             cc: "clang"
-        exclude:
+            upload_for_test: "true"
+          - environment: "debian:10"
+            cc: "gcc"
+            upload_for_test: "false"
           - environment: "debian:9"
             cc: "gcc"
-            libcurl_package: "libcurl4-openssl-dev"
-    name: build on ${{ matrix.environment }} with ${{ matrix.cc }}
+            upload_for_test: "false"
+
+    name: build on ${{ matrix.environment }} (${{ matrix.cc }},${{ matrix.upload_for_test}})
     runs-on: ubuntu-latest
     container: ${{ matrix.environment }}
 
@@ -52,10 +58,21 @@ jobs:
         env:
           CC: ${{ matrix.cc }}
           DEBIAN_FRONTEND: noninteractive
-          LIBCURL_PACKAGE: ${{ matrix.libcurl_package }}
         run: |
           apt update
-          apt install -q -y build-essential cmake pkg-config gengetopt help2man $LIBCURL_PACKAGE libedit-dev libpcsclite-dev libusb-1.0-0-dev libssl-dev file curl jq
+          apt install -q -y build-essential       \
+                            cmake pkg-config      \
+                            gengetopt             \
+                            help2man              \
+                            libcurl4-openssl-dev  \
+                            libedit-dev           \
+                            libpcsclite-dev       \
+                            libusb-1.0-0-dev      \
+                            libssl-dev            \
+                            file                  \
+                            curl                  \
+                            jq
+
           if [ "$CC" = "clang" ]; then
             apt install -q -y clang llvm lld
           fi
@@ -146,11 +163,11 @@ jobs:
           echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_${CC}" >> $GITHUB_ENV
 
       - name: create compressed tar file
-        if: ${{ (matrix.environment == 'ubuntu:22.10' || matrix.environment == 'debian:11') && matrix.cc == 'gcc' }}
+        if: ${{ matrix.upload_for_test == 'true' }}
         run: tar cfz yubihsm-shell.tar.gz yubihsm-shell
 
       - name: upload artifacts for the test job
-        if: ${{ (matrix.environment == 'ubuntu:22.10' || matrix.environment == 'debian:11') && matrix.cc == 'gcc' }}
+        if: ${{ matrix.upload_for_test == 'true' }}
         uses: actions/upload-artifact@v2
         with:
           name: "${{ env.ARTIFACT_NAME }}"
@@ -158,23 +175,27 @@ jobs:
 
   build_centos_fedora:
     strategy:
+      fail-fast: false
       matrix:
-        environment: [
-          "fedora:34",
-          "fedora:33",
-          "fedora:32",
-          "centos:7"
-        ]
-        cc: [ "gcc" ]
         include:
           # we do not perform clang builds for all environments, only fedora
-          - environment: "fedora:34"
+          - environment: "fedora:37"
+            cc: "gcc"
+            upload_for_test: "true"
+          - environment: "fedora:37"
             cc: "clang"
-          - environment: "fedora:33"
+            upload_for_test: "true"
+          - environment: "fedora:36"
+            cc: "gcc"
+            upload_for_test: "false"
+          - environment: "fedora:36"
             cc: "clang"
-          - environment: "fedora:32"
-            cc: "clang"
-    name: build on ${{ matrix.environment }} with ${{ matrix.cc }}
+            upload_for_test: "false"
+          - environment: "centos:7"
+            cc: "gcc"
+            upload_for_test: "true"
+
+    name: build on ${{ matrix.environment }} (${{ matrix.cc }}, ${{ matrix.upload_for_test }})
     runs-on: ubuntu-latest
     container: ${{ matrix.environment }}
 
@@ -192,10 +213,30 @@ jobs:
           # the name of the libusb package in centos:7 is libusbx-devel
           if [ $BUILD_ENVIRONMENT = "centos:7" ]; then
             LIBUSB_PACKAGE="libusbx-devel"
+          elif [ $BUILD_ENVIRONMENT = "fedora:37" ]; then
+            LIBUSB_PACKAGE="libusb1-devel"
           else
             LIBUSB_PACKAGE="libusb-devel"
           fi
-          yum install -y gcc gcc-c++ cmake gengetopt openssl openssl-devel libedit-devel libcurl-devel $LIBUSB_PACKAGE pcsc-lite-devel help2man chrpath checksec procps-ng jq file which curl
+          yum install -y gcc              \
+                         gcc-c++          \
+                         cmake            \
+                         gengetopt        \
+                         openssl          \
+                         openssl-devel    \
+                         libedit-devel    \
+                         libcurl-devel    \
+                         $LIBUSB_PACKAGE  \
+                         pcsc-lite-devel  \
+                         help2man         \
+                         chrpath          \
+                         checksec         \
+                         procps-ng        \
+                         jq               \
+                         file             \
+                         which            \
+                         curl
+
           if [ "$CC" = "clang" ]; then
             yum install -y clang llvm lld
           fi
@@ -284,11 +325,11 @@ jobs:
           echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_${CC}" >> $GITHUB_ENV
 
       - name: create compressed tar file
-        if: ${{ (matrix.environment == 'fedora:34' || matrix.environment == 'centos:7') && matrix.cc == 'gcc' }}
+        if: ${{ matrix.upload_for_test == 'true' }}
         run: tar cfz yubihsm-shell.tar.gz yubihsm-shell
 
       - name: upload artifacts for the test job
-        if: ${{ (matrix.environment == 'fedora:34' || matrix.environment == 'centos:7') && matrix.cc == 'gcc' }}
+        if: ${{ matrix.upload_for_test == 'true' }}
         uses: actions/upload-artifact@v2
         with:
           name: "${{ env.ARTIFACT_NAME }}"
@@ -399,13 +440,31 @@ jobs:
 
   test:
     strategy:
+      fail-fast: false
       matrix:
-        environment: [
-          "ubuntu:22.10",
-          "debian:11",
-          "fedora:34",
-          "centos:7"
-        ]
+        include:
+          - environment: "ubuntu:22.04"
+            cc: "gcc"
+            os_base: "debian"
+          - environment: "ubuntu:22.04"
+            cc: "clang"
+            os_base: "debian"
+          - environment: "debian:11"
+            cc: "gcc"
+            os_base: "debian"
+          - environment: "debian:11"
+            cc: "clang"
+            os_base: "debian"
+          - environment: "fedora:37"
+            cc: "gcc"
+            os_base: "redhat"
+          - environment: "fedora:37"
+            cc: "clang"
+            os_base: "redhat"
+          - environment: "centos:7"
+            cc: "gcc"
+            os_base: "redhat"
+
     name: run unit tests
     runs-on: ubuntu-latest
     container: ${{ matrix.environment }}
@@ -416,13 +475,13 @@ jobs:
       - name: install dependencies from package management (debian based)
         env:
           DEBIAN_FRONTEND: noninteractive
-        if: ${{ matrix.environment == 'ubuntu:22.10' || matrix.environment == 'debian:11' }}
+        if: ${{ matrix.os_base == 'debian' }}
         run: |
           apt update
           apt install -q -y build-essential cmake python3 python3-pip python3-setuptools curl libedit2 libssl1.1 libpcsclite1 libengine-pkcs11-openssl opensc swig openjdk-11-jdk-headless
 
       - name: install dependencies from package management (rpm based)
-        if: ${{ matrix.environment == 'fedora:34' || matrix.environment == 'centos:7' }}
+        if: ${{ matrix.os_base == 'redhat' }}
         run: |
           if [ $BUILD_ENVIRONMENT = "centos:7" ]; then
             # enable the epel repository for centos
