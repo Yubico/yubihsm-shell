@@ -154,7 +154,7 @@ jobs:
 
       - name: upload artifacts for the test job
         if: ${{ matrix.upload_for_test == 'true' }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: "${{ env.ARTIFACT_NAME }}"
           path: yubihsm-shell.tar.gz
@@ -192,10 +192,18 @@ jobs:
         with:
           path: yubihsm-shell
 
+      - name: extract platform name
+        env:
+          DOCKER_IMAGE: ${{ matrix.environment }}
+        run: |
+          # Remove everything from DOCKER_IMAGE that is not a letter or a number
+          PLATFORM=$(echo -n "$DOCKER_IMAGE" | sed -E 's/[^a-zA-Z0-9]//g')
+          echo "PLATFORM=$PLATFORM" >> $GITHUB_ENV
+
       - name: install dependencies from package management
         env:
           CC: ${{ matrix.cc }}
-          BUILD_ENVIRONMENT: ${{ matrix.environment }}
+          PLATFORM: ${{ env.PLATFORM }}
         run: |
           cd yubihsm-shell/resources/release/linux
           ./install_redhat_dependencies.sh $PLATFORM
@@ -256,13 +264,13 @@ jobs:
         env:
           CC: ${{ matrix.cc }}
           VERBOSE: 1
-          BUILD_ENVIRONMENT: ${{ matrix.environment }}
+          PLATFORM: ${{ env.PLATFORM }}
         run: |
           mkdir build-static
           cd build-static
           if [ "$CC" = "gcc" ]; then
             # lto breaks static builds on centos 7 so we disable it
-            if [ $BUILD_ENVIRONMENT = "centos:7" ]; then
+            if [ $PLATFORM = "centos7" ]; then
               cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release -DDISABLE_LTO=ON ..
             else
               cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release ..
@@ -278,11 +286,10 @@ jobs:
 
       - name: prepare name for upload-artifact action
         env:
-          DOCKER_IMAGE: ${{ matrix.environment }}
+          PLATFORM: ${{ env.PLATFORM }}
           CC: ${{ matrix.cc }}
         run: |
-          ESCAPED_IMAGE=$(echo -n "$DOCKER_IMAGE" | sed -E 's/[^a-zA-Z0-9]//g')
-          echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_${CC}" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME=yubihsm-shell_${PLATFORM}_${CC}" >> $GITHUB_ENV
 
       - name: create compressed tar file
         if: ${{ matrix.upload_for_test == 'true' }}
@@ -290,7 +297,7 @@ jobs:
 
       - name: upload artifacts for the test job
         if: ${{ matrix.upload_for_test == 'true' }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: "${{ env.ARTIFACT_NAME }}"
           path: yubihsm-shell.tar.gz
