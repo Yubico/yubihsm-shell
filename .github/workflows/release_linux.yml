@@ -119,16 +119,12 @@ jobs:
       - name: install binaries
         env:
           VERSION: ${{ matrix.version_number }}
-        working-directory: yubihsm-shell
         run: |
           set -x
-          echo "version: $VERSION"
           # Remove version number
           rename 's/_.*?_/_/' yubihsm-shell_*
-
           ls
-
-          apt install -y ./yubihsm-shell_amd64.deb
+          apt install -y ./yubihsm-shell_*.deb
           find / -name "yubihsm-shell"
 
       - name: check binaries for hardening
