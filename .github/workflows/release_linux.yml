@@ -20,7 +20,7 @@ jobs:
         ]
         # perform gcc builds for all environments
         cc: [ "gcc" ]
-        libcurl_package: [ "libcurl4-openssl-dev" ]
+        version_number: [ "2.4.0" ]
 
     name: build on ${{ matrix.environment }}
     runs-on: ubuntu-latest
@@ -32,7 +32,6 @@ jobs:
         env:
           CC: ${{ matrix.cc }}
           DEBIAN_FRONTEND: noninteractive
-          LIBCURL_PACKAGE: ${{ matrix.libcurl_package }}
         run: |
           export DEBIAN_FRONTEND=noninteractive
 
@@ -118,13 +117,12 @@ jobs:
 
       - name: install binaries
         working-directory: yubihsm-shell
+        env:
+          VERSION: ${{ matrix.version_number }}
         run: |
           set -x
 
-          apt install -y ./yubihsm-shell_*_amd64.deb
-          ls /usr/local/bin/yubihsm*
-          ls /usr/bin/yubihsm*
-
+          apt install -y ./yubihsm-shell_$VERSION_amd64.deb
           find / -name "yubihsm-shell"
 
 
@@ -144,7 +142,7 @@ jobs:
             "centos:7"
         ]
 
-    name: build on ${{ matrix.environment }} with ${{ matrix.cc }}
+    name: build on ${{ matrix.environment }}
     runs-on: ubuntu-latest
     container: ${{ matrix.environment }}
 
@@ -228,9 +226,6 @@ jobs:
         run: |
           set -x
           yum install -y ./yubihsm-shell-*.rpm
-          ls /usr/local/bin/yubihsm*
-          ls /usr/bin/yubihsm*
-
           find / -name "yubihsm-shell"
 
 
