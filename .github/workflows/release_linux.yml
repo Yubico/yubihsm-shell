@@ -123,7 +123,7 @@ jobs:
           # Remove version number
           #rename 's/_.*?_/_/' yubihsm-shell_*.deb
 
-          apt install -y ./libykhsmauth1_*.deb ./libyubihsm-usb1_*.deb ./libyubihsm-http1_*.deb ./libyubihsm1_*.deb  ./yubihsm-shell_*.deb
+          dpkg -i ./libykhsmauth1_*.deb ./libyubihsm-usb1_*.deb ./libyubihsm-http1_*.deb ./libyubihsm1_*.deb  ./yubihsm-shell_*.deb
           find / -name "yubihsm-shell"
 
       - name: check binaries for hardening
