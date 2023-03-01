@@ -54,7 +54,8 @@ jobs:
                                   libpcsclite-dev      \
                                   file                 \
                                   curl                 \
-                                  jq
+                                  jq                   \
+                                  rename
 
       - name: clone the Yubico/yubihsm-shell repository
         uses: actions/checkout@v2
@@ -123,10 +124,11 @@ jobs:
           set -x
           echo "version: $VERSION"
           # Remove version number
-          DEB_FILENAME = "./yubihsm-shell_$VERSION_amd64.deb"
+          rename 's/_.*?_/_/' yubihsm-shell_*
 
-          echo "filename: $DEB_FILENAME"
-          apt install -y $DEB_FILENAME
+          ls
+
+          apt install -y ./yubihsm-shell_amd64.deb
           find / -name "yubihsm-shell"
 
       - name: check binaries for hardening
