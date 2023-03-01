@@ -123,8 +123,10 @@ jobs:
           set -x
           echo "version: $VERSION"
           # Remove version number
-          cp yubihsm-shell_*.deb yubihsm-shell_executable.deb
-          apt install -y ./yubihsm-shell_executable.deb
+          DEB_FILENAME = "./yubihsm-shell_$VERSION_amd64.deb"
+
+          echo "filename: $DEB_FILENAME"
+          apt install -y $DEB_FILENAME
           find / -name "yubihsm-shell"
 
       - name: check binaries for hardening
@@ -198,7 +200,7 @@ jobs:
           cd yubihsm-shell/resources/release/linux
           ./install_redhat_dependencies.sh $PLATFORM
 
-          if [ $BUILD_ENVIRONMENT = "centos:7" ]; then
+          if [ $PLATFORM = "centos7" ]; then
             # enable the epel repository for centos
             yum install -y epel-release
           fi

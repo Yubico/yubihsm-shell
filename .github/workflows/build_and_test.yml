@@ -265,11 +265,13 @@ jobs:
           # Skip AES tests since the hardware does not support it and cmake version is too old to skip it manually
           vim -e -c 'g/NAME encrypt_aes/.-1,.d' -c 'wq' lib/CMakeLists.txt
           sed -i '/COMMAND encrypt_aes/I,+3 d' lib/CMakeLists.txt
+          sed -i 's/add_executable (aes_encrypt_test/#add_executable (aes_encrypt_test/' pkcs11/tests/CMakeLists.txt
+          vim -e -c 'g/set_tests_properties(aes_encrypt_test PROPERTIES SKIP_RETURN_CODE 64)/.-8,.d' -c 'wq' pkcs11/tests/CMakeLists.txt
 
           # Skip AES example since the hardware does not support it and cmake version is too old to skip it manually
-          sed -i '/add_executable(encrypt_aes/I,+5 d' examples/CMakeLists.txt
-          vim -e -c 'g/SOURCE_ENCRYPT_AES/.-1,.d' -c 'wq' examples/CMakeLists.txt
-          sed -i '/encrypt_aes.c/I,+1 d' examples/CMakeLists.txt
+          #sed -i '/add_executable(encrypt_aes/I,+5 d' examples/CMakeLists.txt
+          #vim -e -c 'g/SOURCE_ENCRYPT_AES/.-1,.d' -c 'wq' examples/CMakeLists.txt
+          #sed -i '/encrypt_aes.c/I,+1 d' examples/CMakeLists.txt
 
       - name: do build
         working-directory: yubihsm-shell
