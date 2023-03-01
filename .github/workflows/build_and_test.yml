@@ -512,6 +512,13 @@ jobs:
       - name: decompress yubihsm-shell.tar.gz
         run: tar xfz yubihsm-shell.tar.gz
 
+      - name: apply environment specific changes to CMakeLists.txt
+        working-directory: yubihsm-shell
+        if: ${{ matrix.environment == 'centos:7' }}
+        run: |
+          # Exclude AES test "manually" since this cmake version is too old
+          echo "set(CTEST_CUSTOM_TESTS_IGNORE encrypt_aes)" > build/lib/tests/CTestCustom.cmake
+
       - name: prepare ghostunnel
         env:
           TLSPWD: ${{ secrets.TLSKEY }}
