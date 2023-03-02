@@ -23,13 +23,13 @@ jobs:
           set -x
           ./resources/make_src_dist.sh $VERSION
           cd ..
-          mkdir artifact
-          mv $GITHUB_WORKSPACE/yubihsm-shell-$VERSION.tar.gz artifact/
+          mkdir $GITHUB_WORKSPACE/artifact
+          mv $GITHUB_WORKSPACE/yubihsm-shell-$VERSION.tar.gz $GITHUB_WORKSPACE/artifact/
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
           name: yubihsm-shell-src
-          path: ../artifact
+          path: $GITHUB_WORKSPACE/artifact
 
   Windowsx86:
     name: Build Windows x86 release
