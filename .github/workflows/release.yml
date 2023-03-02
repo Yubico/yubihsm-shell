@@ -12,7 +12,7 @@ jobs:
       VERSION: 2.4.0
     steps:
       - name: checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Install prerequisites
         run: |
           set -x
@@ -26,7 +26,7 @@ jobs:
           mkdir artifact
           mv $GITHUB_WORKSPACE/yubihsm-shell-$VERSION.tar.gz artifact/
       - name: Upload artifact
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v3
         with:
           name: yubihsm-shell-src
           path: ../artifact
@@ -39,7 +39,7 @@ jobs:
       VERSION: 2.4.0
     steps:
       - name: Download source from source job
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: yubihsm-shell-src
 
@@ -71,7 +71,7 @@ jobs:
           msiexec /i yubihsm-shell-x86.msi /quiet /log $env:GITHUB_WORKSPACE/artifact/log_x86.txt
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: yubihsm-shell-win32
           path: artifact
@@ -85,7 +85,7 @@ jobs:
       VERSION: 2.4.0
     steps:
       - name: Download source from source job
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: yubihsm-shell-src
 
@@ -117,7 +117,7 @@ jobs:
           msiexec /i yubihsm-shell-x64.msi /quiet /log $env:GITHUB_WORKSPACE/artifact/log_x64.txt
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: yubihsm-shell-win64
           path: artifact
@@ -131,7 +131,7 @@ jobs:
       SO_VERSION: 2
     steps:
       - name: Download source from source job
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: yubihsm-shell-src
 
@@ -164,7 +164,7 @@ jobs:
           cp -r $YHSHELL_SRC_DIR/resources/release/macos/yubihsm2-sdk-darwin-amd64.pkg $GITHUB_WORKSPACE/artifact/
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: yubihsm-shell-darwin-amd64
           path: artifact
@@ -223,7 +223,7 @@ jobs:
                                   jq
 
       - name: clone the Yubico/yubihsm-shell repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           path: yubihsm-shell
 
@@ -303,7 +303,7 @@ jobs:
 
 
       - name: upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: "yubihsm-shell-${{ env.PLATFORM }}-amd64"
           path: ${{ env.PLATFORM }}
@@ -325,7 +325,7 @@ jobs:
     steps:
 
       - name: clone the Yubico/yubihsm-shell repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           path: yubihsm-shell
 
@@ -418,7 +418,7 @@ jobs:
 
 
       - name: upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: "yubihsm-shell-${{ env.PLATFORM }}-amd64"
           path: ${{ env.PLATFORM }}

@@ -207,12 +207,6 @@ jobs:
         run: |
           cd yubihsm-shell/resources/release/linux
           ./install_redhat_dependencies.sh $PLATFORM
-          yum install -y vim
-
-          #if [ $PLATFORM = "centos7" ]; then
-            # enable the epel repository for centos
-            #yum install -y epel-release
-          #fi
 
           if [ "$CC" = "clang" ]; then
             yum install -y clang llvm lld
@@ -232,13 +226,13 @@ jobs:
           # append the following flags: -Wno-missing-braces -Wno-missing-field-initializers -Wno-implicit-function-declaration
           sed -i 's/-Wall -Wextra -Werror/-Wall -Wextra -Werror -Wno-missing-braces -Wno-missing-field-initializers/' cmake/SecurityFlags.cmake
 
-          yum install -y vim
+          #yum install -y vim
 
           # Skip AES tests since the hardware does not support it and cmake version is too old to skip it manually
-          vim -e -c 'g/NAME encrypt_aes/.-1,.d' -c 'wq' lib/CMakeLists.txt
-          sed -i '/COMMAND encrypt_aes/I,+3 d' lib/CMakeLists.txt
-          sed -i 's/add_executable (aes_encrypt_test/#add_executable (aes_encrypt_test/' pkcs11/tests/CMakeLists.txt
-          vim -e -c 'g/set_tests_properties(aes_encrypt_test PROPERTIES SKIP_RETURN_CODE 64)/.-8,.d' -c 'wq' pkcs11/tests/CMakeLists.txt
+          #vim -e -c 'g/NAME encrypt_aes/.-1,.d' -c 'wq' lib/CMakeLists.txt
+          #sed -i '/COMMAND encrypt_aes/I,+3 d' lib/CMakeLists.txt
+          #sed -i 's/add_executable (aes_encrypt_test/#add_executable (aes_encrypt_test/' pkcs11/tests/CMakeLists.txt
+          #vim -e -c 'g/set_tests_properties(aes_encrypt_test PROPERTIES SKIP_RETURN_CODE 64)/.-8,.d' -c 'wq' pkcs11/tests/CMakeLists.txt
 
       - name: do build
         working-directory: yubihsm-shell
@@ -395,10 +389,6 @@ jobs:
       - name: install dependencies from package management (rpm based)
         if: ${{ matrix.os_base == 'redhat' }}
         run: |
-          #if [ $BUILD_ENVIRONMENT = "centos:7" ]; then
-            # enable the epel repository for centos
-            #yum install -y epel-release
-          #fi
           yum install -y gcc gcc-c++ cmake python3-devel python3-pip python3-setuptools curl libedit gengetopt openssl libcurl pcsc-lite swig java-11-openjdk-headless which
 
       - name: prepare name for download-artifact action
@@ -410,7 +400,7 @@ jobs:
           echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_${CC}" >> $GITHUB_ENV
 
       - name: download artifacts from the build job
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: "${{ env.ARTIFACT_NAME }}"
 
@@ -469,7 +459,7 @@ jobs:
             ctest --output-on-failure -E engine
           elif [ $DOCKER_IMAGE = "centos:7" ]; then
             # we skip the ecdh_derive tests (for now) since there is an issue with generating secp224r1 keys
-            ctest --output-on-failure -E ecdh_derive
+            ctest --output-on-failure -E ecdh_derive\|aes
           else
             ctest --output-on-failure
           fi
