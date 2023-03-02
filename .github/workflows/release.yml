@@ -29,7 +29,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: yubihsm-shell-src
-          path: $GITHUB_WORKSPACE/artifact
+          path: artifact
 
   Windowsx86:
     name: Build Windows x86 release
