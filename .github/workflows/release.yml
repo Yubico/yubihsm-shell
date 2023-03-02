@@ -51,7 +51,7 @@ jobs:
       - name: Build and make MSI installer
         run: |
           Set-PSDebug -Trace 1
-          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:VERSION"
+          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-$env:VERSION"
           $MERGEDPATH = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC141_CRT_x86.msm"
 
           cd $YHSHELL_SRC_DIR/resources/release/win
@@ -66,7 +66,7 @@ jobs:
       - name: Install yubihsm-shell
         run: |
           Set-PSDebug -Trace 1
-          cd "$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:VERSION\resources\release\win"
+          cd "$env:GITHUB_WORKSPACE\yubihsm-shell-$env:VERSION\resources\release\win"
           msiexec /i yubihsm-shell-x86.msi /quiet /log $env:GITHUB_WORKSPACE/artifact/log_x86.txt
 
       - name: Upload artifact
@@ -96,7 +96,7 @@ jobs:
       - name: Build and make MSI installer
         run: |
           Set-PSDebug -Trace 1
-          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:VERSION"
+          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-$env:VERSION"
           $MERGEDPATH = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC141_CRT_x86.msm"
 
           cd $YHSHELL_SRC_DIR/resources/release/win
@@ -111,7 +111,7 @@ jobs:
       - name: Install yubihsm-shell
         run: |
           Set-PSDebug -Trace 1
-          cd "$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:VERSION\resources\release\win"
+          cd "$env:GITHUB_WORKSPACE\yubihsm-shell-$env:VERSION\resources\release\win"
           msiexec /i yubihsm-shell-x64.msi /quiet /log $env:GITHUB_WORKSPACE/artifact/log_x64.txt
 
       - name: Upload artifact
@@ -149,7 +149,7 @@ jobs:
           ls /usr/local/opt/openssl@1.1/lib
 
 
-          YHSHELL_SRC_DIR="$GITHUB_WORKSPACE/yubihsm-shell-src/yubihsm-shell-$VERSION"
+          YHSHELL_SRC_DIR="$GITHUB_WORKSPACE/yubihsm-shell-$VERSION"
 
           cd $YHSHELL_SRC_DIR
           ./resources/release/macos/make_release_binaries.sh amd $VERSION $SO_VERSION
