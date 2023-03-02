@@ -46,7 +46,6 @@ jobs:
       - name: Extract source
         run: |
           Set-PSDebug -Trace 1
-          cd yubihsm-shell-src
           tar xf yubihsm-shell-$env:VERSION.tar.gz
 
       - name: Build and make MSI installer
@@ -92,7 +91,6 @@ jobs:
       - name: Extract source
         run: |
           Set-PSDebug -Trace 1
-          cd yubihsm-shell-src
           tar xf yubihsm-shell-$env:VERSION.tar.gz
 
       - name: Build and make MSI installer
@@ -138,7 +136,6 @@ jobs:
       - name: Extract source
         run: |
           set -x
-          cd yubihsm-shell-src
           tar xf yubihsm-shell-$VERSION.tar.gz
 
       - name: Build and make MSI installer
