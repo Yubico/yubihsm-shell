@@ -485,7 +485,7 @@ int yh_com_derive_ecdh(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   uint8_t data[YH_MSG_BUF_SIZE] = {0};
   size_t data_len = sizeof(data);
 
-  if(!read_public_key(argv[2].x, argv[2].len, &algo, data, &data_len)) {
+  if (!read_public_key(argv[2].x, argv[2].len, &algo, data, &data_len)) {
     fprintf(stderr, "Failed to load public key\n");
     return -1;
   }
@@ -1654,11 +1654,12 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
   } else if (in_fmt == fmt_PEM) {
     yh_algorithm algo;
     size_t len = sizeof(privkey);
-    if(!read_private_key(argv[1].x, argv[1].len, &algo, privkey, &len, false)) {
+    if (!read_private_key(argv[1].x, argv[1].len, &algo, privkey, &len,
+                          false)) {
       fprintf(stderr, "Failed to PEM decode asymmetric authentication key\n");
       return -1;
     }
-    if(len != sizeof(privkey)) {
+    if (len != sizeof(privkey)) {
       fprintf(stderr, "Invalid asymmetric authentication key\n");
       return -1;
     }
@@ -2127,11 +2128,11 @@ int yh_com_put_authentication_asym(yubihsm_context *ctx, Argument *argv,
   } else if (in_fmt == fmt_PEM) {
     yh_algorithm algo = 0;
     size_t pubkey_len = sizeof(pubkey);
-    if(!read_public_key(argv[6].x, argv[6].len, &algo, pubkey, &pubkey_len)) {
+    if (!read_public_key(argv[6].x, argv[6].len, &algo, pubkey, &pubkey_len)) {
       fprintf(stderr, "Failed to load public key\n");
       return -1;
     }
-    if(pubkey_len != sizeof(pubkey)) {
+    if (pubkey_len != sizeof(pubkey)) {
       fprintf(stderr, "Invalid public key\n");
       return -1;
     }
@@ -2960,7 +2961,7 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 #ifdef USE_ASYMMETRIC_AUTH
     uint8_t sk_oce[YH_EC_P256_PRIVKEY_LEN], pk_oce[YH_EC_P256_PUBKEY_LEN],
       pk_sd[YH_EC_P256_PUBKEY_LEN];
-    size_t pk_sd_len;
+    size_t pk_sd_len = sizeof(pk_sd);
 #endif
     yh_object_type type = 0;
 #ifndef _WIN32
@@ -2987,8 +2988,8 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
          !algorithm_search(benchmarks[i].algo, algorithms, n_algorithms)) ||
         (benchmarks[i].algo2 &&
          !algorithm_search(benchmarks[i].algo2, algorithms, n_algorithms))) {
-      fprintf(stderr, "%s%s%s skipped (disabled or unsupported)\n", str1,
-              str2, str3);
+      fprintf(stderr, "%s%s%s skipped (disabled or unsupported)\n", str1, str2,
+              str3);
       continue;
     }
 
@@ -3742,11 +3743,11 @@ int yh_com_change_authentication_key_asym(yubihsm_context *ctx, Argument *argv,
   } else if (in_fmt == fmt_PEM) {
     yh_algorithm algo = 0;
     size_t pubkey_len = sizeof(pubkey);
-    if(!read_public_key(argv[2].x, argv[2].len, &algo, pubkey, &pubkey_len)) {
+    if (!read_public_key(argv[2].x, argv[2].len, &algo, pubkey, &pubkey_len)) {
       fprintf(stderr, "Failed to load public key\n");
       return -1;
     }
-    if(pubkey_len != sizeof(pubkey)) {
+    if (pubkey_len != sizeof(pubkey)) {
       fprintf(stderr, "Invalid public key\n");
       return -1;
     }

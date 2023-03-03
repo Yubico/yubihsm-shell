@@ -90,7 +90,7 @@ void parse_status_data(char *data, yh_connector *connector) {
       unsigned long v_pat = 0;
 
       str = str + strlen(VERSION_STR);
-      if (sscanf(str, "%lu.%lu.%lu", &v_maj, &v_min, &v_pat) == 0) {
+      if (sscanf(str, "%lu.%lu.%lu", &v_maj, &v_min, &v_pat) <= 0) {
         DBG_ERR("Unable to parse version string");
         continue;
       }
