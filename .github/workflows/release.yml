@@ -12,7 +12,7 @@ jobs:
       VERSION: 2.4.0
     steps:
       - name: checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Install prerequisites
         run: |
           set -x
@@ -23,13 +23,13 @@ jobs:
           set -x
           ./resources/make_src_dist.sh $VERSION
           cd ..
-          mkdir artifact
-          mv $GITHUB_WORKSPACE/yubihsm-shell-$VERSION.tar.gz artifact/
+          mkdir $GITHUB_WORKSPACE/artifact
+          mv $GITHUB_WORKSPACE/yubihsm-shell-$VERSION.tar.gz $GITHUB_WORKSPACE/artifact/
       - name: Upload artifact
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v3
         with:
           name: yubihsm-shell-src
-          path: ../artifact
+          path: artifact
 
   Windowsx86:
     name: Build Windows x86 release
@@ -39,20 +39,19 @@ jobs:
       VERSION: 2.4.0
     steps:
       - name: Download source from source job
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: yubihsm-shell-src
 
       - name: Extract source
         run: |
           Set-PSDebug -Trace 1
-          cd yubihsm-shell-src
           tar xf yubihsm-shell-$env:VERSION.tar.gz
 
       - name: Build and make MSI installer
         run: |
           Set-PSDebug -Trace 1
-          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:VERSION"
+          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-$env:VERSION"
           $MERGEDPATH = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC141_CRT_x86.msm"
 
           cd $YHSHELL_SRC_DIR/resources/release/win
@@ -67,11 +66,11 @@ jobs:
       - name: Install yubihsm-shell
         run: |
           Set-PSDebug -Trace 1
-          cd "$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:VERSION\resources\release\win"
+          cd "$env:GITHUB_WORKSPACE\yubihsm-shell-$env:VERSION\resources\release\win"
           msiexec /i yubihsm-shell-x86.msi /quiet /log $env:GITHUB_WORKSPACE/artifact/log_x86.txt
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: yubihsm-shell-win32
           path: artifact
@@ -85,20 +84,19 @@ jobs:
       VERSION: 2.4.0
     steps:
       - name: Download source from source job
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: yubihsm-shell-src
 
       - name: Extract source
         run: |
           Set-PSDebug -Trace 1
-          cd yubihsm-shell-src
           tar xf yubihsm-shell-$env:VERSION.tar.gz
 
       - name: Build and make MSI installer
         run: |
           Set-PSDebug -Trace 1
-          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:VERSION"
+          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-$env:VERSION"
           $MERGEDPATH = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC141_CRT_x86.msm"
 
           cd $YHSHELL_SRC_DIR/resources/release/win
@@ -113,11 +111,11 @@ jobs:
       - name: Install yubihsm-shell
         run: |
           Set-PSDebug -Trace 1
-          cd "$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-$env:VERSION\resources\release\win"
+          cd "$env:GITHUB_WORKSPACE\yubihsm-shell-$env:VERSION\resources\release\win"
           msiexec /i yubihsm-shell-x64.msi /quiet /log $env:GITHUB_WORKSPACE/artifact/log_x64.txt
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: yubihsm-shell-win64
           path: artifact
@@ -131,14 +129,13 @@ jobs:
       SO_VERSION: 2
     steps:
       - name: Download source from source job
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: yubihsm-shell-src
 
       - name: Extract source
         run: |
           set -x
-          cd yubihsm-shell-src
           tar xf yubihsm-shell-$VERSION.tar.gz
 
       - name: Build and make MSI installer
@@ -152,7 +149,7 @@ jobs:
           ls /usr/local/opt/openssl@1.1/lib
 
 
-          YHSHELL_SRC_DIR="$GITHUB_WORKSPACE/yubihsm-shell-src/yubihsm-shell-$VERSION"
+          YHSHELL_SRC_DIR="$GITHUB_WORKSPACE/yubihsm-shell-$VERSION"
 
           cd $YHSHELL_SRC_DIR
           ./resources/release/macos/make_release_binaries.sh amd $VERSION $SO_VERSION
@@ -164,73 +161,261 @@ jobs:
           cp -r $YHSHELL_SRC_DIR/resources/release/macos/yubihsm2-sdk-darwin-amd64.pkg $GITHUB_WORKSPACE/artifact/
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: yubihsm-shell-darwin-amd64
           path: artifact
 
-  ubuntu2204:
-    name: Build Ubuntu 22.04 release
-    runs-on: ubuntu-22.04
+  debian_based:
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [
+            "ubuntu:22.10",
+            "ubuntu:22.04",
+            "ubuntu:20.04",
+            "ubuntu:18.04",
+            "ubuntu:16.04",
+            "ubuntu:14.04",
+            "debian:11",
+            "debian:10",
+            "debian:9"
+        ]
+        # perform gcc builds for all environments
+        cc: [ "gcc" ]
+        version_number: [ "2.4.0" ]
+
+    name: build on ${{ matrix.environment }}
+    runs-on: ubuntu-latest
+    container: ${{ matrix.environment }}
+
     steps:
-      - name: checkout
-        uses: actions/checkout@v2
-      - name: Install prerequisites
+
+      - name: install dependencies from package management
+        env:
+          CC: ${{ matrix.cc }}
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+
+          apt-get update && apt-get dist-upgrade -y
+          apt-get install -y build-essential      \
+                                  chrpath              \
+                                  cmake                \
+                                  pkg-config           \
+                                  gengetopt            \
+                                  help2man             \
+                                  libedit-dev          \
+                                  libcurl4-openssl-dev \
+                                  liblzma-dev          \
+                                  libssl-dev           \
+                                  libseccomp-dev       \
+                                  libusb-1.0.0-dev     \
+                                  dh-exec              \
+                                  git-buildpackage     \
+                                  curl                 \
+                                  libpcsclite-dev      \
+                                  file                 \
+                                  curl                 \
+                                  jq
+
+      - name: clone the Yubico/yubihsm-shell repository
+        uses: actions/checkout@v3
+        with:
+          path: yubihsm-shell
+
+      - name: apply environment specific changes to CMakeLists.txt
+        working-directory: yubihsm-shell
+        if: ${{ matrix.environment == 'ubuntu:14.04' }}
+        run: |
+          # ubuntu 14.04 comes with cmake version 2.8, but the project requires 3.1
+          # we downgrade that requirement for the ubuntu 14.04 build
+          sed -i 's/cmake_minimum_required (VERSION 3.1)/cmake_minimum_required (VERSION 2.8)/' CMakeLists.txt
+          # we also remove the following policies which are not supported in the older cmake version
+          sed -i 's/cmake_policy(SET CMP0025 NEW)/#cmake_policy(SET CMP0025 NEW)/' CMakeLists.txt
+          sed -i 's/cmake_policy(SET CMP0042 NEW)/#cmake_policy(SET CMP0042 NEW)/' CMakeLists.txt
+          sed -i 's/cmake_policy(SET CMP0054 NEW)/#cmake_policy(SET CMP0054 NEW)/' CMakeLists.txt
+          # append the following flags: -Wno-missing-braces -Wno-missing-field-initializers -Wno-implicit-function-declaration
+          sed -i 's/-Wall -Wextra -Werror/-Wall -Wextra -Werror -Wno-missing-braces -Wno-missing-field-initializers -Wno-implicit-function-declaration/' cmake/SecurityFlags.cmake
+
+      - name: extract platform name
+        env:
+          DOCKER_IMAGE: ${{ matrix.environment }}
+        run: |
+          # Remove everything from DOCKER_IMAGE that is not a letter or a number
+          PLATFORM=$(echo -n "$DOCKER_IMAGE" | sed -E 's/[^a-zA-Z0-9]//g')
+          echo "PLATFORM=$PLATFORM" >> $GITHUB_ENV
+
+      - name: build release
+        working-directory: yubihsm-shell
+        env:
+          PLATFORM: ${{ env.PLATFORM }}
         run: |
           set -x
-          sudo apt -q update
-          sudo apt install libpcsclite-dev gengetopt help2man libedit-dev libcurl4-openssl-dev libssl-dev libusb-1.0-0-dev debhelper dh-exec cmake chrpath
 
-      - name: Build release package
-        run: |
-          set -e -o pipefail
-          set -x
-          mkdir $GITHUB_WORKSPACE/artifact
-          dpkg-buildpackage -b --no-sign
-          cp ../*.deb $GITHUB_WORKSPACE/artifact/
+          # Create directory containing all output
+          OUTPUT=$GITHUB_WORKSPACE/$PLATFORM/yubihsm-shell
+          mkdir -p $OUTPUT
 
-          LICENSE_DIR="$GITHUB_WORKSPACE/artifact/share/yubihsm-shell"
+          if [ $PLATFORM == "debian9" ] || [ $PLATFORM == "debian10" ] || [ $PLATFORM == "debian11" ] || [ $PLATFORM == "ubuntu1804" ]; then
+            dpkg-buildpackage -b --no-sign
+          else
+            dpkg-buildpackage
+          fi
+          cp ../*.deb $OUTPUT/
+
+          LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
           mkdir -p $LICENSE_DIR
-          cp -r resources/release/linux/licenses $LICENSE_DIR/
+          cp -r $GITHUB_WORKSPACE/yubihsm-shell/resources/release/linux/licenses $LICENSE_DIR/
           for lf in $LICENSE_DIR/licenses/*; do
             chmod 644 $lf
           done
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v2
+          cd $OUTPUT
+          rm -f yubihsm-shell-$PLATFORM-amd64.tar.gz
+          tar -C .. -zcvf ../yubihsm-shell-$PLATFORM-amd64.tar.gz yubihsm-shell
+          rm -f *.deb
+          rm -rf licenses
+          rm -rf ../yubihsm-shell
+
+      - name: install binaries
+        env:
+          VERSION: ${{ matrix.version_number }}
+        run: |
+          set -x
+          dpkg -i ./libykhsmauth1_*.deb ./libyubihsm-usb1_*.deb ./libyubihsm-http1_*.deb ./libyubihsm1_*.deb  ./yubihsm-shell_*.deb
+
+      - name: check binaries for hardening
+        run: |
+          curl -o checksec.sh-2.5.0.tar.gz -L https://github.com/slimm609/checksec.sh/archive/refs/tags/2.5.0.tar.gz
+          tar xfz checksec.sh-2.5.0.tar.gz
+          cs() {
+            checksec.sh-2.5.0/checksec --file=/usr/bin/yubihsm-shell --format=json | jq -r ".[] | .$1"
+          }
+          if [ "`cs relro`" != "full" ]; then echo "relro is `cs relro`"; exit 1; fi
+          if [ "`cs canary`" != "yes" ]; then echo "canary is `cs canary`"; exit 1; fi
+          if [ "`cs nx`" != "yes" ]; then echo "nx is `cs nx`"; exit 1; fi
+          if [ "`cs pie`" != "yes" ]; then echo "pie is `cs pie`"; exit 1; fi
+          if [ "`cs fortify_source`" != "yes" ]; then echo "fortify_source is `cs fortify_source`"; exit 1; fi
+
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@v3
         with:
-          name: yubihsm-shell-ubuntu2204-amd64
-          path: artifact
+          name: "yubihsm-shell-${{ env.PLATFORM }}-amd64"
+          path: ${{ env.PLATFORM }}
 
-  ubuntu2004:
-    name: Build Ubuntu 20.04 release
-    runs-on: ubuntu-20.04
+  redhat_based:
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [
+            "fedora:36",
+            "fedora:37",
+            "centos:7"
+        ]
+
+    name: build on ${{ matrix.environment }}
+    runs-on: ubuntu-latest
+    container: ${{ matrix.environment }}
+
     steps:
-      - name: checkout
-        uses: actions/checkout@v2
-      - name: Install prerequisites
-        run: |
-          set -x
-          sudo apt -q update
-          sudo apt install libpcsclite-dev gengetopt help2man libedit-dev libcurl4-openssl-dev libssl-dev libusb-1.0-0-dev debhelper dh-exec cmake
 
-      - name: Build release package
-        run: |
-          set -e -o pipefail
-          set -x
-          mkdir $GITHUB_WORKSPACE/artifact
-          dpkg-buildpackage -b --no-sign
-          cp ../*.deb $GITHUB_WORKSPACE/artifact/
+      - name: clone the Yubico/yubihsm-shell repository
+        uses: actions/checkout@v3
+        with:
+          path: yubihsm-shell
 
-          LICENSE_DIR="$GITHUB_WORKSPACE/artifact/share/yubihsm-shell"
+      - name: apply environment specific changes to CMakeLists.txt
+        working-directory: yubihsm-shell
+        if: ${{ matrix.environment == 'centos:7' }}
+        run: |
+          # centos 7 comes with cmake version 2.8, but the project requires 3.1
+          # we downgrade that requirement for the centos 7 build
+          sed -i 's/cmake_minimum_required (VERSION 3.1)/cmake_minimum_required (VERSION 2.8)/' CMakeLists.txt
+          # we also remove the following policies which are not supported in the older cmake version
+          sed -i 's/cmake_policy(SET CMP0025 NEW)/#cmake_policy(SET CMP0025 NEW)/' CMakeLists.txt
+          sed -i 's/cmake_policy(SET CMP0042 NEW)/#cmake_policy(SET CMP0042 NEW)/' CMakeLists.txt
+          sed -i 's/cmake_policy(SET CMP0054 NEW)/#cmake_policy(SET CMP0054 NEW)/' CMakeLists.txt
+          # append the following flags: -Wno-missing-braces -Wno-missing-field-initializers -Wno-implicit-function-declaration
+          sed -i 's/-Wall -Wextra -Werror/-Wall -Wextra -Werror -Wno-missing-braces -Wno-missing-field-initializers/' cmake/SecurityFlags.cmake
+
+      - name: extract platform name
+        env:
+          DOCKER_IMAGE: ${{ matrix.environment }}
+        run: |
+          # Remove everything from DOCKER_IMAGE that is not a letter or a number
+          PLATFORM=$(echo -n "$DOCKER_IMAGE" | sed -E 's/[^a-zA-Z0-9]//g')
+          echo "PLATFORM=$PLATFORM" >> $GITHUB_ENV
+
+      - name: install dependencies
+        env:
+          PLATFORM: ${{ env.PLATFORM }}
+        run: |
+          cd yubihsm-shell/resources/release/linux
+          ./install_redhat_dependencies.sh $PLATFORM
+
+          if [ $PLATFORM = "centos7" ]; then
+            # enable the epel repository for centos
+            yum install -y epel-release
+          fi
+          yum install -y checksec procps-ng jq file which curl
+
+      - name: build release
+        working-directory: yubihsm-shell
+        env:
+          PLATFORM: ${{ env.PLATFORM }}
+        run: |
+          export CMAKE="cmake"
+          export INPUT=$GITHUB_WORKSPACE/yubihsm-shell
+          export OUTPUT=$GITHUB_WORKSPACE/$PLATFORM/yubihsm-shell
+          rm -rf $OUTPUT
+          mkdir -p $OUTPUT
+
+          # These 2 lines can be replaced by the command "rpmdev-setuptree", but this command seems to add macros that force check paths that do not exist
+          mkdir -p $GITHUB_WORKSPACE/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+          echo '%_topdir %(echo $HOME)/rpmbuild' > $GITHUB_WORKSPACE/.rpmmacros
+
+          RPM_DIR=$GITHUB_WORKSPACE/rpmbuild
+
+          cp resources/release/linux/yubihsm-shell.spec $RPM_DIR/SPECS/
+
+          QA_SKIP_BUILD_ROOT=1 QA_RPATHS=$(( 0x0001|0x0010 )) rpmbuild -bb $RPM_DIR/SPECS/yubihsm-shell.spec
+          cp /github/home/rpmbuild/RPMS/x86_64/*.rpm $OUTPUT/
+
+          LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
           mkdir -p $LICENSE_DIR
-          cp -r resources/release/linux/licenses $LICENSE_DIR/
+          cp -r $INPUT/resources/release/linux/licenses $LICENSE_DIR/
           for lf in $LICENSE_DIR/licenses/*; do
-            chmod 644 $lf
+           chmod 644 $lf
           done
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v2
+          cd $OUTPUT
+          rm -f "yubihsm-shell-$PLATFORM-amd64.tar.gz"
+          tar -C ".." -zcvf "../yubihsm-shell-$PLATFORM-amd64.tar.gz" "yubihsm-shell"
+          rm -f *.rpm
+          rm -rf licenses
+          rm -rf ../yubihsm-shell
+
+      - name: install binaries
+        working-directory: /github/home/rpmbuild/RPMS/x86_64
+        run: |
+          yum install -y ./yubihsm-shell-*.rpm
+
+      - name: check binaries for hardening
+        run: |
+          cs() {
+            checksec --file=/usr/bin/yubihsm-shell --format=json | jq -r ".[] | .$1"
+          }
+          if [ "`cs relro`" != "full" ]; then echo "relro is `cs relro`"; exit 1; fi
+          if [ "`cs canary`" != "yes" ]; then echo "canary is `cs canary`"; exit 1; fi
+          if [ "`cs nx`" != "yes" ]; then echo "nx is `cs nx`"; exit 1; fi
+          if [ "`cs pie`" != "yes" ]; then echo "pie is `cs pie`"; exit 1; fi
+          if [ "`cs fortify_source`" != "yes" ]; then echo "fortify_source is `cs fortify_source`"; exit 1; fi
+
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@v3
         with:
-          name: yubihsm-shell-ubuntu2004-amd64
-          path: artifact
+          name: "yubihsm-shell-${{ env.PLATFORM }}-amd64"
+          path: ${{ env.PLATFORM }}

@@ -82,7 +82,15 @@ elseif (NOT MSVC)
   set (CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -Wl,--strip-all")
 endif ()
 
-set (CMAKE_C_STANDARD 11)
+if (CMAKE_MAJOR_VERSION LESS 3)
+  if (CMAKE_C_COMPILER_ID STREQUAL GNU)
+    # The C_STANDARD property was introduced in cmake 3.1
+    # https://cmake.org/cmake/help/latest/prop_tgt/C_STANDARD.html
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu11")
+  endif ()
+else ()
+  set (CMAKE_C_STANDARD 11)
+endif ()
 
 set (yubihsm_shell_VERSION_MAJOR 2)
 set (yubihsm_shell_VERSION_MINOR 4)

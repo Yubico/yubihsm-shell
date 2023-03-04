@@ -40,6 +40,7 @@
 #include "debug_lib.h"
 
 #include "../common/insecure_memzero.h"
+#include "../ykhsmauth/ykhsmauth.h"
 
 #define STATIC_USB_BACKEND "usb"
 #define STATIC_HTTP_BACKEND "http"
@@ -3953,7 +3954,7 @@ static yh_rc encrypt_ecb(yh_cmd cmd, yh_session *session, size_t block_size,
   yh_cmd response_cmd = 0;
   data.key_id = htons(key_id);
 
-  yh_rc yrc;
+  yh_rc yrc = YHR_SUCCESS;
   size_t rem = in_len;
   const size_t chunksiz = sizeof(data.bytes) / block_size * block_size;
 
@@ -3962,7 +3963,8 @@ static yh_rc encrypt_ecb(yh_cmd cmd, yh_session *session, size_t block_size,
     ochunk = ichunk = rem < chunksiz ? rem : chunksiz;
     memcpy(data.bytes, in, ichunk);
     if ((yrc = yh_send_secure_msg(session, cmd, data.buf, 2 + ichunk,
-                                  &response_cmd, out, &ochunk)) != YHR_SUCCESS) {
+                                  &response_cmd, out, &ochunk)) !=
+        YHR_SUCCESS) {
       goto ecb_fail;
     } else if (ochunk != ichunk) {
       yrc = YHR_GENERIC_ERROR;
@@ -4034,7 +4036,7 @@ static yh_rc encrypt_cbc(yh_cmd cmd, yh_session *session, uint16_t key_id,
   data.key_id = htons(key_id);
   memcpy(data.bytes, iv, iv_len);
 
-  yh_rc yrc;
+  yh_rc yrc = YHR_SUCCESS;
   size_t rem = in_len;
   const size_t chunksiz = (sizeof(data.bytes) - iv_len) / iv_len * iv_len;
 
@@ -4043,7 +4045,8 @@ static yh_rc encrypt_cbc(yh_cmd cmd, yh_session *session, uint16_t key_id,
     ochunk = ichunk = rem < chunksiz ? rem : chunksiz;
     memcpy(data.bytes + iv_len, in, ichunk);
     if ((yrc = yh_send_secure_msg(session, cmd, data.buf, 2 + iv_len + ichunk,
-                                  &response_cmd, out, &ochunk)) != YHR_SUCCESS) {
+                                  &response_cmd, out, &ochunk)) !=
+        YHR_SUCCESS) {
       goto cbc_fail;
     } else if (ochunk != ichunk) {
       yrc = YHR_GENERIC_ERROR;

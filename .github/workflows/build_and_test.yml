@@ -3,144 +3,513 @@ name: Build and Test
 on: [push, pull_request]
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
+  build_debian_derivatives:
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-22.04
-            cc: gcc-11
-            libext: so
-            test: true
-          - os: ubuntu-22.04
-            cc: clang-14
-            libext: so
-            test: false
-          - os: ubuntu-20.04
-            cc: gcc-10
-            libext: so
-            test: false
-          - os: ubuntu-20.04
-            cc: clang-10
-            libext: so
-            test: true
-          - os: macos-latest
-            cc: clang
-            libext: dylib
-            test: false
-    steps:
-    - uses: actions/checkout@v1
-    - name: Dependencies
-      env:
-        CC: ${{ matrix.cc }}
-        OS: ${{ matrix.os }}
-      run: |
-        if [ "$OS" = "macos-latest" ]; then
-        # no update - no upgrade
-          brew install gengetopt help2man libedit
-        else
-          sudo apt -q update
-          sudo apt install -q -y cmake gengetopt help2man lcov libcurl4-openssl-dev libedit-dev libengine-pkcs11-openssl libpcsclite-dev libusb-1.0-0-dev opensc python3-pip python3-setuptools pkg-config swig libssl-dev libffi-dev
-          if [ "${CC%-*}" == "clang" ]; then
-            sudo apt install -q -y ${CC%-*}-tools-${CC#clang-}
-          else
-            sudo apt install -q -y "${CC}"
-          fi
-          dpkg -l | grep libssl
-        fi
-    - name: Prep
-      if: ${{ matrix.test }}
-      env:
-        tlspwd: ${{ secrets.TLSKEY }}
-      run: |
-        git clone https://github.com/YubicoLabs/python-pkcs11tester.git /tmp/python-pkcs11tester
-        git clone https://github.com/YubicoLabs/pkcs11test.git /tmp/pkcs11test
-        git clone https://github.com/YubicoLabs/yubihsm_sunpkcs11_tests.git /tmp/yubihsm_sunpkcs11_tests
-        pushd /tmp/pkcs11test
-        make
-        echo "PKCS11TEST_PATH=/tmp/pkcs11test" >> $GITHUB_ENV
-        popd
-        wget -q https://github.com/square/ghostunnel/releases/download/v1.3.1/ghostunnel-v1.3.1-$(uname -s | tr '[:upper:]' '[:lower:]')-amd64-with-pkcs11 -O /tmp/ghostunnel
-        chmod +x /tmp/ghostunnel
-        openssl aes-256-cbc -k "$tlspwd" -md sha256 -in ./.ci/client-combined.pem.enc -out ./.ci/client-combined.pem -d
-        /tmp/ghostunnel client --listen localhost:12345 --target hsm-connector01.sthlm.in.yubico.org:8443 --keystore ./.ci/client-combined.pem --cacert ./.ci/server-crt.pem &
-        sleep 3
-        DEFAULT_CONNECTOR_URL=$(curl -s http://localhost:12345/dispatcher/request)
-        test -n "$DEFAULT_CONNECTOR_URL" || (echo "Unable to obtain a connector URL, aborting"; exit 1)
-        echo $DEFAULT_CONNECTOR_URL
-        echo "DEFAULT_CONNECTOR_URL=$DEFAULT_CONNECTOR_URL" >> $GITHUB_ENV
-    - name: Build
-      env:
-        CC: ${{ matrix.cc }}
-        LIBEXT: ${{ matrix.libext }}
-      run: |
-        export PKG_CONFIG_PATH=/usr/local/opt/openssl@1.1/lib/pkgconfig:PKG_CONFIG_PATH
-        cmake -Bbuild -H. -DDEFAULT_CONNECTOR_URL="$DEFAULT_CONNECTOR_URL"
-        cmake --build build -- --jobs=2
-        test -e ./build/src/yubihsm-shell
-        test -e ./build/lib/libyubihsm.$LIBEXT
-        test -e ./build/pkcs11/yubihsm_pkcs11.$LIBEXT
-        test -e ./build/yhwrap/yubihsm-wrap
-    - name: Test
-      if: ${{ matrix.test }}
-      env:
-        OS: ${{ matrix.os }}
-      run: |
-        pushd build
-        ./src/yubihsm-shell --connector "$DEFAULT_CONNECTOR_URL" -p password -a reset
-        sleep 3
-        if [ "$OS" = "ubuntu-20.04" ]; then
-          # on 20.04 we skip the engine tests (for now) since it ships with a broken curl version
-          ctest --output-on-failure -E engine
-        else
-          ctest --output-on-failure
-        fi
-        popd
+          - environment: "ubuntu:22.10"
+            cc: "gcc"
+            upload_for_test: "false"
+          - environment: "ubuntu:22.10"
+            cc: "clang"
+            upload_for_test: "false"
+          - environment: "ubuntu:22.04"
+            cc: "gcc"
+            upload_for_test: "true"
+          - environment: "ubuntu:22.04"
+            cc: "clang"
+            upload_for_test: "true"
+          - environment: "ubuntu:20.04"
+            cc: "gcc"
+            upload_for_test: "false"
+          - environment: "ubuntu:20.04"
+            cc: "clang"
+            upload_for_test: "false"
+          - environment: "ubuntu:18.04"
+            cc: "gcc"
+            upload_for_test: "false"
+          - environment: "ubuntu:16.04"
+            cc: "gcc"
+            upload_for_test: "false"
+          - environment: "ubuntu:14.04"
+            cc: "gcc"
+            upload_for_test: "false"
+          - environment: "debian:11"
+            cc: "gcc"
+            upload_for_test: "true"
+          - environment: "debian:11"
+            cc: "clang"
+            upload_for_test: "true"
+          - environment: "debian:10"
+            cc: "gcc"
+            upload_for_test: "false"
+          - environment: "debian:9"
+            cc: "gcc"
+            upload_for_test: "false"
 
-        echo connector=$DEFAULT_CONNECTOR_URL
-        curl "$DEFAULT_CONNECTOR_URL/connector/status"
-        pushd resources/tests/bash
-          ./cmdline_test.sh $GITHUB_WORKSPACE/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
-        popd
-    - name: Python PKCS11 Test
-      if: ${{ matrix.test }}
-      env:
-        LIBEXT: ${{ matrix.libext }}
-        OS: ${{ matrix.os }}
-      run: |
-        export YUBIHSM_PKCS11_MODULE="`pwd`/build/pkcs11/yubihsm_pkcs11.$LIBEXT"
-        pushd /tmp/python-pkcs11tester
-        echo "connector=$DEFAULT_CONNECTOR_URL" >yubihsm_pkcs11.conf
-        if [ "$OS" = "macos-latest" ]; then
-          export PATH="$(brew --prefix python3)/bin:$PATH"
-        fi
-        pip3 install --upgrade pip==20.3.4
-        python3 -m pip install 'pykcs11' 'cryptography>=1.4.0'
-        python3 setup.py test
-        popd
-    - name: SunPKCS11 Test
-      if: ${{ matrix.test }}
-      env:
-        LIBEXT: ${{ matrix.libext }}
-        OS: ${{ matrix.os }}
-      run: |
-        if [ "$OS" != "ubuntu-20.04" ]; then
-          export YUBIHSM_PKCS11_MODULE="`pwd`/build/pkcs11/yubihsm_pkcs11.$LIBEXT"
-          echo "connector=$DEFAULT_CONNECTOR_URL" >yubihsm_pkcs11.conf
+    name: build on ${{ matrix.environment }} (${{ matrix.cc }},${{ matrix.upload_for_test}})
+    runs-on: ubuntu-latest
+    container: ${{ matrix.environment }}
+
+    steps:
+
+      - name: install dependencies from package management
+        env:
+          CC: ${{ matrix.cc }}
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt update
+          apt install -q -y build-essential       \
+                            cmake pkg-config      \
+                            gengetopt             \
+                            help2man              \
+                            libcurl4-openssl-dev  \
+                            libedit-dev           \
+                            libpcsclite-dev       \
+                            libusb-1.0-0-dev      \
+                            libssl-dev            \
+                            file                  \
+                            curl                  \
+                            jq
+
+          if [ "$CC" = "clang" ]; then
+            apt install -q -y clang llvm lld
+          fi
+
+      - name: clone the Yubico/yubihsm-shell repository
+        uses: actions/checkout@v3
+        with:
+          path: yubihsm-shell
+
+      - name: apply environment specific changes to CMakeLists.txt
+        working-directory: yubihsm-shell
+        if: ${{ matrix.environment == 'ubuntu:14.04' }}
+        run: |
+          # ubuntu 14.04 comes with cmake version 2.8, but the project requires 3.1
+          # we downgrade that requirement for the ubuntu 14.04 build
+          sed -i 's/cmake_minimum_required (VERSION 3.1)/cmake_minimum_required (VERSION 2.8)/' CMakeLists.txt
+          # we also remove the following policies which are not supported in the older cmake version
+          sed -i 's/cmake_policy(SET CMP0025 NEW)/#cmake_policy(SET CMP0025 NEW)/' CMakeLists.txt
+          sed -i 's/cmake_policy(SET CMP0042 NEW)/#cmake_policy(SET CMP0042 NEW)/' CMakeLists.txt
+          sed -i 's/cmake_policy(SET CMP0054 NEW)/#cmake_policy(SET CMP0054 NEW)/' CMakeLists.txt
+          # append the following flags: -Wno-missing-braces -Wno-missing-field-initializers -Wno-implicit-function-declaration
+          sed -i 's/-Wall -Wextra -Werror/-Wall -Wextra -Werror -Wno-missing-braces -Wno-missing-field-initializers -Wno-implicit-function-declaration/' cmake/SecurityFlags.cmake
+
+      - name: do build
+        working-directory: yubihsm-shell
+        env:
+          CC: ${{ matrix.cc }}
+          VERBOSE: 1
+        run: |
+          mkdir build
+          cd build
+          if [ "$CC" = "gcc" ]; then
+            cmake -DRELEASE_BUILD=1 -DWITHOUT_YKYH=1 ..
+          else
+            cmake -DRELEASE_BUILD=1 -DWITHOUT_YKYH=1 \
+              -DCMAKE_AR=/usr/bin/llvm-ar \
+              -DCMAKE_RANLIB=/usr/bin/llvm-ranlib \
+              -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" \
+              ..
+          fi
+          cmake --build .
+
+      - name: do static build
+        working-directory: yubihsm-shell
+        env:
+          CC: ${{ matrix.cc }}
+          VERBOSE: 1
+          BUILD_ENVIRONMENT: ${{ matrix.environment }}
+        run: |
+          mkdir build-static
+          cd build-static
+          if [ "$CC" = "gcc" ]; then
+            # lto breaks static builds on debian:9 so we disable it
+            if [ $BUILD_ENVIRONMENT = "debian:9" ]; then
+              cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release -DDISABLE_LTO=ON ..
+            else
+              cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release ..
+            fi
+          else
+            cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_AR=/usr/bin/llvm-ar \
+              -DCMAKE_RANLIB=/usr/bin/llvm-ranlib \
+              -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" \
+              ..
+          fi
+          cmake --build .
+
+      - name: prepare name for upload-artifact action
+        env:
+          DOCKER_IMAGE: ${{ matrix.environment }}
+          CC: ${{ matrix.cc }}
+        run: |
+          ESCAPED_IMAGE=$(echo -n "$DOCKER_IMAGE" | sed -E 's/[^a-zA-Z0-9]//g')
+          echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_${CC}" >> $GITHUB_ENV
+
+      - name: create compressed tar file
+        if: ${{ matrix.upload_for_test == 'true' }}
+        run: tar cfz yubihsm-shell.tar.gz yubihsm-shell
+
+      - name: upload artifacts for the test job
+        if: ${{ matrix.upload_for_test == 'true' }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: "${{ env.ARTIFACT_NAME }}"
+          path: yubihsm-shell.tar.gz
+
+  build_centos_fedora:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # we do not perform clang builds for all environments, only fedora
+          - environment: "fedora:37"
+            cc: "gcc"
+            upload_for_test: "true"
+          - environment: "fedora:37"
+            cc: "clang"
+            upload_for_test: "true"
+          - environment: "fedora:36"
+            cc: "gcc"
+            upload_for_test: "false"
+          - environment: "fedora:36"
+            cc: "clang"
+            upload_for_test: "false"
+          - environment: "centos:7"
+            cc: "gcc"
+            upload_for_test: "true"
+
+    name: build on ${{ matrix.environment }} (${{ matrix.cc }}, ${{ matrix.upload_for_test }})
+    runs-on: ubuntu-latest
+    container: ${{ matrix.environment }}
+
+    steps:
+
+      - name: clone the Yubico/yubihsm-shell repository
+        uses: actions/checkout@v3
+        with:
+          path: yubihsm-shell
+
+      - name: extract platform name
+        env:
+          DOCKER_IMAGE: ${{ matrix.environment }}
+        run: |
+          # Remove everything from DOCKER_IMAGE that is not a letter or a number
+          PLATFORM=$(echo -n "$DOCKER_IMAGE" | sed -E 's/[^a-zA-Z0-9]//g')
+          echo "PLATFORM=$PLATFORM" >> $GITHUB_ENV
+
+      - name: install dependencies from package management
+        env:
+          CC: ${{ matrix.cc }}
+          PLATFORM: ${{ env.PLATFORM }}
+        run: |
+          cd yubihsm-shell/resources/release/linux
+          ./install_redhat_dependencies.sh $PLATFORM
+
+          if [ "$CC" = "clang" ]; then
+            yum install -y clang llvm lld
+          fi
+
+      - name: apply environment specific changes to CMakeLists.txt
+        working-directory: yubihsm-shell
+        if: ${{ matrix.environment == 'centos:7' }}
+        run: |
+          # centos 7 comes with cmake version 2.8, but the project requires 3.1
+          # we downgrade that requirement for the centos 7 build
+          sed -i 's/cmake_minimum_required (VERSION 3.1)/cmake_minimum_required (VERSION 2.8)/' CMakeLists.txt
+          # we also remove the following policies which are not supported in the older cmake version
+          sed -i 's/cmake_policy(SET CMP0025 NEW)/#cmake_policy(SET CMP0025 NEW)/' CMakeLists.txt
+          sed -i 's/cmake_policy(SET CMP0042 NEW)/#cmake_policy(SET CMP0042 NEW)/' CMakeLists.txt
+          sed -i 's/cmake_policy(SET CMP0054 NEW)/#cmake_policy(SET CMP0054 NEW)/' CMakeLists.txt
+          # append the following flags: -Wno-missing-braces -Wno-missing-field-initializers -Wno-implicit-function-declaration
+          sed -i 's/-Wall -Wextra -Werror/-Wall -Wextra -Werror -Wno-missing-braces -Wno-missing-field-initializers/' cmake/SecurityFlags.cmake
+
+      - name: do build
+        working-directory: yubihsm-shell
+        env:
+          CC: ${{ matrix.cc }}
+          VERBOSE: 1
+        run: |
+          mkdir build
+          cd build
+          if [ "$CC" = "gcc" ]; then
+            cmake -DCMAKE_BUILD_TYPE=Release ..
+          else
+            cmake -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_AR=/usr/bin/llvm-ar \
+              -DCMAKE_RANLIB=/usr/bin/llvm-ranlib \
+              -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" \
+              ..
+          fi
+          cmake --build .
+
+      - name: do static build
+        working-directory: yubihsm-shell
+        env:
+          CC: ${{ matrix.cc }}
+          VERBOSE: 1
+          PLATFORM: ${{ env.PLATFORM }}
+        run: |
+          mkdir build-static
+          cd build-static
+          if [ "$CC" = "gcc" ]; then
+            # lto breaks static builds on centos 7 so we disable it
+            if [ $PLATFORM = "centos7" ]; then
+              cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release -DDISABLE_LTO=ON ..
+            else
+              cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release ..
+            fi
+          else
+            cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_AR=/usr/bin/llvm-ar \
+              -DCMAKE_RANLIB=/usr/bin/llvm-ranlib \
+              -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" \
+              ..
+          fi
+          cmake --build .
+
+      - name: prepare name for upload-artifact action
+        env:
+          PLATFORM: ${{ env.PLATFORM }}
+          CC: ${{ matrix.cc }}
+        run: |
+          echo "ARTIFACT_NAME=yubihsm-shell_${PLATFORM}_${CC}" >> $GITHUB_ENV
+
+      - name: create compressed tar file
+        if: ${{ matrix.upload_for_test == 'true' }}
+        run: tar cfz yubihsm-shell.tar.gz yubihsm-shell
+
+      - name: upload artifacts for the test job
+        if: ${{ matrix.upload_for_test == 'true' }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: "${{ env.ARTIFACT_NAME }}"
+          path: yubihsm-shell.tar.gz
+
+  build_macos:
+    name: build on macos
+    runs-on: macos-latest
+
+    steps:
+
+      - name: install dependencies using brew
+        run: brew install gengetopt help2man libedit
+
+      - name: clone the Yubico/yubihsm-shell repository
+        uses: actions/checkout@v3
+        with:
+          path: yubihsm-shell
+
+      - name: do build
+        working-directory: yubihsm-shell
+        env:
+          VERBOSE: 1
+        run: |
+          export PKG_CONFIG_PATH=/usr/local/opt/openssl@1.1/lib/pkgconfig:$PKG_CONFIG_PATH
+          mkdir build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release ..
+          cmake --build .
+
+      - name: do static build
+        working-directory: yubihsm-shell
+        env:
+          VERBOSE: 1
+        run: |
+          export PKG_CONFIG_PATH=/usr/local/opt/openssl@1.1/lib/pkgconfig:$PKG_CONFIG_PATH
+          mkdir build-static
+          cd build-static
+          cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release ..
+          cmake --build .
+
+      - name: check binaries for hardening
+        working-directory: yubihsm-shell
+        run: |
+          ./resources/release/macos/check_hardening.sh "build/src/yubihsm-shell"
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - environment: "ubuntu:22.04"
+            cc: "gcc"
+            os_base: "debian"
+          - environment: "ubuntu:22.04"
+            cc: "clang"
+            os_base: "debian"
+          - environment: "debian:11"
+            cc: "gcc"
+            os_base: "debian"
+          - environment: "debian:11"
+            cc: "clang"
+            os_base: "debian"
+          - environment: "fedora:37"
+            cc: "gcc"
+            os_base: "redhat"
+          - environment: "fedora:37"
+            cc: "clang"
+            os_base: "redhat"
+          - environment: "centos:7"
+            cc: "gcc"
+            os_base: "redhat"
+
+    name: run unit tests
+    runs-on: ubuntu-latest
+    container: ${{ matrix.environment }}
+    needs: [build_debian_derivatives, build_centos_fedora]
+
+    steps:
+
+      - name: install dependencies from package management (debian based)
+        env:
+          DEBIAN_FRONTEND: noninteractive
+          PLATFORM: ${{ matrix.environment }}
+        if: ${{ matrix.os_base == 'debian' }}
+        run: |
+          apt update
+          apt install -q -y build-essential cmake python3 python3-pip python3-setuptools curl libedit2 libpcsclite1 libengine-pkcs11-openssl opensc swig openjdk-11-jdk-headless
+
+          if [ $PLATFORM = "ubuntu:22.04" ]; then
+            apt install -q -y libssl3
+          else
+            apt install -q -y libssl1.1
+          fi
+
+      - name: install dependencies from package management (rpm based)
+        if: ${{ matrix.os_base == 'redhat' }}
+        run: |
+          yum install -y gcc gcc-c++ cmake python3-devel python3-pip python3-setuptools curl libedit gengetopt openssl libcurl pcsc-lite swig java-11-openjdk-headless which
+
+      - name: prepare name for download-artifact action
+        env:
+          DOCKER_IMAGE: ${{ matrix.environment }}
+          CC: ${{ matrix.cc }}
+        run: |
+          ESCAPED_IMAGE=$(echo -n "$DOCKER_IMAGE" | sed -E 's/[^a-zA-Z0-9]//g')
+          echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_${CC}" >> $GITHUB_ENV
+
+      - name: download artifacts from the build job
+        uses: actions/download-artifact@v3
+        with:
+          name: "${{ env.ARTIFACT_NAME }}"
+
+      - name: decompress yubihsm-shell.tar.gz
+        run: tar xfz yubihsm-shell.tar.gz
+
+      - name: prepare ghostunnel
+        env:
+          TLSPWD: ${{ secrets.TLSKEY }}
+          # GODEBUG required for ghostunnel to temporarily enable Common Name matching
+          GODEBUG: x509ignoreCN=0
+        run: |
+          curl -o /tmp/ghostunnel -L https://github.com/ghostunnel/ghostunnel/releases/download/v1.6.0/ghostunnel-v1.6.0-linux-amd64
+          chmod +x /tmp/ghostunnel
+          openssl aes-256-cbc \
+            -k "$TLSPWD" \
+            -md sha256 \
+            -in yubihsm-shell/.ci/client-combined.pem.enc \
+            -out yubihsm-shell/.ci/client-combined.pem \
+            -d
+          /tmp/ghostunnel client \
+            --listen localhost:12345 \
+            --target hsm-connector01.sthlm.in.yubico.org:8443 \
+            --keystore yubihsm-shell/.ci/client-combined.pem \
+            --cacert yubihsm-shell/.ci/server-crt.pem > /dev/null 2>&1 &
+          sleep 3
+          DEFAULT_CONNECTOR_URL=$(curl -s http://localhost:12345/dispatcher/request)
+          test -n "$DEFAULT_CONNECTOR_URL" || (echo "Unable to obtain a connector URL, aborting"; exit 1)
+          echo "DEFAULT_CONNECTOR_URL=$DEFAULT_CONNECTOR_URL" >> $GITHUB_ENV
+
+      - name: clone the YubicoLabs/pkcs11test repository
+        uses: actions/checkout@v3
+        with:
+          repository: YubicoLabs/pkcs11test
+          path: pkcs11test
+
+      - name: build the pkcs11test binary
+        working-directory: pkcs11test
+        run: |
+          make
+          echo "PKCS11TEST_PATH=`pwd`" >> $GITHUB_ENV
+
+      - name: reset the hsm
+        working-directory: yubihsm-shell/build/src
+        run: |
+          ./yubihsm-shell --connector "$DEFAULT_CONNECTOR_URL" -p password -a reset
+          sleep 3
+
+      - name: run tests with ctest
+        working-directory: yubihsm-shell/build
+        env:
+          DOCKER_IMAGE: ${{ matrix.environment }}
+        run: |
+          if [ $DOCKER_IMAGE = "debian:11" ]; then
+            # we skip the engine tests (for now) since it ships with a broken curl version
+            ctest --output-on-failure -E engine
+          elif [ $DOCKER_IMAGE = "centos:7" ]; then
+            # we skip the ecdh_derive tests (for now) since there is an issue with generating secp224r1 keys
+            ctest --output-on-failure -E ecdh_derive\|aes
+          else
+            ctest --output-on-failure
+          fi
+
+      - name: run yubihsm-shell tests
+        working-directory: yubihsm-shell/resources/tests/bash
+        env:
+          DOCKER_IMAGE: ${{ matrix.environment }}
+        run: ./cmdline_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
+
+      - name: clone the YubicoLabs/python-pkcs11tester repository
+        uses: actions/checkout@v3
+        with:
+          repository: YubicoLabs/python-pkcs11tester
+          path: python-pkcs11tester
+
+      - name: run python-pkcs11tester
+        env:
+          DOCKER_IMAGE: ${{ matrix.environment }}
+        run: |
+          if [ $DOCKER_IMAGE = "centos:7" ]; then
+            # the pypi cryptography package requires an up-to-date version of pip
+            # https://github.com/pyca/cryptography/issues/5753
+            pip3 install --upgrade pip
+          fi
+          export YUBIHSM_PKCS11_MODULE=`pwd`/yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so
+          cd python-pkcs11tester
+          echo "connector=$DEFAULT_CONNECTOR_URL" > yubihsm_pkcs11.conf
+          python3 -m pip install 'pykcs11' 'cryptography>=1.4.0'
+          python3 setup.py test
+
+      - name: clone the YubicoLabs/yubihsm_sunpkcs11_tests repository
+        uses: actions/checkout@v3
+        # fedora and centos disabled since sun pkcs11 tests fail with
+        #   java.security.cert.CertificateParsingException: java.io.IOException: Unknown named curve: 1.3.132.0.33
+        if: ${{ ! (contains(matrix.environment, 'fedora') || contains(matrix.environment, 'centos')) }}
+        with:
+          repository: YubicoLabs/yubihsm_sunpkcs11_tests
+          path: yubihsm_sunpkcs11_tests
+
+      - name: run sun pkcs11 tests
+        # fedora and centos disabled since sun pkcs11 tests fail with
+        #   java.security.cert.CertificateParsingException: java.io.IOException: Unknown named curve: 1.3.132.0.33
+        if: ${{ ! (contains(matrix.environment, 'fedora') || contains(matrix.environment, 'centos')) }}
+        run: |
+          export YUBIHSM_PKCS11_MODULE="`pwd`/yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so"
+          cd yubihsm_sunpkcs11_tests
+          echo "connector=$DEFAULT_CONNECTOR_URL" > yubihsm_pkcs11.conf
           export YUBIHSM_PKCS11_CONF=`pwd`/yubihsm_pkcs11.conf
-          pushd /tmp/yubihsm_sunpkcs11_tests
-            pushd src/main/resources
-              ./test_setup.sh $GITHUB_WORKSPACE/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
-            popd
-            pwd
-            ./gradlew build
-            ./gradlew runMain -Pargs=$YUBIHSM_PKCS11_MODULE
-          popd
-        fi
-    - name: Cleanup
-      if: ${{ always() }}
-      run: |
-        if [ -n "$DEFAULT_CONNECTOR_URL" ]; then
-          curl -s http://localhost:12345/dispatcher/release?connector=$DEFAULT_CONNECTOR_URL
-        fi
+          cd src/main/resources
+          ./test_setup.sh $GITHUB_WORKSPACE/yubihsm-shell/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
+          cd -
+          ./gradlew build
+          ./gradlew runMain -Pargs=$YUBIHSM_PKCS11_MODULE
+
+      - name: cleanup
+        if: ${{ always() }}
+        run: |
+          if [ -n "$DEFAULT_CONNECTOR_URL" ]; then
+            curl -s http://localhost:12345/dispatcher/release?connector=$DEFAULT_CONNECTOR_URL
+          fi

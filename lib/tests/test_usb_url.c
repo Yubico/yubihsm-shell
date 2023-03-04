@@ -56,4 +56,5 @@ static void test_urls(void) {
 int main(void) {
   _yh_output = stderr;
   test_urls();
+  return 0;
 }

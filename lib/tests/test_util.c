@@ -63,4 +63,5 @@ int main(void) {
   _yh_verbosity = 0;
 
   test_status();
+  return 0;
 }

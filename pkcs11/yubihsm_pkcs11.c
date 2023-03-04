@@ -2538,7 +2538,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
             _get_object_desc(session->slot, tmp_objects[i].id,
                              tmp_objects[i].type, tmp_objects[i].sequence);
 
-          if (match_meta_attributes(session, &object_desc->object, template_id,
+          if (object_desc != NULL &&
+              match_meta_attributes(session, &object_desc->object, template_id,
                                     template_id_len, template_label,
                                     template_label_len)) {
             memcpy(session->operation.op.find.objects + found_objects,
@@ -2558,8 +2559,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
         } else {
           yh_object_descriptor tmp_objects[YH_MAX_ITEMS_COUNT] = {0};
           size_t tmp_n_objects = sizeof(tmp_objects);
-          rc = yh_util_list_objects(session->slot->device_session, 0,
-                                    YH_OPAQUE, domains, &capabilities,
+          rc = yh_util_list_objects(session->slot->device_session, 0, YH_OPAQUE,
+                                    domains, &capabilities,
                                     YH_ALGO_OPAQUE_X509_CERTIFICATE, label,
                                     tmp_objects, &tmp_n_objects);
           if (rc != YHR_SUCCESS) {
@@ -4939,9 +4940,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
       case CKA_ID:
         if (id.set == false) {
           uint16_t d;
-          rv = parse_meta_id_template(&meta_object, FALSE, &d,
-                                      pTemplate[i].pValue,
-                                      pTemplate[i].ulValueLen);
+          rv =
+            parse_meta_id_template(&meta_object, FALSE, &d, pTemplate[i].pValue,
+                                   pTemplate[i].ulValueLen);
           if (rv != CKR_OK) {
             goto c_gk_out;
           }

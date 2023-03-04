@@ -8,7 +8,6 @@ else
   BIN="yubihsm-shell"
 fi
 
-
 if [ -e yubihsm-shell_test_dir ];
 then
     rm -rf yubihsm-shell_test_dir
@@ -87,11 +86,15 @@ if [ $length -ne 20 ]; then
 fi
 rm random.txt
 
+
 echo "********************************************************** "
 echo "                    Asymmetric Keys"
 echo "********************************************************** "
 ./test_edkey.sh "$BIN"
-./test_eckey.sh "$BIN"
+if [ -z ${DOCKER_IMAGE} ] || [ ${DOCKER_IMAGE} != "centos:7" ]; then
+    # This DOCKER_IMAGE environment variable is set in the build_and_test.yml github workflow.
+    ./test_eckey.sh "$BIN"
+fi
 ./test_rsakey.sh "$BIN"
 
 echo "********************************************************** "
