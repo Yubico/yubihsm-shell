@@ -4296,22 +4296,31 @@ CK_RV parse_hmac_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
 CK_RV parse_meta_id_template(yubihsm_pkcs11_object_template *template, 
                             pkcs11_meta_object *pkcs11meta, bool pubkey,
                             uint8_t *value, size_t value_len) {
-  if (value_len != 2) {
-    if(value_len > CKA_ATTRIBUTE_VALUE_SIZE) {
-      DBG_ERR("Failed to parse too large CKA_ID");
-      return CKR_ATTRIBUTE_VALUE_INVALID;
-    }
-    if (pubkey) {
-      pkcs11meta->cka_id_pubkey.len = value_len;
-      memcpy(pkcs11meta->cka_id_pubkey.value, value, value_len);
-    } else {
-      pkcs11meta->cka_id.len = value_len;
-      memcpy(pkcs11meta->cka_id.value, value, value_len);
-      template->id = 0;
-    }
+  if(value_len > CKA_ATTRIBUTE_VALUE_SIZE) {
+    DBG_ERR("Failed to parse too large CKA_ID");
+    return CKR_ATTRIBUTE_VALUE_INVALID;
+  }
+  if (pubkey) {
+    // Store as metadata for pubkey
+    pkcs11meta->cka_id_pubkey.len = value_len;
+    memcpy(pkcs11meta->cka_id_pubkey.value, value, value_len);
   } else {
-    if (!pubkey) {
+    // Store as metadata for privkey
+    pkcs11meta->cka_id.len = value_len;
+    memcpy(pkcs11meta->cka_id.value, value, value_len);
+    // Check if it is a valid regular id
+    if(value_len == 2) {
+      // Parse the id for backwards compat
       template->id = parse_id_value(value, value_len);
+      // Check if both metadata ids are the same
+      if(pkcs11meta->cka_id_pubkey.len == value_len && memcmp(pkcs11meta->cka_id_pubkey.value, value, value_len) == 0) {
+        // Remove metadata
+        pkcs11meta->cka_id_pubkey.len = 0;
+        pkcs11meta->cka_id.len = 0;
+      }
+    } else {
+      // Use random id for invalid length
+      template->id = 0;
     }
   }
   return CKR_OK;
@@ -4320,21 +4329,32 @@ CK_RV parse_meta_id_template(yubihsm_pkcs11_object_template *template,
 CK_RV parse_meta_label_template(yubihsm_pkcs11_object_template *template,
                                pkcs11_meta_object *pkcs11meta, bool pubkey,
                                uint8_t *value, size_t value_len) {
-  if (value_len > YH_OBJ_LABEL_LEN) {
-    if(value_len > CKA_ATTRIBUTE_VALUE_SIZE) {
-      DBG_ERR("Failed to parse too large CKA_LABEL");
-      return CKR_ATTRIBUTE_VALUE_INVALID;
-    }
-    if (pubkey) {
-      pkcs11meta->cka_label_pubkey.len = value_len;
-      memcpy(pkcs11meta->cka_label_pubkey.value, value, value_len);
+  if(value_len > CKA_ATTRIBUTE_VALUE_SIZE) {
+    DBG_ERR("Failed to parse too large CKA_LABEL");
+    return CKR_ATTRIBUTE_VALUE_INVALID;
+  }
+  if (pubkey) {
+    // Store as metadata for pubkey
+    pkcs11meta->cka_label_pubkey.len = value_len;
+    memcpy(pkcs11meta->cka_label_pubkey.value, value, value_len);
+  } else {
+    // Store as metadata for privkey
+    pkcs11meta->cka_label.len = value_len;
+    memcpy(pkcs11meta->cka_label.value, value, value_len);
+    // Check if it can fit as regular label
+    if(value_len <= YH_OBJ_LABEL_LEN) {
+      // Also store as regular label
+      memcpy(template->label, value, value_len);
+      // Check if both metadata labels are the same
+      if(pkcs11meta->cka_label_pubkey.len == value_len && memcmp(pkcs11meta->cka_label_pubkey.value, value, value_len) == 0) {
+        // Remove metadata
+        pkcs11meta->cka_label_pubkey.len = 0;
+        pkcs11meta->cka_label.len = 0;
+      }
     } else {
-      pkcs11meta->cka_label.len = value_len;
-      memcpy(pkcs11meta->cka_label.value, value, value_len);
+      // Also store first part as regular label
       memcpy(template->label, value, YH_OBJ_LABEL_LEN);
     }
-  } else {
-    memcpy(template->label, value, value_len);
   }
   return CKR_OK;
 }
