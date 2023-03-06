@@ -788,7 +788,7 @@ yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
 
 CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
                         pkcs11_meta_object *meta_object,
-                        bool exportable_under_wrap, bool replace) {
+                        yh_capabilities *target_capabilities, bool replace) {
   size_t opaque_value_len =
     8 /* 4 version + 1 original type + 2 original ID 1 opaque sequence */ +
     (meta_object->cka_id.len == 0 ? 0 : 3 + meta_object->cka_id.len) +
@@ -850,7 +850,7 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
     }
   }
   yh_capabilities capabilities = {{0}};
-  if (exportable_under_wrap) {
+  if (yh_check_capability(target_capabilities, "exportable-under-wrap")) {
     rc = yh_string_to_capabilities("exportable-under-wrap", &capabilities);
     if (rc != YHR_SUCCESS) {
       DBG_ERR("Failed to set meta object capabilities");

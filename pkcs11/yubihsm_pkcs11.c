@@ -1825,7 +1825,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
                      cka_label, cka_label_len);
             }
             rv = write_meta_object(session->slot, &pMeta_object->meta_object,
-                                   template.exportable == ATTRIBUTE_TRUE, true);
+                                   &capabilities, true);
             if (rv != CKR_OK) {
               DBG_ERR("Failed writing meta opaque object to device");
               goto c_co_out;
@@ -1871,8 +1871,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
   if (meta_object.target_id != 0) {
     meta_object.target_type = object->type;
     meta_object.target_sequence = object->sequence;
-    rv = write_meta_object(session->slot, &meta_object,
-                           template.exportable == ATTRIBUTE_TRUE, false);
+    rv = write_meta_object(session->slot, &meta_object, &capabilities, false);
     if (rv != CKR_OK) {
       DBG_ERR("Failed writing meta opaque object to device");
       goto c_co_out;
@@ -2270,9 +2269,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
 
   if (changed) {
     rv = write_meta_object(session->slot, &meta_desc->meta_object,
-                           yh_check_capability(&object->object.capabilities,
-                                               "exportable-under-wrap"),
-                           true);
+                           &object->object.capabilities, true);
     if (rv != CKR_OK) {
       DBG_ERR("Failed to update meta object");
       goto c_sav_out;
@@ -2285,9 +2282,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
     new_meta_object.target_type = object->object.type & 0x7f;
     new_meta_object.target_sequence = object->object.sequence;
     rv = write_meta_object(session->slot, &new_meta_object,
-                           yh_check_capability(&object->object.capabilities,
-                                               "exportable-under-wrap"),
-                           false);
+                           &object->object.capabilities, false);
     if (rv != CKR_OK) {
       DBG_ERR("Failed to update meta object");
       goto c_sav_out;
@@ -5155,8 +5150,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
     meta_object.target_id = object->id;
     meta_object.target_type = object->type;
     meta_object.target_sequence = object->sequence;
-    rv = write_meta_object(session->slot, &meta_object,
-                           template.exportable == ATTRIBUTE_TRUE, false);
+    rv = write_meta_object(session->slot, &meta_object, &capabilities, false);
     if (rv != CKR_OK) {
       DBG_ERR("Failed to import meta data object 0x%lx", rv);
       goto c_gk_out;
@@ -5315,8 +5309,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
     meta_object.target_id = object->id;
     meta_object.target_type = object->type;
     meta_object.target_sequence = object->sequence;
-    rv = write_meta_object(session->slot, &meta_object,
-                           template.exportable == ATTRIBUTE_TRUE, false);
+    rv = write_meta_object(session->slot, &meta_object, &capabilities, false);
     if (rv != CKR_OK) {
       DBG_ERR("Failed to import meta data object 0x%lx", rv);
       goto c_gkp_out;
