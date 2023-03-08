@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Install prerequisites
         run: |
           set -x
@@ -19,13 +19,13 @@ jobs:
           set -x
           ./resources/make_src_dist.sh
           cd ..
-          mkdir artifact
-          mv $GITHUB_WORKSPACE/yubihsm-shell-.tar.gz artifact/
+          mkdir $GITHUB_WORKSPACE/artifact
+          mv $GITHUB_WORKSPACE/yubihsm-shell-.tar.gz $GITHUB_WORKSPACE/artifact/
       - name: Upload artifact
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v3
         with:
           name: yubihsm-shell-src
-          path: ../artifact
+          path: artifact
 
   build:
     name: Build and Test on Windows
@@ -50,14 +50,13 @@ jobs:
 
     steps:
       - name: Download source from job_1
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v3
         with:
           name: yubihsm-shell-src
 
       - name: Extract source
         run: |
           Set-PSDebug -Trace 1
-          cd yubihsm-shell-src
           tar xf yubihsm-shell-.tar.gz
 
       - name: Build and make MSI installer
@@ -66,16 +65,16 @@ jobs:
           ARCH: ${{ matrix.arch }}
         run: |
           Set-PSDebug -Trace 1
-          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-"
+          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-"
           $MERGEDPATH = Get-ChildItem "C:\Program Files*\Microsoft Visual Studio\*\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC141_CRT_$env:ARCH.msm"
 
           cd $YHSHELL_SRC_DIR/resources/release/win
           ./make_release_binaries.ps1 $env:ARCH_CMAKE C:/vcpkg
-          ./yubihsm-shell.exe --version
-          ./yubihsm-shell.exe --help
+          ./yubihsm-shell.exe --version | findstr "yubihsm-shell"
+          ./yubihsm-shell.exe --help | findstr "Usage: yubihsm-shell [OPTION]"
           cd $YHSHELL_SRC_DIR/resources/release/win
           ./repack_installer.ps1 $env:ARCH $env:WIX\bin "$MERGEDPATH"
-          cp yubihsm-shell-$env:ARCH.msi yubihsm-shell.msi
+          #cp yubihsm-shell-$env:ARCH.msi yubihsm-shell.msi
 
       - name: Test installer and PKCS11 module
         env:
@@ -84,7 +83,7 @@ jobs:
         run: |
           Set-PSDebug -Trace 1
 
-          cd $env:GITHUB_WORKSPACE\yubihsm-shell-src\yubihsm-shell-\resources\release\win
+          cd $env:GITHUB_WORKSPACE\yubihsm-shell-\resources\release\win
 
           # No actual connection, but this is enough to make sure that the PKCS11 module is found and loaded
           $PKCS11_CONFIG="connector=http://127.0.0.1:12345"
@@ -103,7 +102,7 @@ jobs:
           $log = "$env:GITHUB_WORKSPACE\install.log"
           $procMain = Start-Process "msiexec" "/i `"OpenSC-0.23.0.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
           $procMain.WaitForExit()
-          $procMain = Start-Process "msiexec" "/i `"yubihsm-shell.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
+          $procMain = Start-Process "msiexec" "/i `"yubihsm-shell-$env:ARCH.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
           $procMain.WaitForExit()
 
 
@@ -123,4 +122,4 @@ jobs:
           yubihsm-shell.exe --version | findstr "yubihsm-shell"
           yubihsm-shell.exe --help | findstr "Usage: yubihsm-shell [OPTION]"
           pkcs11-tool.exe --module $PKCS11_MODULE --show-info *> .\outputFile.txt
-          type .\outputFile.txt | findstr "YubiHS"
+          type .\outputFile.txt | findstr "YubiHSM"
