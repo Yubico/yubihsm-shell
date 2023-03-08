@@ -1,0 +1,125 @@
+name: Build and Test - Windows
+
+on: [push, pull_request]
+
+jobs:
+  source:
+    name: Build dist with Linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: Install prerequisites
+        run: |
+          set -x
+          sudo apt -q update
+          sudo apt install libpcsclite-dev gengetopt help2man libedit-dev libcurl4-openssl-dev libssl-dev libusb-1.0-0-dev
+      - name: Create tar.gz
+        run: |
+          set -x
+          ./resources/make_src_dist.sh
+          cd ..
+          mkdir $GITHUB_WORKSPACE/artifact
+          mv $GITHUB_WORKSPACE/yubihsm-shell-.tar.gz $GITHUB_WORKSPACE/artifact/
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: yubihsm-shell-src
+          path: artifact
+
+  build:
+    name: Build and Test on Windows
+    needs: source
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2019
+            arch: x86
+            arch_cmake: Win32
+          - os: windows-2019
+            arch: x64
+            arch_cmake: x64
+          - os: windows-2022
+            arch: x86
+            arch_cmake: Win32
+          - os: windows-2022
+            arch: x64
+            arch_cmake: x64
+
+    steps:
+      - name: Download source from job_1
+        uses: actions/download-artifact@v3
+        with:
+          name: yubihsm-shell-src
+
+      - name: Extract source
+        run: |
+          Set-PSDebug -Trace 1
+          tar xf yubihsm-shell-.tar.gz
+
+      - name: Build and make MSI installer
+        env:
+          ARCH_CMAKE: ${{ matrix.arch_cmake }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          Set-PSDebug -Trace 1
+          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-"
+          $MERGEDPATH = Get-ChildItem "C:\Program Files*\Microsoft Visual Studio\*\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC141_CRT_$env:ARCH.msm"
+
+          cd $YHSHELL_SRC_DIR/resources/release/win
+          ./make_release_binaries.ps1 $env:ARCH_CMAKE C:/vcpkg
+          ./yubihsm-shell.exe --version | findstr "yubihsm-shell"
+          ./yubihsm-shell.exe --help | findstr "Usage: yubihsm-shell [OPTION]"
+          cd $YHSHELL_SRC_DIR/resources/release/win
+          ./repack_installer.ps1 $env:ARCH $env:WIX\bin "$MERGEDPATH"
+          #cp yubihsm-shell-$env:ARCH.msi yubihsm-shell.msi
+
+      - name: Test installer and PKCS11 module
+        env:
+          ARCH: ${{ matrix.arch }}
+
+        run: |
+          Set-PSDebug -Trace 1
+
+          cd $env:GITHUB_WORKSPACE\yubihsm-shell-\resources\release\win
+
+          # No actual connection, but this is enough to make sure that the PKCS11 module is found and loaded
+          $PKCS11_CONFIG="connector=http://127.0.0.1:12345"
+          $PKCS11_CONFIG | Out-File $env:GITHUB_WORKSPACE\yubihsm_pkcs11.conf
+          $env:YUBIHSM_PKCS11_CONF="$env:GITHUB_WORKSPACE\yubihsm_pkcs11.conf"
+
+          if($env:ARCH -eq "x86")
+          {
+            Invoke-WebRequest -Uri  https://github.com/OpenSC/OpenSC/releases/download/0.23.0/OpenSC-0.23.0_win32.msi -OutFile OpenSC-0.23.0.msi -UseBasicParsing
+          }
+          else
+          {
+            Invoke-WebRequest -Uri  https://github.com/OpenSC/OpenSC/releases/download/0.23.0/OpenSC-0.23.0_win64.msi -OutFile OpenSC-0.23.0.msi -UseBasicParsing
+          }
+
+          $log = "$env:GITHUB_WORKSPACE\install.log"
+          $procMain = Start-Process "msiexec" "/i `"OpenSC-0.23.0.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
+          $procMain.WaitForExit()
+          $procMain = Start-Process "msiexec" "/i `"yubihsm-shell-$env:ARCH.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
+          $procMain.WaitForExit()
+
+
+          if($env:ARCH -eq "x86")
+          {
+            $env:PATH += ";C:\Program Files (x86)\OpenSC Project\OpenSC\tools"
+            $env:PATH += ";C:\Program Files (x86)\Yubico\YubiHSM Shell\bin"
+            $PKCS11_MODULE = "C:\Program Files (x86)\Yubico\YubiHSM Shell\bin\pkcs11\yubihsm_pkcs11.dll"
+          }
+          else
+          {
+            $env:PATH += ";C:\Program Files\OpenSC Project\OpenSC\tools"
+            $env:PATH += ";C:\Program Files\Yubico\YubiHSM Shell\bin"
+            $PKCS11_MODULE = "C:\Program Files\Yubico\YubiHSM Shell\bin\pkcs11\yubihsm_pkcs11.dll"
+          }
+
+          yubihsm-shell.exe --version | findstr "yubihsm-shell"
+          yubihsm-shell.exe --help | findstr "Usage: yubihsm-shell [OPTION]"
+          pkcs11-tool.exe --module $PKCS11_MODULE --show-info *> .\outputFile.txt
+          type .\outputFile.txt | findstr "YubiHSM"
