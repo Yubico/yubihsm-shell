@@ -620,7 +620,7 @@ const char META_OBJECT_VERSION[4] = "MDB1";
 
 static uint16_t write_meta_item(uint8_t *target_value, uint8_t tag,
                                 cka_meta_item *meta_item) {
-  if (meta_item->len <= 0) {
+  if (meta_item->len == 0) {
     return 0;
   }
   uint8_t *p = target_value;
@@ -4301,24 +4301,23 @@ CK_RV parse_meta_id_template(yubihsm_pkcs11_object_template *template,
     return CKR_ATTRIBUTE_VALUE_INVALID;
   }
   if (pubkey) {
-    // Store as metadata for pubkey
+    // Store pubkey metadata
     pkcs11meta->cka_id_pubkey.len = value_len;
     memcpy(pkcs11meta->cka_id_pubkey.value, value, value_len);
   } else {
-    // Store as metadata for privkey
-    pkcs11meta->cka_id.len = value_len;
-    memcpy(pkcs11meta->cka_id.value, value, value_len);
     // Check if it is a valid regular id
     if(value_len == 2) {
       // Parse the id for backwards compat
       template->id = parse_id_value(value, value_len);
-      // Check if both metadata ids are the same
+      // Check if both ids are the same
       if(pkcs11meta->cka_id_pubkey.len == value_len && memcmp(pkcs11meta->cka_id_pubkey.value, value, value_len) == 0) {
         // Remove metadata
         pkcs11meta->cka_id_pubkey.len = 0;
-        pkcs11meta->cka_id.len = 0;
       }
     } else {
+      // Store privkey metadata
+      pkcs11meta->cka_id.len = value_len;
+      memcpy(pkcs11meta->cka_id.value, value, value_len);
       // Use random id for invalid length
       template->id = 0;
     }
@@ -4334,24 +4333,23 @@ CK_RV parse_meta_label_template(yubihsm_pkcs11_object_template *template,
     return CKR_ATTRIBUTE_VALUE_INVALID;
   }
   if (pubkey) {
-    // Store as metadata for pubkey
+    // Store pubkey metadata
     pkcs11meta->cka_label_pubkey.len = value_len;
     memcpy(pkcs11meta->cka_label_pubkey.value, value, value_len);
   } else {
-    // Store as metadata for privkey
-    pkcs11meta->cka_label.len = value_len;
-    memcpy(pkcs11meta->cka_label.value, value, value_len);
     // Check if it can fit as regular label
     if(value_len <= YH_OBJ_LABEL_LEN) {
-      // Also store as regular label
+      // Store as regular label
       memcpy(template->label, value, value_len);
-      // Check if both metadata labels are the same
+      // Check if both labels are the same
       if(pkcs11meta->cka_label_pubkey.len == value_len && memcmp(pkcs11meta->cka_label_pubkey.value, value, value_len) == 0) {
-        // Remove metadata
+        // Remove pubkey metadata
         pkcs11meta->cka_label_pubkey.len = 0;
-        pkcs11meta->cka_label.len = 0;
       }
     } else {
+      // Store privkey metadata
+      pkcs11meta->cka_label.len = value_len;
+      memcpy(pkcs11meta->cka_label.value, value, value_len);
       // Also store first part as regular label
       memcpy(template->label, value, YH_OBJ_LABEL_LEN);
     }
