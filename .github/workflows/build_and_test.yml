@@ -419,7 +419,16 @@ jobs:
             --keystore yubihsm-shell/.ci/client-combined.pem \
             --cacert yubihsm-shell/.ci/server-crt.pem > /dev/null 2>&1 &
           sleep 3
-          DEFAULT_CONNECTOR_URL=$(curl -s http://localhost:12345/dispatcher/request)
+          for i in `seq 1 30`; do
+            DEFAULT_CONNECTOR_URL=$(curl -s http://localhost:12345/dispatcher/request)
+            if [ -n "$DEFAULT_CONNECTOR_URL" ]; then
+              # we got a connector allocated
+              break
+            else
+              # we did not get a connector, wait 1 minute and try again
+              sleep 60
+            fi
+          done
           test -n "$DEFAULT_CONNECTOR_URL" || (echo "Unable to obtain a connector URL, aborting"; exit 1)
           echo "DEFAULT_CONNECTOR_URL=$DEFAULT_CONNECTOR_URL" >> $GITHUB_ENV
 
