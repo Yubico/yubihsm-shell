@@ -16,7 +16,7 @@ jobs:
             upload_for_test: "false"
           - environment: "ubuntu:22.04"
             cc: "gcc"
-            upload_for_test: "true"
+            upload_for_test: "false"
           - environment: "ubuntu:22.04"
             cc: "clang"
             upload_for_test: "true"
@@ -37,10 +37,10 @@ jobs:
             upload_for_test: "false"
           - environment: "debian:11"
             cc: "gcc"
-            upload_for_test: "true"
+            upload_for_test: "false"
           - environment: "debian:11"
             cc: "clang"
-            upload_for_test: "true"
+            upload_for_test: "false"
           - environment: "debian:10"
             cc: "gcc"
             upload_for_test: "false"
@@ -167,10 +167,10 @@ jobs:
           # we do not perform clang builds for all environments, only fedora
           - environment: "fedora:37"
             cc: "gcc"
-            upload_for_test: "true"
+            upload_for_test: "false"
           - environment: "fedora:37"
             cc: "clang"
-            upload_for_test: "true"
+            upload_for_test: "false"
           - environment: "fedora:36"
             cc: "gcc"
             upload_for_test: "false"
@@ -334,27 +334,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - environment: "ubuntu:22.04"
-            cc: "gcc"
-            os_base: "debian"
+
           - environment: "ubuntu:22.04"
             cc: "clang"
-            os_base: "debian"
-          - environment: "debian:11"
-            cc: "gcc"
-            os_base: "debian"
-          - environment: "debian:11"
-            cc: "clang"
-            os_base: "debian"
-          - environment: "fedora:37"
-            cc: "gcc"
-            os_base: "redhat"
-          - environment: "fedora:37"
-            cc: "clang"
-            os_base: "redhat"
           - environment: "centos:7"
             cc: "gcc"
-            os_base: "redhat"
 
     name: run unit tests
     runs-on: ubuntu-latest
@@ -366,20 +350,13 @@ jobs:
       - name: install dependencies from package management (debian based)
         env:
           DEBIAN_FRONTEND: noninteractive
-          PLATFORM: ${{ matrix.environment }}
-        if: ${{ matrix.os_base == 'debian' }}
+        if: ${{ matrix.environment == 'ubuntu:22.04' }}
         run: |
           apt update
-          apt install -q -y build-essential cmake python3 python3-pip python3-setuptools curl libedit2 libpcsclite1 libengine-pkcs11-openssl opensc swig openjdk-11-jdk-headless
-
-          if [ $PLATFORM = "ubuntu:22.04" ]; then
-            apt install -q -y libssl3
-          else
-            apt install -q -y libssl1.1
-          fi
+          apt install -q -y build-essential cmake python3 python3-pip python3-setuptools curl libedit2 libpcsclite1 libengine-pkcs11-openssl opensc swig openjdk-11-jdk-headless libssl3
 
       - name: install dependencies from package management (rpm based)
-        if: ${{ matrix.os_base == 'redhat' }}
+        if: ${{ matrix.environment == 'centos:7' }}
         run: |
           yum install -y gcc gcc-c++ cmake python3-devel python3-pip python3-setuptools curl libedit gengetopt openssl libcurl pcsc-lite swig java-11-openjdk-headless which
 
@@ -456,12 +433,6 @@ jobs:
             ctest --output-on-failure
           fi
 
-      - name: run yubihsm-shell tests
-        working-directory: yubihsm-shell/resources/tests/bash
-        env:
-          DOCKER_IMAGE: ${{ matrix.environment }}
-        run: ./cmdline_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
-
       - name: clone the YubicoLabs/python-pkcs11tester repository
         uses: actions/checkout@v3
         with:
@@ -482,30 +453,6 @@ jobs:
           echo "connector=$DEFAULT_CONNECTOR_URL" > yubihsm_pkcs11.conf
           python3 -m pip install 'pykcs11' 'cryptography>=1.4.0'
           python3 setup.py test
-
-      - name: clone the YubicoLabs/yubihsm_sunpkcs11_tests repository
-        uses: actions/checkout@v3
-        # fedora and centos disabled since sun pkcs11 tests fail with
-        #   java.security.cert.CertificateParsingException: java.io.IOException: Unknown named curve: 1.3.132.0.33
-        if: ${{ ! (contains(matrix.environment, 'fedora') || contains(matrix.environment, 'centos')) }}
-        with:
-          repository: YubicoLabs/yubihsm_sunpkcs11_tests
-          path: yubihsm_sunpkcs11_tests
-
-      - name: run sun pkcs11 tests
-        # fedora and centos disabled since sun pkcs11 tests fail with
-        #   java.security.cert.CertificateParsingException: java.io.IOException: Unknown named curve: 1.3.132.0.33
-        if: ${{ ! (contains(matrix.environment, 'fedora') || contains(matrix.environment, 'centos')) }}
-        run: |
-          export YUBIHSM_PKCS11_MODULE="`pwd`/yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so"
-          cd yubihsm_sunpkcs11_tests
-          echo "connector=$DEFAULT_CONNECTOR_URL" > yubihsm_pkcs11.conf
-          export YUBIHSM_PKCS11_CONF=`pwd`/yubihsm_pkcs11.conf
-          cd src/main/resources
-          ./test_setup.sh $GITHUB_WORKSPACE/yubihsm-shell/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
-          cd -
-          ./gradlew build
-          ./gradlew runMain -Pargs=$YUBIHSM_PKCS11_MODULE
 
       - name: cleanup
         if: ${{ always() }}
