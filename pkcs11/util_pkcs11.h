@@ -163,7 +163,8 @@ CK_RV yrc_to_rv(yh_rc rc);
 
 CK_RV populate_cache_with_data_opaques(yubihsm_pkcs11_slot *slot);
 CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
-                        pkcs11_meta_object *meta_object, bool replace);
+                        pkcs11_meta_object *meta_object,
+                        yh_capabilities *target_capabilities, bool replace);
 
 yubihsm_pkcs11_object_desc *
 find_meta_object_by_target(yubihsm_pkcs11_slot *slot, uint16_t target_id,
