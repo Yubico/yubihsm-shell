@@ -11,8 +11,8 @@ jobs:
     steps:
       - name: install dependencies from package management
         run: |
-          apt update
-          apt install -q -y build-essential       \
+          sudo apt update
+          sudo apt install -q -y build-essential       \
                             cmake pkg-config      \
                             gengetopt             \
                             help2man              \
