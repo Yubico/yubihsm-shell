@@ -22,6 +22,7 @@ jobs:
                             libusb-1.0-0-dev      \
                             libssl-dev            \
                             openjdk-11-jdk-headless \
+                            opensc                \
                             file                  \
                             curl                  \
                             jq
@@ -73,6 +74,13 @@ jobs:
       - name: run yubihsm-shell tests
         working-directory: yubihsm-shell/resources/tests/bash
         run: ./cmdline_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
+
+      - name: run pkcs11-tool tests
+        working-directory: yubihsm-shell/resources/tests/bash
+        run: |
+          echo "connector=$DEFAULT_CONNECTOR_URL" > yubihsm_pkcs11.conf
+          export YUBIHSM_PKCS11_CONF=`pwd`/yubihsm_pkcs11.conf
+          ./opensc_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so
 
       - name: clone the YubicoLabs/yubihsm_sunpkcs11_tests repository
         uses: actions/checkout@v3
