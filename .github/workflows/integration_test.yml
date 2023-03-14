@@ -1,0 +1,100 @@
+name: Test Integration with SunPKCS11
+
+on: [push]
+
+
+jobs:
+  main:
+    name: integeration test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: install dependencies from package management
+        run: |
+          apt update
+          apt install -q -y build-essential       \
+                            cmake pkg-config      \
+                            gengetopt             \
+                            help2man              \
+                            libcurl4-openssl-dev  \
+                            libedit-dev           \
+                            libpcsclite-dev       \
+                            libusb-1.0-0-dev      \
+                            libssl-dev            \
+                            openjdk-11-jdk-headless \
+                            file                  \
+                            curl                  \
+                            jq
+
+      - name: clone the Yubico/yubihsm-shell repository
+        uses: actions/checkout@v3
+        with:
+          path: yubihsm-shell
+
+      - name: do build
+        working-directory: yubihsm-shell
+        run: |
+          mkdir build
+          cd build
+          cmake -DRELEASE_BUILD=1 -DWITHOUT_YKYH=1 ..
+          cmake --build .
+
+      - name: prepare ghostunnel
+        env:
+          TLSPWD: ${{ secrets.TLSKEY }}
+          # GODEBUG required for ghostunnel to temporarily enable Common Name matching
+          GODEBUG: x509ignoreCN=0
+        run: |
+          curl -o /tmp/ghostunnel -L https://github.com/ghostunnel/ghostunnel/releases/download/v1.6.0/ghostunnel-v1.6.0-linux-amd64
+          chmod +x /tmp/ghostunnel
+          openssl aes-256-cbc \
+            -k "$TLSPWD" \
+            -md sha256 \
+            -in yubihsm-shell/.ci/client-combined.pem.enc \
+            -out yubihsm-shell/.ci/client-combined.pem \
+            -d
+          /tmp/ghostunnel client \
+            --listen localhost:12345 \
+            --target hsm-connector01.sthlm.in.yubico.org:8443 \
+            --keystore yubihsm-shell/.ci/client-combined.pem \
+            --cacert yubihsm-shell/.ci/server-crt.pem > /dev/null 2>&1 &
+          sleep 3
+          DEFAULT_CONNECTOR_URL=$(curl -s http://localhost:12345/dispatcher/request)
+          test -n "$DEFAULT_CONNECTOR_URL" || (echo "Unable to obtain a connector URL, aborting"; exit 1)
+          echo "DEFAULT_CONNECTOR_URL=$DEFAULT_CONNECTOR_URL" >> $GITHUB_ENV
+
+      - name: reset the hsm
+        working-directory: yubihsm-shell/build/src
+        run: |
+          ./yubihsm-shell --connector "$DEFAULT_CONNECTOR_URL" -p password -a reset
+          sleep 3
+
+
+      - name: run yubihsm-shell tests
+        working-directory: yubihsm-shell/resources/tests/bash
+        run: ./cmdline_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
+
+      - name: clone the YubicoLabs/yubihsm_sunpkcs11_tests repository
+        uses: actions/checkout@v3
+        with:
+          repository: YubicoLabs/yubihsm_sunpkcs11_tests
+          path: yubihsm_sunpkcs11_tests
+
+      - name: run sun pkcs11 tests
+        run: |
+          export YUBIHSM_PKCS11_MODULE="$GITHUB_WORKSPACE/yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so"
+          cd yubihsm_sunpkcs11_tests
+          echo "connector=$DEFAULT_CONNECTOR_URL" > yubihsm_pkcs11.conf
+          export YUBIHSM_PKCS11_CONF=`pwd`/yubihsm_pkcs11.conf
+          cd src/main/resources
+          ./test_setup.sh $GITHUB_WORKSPACE/yubihsm-shell/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
+          cd -
+          ./gradlew build
+          ./gradlew runMain -Pargs=$YUBIHSM_PKCS11_MODULE
+
+      - name: cleanup
+        if: ${{ always() }}
+        run: |
+          if [ -n "$DEFAULT_CONNECTOR_URL" ]; then
+            curl -s http://localhost:12345/dispatcher/release?connector=$DEFAULT_CONNECTOR_URL
+          fi
