@@ -22,7 +22,7 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "CompanyName", "Yubico AB"
-            VALUE "FileDescription", "YubiHSM UnWrap"
+            VALUE "FileDescription", "YubiHSM Unwrap"
             VALUE "FileVersion", VER_FILEVERSION_STR
             VALUE "InternalName", "yubihsm-unwrap.exe"
             VALUE "LegalCopyright", "\xa9 Yubico AB"
