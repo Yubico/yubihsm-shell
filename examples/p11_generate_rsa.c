@@ -58,9 +58,12 @@ int main(int argc, char *argv[]) {
   CK_MECHANISM mechanism = {CKM_RSA_PKCS_KEY_PAIR_GEN, NULL_PTR, 0};
   CK_ULONG modulus = 2048;
   CK_BYTE exponent[] = {0x00, 0x1, 0x0, 0x1}; // 65537
-  CK_BYTE id[] = {0};
+  CK_BYTE id[] = {0, 0};
   CK_BBOOL ck_true = CK_TRUE;
   CK_BBOOL ck_false = CK_FALSE;
+
+  char pub_label[] = "RSA 2048 key";
+  char priv_label[] = "RSA 2048 key";
 
   CK_ATTRIBUTE publicKeyTemplate[] = {
     {CKA_ENCRYPT, &ck_true, sizeof(ck_true)},
@@ -70,7 +73,7 @@ int main(int argc, char *argv[]) {
     {CKA_WRAP, &ck_true, sizeof(ck_true)},
     {CKA_UNWRAP, &ck_false, sizeof(ck_false)},
     {CKA_TOKEN, &ck_true, sizeof(ck_true)},
-    {CKA_PRIVATE, &ck_true, sizeof(ck_true)},
+    {CKA_PRIVATE, &ck_false, sizeof(ck_false)},
     {CKA_EXTRACTABLE, &ck_true, sizeof(ck_true)},
     {CKA_MODIFIABLE, &ck_false, sizeof(ck_false)},
     {CKA_COPYABLE, &ck_false, sizeof(ck_false)},
@@ -78,6 +81,7 @@ int main(int argc, char *argv[]) {
     {CKA_ID, id, sizeof(id)},
     {CKA_MODULUS_BITS, &modulus, sizeof(modulus)},
     {CKA_PUBLIC_EXPONENT, exponent, sizeof(exponent)},
+    {CKA_LABEL, pub_label, sizeof(pub_label)},
   };
   CK_ULONG publicKeyAttributeCount =
     sizeof(publicKeyTemplate) / sizeof(publicKeyTemplate[0]);
@@ -96,6 +100,7 @@ int main(int argc, char *argv[]) {
     {CKA_COPYABLE, &ck_false, sizeof(ck_false)},
     {CKA_DESTROYABLE, &ck_true, sizeof(ck_true)},
     {CKA_ID, id, sizeof(id)},
+    {CKA_LABEL, priv_label, sizeof(priv_label)},
   };
   CK_ULONG privateKeyAttributeCount =
     sizeof(privateKeyTemplate) / sizeof(privateKeyTemplate[0]);
