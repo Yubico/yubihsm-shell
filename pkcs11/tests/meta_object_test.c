@@ -128,15 +128,15 @@ int main(int argc, char **argv) {
   run_label_test(yh_pubkey, "label", "new_label");
   destroy_object(p11, session, yh_privkey);
   printf("OK!\n");
-  /*
-    printf("Generating key pair with privateKey label 'label_private' and
-    publicKey label 'label_public'... \n"); generate_keypair(CURVE_PARAMS[2],
-    CURVE_LENS[2], &yh_pubkey, &yh_privkey, "label_public", "label_private");
-    run_label_test(yh_privkey, "label_private", "new_label");
-    run_label_test(yh_pubkey, "label_public", "new_label");
-    destroy_object(p11, session, yh_privkey);
-    printf("OK!\n");
-  */
+
+  printf("Generating key pair with privateKey label 'label_private' and "
+         "publicKey label 'label_public'... \n");
+  generate_keypair(P384_PARAMS, sizeof(P384_PARAMS), &yh_pubkey, &yh_privkey,
+                   "label_public", "label_private");
+  run_label_test(yh_privkey, "label_private", "new_label");
+  run_label_test(yh_pubkey, "label_public", "new_label");
+  destroy_object(p11, session, yh_privkey);
+  printf("OK!\n");
 
   printf("Generating key pair with privateKey label "
          "'label_5fc17f953e7c97dafabe60b1d5769c2b629c9b198bf00' and publicKey "
