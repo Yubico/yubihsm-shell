@@ -313,7 +313,7 @@ static void test_keypair_metadata(int is_rsa) {
   printf("OK!\n");
 }
 
-static void test_secretkey_metadata() {
+static void test_secretkey_metadata(void) {
   CK_BYTE data[64] = {0};
   CK_ULONG data_len = sizeof(data);
   if (RAND_bytes(data, data_len) <= 0)
