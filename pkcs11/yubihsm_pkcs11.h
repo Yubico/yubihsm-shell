@@ -21,6 +21,7 @@
 #include "list.h"
 #include <openssl/evp.h>
 #include "../common/platform-config.h"
+#include "../lib/internal.h"
 
 #ifndef _MSVC
 #include <sys/time.h>

@@ -164,11 +164,13 @@ CK_RV yrc_to_rv(yh_rc rc);
 CK_RV populate_cache_with_data_opaques(yubihsm_pkcs11_slot *slot);
 CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
                         pkcs11_meta_object *meta_object,
-                        yh_capabilities *target_capabilities, bool replace);
+                        yh_capabilities *target_capabilities,
+                        uint16_t target_domains, bool replace);
 
 yubihsm_pkcs11_object_desc *
 find_meta_object_by_target(yubihsm_pkcs11_slot *slot, uint16_t target_id,
-                           uint8_t target_type, uint8_t target_sequence);
+                           uint8_t target_type, uint8_t target_sequence,
+                           uint16_t target_domains);
 
 bool match_meta_attributes(yubihsm_pkcs11_session *session,
                            yh_object_descriptor *object, uint8_t *cka_id,
@@ -180,7 +182,7 @@ CK_RV parse_meta_id_template(yubihsm_pkcs11_object_template *template,
                              pkcs11_meta_object *pkcs11meta, bool public,
                              uint8_t *value, size_t value_len);
 CK_RV parse_meta_label_template(yubihsm_pkcs11_object_template *template,
-                               pkcs11_meta_object *pkcs11meta, bool public,
-                               uint8_t *value, size_t value_len);
+                                pkcs11_meta_object *pkcs11meta, bool public,
+                                uint8_t *value, size_t value_len);
 bool match_byte_array(uint8_t *a, uint16_t a_len, uint8_t *b, uint16_t b_len);
 #endif

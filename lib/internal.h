@@ -25,6 +25,7 @@
 
 struct yh_session {
   uint16_t authkey_id;
+  uint16_t authkey_domains;
   uint8_t key_enc[SCP_KEY_LEN];
   uint8_t key_mac[SCP_KEY_LEN];
   Scp_ctx s;
