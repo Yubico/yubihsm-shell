@@ -198,6 +198,7 @@ typedef struct {
 
 typedef struct {
   uint16_t id;
+  uint16_t authkey_domains;
   uint16_t max_session_id;
   char *connector_name;
   yh_connector *connector;

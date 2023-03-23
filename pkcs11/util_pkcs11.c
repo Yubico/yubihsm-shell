@@ -791,17 +791,7 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
                         yh_capabilities *target_capabilities,
                         uint16_t target_domains, bool replace) {
 
-  yubihsm_pkcs11_object_desc *target_object_desc =
-    _get_object_desc(slot, meta_object->target_id, meta_object->target_type,
-                     meta_object->target_sequence);
-  if (target_object_desc == NULL) {
-    DBG_ERR(
-      "Trying to write meta_object for a target_object that does not exist");
-    return CKR_DATA_INVALID;
-  }
-
-  if (target_object_desc->object.domains !=
-      slot->device_session->authkey_domains) {
+  if (target_domains != slot->authkey_domains) {
     DBG_ERR(
       "Current user's domain access does not match target_object domains.");
     return CKR_FUNCTION_NOT_SUPPORTED;
