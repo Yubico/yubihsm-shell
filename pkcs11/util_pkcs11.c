@@ -794,7 +794,7 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
   if (target_domains != slot->authkey_domains) {
     DBG_ERR(
       "Current user's domain access does not match target_object domains.");
-    return CKR_FUNCTION_NOT_SUPPORTED;
+    return CKR_FUNCTION_REJECTED;
   }
 
   size_t opaque_value_len =
