@@ -1778,6 +1778,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
         yubihsm_pkcs11_object_desc *asym_key_desc =
           _get_object_desc(session->slot, asym_keys[i].id, YH_ASYMMETRIC_KEY,
                            asym_keys[i].sequence);
+        if (asym_key_desc == NULL) {
+          continue;
+        }
         if (meta_object.cka_id.len > 0 || meta_object.cka_label.len > 0) {
           yubihsm_pkcs11_object_desc *pMeta_object =
             find_meta_object_by_target(session->slot, asym_keys[i].id,
