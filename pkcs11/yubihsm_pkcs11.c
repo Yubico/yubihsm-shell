@@ -1255,7 +1255,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
   }
 
   list_iterate(&session->slot->pkcs11_sessions, login_sessions);
-  populate_cache_with_data_opaques(session->slot);
 
   yh_object_descriptor authkey_desc = {0};
   yh_rc rc = yh_util_get_object_info(session->slot->device_session,
@@ -1267,6 +1266,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
     goto c_l_out;
   }
   session->slot->authkey_domains = authkey_desc.domains;
+
+  populate_cache_with_data_opaques(session->slot);
 
   DOUT;
 
