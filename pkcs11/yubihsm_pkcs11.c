@@ -1099,18 +1099,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetOperationState)
   return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
-static void set_authkey_domains(yubihsm_pkcs11_slot *slot) {
-  yh_object_descriptor authkey_desc = {0};
-  yh_rc rc = yh_util_get_object_info(slot->device_session,
-                                     slot->device_session->authkey_id,
-                                     YH_AUTHENTICATION_KEY, &authkey_desc);
-  if (rc != YHR_SUCCESS) {
-    DBG_ERR("Failed to get authentication key info");
-    return;
-  }
-  slot->authkey_domains = authkey_desc.domains;
-}
-
 static void login_sessions(void *data) {
   yubihsm_pkcs11_session *session = (yubihsm_pkcs11_session *) data;
   switch (session->session_state) {
@@ -1268,7 +1256,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
 
   list_iterate(&session->slot->pkcs11_sessions, login_sessions);
   populate_cache_with_data_opaques(session->slot);
-  set_authkey_domains(session->slot);
+
+  yh_object_descriptor authkey_desc = {0};
+  yh_rc rc = yh_util_get_object_info(session->slot->device_session,
+                                     session->slot->device_session->authkey_id,
+                                     YH_AUTHENTICATION_KEY, &authkey_desc);
+  if (rc != YHR_SUCCESS) {
+    DBG_ERR("Failed to read authentication key info: %s", yh_strerror(yrc));
+    rv = yrc_to_rv(yrc);
+    goto c_l_out;
+  }
+  session->slot->authkey_domains = authkey_desc.domains;
 
   DOUT;
 
