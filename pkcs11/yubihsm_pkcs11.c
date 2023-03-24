@@ -1799,12 +1799,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
                                    &capabilities, asym_key_desc->object.domains,
                                    true);
             if (rv != CKR_OK) {
-              if (rv == CKR_FUNCTION_REJECTED) {
-                DBG_ERR("Failed writing meta opaque object to device due to "
-                        "lack of access to all target_object domains");
-              } else {
-                DBG_ERR("Failed writing meta opaque object to device");
-              }
               goto c_co_out;
             }
           } else { // meta object does not exist. Create it
@@ -1843,8 +1837,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
                            object->domains, false);
     if (rv != CKR_OK) {
       DBG_ERR("Failed writing meta opaque object to device. Note that the "
-              "original object might have been successfully imported into the "
-              "device but without the expected CKA_ID and/or CKA_LABEL");
+              "original object has been successfully imported into the device "
+              "but without the expected CKA_ID and/or CKA_LABEL");
       goto c_co_out;
     }
   }
@@ -2244,7 +2238,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
                            &object->object.capabilities, object->object.domains,
                            true);
     if (rv != CKR_OK) {
-      DBG_ERR("Failed to update meta object");
       goto c_sav_out;
     }
   } else if (new_meta_object.cka_id.len > 0 ||
@@ -2258,7 +2251,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
                            &object->object.capabilities, object->object.domains,
                            false);
     if (rv != CKR_OK) {
-      DBG_ERR("Failed to update meta object");
       goto c_sav_out;
     }
   }
@@ -5122,8 +5114,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
                            object->domains, false);
     if (rv != CKR_OK) {
       DBG_ERR("Failed writing meta opaque object to device 0x%lx. Note that "
-              "the original object might have been successfully generated in "
-              "the device but without the expected CKA_ID and/or CKA_LABEL.",
+              "the original object has been successfully generated in the "
+              "device but without the expected CKA_ID and/or CKA_LABEL.",
               rv);
       goto c_gk_out;
     }
@@ -5285,8 +5277,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
                            object->domains, false);
     if (rv != CKR_OK) {
       DBG_ERR("Failed writing meta opaque object to device 0x%lx. Note that "
-              "the original object might have been successfully generated in "
-              "the device but without the expected CKA_ID and/or CKA_LABEL.",
+              "the original object has been successfully generated in the "
+              "device but without the expected CKA_ID and/or CKA_LABEL.",
               rv);
 
       goto c_gkp_out;
