@@ -1801,8 +1801,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
             if (rv != CKR_OK) {
               if (rv == CKR_FUNCTION_REJECTED) {
                 DBG_ERR("Failed writing meta opaque object to device due to "
-                        "mismatch between lack of access to all target_object "
-                        "domains");
+                        "lack of access to all target_object domains");
               } else {
                 DBG_ERR("Failed writing meta opaque object to device");
               }
