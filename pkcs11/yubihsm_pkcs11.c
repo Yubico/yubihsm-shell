@@ -1255,19 +1255,15 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
   }
 
   list_iterate(&session->slot->pkcs11_sessions, login_sessions);
+  populate_cache_with_data_opaques(session->slot);
 
-  yh_object_descriptor authkey_desc = {0};
-  yh_rc rc = yh_util_get_object_info(session->slot->device_session,
-                                     session->slot->device_session->authkey_id,
-                                     YH_AUTHENTICATION_KEY, &authkey_desc);
-  if (rc != YHR_SUCCESS) {
-    DBG_ERR("Failed to read authentication key info: %s", yh_strerror(yrc));
-    rv = yrc_to_rv(yrc);
+  yubihsm_pkcs11_object_desc *authkey_desc =
+    _get_object_desc(session->slot, key_id, YH_AUTHENTICATION_KEY, 0xffff);
+  if (authkey_desc == NULL) {
+    DBG_ERR("Failed to read authentication key info.");
     goto c_l_out;
   }
-  session->slot->authkey_domains = authkey_desc.domains;
-
-  populate_cache_with_data_opaques(session->slot);
+  session->slot->authkey_domains = authkey_desc->object.domains;
 
   DOUT;
 
@@ -1803,7 +1799,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
                                    &capabilities, asym_key_desc->object.domains,
                                    true);
             if (rv != CKR_OK) {
-              DBG_ERR("Failed writing meta opaque object to device");
+              if (rv == CKR_FUNCTION_REJECTED) {
+                DBG_ERR("Failed writing meta opaque object to device due to "
+                        "mismatch between lack of access to all target_object "
+                        "domains");
+              } else {
+                DBG_ERR("Failed writing meta opaque object to device");
+              }
               goto c_co_out;
             }
           } else { // meta object does not exist. Create it
@@ -1841,7 +1843,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     rv = write_meta_object(session->slot, &meta_object, &capabilities,
                            object->domains, false);
     if (rv != CKR_OK) {
-      DBG_ERR("Failed writing meta opaque object to device");
+      DBG_ERR("Failed writing meta opaque object to device. Note that the "
+              "original object might have been successfully imported into the "
+              "device but without the expected CKA_ID and/or CKA_LABEL");
       goto c_co_out;
     }
   }
@@ -5118,7 +5122,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
     rv = write_meta_object(session->slot, &meta_object, &capabilities,
                            object->domains, false);
     if (rv != CKR_OK) {
-      DBG_ERR("Failed to import meta data object 0x%lx", rv);
+      DBG_ERR("Failed writing meta opaque object to device 0x%lx. Note that "
+              "the original object might have been successfully generated in "
+              "the device but without the expected CKA_ID and/or CKA_LABEL.",
+              rv);
       goto c_gk_out;
     }
   }
@@ -5278,7 +5285,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
     rv = write_meta_object(session->slot, &meta_object, &capabilities,
                            object->domains, false);
     if (rv != CKR_OK) {
-      DBG_ERR("Failed to import meta data object 0x%lx", rv);
+      DBG_ERR("Failed writing meta opaque object to device 0x%lx. Note that "
+              "the original object might have been successfully generated in "
+              "the device but without the expected CKA_ID and/or CKA_LABEL.",
+              rv);
+
       goto c_gkp_out;
     }
   }

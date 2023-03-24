@@ -786,12 +786,21 @@ yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
   return _get_object_desc(slot, id, type, sequence);
 }
 
+static bool check_domains(uint16_t subset_domains, uint16_t domains) {
+  for (uint16_t i = 0; i < YH_MAX_DOMAINS; i++) {
+    if ((subset_domains & (1 << i)) && !(domains & (1 << i))) {
+      return false;
+    }
+  }
+  return true;
+}
+
 CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
                         pkcs11_meta_object *meta_object,
                         yh_capabilities *target_capabilities,
                         uint16_t target_domains, bool replace) {
 
-  if (target_domains != slot->authkey_domains) {
+  if (!check_domains(target_domains, slot->authkey_domains)) {
     DBG_ERR(
       "Current user's domain access does not match target_object domains.");
     return CKR_FUNCTION_REJECTED;
@@ -867,7 +876,7 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
   }
   rc =
     yh_util_import_opaque(slot->device_session, &meta_object_id, opaque_label,
-                          0xffff, &capabilities, YH_ALGO_OPAQUE_DATA,
+                          target_domains, &capabilities, YH_ALGO_OPAQUE_DATA,
                           opaque_value, opaque_value_len);
 
   if (rc != YHR_SUCCESS) {
