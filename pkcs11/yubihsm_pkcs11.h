@@ -21,6 +21,7 @@
 #include "list.h"
 #include <openssl/evp.h>
 #include "../common/platform-config.h"
+#include "../lib/internal.h"
 
 #ifndef _MSVC
 #include <sys/time.h>
@@ -197,6 +198,7 @@ typedef struct {
 
 typedef struct {
   uint16_t id;
+  uint16_t authkey_domains;
   uint16_t max_session_id;
   char *connector_name;
   yh_connector *connector;

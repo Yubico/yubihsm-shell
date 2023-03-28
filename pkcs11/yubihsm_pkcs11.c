@@ -1257,6 +1257,14 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
   list_iterate(&session->slot->pkcs11_sessions, login_sessions);
   populate_cache_with_data_opaques(session->slot);
 
+  yubihsm_pkcs11_object_desc *authkey_desc =
+    _get_object_desc(session->slot, key_id, YH_AUTHENTICATION_KEY, 0xffff);
+  if (authkey_desc == NULL) {
+    DBG_ERR("Failed to read authentication key info.");
+    goto c_l_out;
+  }
+  session->slot->authkey_domains = authkey_desc->object.domains;
+
   DOUT;
 
 c_l_out:
@@ -1369,17 +1377,19 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
         break;
 
       case CKA_ID:
-        rv = parse_meta_id_template(&template, &meta_object, false,
-          pTemplate[i].pValue, pTemplate[i].ulValueLen);
-        if(rv != CKR_OK) {
+        rv =
+          parse_meta_id_template(&template, &meta_object, false,
+                                 pTemplate[i].pValue, pTemplate[i].ulValueLen);
+        if (rv != CKR_OK) {
           return rv;
         }
         break;
 
       case CKA_LABEL:
         rv = parse_meta_label_template(&template, &meta_object, false,
-          pTemplate[i].pValue, pTemplate[i].ulValueLen);
-        if(rv != CKR_OK) {
+                                       pTemplate[i].pValue,
+                                       pTemplate[i].ulValueLen);
+        if (rv != CKR_OK) {
           return rv;
         }
         break;
@@ -1760,27 +1770,35 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
         pubkey_found = true;
 
         // If there's need, update or create meta_object
+        yubihsm_pkcs11_object_desc *asym_key_desc =
+          _get_object_desc(session->slot, asym_keys[i].id, YH_ASYMMETRIC_KEY,
+                           asym_keys[i].sequence);
+        if (asym_key_desc == NULL) {
+          continue;
+        }
         if (meta_object.cka_id.len > 0 || meta_object.cka_label.len > 0) {
           yubihsm_pkcs11_object_desc *pMeta_object =
             find_meta_object_by_target(session->slot, asym_keys[i].id,
-                                       YH_ASYMMETRIC_KEY,
-                                       asym_keys[i].sequence);
+                                       YH_ASYMMETRIC_KEY, asym_keys[i].sequence,
+                                       asym_key_desc->object.domains);
 
           if (pMeta_object != NULL) { // meta object already exists. Update it.
             if (meta_object.cka_id.len > 0) {
-              pMeta_object->meta_object.cka_id_pubkey.len = meta_object.cka_id.len;
-              memcpy(pMeta_object->meta_object.cka_id_pubkey.value, meta_object.cka_id.value,
-                     meta_object.cka_id.len);
+              pMeta_object->meta_object.cka_id_pubkey.len =
+                meta_object.cka_id.len;
+              memcpy(pMeta_object->meta_object.cka_id_pubkey.value,
+                     meta_object.cka_id.value, meta_object.cka_id.len);
             }
             if (meta_object.cka_label.len > 0) {
-              pMeta_object->meta_object.cka_label_pubkey.len = meta_object.cka_label.len;
+              pMeta_object->meta_object.cka_label_pubkey.len =
+                meta_object.cka_label.len;
               memcpy(pMeta_object->meta_object.cka_label_pubkey.value,
                      meta_object.cka_label.value, meta_object.cka_label.len);
             }
             rv = write_meta_object(session->slot, &pMeta_object->meta_object,
-                                   &capabilities, true);
+                                   &capabilities, asym_key_desc->object.domains,
+                                   true);
             if (rv != CKR_OK) {
-              DBG_ERR("Failed writing meta opaque object to device");
               goto c_co_out;
             }
           } else { // meta object does not exist. Create it
@@ -1815,9 +1833,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
   if (meta_object.target_id != 0) {
     meta_object.target_type = object->type;
     meta_object.target_sequence = object->sequence;
-    rv = write_meta_object(session->slot, &meta_object, &capabilities, false);
+    rv = write_meta_object(session->slot, &meta_object, &capabilities,
+                           object->domains, false);
     if (rv != CKR_OK) {
-      DBG_ERR("Failed writing meta opaque object to device");
+      DBG_ERR("Failed writing meta opaque object to device. Note that the "
+              "original object has been successfully imported into the device "
+              "but without the expected CKA_ID and/or CKA_LABEL");
       goto c_co_out;
     }
   }
@@ -1908,7 +1929,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
     yh_rc yrc;
     yubihsm_pkcs11_object_desc *meta_desc =
       find_meta_object_by_target(session->slot, object->object.id,
-                                 object->object.type, object->object.sequence);
+                                 object->object.type, object->object.sequence,
+                                 object->object.domains);
 
     yrc = yh_util_delete_object(session->slot->device_session,
                                 object->object.id, object->object.type);
@@ -2105,7 +2127,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
   yubihsm_pkcs11_object_desc *meta_desc =
     find_meta_object_by_target(session->slot, object->object.id,
                                (object->object.type & 0x7f),
-                               object->object.sequence);
+                               object->object.sequence, object->object.domains);
 
   bool changed = false;
   pkcs11_meta_object new_meta_object = {0};
@@ -2213,9 +2235,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
 
   if (changed) {
     rv = write_meta_object(session->slot, &meta_desc->meta_object,
-                           &object->object.capabilities, true);
+                           &object->object.capabilities, object->object.domains,
+                           true);
     if (rv != CKR_OK) {
-      DBG_ERR("Failed to update meta object");
       goto c_sav_out;
     }
   } else if (new_meta_object.cka_id.len > 0 ||
@@ -2226,9 +2248,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
     new_meta_object.target_type = object->object.type & 0x7f;
     new_meta_object.target_sequence = object->object.sequence;
     rv = write_meta_object(session->slot, &new_meta_object,
-                           &object->object.capabilities, false);
+                           &object->object.capabilities, object->object.domains,
+                           false);
     if (rv != CKR_OK) {
-      DBG_ERR("Failed to update meta object");
       goto c_sav_out;
     }
   }
@@ -4883,19 +4905,19 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
         break;
 
       case CKA_ID:
-        rv = parse_meta_id_template(&template, &meta_object, false,
-                                      pTemplate[i].pValue,
-                                      pTemplate[i].ulValueLen);
-        if(rv != CKR_OK) {
+        rv =
+          parse_meta_id_template(&template, &meta_object, false,
+                                 pTemplate[i].pValue, pTemplate[i].ulValueLen);
+        if (rv != CKR_OK) {
           return rv;
         }
         break;
 
       case CKA_LABEL:
         rv = parse_meta_label_template(&template, &meta_object, false,
-                                  pTemplate[i].pValue,
-                                  pTemplate[i].ulValueLen);
-        if(rv != CKR_OK) {
+                                       pTemplate[i].pValue,
+                                       pTemplate[i].ulValueLen);
+        if (rv != CKR_OK) {
           return rv;
         }
         break;
@@ -5088,9 +5110,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
     meta_object.target_id = object->id;
     meta_object.target_type = object->type;
     meta_object.target_sequence = object->sequence;
-    rv = write_meta_object(session->slot, &meta_object, &capabilities, false);
+    rv = write_meta_object(session->slot, &meta_object, &capabilities,
+                           object->domains, false);
     if (rv != CKR_OK) {
-      DBG_ERR("Failed to import meta data object 0x%lx", rv);
+      DBG_ERR("Failed writing meta opaque object to device 0x%lx. Note that "
+              "the original object has been successfully generated in the "
+              "device but without the expected CKA_ID and/or CKA_LABEL.",
+              rv);
       goto c_gk_out;
     }
   }
@@ -5247,9 +5273,14 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
     meta_object.target_id = object->id;
     meta_object.target_type = object->type;
     meta_object.target_sequence = object->sequence;
-    rv = write_meta_object(session->slot, &meta_object, &capabilities, false);
+    rv = write_meta_object(session->slot, &meta_object, &capabilities,
+                           object->domains, false);
     if (rv != CKR_OK) {
-      DBG_ERR("Failed to import meta data object 0x%lx", rv);
+      DBG_ERR("Failed writing meta opaque object to device 0x%lx. Note that "
+              "the original object has been successfully generated in the "
+              "device but without the expected CKA_ID and/or CKA_LABEL.",
+              rv);
+
       goto c_gkp_out;
     }
   }

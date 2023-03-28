@@ -786,9 +786,26 @@ yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
   return _get_object_desc(slot, id, type, sequence);
 }
 
+static bool check_domains(uint16_t subset_domains, uint16_t domains) {
+  for (uint16_t i = 0; i < YH_MAX_DOMAINS; i++) {
+    if ((subset_domains & (1 << i)) && !(domains & (1 << i))) {
+      return false;
+    }
+  }
+  return true;
+}
+
 CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
                         pkcs11_meta_object *meta_object,
-                        yh_capabilities *target_capabilities, bool replace) {
+                        yh_capabilities *target_capabilities,
+                        uint16_t target_domains, bool replace) {
+
+  if (!check_domains(target_domains, slot->authkey_domains)) {
+    DBG_ERR(
+      "Current user's domain access does not match target_object domains.");
+    return CKR_FUNCTION_REJECTED;
+  }
+
   size_t opaque_value_len =
     8 /* 4 version + 1 original type + 2 original ID 1 opaque sequence */ +
     (meta_object->cka_id.len == 0 ? 0 : 3 + meta_object->cka_id.len) +
@@ -835,7 +852,7 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
     yubihsm_pkcs11_object_desc *meta_desc =
       find_meta_object_by_target(slot, meta_object->target_id,
                                  meta_object->target_type,
-                                 meta_object->target_sequence);
+                                 meta_object->target_sequence, target_domains);
     if (meta_desc != NULL) {
       meta_object_id = meta_desc->object.id;
       rc =
@@ -859,7 +876,7 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
   }
   rc =
     yh_util_import_opaque(slot->device_session, &meta_object_id, opaque_label,
-                          0xffff, &capabilities, YH_ALGO_OPAQUE_DATA,
+                          target_domains, &capabilities, YH_ALGO_OPAQUE_DATA,
                           opaque_value, opaque_value_len);
 
   if (rc != YHR_SUCCESS) {
@@ -916,10 +933,12 @@ CK_RV populate_cache_with_data_opaques(yubihsm_pkcs11_slot *slot) {
 
 yubihsm_pkcs11_object_desc *
 find_meta_object_by_target(yubihsm_pkcs11_slot *slot, uint16_t target_id,
-                           uint8_t target_type, uint8_t target_sequence) {
+                           uint8_t target_type, uint8_t target_sequence,
+                           uint16_t target_domains) {
   for (int i = 0; i < YH_MAX_ITEMS_COUNT; i++) {
     pkcs11_meta_object *current_meta = &slot->objects[i].meta_object;
-    if (current_meta->target_id == target_id &&
+    if (target_domains == slot->objects[i].object.domains &&
+        current_meta->target_id == target_id &&
         current_meta->target_type == target_type &&
         current_meta->target_sequence == target_sequence) {
       return &slot->objects[i];
@@ -1953,7 +1972,7 @@ static CK_RV get_attribute(CK_ATTRIBUTE_TYPE type, yh_object_descriptor *object,
 
   yubihsm_pkcs11_object_desc *meta_desc =
     find_meta_object_by_target(session->slot, object->id, (object->type & 0x7f),
-                               object->sequence);
+                               object->sequence, object->domains);
   pkcs11_meta_object *meta_object = meta_desc ? &meta_desc->meta_object : NULL;
 
   switch (object->type) {
@@ -4301,10 +4320,10 @@ CK_RV parse_hmac_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
   }
 }
 
-CK_RV parse_meta_id_template(yubihsm_pkcs11_object_template *template, 
-                            pkcs11_meta_object *pkcs11meta, bool pubkey,
-                            uint8_t *value, size_t value_len) {
-  if(value_len > CKA_ATTRIBUTE_VALUE_SIZE) {
+CK_RV parse_meta_id_template(yubihsm_pkcs11_object_template *template,
+                             pkcs11_meta_object *pkcs11meta, bool pubkey,
+                             uint8_t *value, size_t value_len) {
+  if (value_len > CKA_ATTRIBUTE_VALUE_SIZE) {
     DBG_ERR("Failed to parse too large CKA_ID");
     return CKR_ATTRIBUTE_VALUE_INVALID;
   }
@@ -4314,11 +4333,12 @@ CK_RV parse_meta_id_template(yubihsm_pkcs11_object_template *template,
     memcpy(pkcs11meta->cka_id_pubkey.value, value, value_len);
   } else {
     // Check if it is a valid regular id
-    if(value_len == 2) {
+    if (value_len == 2) {
       // Parse the id for backwards compat
       template->id = parse_id_value(value, value_len);
       // Check if both ids are the same
-      if(pkcs11meta->cka_id_pubkey.len == value_len && memcmp(pkcs11meta->cka_id_pubkey.value, value, value_len) == 0) {
+      if (pkcs11meta->cka_id_pubkey.len == value_len &&
+          memcmp(pkcs11meta->cka_id_pubkey.value, value, value_len) == 0) {
         // Remove metadata
         pkcs11meta->cka_id_pubkey.len = 0;
       }
@@ -4334,9 +4354,9 @@ CK_RV parse_meta_id_template(yubihsm_pkcs11_object_template *template,
 }
 
 CK_RV parse_meta_label_template(yubihsm_pkcs11_object_template *template,
-                               pkcs11_meta_object *pkcs11meta, bool pubkey,
-                               uint8_t *value, size_t value_len) {
-  if(value_len > CKA_ATTRIBUTE_VALUE_SIZE) {
+                                pkcs11_meta_object *pkcs11meta, bool pubkey,
+                                uint8_t *value, size_t value_len) {
+  if (value_len > CKA_ATTRIBUTE_VALUE_SIZE) {
     DBG_ERR("Failed to parse too large CKA_LABEL");
     return CKR_ATTRIBUTE_VALUE_INVALID;
   }
@@ -4346,11 +4366,12 @@ CK_RV parse_meta_label_template(yubihsm_pkcs11_object_template *template,
     memcpy(pkcs11meta->cka_label_pubkey.value, value, value_len);
   } else {
     // Check if it can fit as regular label
-    if(value_len <= YH_OBJ_LABEL_LEN) {
+    if (value_len <= YH_OBJ_LABEL_LEN) {
       // Store as regular label
       memcpy(template->label, value, value_len);
       // Check if both labels are the same
-      if(pkcs11meta->cka_label_pubkey.len == value_len && memcmp(pkcs11meta->cka_label_pubkey.value, value, value_len) == 0) {
+      if (pkcs11meta->cka_label_pubkey.len == value_len &&
+          memcmp(pkcs11meta->cka_label_pubkey.value, value, value_len) == 0) {
         // Remove pubkey metadata
         pkcs11meta->cka_label_pubkey.len = 0;
       }
@@ -4396,7 +4417,7 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         rv = parse_meta_id_template(template, pkcs11meta, true,
                                     pPublicKeyTemplate[i].pValue,
                                     pPublicKeyTemplate[i].ulValueLen);
-        if(rv != CKR_OK) {
+        if (rv != CKR_OK) {
           return rv;
         }
         break;
@@ -4440,9 +4461,9 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
 
       case CKA_LABEL:
         rv = parse_meta_label_template(template, pkcs11meta, true,
-                                  pPublicKeyTemplate[i].pValue,
-                                  pPublicKeyTemplate[i].ulValueLen);
-        if(rv != CKR_OK) {
+                                       pPublicKeyTemplate[i].pValue,
+                                       pPublicKeyTemplate[i].ulValueLen);
+        if (rv != CKR_OK) {
           return rv;
         }
         break;
@@ -4517,7 +4538,7 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         rv = parse_meta_id_template(template, pkcs11meta, false,
                                     pPrivateKeyTemplate[i].pValue,
                                     pPrivateKeyTemplate[i].ulValueLen);
-        if(rv != CKR_OK) {
+        if (rv != CKR_OK) {
           return rv;
         }
       } break;
@@ -4551,9 +4572,9 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
 
       case CKA_LABEL:
         rv = parse_meta_label_template(template, pkcs11meta, false,
-                                  pPrivateKeyTemplate[i].pValue,
-                                  pPrivateKeyTemplate[i].ulValueLen);
-        if(rv != CKR_OK) {
+                                       pPrivateKeyTemplate[i].pValue,
+                                       pPrivateKeyTemplate[i].ulValueLen);
+        if (rv != CKR_OK) {
           return rv;
         }
         break;
@@ -4651,7 +4672,7 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         rv = parse_meta_id_template(template, pkcs11meta, true,
                                     pPublicKeyTemplate[i].pValue,
                                     pPublicKeyTemplate[i].ulValueLen);
-        if(rv != CKR_OK) {
+        if (rv != CKR_OK) {
           return rv;
         }
         break;
@@ -4668,9 +4689,9 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
 
       case CKA_LABEL:
         rv = parse_meta_label_template(template, pkcs11meta, true,
-                                  pPublicKeyTemplate[i].pValue,
-                                  pPublicKeyTemplate[i].ulValueLen);
-        if(rv != CKR_OK) {
+                                       pPublicKeyTemplate[i].pValue,
+                                       pPublicKeyTemplate[i].ulValueLen);
+        if (rv != CKR_OK) {
           return rv;
         }
         break;
@@ -4738,7 +4759,7 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         rv = parse_meta_id_template(template, pkcs11meta, false,
                                     pPrivateKeyTemplate[i].pValue,
                                     pPrivateKeyTemplate[i].ulValueLen);
-        if(rv != CKR_OK) {
+        if (rv != CKR_OK) {
           return rv;
         }
       } break;
@@ -4772,9 +4793,9 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
 
       case CKA_LABEL:
         rv = parse_meta_label_template(template, pkcs11meta, false,
-                                  pPrivateKeyTemplate[i].pValue,
-                                  pPrivateKeyTemplate[i].ulValueLen);
-        if(rv != CKR_OK) {
+                                       pPrivateKeyTemplate[i].pValue,
+                                       pPrivateKeyTemplate[i].ulValueLen);
+        if (rv != CKR_OK) {
           return rv;
         }
         break;
