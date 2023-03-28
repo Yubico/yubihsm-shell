@@ -422,14 +422,16 @@ static yh_rc send_encrypted_msg(Scp_ctx *session, yh_cmd cmd,
     return YHR_INVALID_PARAMETERS;
   }
 
+  // Payload { cmd | cmd_len | data }
   uint16_t len = 3 + data_len;
+  // Padded payload { cmd | cmd_len | data | padding 1-16 bytes }
   if (aes_add_padding(NULL, 0, &len)) {
     return YHR_INVALID_PARAMETERS;
   }
 
-  // Encrypted message { sid | padded len | mac }
-  if (1 + len + SCP_MAC_LEN > SCP_MSG_BUF_SIZE) {
-    DBG_ERR("%s", yh_strerror(YHR_BUFFER_TOO_SMALL));
+  // Outer command { cmd | cmd_len | sid | encrypted payload | mac }
+  if (3 + 1 + len + SCP_MAC_LEN > SCP_MSG_BUF_SIZE) {
+    DBG_ERR("%s: %u", yh_strerror(YHR_BUFFER_TOO_SMALL), 3 + 1 + len + SCP_MAC_LEN);
     return YHR_BUFFER_TOO_SMALL;
   }
 
