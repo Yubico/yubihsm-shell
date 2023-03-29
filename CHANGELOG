@@ -1,3 +1,10 @@
+=== Version 2.4.1
+
+pkcs11: Allow only a user with access to all the object's domains to edit its attributes
+pkcs11: Allow for the creation of an asymmetric key even if CKA_ID or CKA_LABEL attribute values for the private and public key are different.
+pkcs11: Improve backup capabilities of objects whose attributes have been changed
+test: Improve test coverage
+
 === Version 2.4.0
 
 lib: shell: pkcs11: Add support for symmetric encryption, AES-ECB and AES-CBC (Requires firmware version 2.3 and later)

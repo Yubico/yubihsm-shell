@@ -1,7 +1,7 @@
 %global _yubihsm yubihsm
 
 Name:		yubihsm-shell
-Version:	2.4.0
+Version:	2.4.1
 Release:	1%{?dist}
 Summary:	Tools to interact with YubiHSM 2
 
