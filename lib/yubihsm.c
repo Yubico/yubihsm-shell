@@ -998,14 +998,6 @@ yh_rc yh_finish_create_session(yh_session *session, const uint8_t *key_senc,
       return yrc;
     }
 
-    // Verify card cryptogram
-    if (memcmp(card_cryptogram, computed_cryptogram, SCP_CARD_CRYPTO_LEN)) {
-      DBG_ERR("%s", yh_strerror(YHR_CRYPTOGRAM_MISMATCH));
-      return YHR_CRYPTOGRAM_MISMATCH;
-    }
-
-    DBG_INFO("Card cryptogram successfully verified");
-
     Msg msg = {0};
     Msg response_msg = {0};
 
@@ -1035,6 +1027,14 @@ yh_rc yh_finish_create_session(yh_session *session, const uint8_t *key_senc,
               response_msg.st.data[0]);
       return yrc;
     }
+
+    // Verify card cryptogram (after sending response, so we clean up the hsm session on failure)
+    if (memcmp(card_cryptogram, computed_cryptogram, SCP_CARD_CRYPTO_LEN)) {
+      DBG_ERR("%s", yh_strerror(YHR_CRYPTOGRAM_MISMATCH));
+      return YHR_CRYPTOGRAM_MISMATCH;
+    }
+
+    DBG_INFO("Card cryptogram successfully verified");
   } else {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
