@@ -128,7 +128,7 @@ int main(void) {
 
   yrc = yh_create_session_derived(connector, key_id, password2,
                                   sizeof(password2) - 1, false, &session);
-  assert(yrc == YHR_CRYPTOGRAM_MISMATCH);
+  assert(yrc == YHR_DEVICE_AUTHENTICATION_FAILED);
 
   printf("Unable to open session with Authentication Key %04x and password "
          "\"%s\"\n",
