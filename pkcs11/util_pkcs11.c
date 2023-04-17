@@ -1719,7 +1719,7 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_ENCRYPT:
-      if (object->type == (0x80 | YH_ASYMMETRIC_KEY) &&
+      if (object->type == YH_PUBLIC_KEY &&
           yh_is_rsa(object->algorithm)) {
         get_capability_attribute(object, "decrypt-pkcs,decrypt-oaep", true,
                                  value, length, NULL);
@@ -1730,11 +1730,11 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_VERIFY:
-      if (object->type == (0x80 | YH_ASYMMETRIC_KEY) &&
+      if (object->type == YH_PUBLIC_KEY &&
           yh_is_rsa(object->algorithm) == true) {
         get_capability_attribute(object, "sign-pkcs,sign-pss", true, value,
                                  length, NULL);
-      } else if (object->type == (0x80 | YH_ASYMMETRIC_KEY) &&
+      } else if (object->type == YH_PUBLIC_KEY &&
                  yh_is_ec(object->algorithm) == true) {
         get_capability_attribute(object, "sign-ecdsa", true, value, length,
                                  NULL);
@@ -1751,7 +1751,7 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       // NOTE(adma): Key Objects attributes
 
     case CKA_KEY_TYPE:
-      if (object->type == (0x80 | YH_ASYMMETRIC_KEY)) {
+      if (object->type == YH_PUBLIC_KEY) {
         switch (object->algorithm) {
           case YH_ALGO_RSA_2048:
           case YH_ALGO_RSA_3072:
@@ -1988,7 +1988,7 @@ static CK_RV get_attribute(CK_ATTRIBUTE_TYPE type, yh_object_descriptor *object,
     case YH_ASYMMETRIC_KEY:
       return get_attribute_private_key(type, object, meta_object, value, length,
                                        session);
-    case 0x80 | YH_ASYMMETRIC_KEY:
+    case YH_PUBLIC_KEY:
       return get_attribute_public_key(type, object, meta_object, value, length,
                                       session);
 
