@@ -445,7 +445,7 @@ static bool check_attributes_buffer_too_small(CK_OBJECT_HANDLE key_id) {
   CK_BYTE publicValue[1];
   char label[1] = {0};
   size_t label_len = sizeof(label) - 1;
-  CK_BYTE id[1];
+  CK_BYTE id[2] = {0};
 
   CK_ATTRIBUTE template[] =
     {{CKA_CLASS, &key_class, sizeof(key_class) - 1},
