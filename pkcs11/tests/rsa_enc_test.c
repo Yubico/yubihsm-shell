@@ -50,7 +50,7 @@ static void import_rsa_key(int keylen, EVP_PKEY **evp, RSA **rsak,
   BIGNUM *e_bn;
   CK_ULONG class_k = CKO_PRIVATE_KEY;
   CK_ULONG kt = CKK_RSA;
-  CK_BYTE id = 0;
+  CK_BYTE id[] = {0, 0};
   const BIGNUM *bp, *bq, *biqmp, *bdmp1, *bdmq1;
 
   // unsigned char  *px;
@@ -94,7 +94,7 @@ static void import_rsa_key(int keylen, EVP_PKEY **evp, RSA **rsak,
   free(qinv);
 }
 
-static void test_rsa_encrypt(CK_OBJECT_HANDLE keyid, RSA *rsak,
+static void test_rsa_encrypt(CK_OBJECT_HANDLE privkey, CK_OBJECT_HANDLE pubkey, RSA *rsak,
                              CK_MECHANISM_TYPE mech_type, int padding,
                              CK_ULONG expected_enc_len) {
   CK_BYTE data[32] = {0};
@@ -116,7 +116,7 @@ static void test_rsa_encrypt(CK_OBJECT_HANDLE keyid, RSA *rsak,
     exit(EXIT_FAILURE);
 
   // Encrypt
-  assert(p11->C_EncryptInit(session, &mech, keyid) == CKR_OK);
+  assert(p11->C_EncryptInit(session, &mech, pubkey) == CKR_OK);
   enc_len = 0;
   assert(p11->C_Encrypt(session, data, data_len, NULL, &enc_len) == CKR_OK);
   assert(enc_len == expected_enc_len);
@@ -135,7 +135,7 @@ static void test_rsa_encrypt(CK_OBJECT_HANDLE keyid, RSA *rsak,
   assert(dec_len == data_len);
   assert(memcmp(dec, data, data_len) == 0);
 
-  assert(p11->C_DecryptInit(session, &mech, keyid) == CKR_OK);
+  assert(p11->C_DecryptInit(session, &mech, privkey) == CKR_OK);
   dec_internal_len = 0;
   assert(p11->C_Decrypt(session, enc, enc_len, NULL, &dec_internal_len) ==
          CKR_OK);
@@ -145,7 +145,7 @@ static void test_rsa_encrypt(CK_OBJECT_HANDLE keyid, RSA *rsak,
   assert(memcmp(dec_internal, data, data_len) == 0);
 
   // Encrypt Update
-  assert(p11->C_EncryptInit(session, &mech, keyid) == CKR_OK);
+  assert(p11->C_EncryptInit(session, &mech, pubkey) == CKR_OK);
   enc_len = 0;
   assert(p11->C_EncryptUpdate(session, data, 10, NULL, &enc_len) == CKR_OK);
   assert(p11->C_EncryptUpdate(session, data, 10, enc, &enc_len) == CKR_OK);
@@ -169,7 +169,7 @@ static void test_rsa_encrypt(CK_OBJECT_HANDLE keyid, RSA *rsak,
   assert(memcmp(dec, data, data_len) == 0);
 
   // Decrypt Update
-  assert(p11->C_DecryptInit(session, &mech, keyid) == CKR_OK);
+  assert(p11->C_DecryptInit(session, &mech, privkey) == CKR_OK);
   dec_internal_len = sizeof(dec_internal);
   assert(p11->C_DecryptUpdate(session, enc, 10, dec_internal,
                               &dec_internal_len) == CKR_OK);
@@ -194,12 +194,34 @@ static void test_encrypt_RSA(int keysize, CK_ULONG expected_enc_len) {
   if (evp == NULL || rsak == NULL)
     exit(EXIT_FAILURE);
 
+  CK_BYTE id[] = {0, 0};
+
+  CK_ATTRIBUTE attrs[] =
+    {{CKA_ID, &id, sizeof(id)}};
+
+  assert(p11->C_GetAttributeValue(session, keyid, attrs, 1) == CKR_OK);
+
+  CK_OBJECT_CLASS key_class = CKO_PUBLIC_KEY;
+  CK_KEY_TYPE key_type = CKK_RSA;
+
+  CK_ATTRIBUTE findKeyTemplate[] = {{CKA_CLASS, &key_class, sizeof(key_class)},
+                                       {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+                                       {CKA_ID, &id, sizeof(id)}};
+
+  CK_OBJECT_HANDLE objs[1];
+  CK_ULONG n_objs = 0;
+  assert(p11->C_FindObjectsInit(session, findKeyTemplate, 3) == CKR_OK);
+  assert(p11->C_FindObjects(session, objs, 1, &n_objs) == CKR_OK);
+  assert(p11->C_FindObjectsFinal(session) == CKR_OK);
+
+  assert(n_objs == 1);
+
   printf("RSA %d : RSA_PKCS1_PADDING\n", keysize);
-  test_rsa_encrypt(keyid, rsak, CKM_RSA_PKCS, RSA_PKCS1_PADDING,
+  test_rsa_encrypt(keyid, objs[0], rsak, CKM_RSA_PKCS, RSA_PKCS1_PADDING,
                    expected_enc_len);
 
   printf("RSA %d : RSA_PKCS1_OAEP_PADDING\n", keysize);
-  test_rsa_encrypt(keyid, rsak, CKM_RSA_PKCS_OAEP, RSA_PKCS1_OAEP_PADDING,
+  test_rsa_encrypt(keyid, objs[0], rsak, CKM_RSA_PKCS_OAEP, RSA_PKCS1_OAEP_PADDING,
                    expected_enc_len);
 
   RSA_free(rsak);
