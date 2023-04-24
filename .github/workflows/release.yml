@@ -200,8 +200,7 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
 
           if [ $BUILD_ENVIRONMENT = "debian:9" ]; then
-            echo "deb  http://deb.debian.org/debian  stretch main" >> /etc/apt/sources.list
-            echo "deb-src  http://deb.debian.org/debian  stretch main" >> /etc/apt/sources.list
+            sed -i 's_debian/dists_debian-archive/debian/dists_g' /etc/apt/sources.list
             apt-get update
           else
             apt-get update
