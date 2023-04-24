@@ -198,20 +198,12 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           export DEBIAN_FRONTEND=noninteractive
-
           if [ $BUILD_ENVIRONMENT = "debian:9" ]; then
-            cat /etc/apt/sources.list
-            echo ------------------------------------
             sed -i '/stretch-updates/d' /etc/apt/sources.list
             sed -i 's_deb.debian.org/debian_archive.debian.org/debian-archive/debian_g' /etc/apt/sources.list
             sed -i 's_security.debian.org/debian-security_archive.debian.org/debian-archive/debian-security_g' /etc/apt/sources.list
-            cat /etc/apt/sources.list
-            echo ------------------------------------
-            apt-get update
-          else
-            apt-get update
           fi
-          apt-get dist-upgrade -y
+          apt-get update && apt-get dist-upgrade -y
           apt-get install -y build-essential      \
                                   chrpath              \
                                   cmake                \
