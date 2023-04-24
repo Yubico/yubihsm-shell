@@ -200,10 +200,15 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
 
           if [ $BUILD_ENVIRONMENT = "debian:9" ]; then
-            apt-get --allow-releaseinfo-change update && apt-get dist-upgrade -y
+            if [ $(lsb_release -cs) == "stretch" ]; then
+              apt-get update
+            else
+              apt-get update --allow-releaseinfo-change
+            fi
           else
-            apt update && apt-get dist-upgrade -y
+            apt update
           fi
+          apt-get dist-upgrade -y
           apt-get install -y build-essential      \
                                   chrpath              \
                                   cmake                \
