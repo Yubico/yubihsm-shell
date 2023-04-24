@@ -44,9 +44,6 @@ jobs:
           - environment: "debian:10"
             cc: "gcc"
             upload_for_test: "false"
-          - environment: "debian:9"
-            cc: "gcc"
-            upload_for_test: "false"
 
     name: build on ${{ matrix.environment }} (${{ matrix.cc }},${{ matrix.upload_for_test}})
     runs-on: ubuntu-latest
@@ -125,12 +122,7 @@ jobs:
           mkdir build-static
           cd build-static
           if [ "$CC" = "gcc" ]; then
-            # lto breaks static builds on debian:9 so we disable it
-            if [ $BUILD_ENVIRONMENT = "debian:9" ]; then
-              cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release -DDISABLE_LTO=ON ..
-            else
-              cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release ..
-            fi
+            cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release ..
           else
             cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_AR=/usr/bin/llvm-ar \
