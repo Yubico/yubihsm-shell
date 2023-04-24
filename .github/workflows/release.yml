@@ -199,8 +199,9 @@ jobs:
         run: |
           export DEBIAN_FRONTEND=noninteractive
 
-          if [ $BUILD_ENVIRONMENT != "debian:9" ]; then
+          if [ $BUILD_ENVIRONMENT == "debian:9" ]; then
             apt-get install lsb-core
+            locate lsb_release
             if [ $(lsb_release -cs) == "stretch" ]; then
               apt-get update
             else
