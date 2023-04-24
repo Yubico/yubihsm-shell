@@ -202,7 +202,7 @@ jobs:
           if [ $BUILD_ENVIRONMENT = "debian:9" ]; then
             sed -i 's_deb.debian.org/debian_archive.debian.org/debian-archive/debian_g' /etc/apt/sources.list
             sed -i 's_security.debian.org/debian-security/dists_archive.debian.org/debian-archive/debian-security/dists_g' /etc/apt/sources.list
-            sed -i "_archive.debian.org/debian-archive/debian/dists/stretch-updates_d" /etc/apt/sources.list
+            sed -i '/stretch-updates/d' /etc/apt/sources.list
             apt-get update
           else
             apt-get update
