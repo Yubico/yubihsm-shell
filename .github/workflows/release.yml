@@ -200,15 +200,11 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
 
           if [ $BUILD_ENVIRONMENT = "debian:9" ]; then
-            apt-get install lsb-core
-            locate lsb_release
-            if [ $(lsb_release -cs) == "stretch" ]; then
-              apt-get update
-            else
-              apt-get update --allow-releaseinfo-change
-            fi
+            echo "deb http://security.debian.org/ stretch/updates main contrib non-free" >> /etc/apt/sources.list
+            less /etc/apt/sources.list
+            apt-get update
           else
-            apt update
+            apt-get update
           fi
           apt-get dist-upgrade -y
           apt-get install -y build-essential      \
