@@ -201,6 +201,7 @@ jobs:
 
           if [ $BUILD_ENVIRONMENT = "debian:9" ]; then
             sed -i 's_debian/dists_debian-archive/debian/dists_g' /etc/apt/sources.list
+            sed -i 's_debian-security/dists_debian-archive/debian-security/dists_g' /etc/apt/sources.list
             apt-get update
           else
             apt-get update
