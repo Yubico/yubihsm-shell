@@ -194,11 +194,16 @@ jobs:
       - name: install dependencies from package management
         env:
           CC: ${{ matrix.cc }}
+          BUILD_ENVIRONMENT: ${{ matrix.environment }}
           DEBIAN_FRONTEND: noninteractive
         run: |
           export DEBIAN_FRONTEND=noninteractive
 
-          apt-get update && apt-get dist-upgrade -y
+          if [ $BUILD_ENVIRONMENT = "debian:9" ]; then
+            apt-get --allow-releaseinfo-change update && apt-get dist-upgrade -y
+          else
+            apt update && apt-get dist-upgrade -y
+          fi
           apt-get install -y build-essential      \
                                   chrpath              \
                                   cmake                \
