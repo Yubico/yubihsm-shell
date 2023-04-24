@@ -11,7 +11,7 @@ for machine in focal jammy kinetic debian10 debian11 fedora36 fedora37 centos7; 
   set -e
 done
 
-for machine in trusty xenial bionic debian9; do
+for machine in trusty xenial bionic; do
   vagrant box update $machine
   time vagrant up $machine
   set +e
