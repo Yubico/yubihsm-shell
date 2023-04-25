@@ -195,11 +195,17 @@ static void test_encrypt_RSA(int keysize, CK_ULONG expected_enc_len) {
     exit(EXIT_FAILURE);
 
   CK_BYTE id[] = {0, 0};
+  CK_MECHANISM_TYPE mechs[32];
 
-  CK_ATTRIBUTE attrs[] =
-    {{CKA_ID, &id, sizeof(id)}};
+  CK_ATTRIBUTE attrs[] = {
+    {CKA_ALLOWED_MECHANISMS, mechs, sizeof(mechs)},
+    {CKA_ID, &id, sizeof(id)}
+  };
 
-  assert(p11->C_GetAttributeValue(session, keyid, attrs, 1) == CKR_OK);
+  assert(p11->C_GetAttributeValue(session, keyid, attrs, 2) == CKR_OK);
+  assert(attrs[0].ulValueLen == 2 * sizeof(CK_MECHANISM_TYPE));
+  assert(mechs[0] == CKM_RSA_PKCS);
+  assert(mechs[1] == CKM_RSA_PKCS_OAEP);
 
   CK_OBJECT_CLASS key_class = CKO_PUBLIC_KEY;
   CK_KEY_TYPE key_type = CKK_RSA;
