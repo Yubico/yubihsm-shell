@@ -1027,6 +1027,71 @@ static void get_capability_attribute(yh_object_descriptor *object,
   *length = sizeof(CK_BBOOL);
 }
 
+static void add_mech_type(CK_BYTE_PTR value, CK_ULONG_PTR length,
+                          CK_MECHANISM_TYPE mech) {
+  for (CK_ULONG i = 0; i < *length; i += sizeof(CK_MECHANISM_TYPE)) {
+    if (*(CK_MECHANISM_TYPE_PTR) (value + i) == mech)
+      return;
+  }
+  *(CK_MECHANISM_TYPE_PTR) (value + *length) = mech;
+  *length += sizeof(CK_MECHANISM_TYPE);
+}
+
+static int compare_mechs(const void *p1, const void *p2) {
+  return *(const CK_MECHANISM_TYPE *) p1 - *(const CK_MECHANISM_TYPE *) p2;
+}
+
+static CK_RV get_allowed_mechs(yh_object_descriptor *object, CK_BYTE_PTR value,
+                               CK_ULONG_PTR length) {
+  *length = 0;
+  if (yh_is_rsa(object->algorithm)) {
+    if (yh_check_capability(&object->capabilities, "sign-pkcs")) {
+      add_mech_type(value, length, CKM_RSA_PKCS);
+      add_mech_type(value, length, CKM_SHA1_RSA_PKCS);
+      add_mech_type(value, length, CKM_SHA256_RSA_PKCS);
+      add_mech_type(value, length, CKM_SHA384_RSA_PKCS);
+      add_mech_type(value, length, CKM_SHA512_RSA_PKCS);
+    }
+    if (yh_check_capability(&object->capabilities, "sign-pss")) {
+      add_mech_type(value, length, CKM_RSA_PKCS_PSS);
+      add_mech_type(value, length, CKM_SHA1_RSA_PKCS_PSS);
+      add_mech_type(value, length, CKM_SHA256_RSA_PKCS_PSS);
+      add_mech_type(value, length, CKM_SHA384_RSA_PKCS_PSS);
+      add_mech_type(value, length, CKM_SHA512_RSA_PKCS_PSS);
+    }
+    if (yh_check_capability(&object->capabilities, "decrypt-pkcs")) {
+      add_mech_type(value, length, CKM_RSA_PKCS);
+    }
+    if (yh_check_capability(&object->capabilities, "decrypt-oaep")) {
+      add_mech_type(value, length, CKM_RSA_PKCS_OAEP);
+    }
+  } else if (yh_is_ec(object->algorithm)) {
+    if (yh_check_capability(&object->capabilities, "sign-ecdsa")) {
+      add_mech_type(value, length, CKM_ECDSA);
+      add_mech_type(value, length, CKM_ECDSA_SHA1);
+      add_mech_type(value, length, CKM_ECDSA_SHA256);
+      add_mech_type(value, length, CKM_ECDSA_SHA384);
+      add_mech_type(value, length, CKM_ECDSA_SHA512);
+    }
+    if (yh_check_capability(&object->capabilities, "derive-ecdh")) {
+      add_mech_type(value, length, CKM_ECDH1_DERIVE);
+    }
+  } else if (yh_is_aes(object->algorithm)) {
+    if (yh_check_capability(&object->capabilities, "aes-ecb")) {
+      add_mech_type(value, length, CKM_AES_ECB);
+    }
+    if (yh_check_capability(&object->capabilities, "aes-cbc")) {
+      add_mech_type(value, length, CKM_AES_CBC);
+      add_mech_type(value, length, CKM_AES_CBC_PAD);
+    }
+  } else {
+    return CKR_ATTRIBUTE_TYPE_INVALID;
+  }
+  qsort(value, *length / sizeof(CK_MECHANISM_TYPE), sizeof(CK_MECHANISM_TYPE),
+        compare_mechs);
+  return CKR_OK;
+}
+
 static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
                                   yh_object_descriptor *object,
                                   pkcs11_meta_object *meta_object,
@@ -1241,7 +1306,8 @@ static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
       break;
 
       // case CKA_KEY_GEN_MECHANISM:
-      // case CKA_ALLOWED_MECHANISMS:
+    case CKA_ALLOWED_MECHANISMS:
+      return get_allowed_mechs(object, value, length);
 
       // NOTE(adma): Secret Key Objects attributes
 
@@ -1406,7 +1472,8 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       break;
 
       // case CKA_KEY_GEN_MECHANISM:
-      // case CKA_ALLOWED_MECHANISMS:
+    case CKA_ALLOWED_MECHANISMS:
+      return get_allowed_mechs(object, value, length);
 
       // NOTE(adma): Key Objects attributes
 
@@ -1720,8 +1787,7 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_ENCRYPT:
-      if (object->type == YH_PUBLIC_KEY &&
-          yh_is_rsa(object->algorithm)) {
+      if (object->type == YH_PUBLIC_KEY && yh_is_rsa(object->algorithm)) {
         get_capability_attribute(object, "decrypt-pkcs,decrypt-oaep", true,
                                  value, length, NULL);
       } else {
@@ -1820,7 +1886,8 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       break;
 
       // case CKA_KEY_GEN_MECHANISM:
-      // case CKA_ALLOWED_MECHANISMS:
+    case CKA_ALLOWED_MECHANISMS:
+      return get_allowed_mechs(object, value, length);
 
       // NOTE(adma): Key Objects attributes
 
