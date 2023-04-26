@@ -416,22 +416,22 @@ static void import_authkey(yh_session *device_session, uint16_t keyid,
 static void test_domain(void) {
 
   char password2[] = "foobar123";
-  char p11_password2[] = "0002foobar123";
+  char p11_password2[] = "000afoobar123";
   char password3[] = "foo123bar";
-  char p11_password3[] = "0003foo123bar";
+  char p11_password3[] = "000bfoo123bar";
   char password4[] = "123foobar";
-  char p11_password4[] = "0004123foobar";
+  char p11_password4[] = "000c123foobar";
   char password5[] = "foofoobar";
-  char p11_password5[] = "0005foofoobar";
+  char p11_password5[] = "000dfoofoobar";
 
   close_session(p11, session);
   yh_session *device_session = get_device_session();
 
   // Create authentication keys with different domains access to test with
-  import_authkey(device_session, 2, "3,4,5", password2);
-  import_authkey(device_session, 3, "5,6,7", password3);
-  import_authkey(device_session, 4, "7,8,9", password4);
-  import_authkey(device_session, 5, "1,2,3,4,5", password5);
+  import_authkey(device_session, 10, "3,4,5", password2);
+  import_authkey(device_session, 11, "5,6,7", password3);
+  import_authkey(device_session, 12, "7,8,9", password4);
+  import_authkey(device_session, 13, "1,2,3,4,5", password5);
 
   session = open_test_session(p11_password2);
 
@@ -550,10 +550,10 @@ static void test_domain(void) {
   printf("OK!\n");
 
   // Clear the HSM after the test
-  yh_util_delete_object(device_session, 2, YH_AUTHENTICATION_KEY);
-  yh_util_delete_object(device_session, 3, YH_AUTHENTICATION_KEY);
-  yh_util_delete_object(device_session, 4, YH_AUTHENTICATION_KEY);
-  yh_util_delete_object(device_session, 5, YH_AUTHENTICATION_KEY);
+  yh_util_delete_object(device_session, 10, YH_AUTHENTICATION_KEY);
+  yh_util_delete_object(device_session, 11, YH_AUTHENTICATION_KEY);
+  yh_util_delete_object(device_session, 12, YH_AUTHENTICATION_KEY);
+  yh_util_delete_object(device_session, 13, YH_AUTHENTICATION_KEY);
   yh_util_delete_object(device_session, target_id, YH_HMAC_KEY);
   yh_util_delete_object(device_session, meta_objects[0].id, YH_OPAQUE);
 
