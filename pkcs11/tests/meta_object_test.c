@@ -407,9 +407,6 @@ static void import_authkey(yh_session *device_session, uint16_t keyid,
                                                   &capabilities, &capabilities,
                                                   (CK_UTF8CHAR_PTR) password,
                                                   strlen(password));
-  printf("yh_util_import_authentication_key_derived returned: %d "
-         "   keyid: 0x%x\n",
-         yrc, keyid);
   assert(yrc == YHR_SUCCESS);
 }
 
