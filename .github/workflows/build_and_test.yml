@@ -421,6 +421,8 @@ jobs:
         env:
           DOCKER_IMAGE: ${{ matrix.environment }}
         run: |
+          ./src/yubihsm-shell -p password -a list-objects                                                                                                                                                [0]
+          
           if [ $DOCKER_IMAGE = "debian:11" ]; then
             # we skip the engine tests (for now) since it ships with a broken curl version
             ctest --output-on-failure -E engine
