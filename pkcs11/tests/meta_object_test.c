@@ -357,7 +357,7 @@ static void test_secretkey_metadata(void) {
   printf("OK!\n");
 }
 
-static yh_session *get_device_session() {
+static yh_session *get_device_session(void) {
   yh_connector *connector = NULL;
   yh_session *device_session = NULL;
 
@@ -410,7 +410,7 @@ static void import_authkey(yh_session *device_session, uint16_t keyid,
   assert(yrc == YHR_SUCCESS);
 }
 
-static void test_domain() {
+static void test_domain(void) {
 
   char password2[] = "foobar123";
   char p11_password2[] = "0002foobar123";
