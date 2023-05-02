@@ -40,7 +40,7 @@ if (CMAKE_C_COMPILER_ID STREQUAL "Clang" OR
         add_compile_options (-Wno-implicit-fallthrough)
     endif ()
 
-    if (NOT CMAKE_C_COMPILER_ID STREQUAL AppleClang)
+    if (NOT APPLE)
         set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -pie")
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie")
         set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,noexecstack -Wl,-z,relro,-z,now")
