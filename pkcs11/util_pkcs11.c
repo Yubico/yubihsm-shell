@@ -1049,12 +1049,13 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
       // NOTE(adma): Storage Objects attributes
 
     case CKA_TOKEN:
-    case CKA_PRIVATE:
     case CKA_DESTROYABLE:
       *((CK_BBOOL *) value) = CK_TRUE;
       *length = sizeof(CK_BBOOL);
       break;
 
+    case CKA_PRIVATE:
+    case CKA_SENSITIVE:
     case CKA_MODIFIABLE:
     case CKA_COPYABLE:
     case CKA_TRUSTED:
@@ -4501,13 +4502,6 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
       case CKA_UNWRAP: // pkcs11-tool sets this on public keys
       case CKA_VERIFY:
       case CKA_ENCRYPT:
-        /*
-              case CKA_EXTRACTABLE:
-              case CKA_PRIVATE:
-              case CKA_COPYABLE:
-              case CKA_DESTROYABLE:
-              case CKA_DERIVE:
-        */
         break;
 
       default:
