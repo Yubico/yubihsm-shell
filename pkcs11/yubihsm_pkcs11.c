@@ -1700,6 +1700,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
         case CKA_SUBJECT:
         case CKA_ISSUER:
         case CKA_SERIAL_NUMBER:
+        case CKA_EXTRACTABLE:
           break;
         default:
           DBG_ERR("Invalid attribute type in key template: 0x%lx",
