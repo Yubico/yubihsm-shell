@@ -22,6 +22,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <openssl/rand.h>
+#include <openssl/ec.h>
+#include <openssl/x509.h>
+#include <openssl/err.h>
 
 #include "../pkcs11.h"
 #include "common.h"
@@ -109,6 +112,92 @@ static void generate_ec_keypair(
   assert(rv == CKR_OK);
 }
 
+static void import_ec_key(CK_OBJECT_HANDLE_PTR publicKeyPtr,
+                          CK_OBJECT_HANDLE_PTR privateKeyPtr,
+                          CK_BYTE *ckaid_public, CK_ULONG ckaid_public_len,
+                          CK_BYTE *ckaid_private, CK_ULONG ckaid_private_len,
+                          char *label_public, char *label_private) {
+
+  int curve = NID_secp384r1;
+  CK_ULONG key_len = 48;
+
+  CK_ULONG class_k = CKO_PRIVATE_KEY;
+  CK_ULONG class_c = CKO_CERTIFICATE;
+  CK_ULONG kt = CKK_EC;
+  CK_BYTE value_c[3100] = {0};
+  CK_CHAR *pvt = malloc(48);
+
+  CK_ATTRIBUTE privateKeyTemplate[] =
+    {{CKA_CLASS, &class_k, sizeof(class_k)},
+     {CKA_KEY_TYPE, &kt, sizeof(kt)},
+     {CKA_ID, ckaid_private, ckaid_private_len},
+     {CKA_LABEL, label_private, strlen(label_private)},
+     {CKA_EC_PARAMS, P384_PARAMS, sizeof(P384_PARAMS)},
+     {CKA_VALUE, pvt, key_len}};
+
+  CK_ATTRIBUTE publicKeyTemplate[] = {{CKA_CLASS, &class_c, sizeof(class_c)},
+                                      {CKA_ID, ckaid_public, ckaid_public_len},
+                                      {CKA_LABEL, label_public,
+                                       strlen(label_public)},
+                                      {CKA_VALUE, value_c, sizeof(value_c)}};
+
+  EVP_PKEY *evp = EVP_PKEY_new();
+
+  if (evp == NULL)
+    exit(EXIT_FAILURE);
+
+  EC_KEY *eck = EC_KEY_new_by_curve_name(curve);
+
+  if (eck == NULL)
+    exit(EXIT_FAILURE);
+
+  assert(EC_KEY_generate_key(eck) == 1);
+
+  const BIGNUM *bn = EC_KEY_get0_private_key(eck);
+
+  assert(BN_bn2binpad(bn, pvt, key_len) == (int) key_len);
+
+  if (EVP_PKEY_set1_EC_KEY(evp, eck) == 0)
+    exit(EXIT_FAILURE);
+
+  X509 *cert = X509_new();
+
+  if (cert == NULL)
+    exit(EXIT_FAILURE);
+
+  X509_set_version(cert, 2); // Version 3
+  X509_NAME_add_entry_by_txt(X509_get_issuer_name(cert), "CN", MBSTRING_ASC,
+                             (unsigned char *) "Test Issuer", -1, -1, 0);
+  X509_NAME_add_entry_by_txt(X509_get_subject_name(cert), "CN", MBSTRING_ASC,
+                             (unsigned char *) "Test Subject", -1, -1, 0);
+  ASN1_INTEGER_set(X509_get_serialNumber(cert), 0);
+  X509_gmtime_adj(X509_get_notBefore(cert), 0);
+  X509_gmtime_adj(X509_get_notAfter(cert), 0);
+
+  if (X509_set_pubkey(cert, evp) == 0)
+    exit(EXIT_FAILURE);
+
+  if (X509_sign(cert, evp, EVP_sha1()) == 0)
+    exit(EXIT_FAILURE);
+
+  CK_ULONG cert_len;
+  unsigned char *p = value_c;
+  if ((cert_len = (CK_ULONG) i2d_X509(cert, &p)) == 0 ||
+      cert_len > sizeof(value_c))
+    exit(EXIT_FAILURE);
+
+  publicKeyTemplate[2].ulValueLen = cert_len;
+
+  assert(p11->C_CreateObject(session, privateKeyTemplate, 6, privateKeyPtr) ==
+         CKR_OK);
+  assert(p11->C_CreateObject(session, publicKeyTemplate, 4, publicKeyPtr) ==
+         CKR_OK);
+
+  free(pvt);
+  X509_free(cert);
+  EVP_PKEY_free(evp);
+}
+
 static void generate_rsa_keypair(
   CK_OBJECT_HANDLE_PTR publicKeyPtr, CK_OBJECT_HANDLE_PTR privateKeyPtr,
   CK_BYTE *ckaid_public, CK_ULONG ckaid_public_len, CK_BYTE *ckaid_private,
@@ -138,6 +227,166 @@ static void generate_rsa_keypair(
     p11->C_GenerateKeyPair(session, &mechanism, publicKeyTemplate, 5,
                            privateKeyTemplate, 4, publicKeyPtr, privateKeyPtr);
   assert(rv == CKR_OK);
+}
+
+static void import_rsa_key(CK_OBJECT_HANDLE_PTR publicKeyPtr,
+                           CK_OBJECT_HANDLE_PTR privateKeyPtr,
+                           CK_BYTE *ckaid_public, CK_ULONG ckaid_public_len,
+                           CK_BYTE *ckaid_private, CK_ULONG ckaid_private_len,
+                           char *label_public, char *label_private) {
+
+  /*
+    CK_BYTE e[] = {0x01, 0x00, 0x01};
+    CK_BYTE *p, *q, *dp, *dq, *qinv;
+    int keylen = 2048;
+    int len = keylen / 16;
+    p = malloc(len);
+    q = malloc(len);
+    dp = malloc(len);
+    dq = malloc(len);
+    qinv = malloc(len);
+
+    EVP_PKEY *evp = EVP_PKEY_new();
+    RSA *rsak = RSA_new();
+    BIGNUM *e_bn;
+    CK_ULONG class_k = CKO_PRIVATE_KEY;
+    CK_ULONG kt = CKK_RSA;
+    const BIGNUM *bp, *bq, *biqmp, *bdmp1, *bdmq1;
+
+    // unsigned char  *px;
+    CK_BBOOL dec_capability = CK_TRUE;
+
+    CK_ATTRIBUTE privateKeyTemplate[] = {{CKA_CLASS, &class_k, sizeof(class_k)},
+                                         {CKA_KEY_TYPE, &kt, sizeof(kt)},
+                                         {CKA_ID, ckaid, ckaid_len},
+                                         {CKA_LABEL, label, strlen(label)},
+                                         {CKA_PUBLIC_EXPONENT, e, sizeof(e)},
+                                         {CKA_PRIME_1, p, len},
+                                         {CKA_PRIME_2, q, len},
+                                         {CKA_EXPONENT_1, dp, len},
+                                         {CKA_EXPONENT_2, dq, len},
+                                         {CKA_COEFFICIENT, qinv, len}};
+    e_bn = BN_bin2bn(e, 3, NULL);
+    if (e_bn == NULL)
+      exit(EXIT_FAILURE);
+
+    assert(RSA_generate_key_ex(rsak, keylen, e_bn, NULL) == 1);
+
+    RSA_get0_factors(rsak, &bp, &bq);
+    RSA_get0_crt_params(rsak, &bdmp1, &bdmq1, &biqmp);
+    BN_bn2binpad(bp, p, len);
+    BN_bn2binpad(bq, q, len);
+    BN_bn2binpad(bdmp1, dp, len);
+    BN_bn2binpad(bdmq1, dq, len);
+    BN_bn2binpad(biqmp, qinv, len);
+
+    if (EVP_PKEY_set1_RSA(evp, rsak) == 0)
+      exit(EXIT_FAILURE);
+
+    assert(p11->C_CreateObject(session, privateKeyTemplate, 9, keyid) ==
+    CKR_OK);
+
+    BN_free(e_bn);
+    free(p);
+    free(q);
+    free(dp);
+    free(dq);
+    free(qinv);
+    */
+
+  int keylen = 2048;
+  int len = keylen / 16;
+  CK_BYTE *p = malloc(len);
+  CK_BYTE *q = malloc(len);
+  CK_BYTE *dp = malloc(len);
+  CK_BYTE *dq = malloc(len);
+  CK_BYTE *qinv = malloc(len);
+
+  CK_BYTE e[] = {0x01, 0x00, 0x01};
+  CK_ULONG class_k = CKO_PRIVATE_KEY;
+  CK_ULONG class_c = CKO_CERTIFICATE;
+  CK_ULONG kt = CKK_RSA;
+  CK_BYTE value_c[3100] = {0};
+
+  CK_ATTRIBUTE privateKeyTemplate[] = {{CKA_CLASS, &class_k, sizeof(class_k)},
+                                       {CKA_KEY_TYPE, &kt, sizeof(kt)},
+                                       {CKA_ID, ckaid_private,
+                                        ckaid_private_len},
+                                       {CKA_LABEL, label_private,
+                                        strlen(label_private)},
+                                       {CKA_PUBLIC_EXPONENT, e, sizeof(e)},
+                                       {CKA_PRIME_1, p, len},
+                                       {CKA_PRIME_2, q, len},
+                                       {CKA_EXPONENT_1, dp, len},
+                                       {CKA_EXPONENT_2, dq, len},
+                                       {CKA_COEFFICIENT, qinv, len}};
+
+  CK_ATTRIBUTE publicKeyTemplate[] = {{CKA_CLASS, &class_c, sizeof(class_c)},
+                                      {CKA_ID, ckaid_public, ckaid_public_len},
+                                      {CKA_LABEL, label_public,
+                                       strlen(label_public)},
+                                      {CKA_VALUE, value_c, sizeof(value_c)}};
+
+  EVP_PKEY *evp = EVP_PKEY_new();
+  RSA *rsak = RSA_new();
+
+  BIGNUM *e_bn = BN_bin2bn(e, 3, NULL);
+  if (e_bn == NULL)
+    exit(EXIT_FAILURE);
+
+  assert(RSA_generate_key_ex(rsak, keylen, e_bn, NULL) == 1);
+  const BIGNUM *bp, *bq, *biqmp, *bdmp1, *bdmq1;
+  RSA_get0_factors(rsak, &bp, &bq);
+  RSA_get0_crt_params(rsak, &bdmp1, &bdmq1, &biqmp);
+  assert(BN_bn2binpad(bp, p, len) == len);
+  assert(BN_bn2binpad(bq, q, len) == len);
+  assert(BN_bn2binpad(bdmp1, dp, len) == len);
+  assert(BN_bn2binpad(bdmq1, dq, len) == len);
+  assert(BN_bn2binpad(biqmp, qinv, len) == len);
+
+  if (EVP_PKEY_set1_RSA(evp, rsak) == 0)
+    exit(EXIT_FAILURE);
+
+  X509 *cert = X509_new();
+
+  if (cert == NULL)
+    exit(EXIT_FAILURE);
+
+  X509_set_version(cert, 2); // Version 3
+  X509_NAME_add_entry_by_txt(X509_get_issuer_name(cert), "CN", MBSTRING_ASC,
+                             (unsigned char *) "Test Issuer", -1, -1, 0);
+  X509_NAME_add_entry_by_txt(X509_get_subject_name(cert), "CN", MBSTRING_ASC,
+                             (unsigned char *) "Test Subject", -1, -1, 0);
+  ASN1_INTEGER_set(X509_get_serialNumber(cert), 0);
+  X509_gmtime_adj(X509_get_notBefore(cert), 0);
+  X509_gmtime_adj(X509_get_notAfter(cert), 0);
+
+  if (X509_set_pubkey(cert, evp) == 0)
+    exit(EXIT_FAILURE);
+
+  if (X509_sign(cert, evp, EVP_sha1()) == 0)
+    exit(EXIT_FAILURE);
+
+  CK_ULONG cert_len;
+  unsigned char *px = value_c;
+  if ((cert_len = (CK_ULONG) i2d_X509(cert, &px)) == 0 ||
+      cert_len > sizeof(value_c))
+    exit(EXIT_FAILURE);
+
+  publicKeyTemplate[2].ulValueLen = cert_len;
+
+  assert(p11->C_CreateObject(session, privateKeyTemplate, 10, privateKeyPtr) ==
+         CKR_OK);
+  assert(p11->C_CreateObject(session, publicKeyTemplate, 4, publicKeyPtr) ==
+         CKR_OK);
+
+  X509_free(cert);
+  BN_free(e_bn);
+  free(p);
+  free(q);
+  free(dp);
+  free(dq);
+  free(qinv);
 }
 
 static void generate_hmac_key(CK_OBJECT_HANDLE_PTR key_handle, CK_BYTE *ckaid,
@@ -235,23 +484,75 @@ static void run_label_test(CK_OBJECT_HANDLE object, char *old_label,
          new_label);
 }
 
-static void test_keypair_metadata(int is_rsa) {
+static void create_key(int is_rsa, int import, char *priv_label,
+                       char *pub_label, CK_OBJECT_HANDLE_PTR yh_privkey,
+                       CK_OBJECT_HANDLE_PTR yh_pubkey) {
+  if (is_rsa && !import) {
+    printf("Generating RSA keypair with privateKey label '%s' and publicKey "
+           "label '%s'...\n",
+           priv_label, pub_label);
+    generate_rsa_keypair(yh_pubkey, yh_privkey, KEYID, sizeof(KEYID), KEYID,
+                         sizeof(KEYID), "label", "label");
+  } else if (!is_rsa && !import) {
+    printf("Generating EC keypair with privateKey label '%s' and publicKey "
+           "label '%s'...\n",
+           priv_label, pub_label);
+    generate_ec_keypair(P384_PARAMS, sizeof(P384_PARAMS), yh_pubkey, yh_privkey,
+                        KEYID, sizeof(KEYID), KEYID, sizeof(KEYID), "label",
+                        "label");
+  } else if (is_rsa && import) {
+    printf("Importing RSA key and cert with privateKey label '%s' and "
+           "publicKey label '%s'...\n",
+           priv_label, pub_label);
+    import_rsa_key(yh_pubkey, yh_privkey, KEYID, sizeof(KEYID), KEYID,
+                   sizeof(KEYID), "label", "label");
+  } else if (!is_rsa && import) {
+    printf("Importing EC key and cert with privateKey label '%s' and publicKey "
+           "label '%s'...\n",
+           priv_label, pub_label);
+    import_ec_key(yh_pubkey, yh_privkey, KEYID, sizeof(KEYID), KEYID,
+                  sizeof(KEYID), "label", "label");
+  } else {
+    printf("Unrecognized combination! Not doing any tests\n");
+    return;
+  }
+}
+
+static void test_keypair_metadata(int is_rsa, int import) {
   CK_BYTE data[64] = {0};
   CK_ULONG data_len = sizeof(data);
   int ret = RAND_bytes(data, data_len);
   assert(ret > 0);
 
   CK_OBJECT_HANDLE yh_pubkey, yh_privkey;
-  printf("Generating key pair with privateKey label 'label' and publicKey "
-         "label 'label'... \n");
-  if (is_rsa) {
-    generate_rsa_keypair(&yh_pubkey, &yh_privkey, KEYID, sizeof(KEYID), KEYID,
-                         sizeof(KEYID), "label", "label");
-  } else {
+  char *priv_label, *pub_label;
+
+  priv_label = "label";
+  pub_label = "label";
+  create_key(is_rsa, import, priv_label, pub_label, &yh_privkey, &yh_pubkey);
+  /*
+  if (is_rsa && !import) {
+    printf("Generating RSA keypair with privateKey label '%s' and publicKey
+  label '%s'...\n", priv_label, pub_label); generate_rsa_keypair(&yh_pubkey,
+  &yh_privkey, KEYID, sizeof(KEYID), KEYID, sizeof(KEYID), "label", "label"); }
+  else if(!is_rsa && !import) { printf("Generating EC keypair with privateKey
+  label '%s' and publicKey label '%s'...\n", priv_label, pub_label);
     generate_ec_keypair(P384_PARAMS, sizeof(P384_PARAMS), &yh_pubkey,
                         &yh_privkey, KEYID, sizeof(KEYID), KEYID, sizeof(KEYID),
                         "label", "label");
+  } else if(is_rsa && import) {
+    printf("Importing RSA key and cert with privateKey label '%s' and publicKey
+  label '%s'...\n", priv_label, pub_label); import_rsa_key(&yh_pubkey,
+  &yh_privkey, KEYID, sizeof(KEYID), KEYID, sizeof(KEYID), "label", "label"); }
+  else if(!is_rsa && import) { printf("Importing EC key and cert with privateKey
+  label '%s' and publicKey label '%s'...\n", priv_label, pub_label);
+    import_ec_key(&yh_pubkey, &yh_privkey, KEYID, sizeof(KEYID), KEYID,
+                   sizeof(KEYID), "label", "label");
+  } else {
+    printf("Unrecognized combination! Not doing any tests\n");
+    return;
   }
+  */
   run_label_test(yh_privkey, "label", "new_label");
   run_label_test(yh_pubkey, "label", "new_label");
   run_id_test(yh_privkey, KEYID, sizeof(KEYID), data, 32);
@@ -573,9 +874,15 @@ int main(int argc, char **argv) {
 
   int exit_status = EXIT_SUCCESS;
 
-  test_keypair_metadata(0);
+  test_keypair_metadata(0, 0);
   printf("\n\n");
-  test_keypair_metadata(1);
+  test_keypair_metadata(1, 0);
+  printf("\n\n");
+  test_keypair_metadata(0, 1);
+  printf("\n\n");
+  test_keypair_metadata(1, 1);
+  printf("\n\n");
+
   test_secretkey_metadata();
   printf("\n\n");
   test_domain();
