@@ -1673,6 +1673,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
             goto c_co_out;
           }
           break;
+        case CKA_PRIVATE:
+        case CKA_SENSITIVE:
         case CKA_COPYABLE:
           if ((rv = check_bool_attribute(pTemplate[i].pValue, false)) !=
               CKR_OK) {
@@ -1681,8 +1683,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
             return rv;
           }
           break;
-        case CKA_PRIVATE:
-        case CKA_SENSITIVE:
         case CKA_DESTROYABLE:
           if ((rv = check_bool_attribute(pTemplate[i].pValue, true)) !=
               CKR_OK) {
