@@ -1027,14 +1027,17 @@ static void get_capability_attribute(yh_object_descriptor *object,
   *length = sizeof(CK_BBOOL);
 }
 
-static void add_mech_type(CK_BYTE_PTR value, CK_ULONG_PTR length,
+static CK_RV add_mech_type(CK_BYTE_PTR value, CK_ULONG max, CK_ULONG_PTR length,
                           CK_MECHANISM_TYPE mech) {
   for (CK_ULONG i = 0; i < *length; i += sizeof(CK_MECHANISM_TYPE)) {
     if (*(CK_MECHANISM_TYPE_PTR) (value + i) == mech)
-      return;
+      return CKR_OK;
   }
+  if(*length + sizeof(CK_MECHANISM_TYPE) > max)
+    return CKR_BUFFER_TOO_SMALL;
   *(CK_MECHANISM_TYPE_PTR) (value + *length) = mech;
   *length += sizeof(CK_MECHANISM_TYPE);
+  return CKR_OK;
 }
 
 static int compare_mechs(const void *p1, const void *p2) {
@@ -1043,46 +1046,90 @@ static int compare_mechs(const void *p1, const void *p2) {
 
 static CK_RV get_allowed_mechs(yh_object_descriptor *object, CK_BYTE_PTR value,
                                CK_ULONG_PTR length) {
+  CK_ULONG max = *length;
   *length = 0;
+  CK_RV rv;
   if (yh_is_rsa(object->algorithm)) {
     if (yh_check_capability(&object->capabilities, "sign-pkcs")) {
-      add_mech_type(value, length, CKM_RSA_PKCS);
-      add_mech_type(value, length, CKM_SHA1_RSA_PKCS);
-      add_mech_type(value, length, CKM_SHA256_RSA_PKCS);
-      add_mech_type(value, length, CKM_SHA384_RSA_PKCS);
-      add_mech_type(value, length, CKM_SHA512_RSA_PKCS);
+      rv = add_mech_type(value, max, length, CKM_RSA_PKCS);
+      if(rv != CKR_OK)
+        return rv;
+      rv = add_mech_type(value, max, length, CKM_SHA1_RSA_PKCS);
+      if(rv != CKR_OK)
+        return rv;
+      rv = add_mech_type(value, max, length, CKM_SHA256_RSA_PKCS);
+      if(rv != CKR_OK)
+        return rv;
+      rv = add_mech_type(value, max, length, CKM_SHA384_RSA_PKCS);
+      if(rv != CKR_OK)
+        return rv;
+      rv = add_mech_type(value, max, length, CKM_SHA512_RSA_PKCS);
+      if(rv != CKR_OK)
+        return rv;
     }
     if (yh_check_capability(&object->capabilities, "sign-pss")) {
-      add_mech_type(value, length, CKM_RSA_PKCS_PSS);
-      add_mech_type(value, length, CKM_SHA1_RSA_PKCS_PSS);
-      add_mech_type(value, length, CKM_SHA256_RSA_PKCS_PSS);
-      add_mech_type(value, length, CKM_SHA384_RSA_PKCS_PSS);
-      add_mech_type(value, length, CKM_SHA512_RSA_PKCS_PSS);
+      rv = add_mech_type(value, max, length, CKM_RSA_PKCS_PSS);
+      if(rv != CKR_OK)
+        return rv;
+      rv = add_mech_type(value, max, length, CKM_SHA1_RSA_PKCS_PSS);
+      if(rv != CKR_OK)
+        return rv;
+      rv = add_mech_type(value, max, length, CKM_SHA256_RSA_PKCS_PSS);
+      if(rv != CKR_OK)
+        return rv;
+      rv = add_mech_type(value, max, length, CKM_SHA384_RSA_PKCS_PSS);
+      if(rv != CKR_OK)
+        return rv;
+      rv = add_mech_type(value, max, length, CKM_SHA512_RSA_PKCS_PSS);
+      if(rv != CKR_OK)
+        return rv;
     }
     if (yh_check_capability(&object->capabilities, "decrypt-pkcs")) {
-      add_mech_type(value, length, CKM_RSA_PKCS);
+      rv = add_mech_type(value, max, length, CKM_RSA_PKCS);
+      if(rv != CKR_OK)
+        return rv;
     }
     if (yh_check_capability(&object->capabilities, "decrypt-oaep")) {
-      add_mech_type(value, length, CKM_RSA_PKCS_OAEP);
+      rv = add_mech_type(value, max, length, CKM_RSA_PKCS_OAEP);
+      if(rv != CKR_OK)
+        return rv;
     }
   } else if (yh_is_ec(object->algorithm)) {
     if (yh_check_capability(&object->capabilities, "sign-ecdsa")) {
-      add_mech_type(value, length, CKM_ECDSA);
-      add_mech_type(value, length, CKM_ECDSA_SHA1);
-      add_mech_type(value, length, CKM_ECDSA_SHA256);
-      add_mech_type(value, length, CKM_ECDSA_SHA384);
-      add_mech_type(value, length, CKM_ECDSA_SHA512);
+      rv = add_mech_type(value, max, length, CKM_ECDSA);
+      if(rv != CKR_OK)
+        return rv;
+      rv = add_mech_type(value, max, length, CKM_ECDSA_SHA1);
+      if(rv != CKR_OK)
+        return rv;
+      rv = add_mech_type(value, max, length, CKM_ECDSA_SHA256);
+      if(rv != CKR_OK)
+        return rv;
+      rv = add_mech_type(value, max, length, CKM_ECDSA_SHA384);
+      if(rv != CKR_OK)
+        return rv;
+      rv = add_mech_type(value, max, length, CKM_ECDSA_SHA512);
+      if(rv != CKR_OK)
+        return rv;
     }
     if (yh_check_capability(&object->capabilities, "derive-ecdh")) {
-      add_mech_type(value, length, CKM_ECDH1_DERIVE);
+      rv = add_mech_type(value, max, length, CKM_ECDH1_DERIVE);
+      if(rv != CKR_OK)
+        return rv;
     }
   } else if (yh_is_aes(object->algorithm)) {
     if (yh_check_capability(&object->capabilities, "aes-ecb")) {
-      add_mech_type(value, length, CKM_AES_ECB);
+      rv = add_mech_type(value, max, length, CKM_AES_ECB);
+      if(rv != CKR_OK)
+        return rv;
     }
     if (yh_check_capability(&object->capabilities, "aes-cbc")) {
-      add_mech_type(value, length, CKM_AES_CBC);
-      add_mech_type(value, length, CKM_AES_CBC_PAD);
+      rv = add_mech_type(value, max, length, CKM_AES_CBC);
+      if(rv != CKR_OK)
+        return rv;
+      rv = add_mech_type(value, max, length, CKM_AES_CBC_PAD);
+      if(rv != CKR_OK)
+        return rv;
     }
   } else {
     return CKR_ATTRIBUTE_TYPE_INVALID;
