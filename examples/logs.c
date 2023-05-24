@@ -78,7 +78,11 @@ int main(void) {
 
   option[0] = YHC_SET_OPTION;
   option[1] = 0x01;
-  option_len = 2;
+  option[2] = YHC_SET_LOG_INDEX;
+  option[3] = 0x01;
+  option[4] = YHC_GET_OBJECT_INFO;
+  option[5] = 0x01;
+  option_len = 2 * 3;
   yrc =
     yh_util_set_option(session, YH_OPTION_COMMAND_AUDIT, option_len, option);
   assert(yrc == YHR_SUCCESS);
