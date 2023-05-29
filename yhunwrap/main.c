@@ -105,11 +105,17 @@ static bool unwrap_data(uint8_t *key, size_t key_len, uint8_t *in, size_t in_len
     return false;
   }
 
-  // Provide the message to be encrypted, and obtain the encrypted output
+  // Provide the message to be decrypted, and obtain the decrypted output
   if (EVP_DecryptUpdate(ctx, out, &len, in + nonce_len, in_len - nonce_len - tag_len) != 1) {
     return false;
   }
   *out_len = len;
+
+  // Finalize decryption for completeness. (AES-CCM gets no output from DecryptFinal.)
+  if (EVP_DecryptFinal(ctx, out + *out_len, &len) != 1) {
+      return false;
+  }
+  *out_len += len;
 
   // Clean up
   EVP_CIPHER_CTX_free(ctx);
