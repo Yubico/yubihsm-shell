@@ -438,8 +438,9 @@ static yh_rc send_encrypted_msg(Scp_ctx *session, yh_cmd cmd,
   }
 
   // Outer command { cmd | cmd_len | sid | encrypted payload | mac }
-  if (3 + 1 + len + SCP_MAC_LEN > max_message_size) {
-    DBG_ERR("%s (%u > %u)", yh_strerror(YHR_BUFFER_TOO_SMALL), 3 + 1 + len + SCP_MAC_LEN, max_message_size);
+  if (3 + 1 + len + SCP_MAC_LEN > SCP_MSG_BUF_SIZE) {
+    DBG_ERR("%s: %u", yh_strerror(YHR_BUFFER_TOO_SMALL),
+            3 + 1 + len + SCP_MAC_LEN);
     return YHR_BUFFER_TOO_SMALL;
   }
 
@@ -1036,7 +1037,8 @@ yh_rc yh_finish_create_session(yh_session *session, const uint8_t *key_senc,
       return yrc;
     }
 
-    // Verify card cryptogram (after sending response, so we clean up the hsm session on failure)
+    // Verify card cryptogram (after sending response, so we clean up the hsm
+    // session on failure)
     if (memcmp(card_cryptogram, computed_cryptogram, SCP_CARD_CRYPTO_LEN)) {
       DBG_ERR("%s", yh_strerror(YHR_CRYPTOGRAM_MISMATCH));
       return YHR_CRYPTOGRAM_MISMATCH;
