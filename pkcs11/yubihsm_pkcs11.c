@@ -1141,7 +1141,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
   }
 
   if (userType != CKU_USER) {
-    DBG_ERR("Inalid user type, only regular user allowed");
+    DBG_ERR("Invalid user type, only regular user allowed");
     return CKR_USER_TYPE_INVALID;
   }
 
