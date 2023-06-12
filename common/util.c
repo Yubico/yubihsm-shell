@@ -139,14 +139,18 @@ bool read_private_key(uint8_t *buf, size_t len, yh_algorithm *algo,
 
       EVP_PKEY_free(pkey);
 
+      if (hash_bytes(bytes, out_len, _SHA512, bytes, bytes_len) == false) {
+        return false;
+      }
+
+      bytes[0] &= 248;
+      bytes[31] &= 127;
+      bytes[31] |= 64;
+
       for (uint8_t i = 0; i < 16; i++) {
         uint8_t tmp = bytes[i];
         bytes[i] = bytes[31 - i];
         bytes[31 - i] = tmp;
-      }
-
-      if (hash_bytes(bytes, out_len, _SHA512, bytes, bytes_len) == false) {
-        return false;
       }
 
       *bytes_len += public_key_len;
