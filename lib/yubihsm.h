@@ -88,7 +88,12 @@
 /// Length of host challenge for authentication
 #define YH_HOST_CHAL_LEN 8
 /// Maximum length of message buffer
+#ifndef FUZZING
 #define YH_MSG_BUF_SIZE 3136
+#else
+// in fuzzing builds make the data buffers smaller
+#define YH_MSG_BUF_SIZE 100
+#endif
 /// Length of authentication keys
 #define YH_KEY_LEN 16
 /// Device vendor ID
