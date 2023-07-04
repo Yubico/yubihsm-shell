@@ -12,7 +12,7 @@ if (CMAKE_C_COMPILER_ID STREQUAL "Clang" OR
     add_compile_options (-Wbad-function-cast)
     add_compile_options (-pedantic -pedantic-errors)
     add_compile_options (-fpie -fpic)
-    if (NOT FUZZ)
+    if (NOT FUZZING)
         add_compile_options(-O2)
         add_definitions (-D_FORTIFY_SOURCE=2)
     endif ()
