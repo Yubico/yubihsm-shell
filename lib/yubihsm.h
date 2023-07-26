@@ -130,6 +130,8 @@
 #define YH_LOG_DIGEST_SIZE 16
 /// URL scheme used for direct USB access
 #define YH_USB_URL_SCHEME "yhusb://"
+/// URL scheme used for fuzzing builds
+#define YH_FUZZ_URL_SCHEME "yhfuzz://"
 
 // Debug levels
 /// Debug level quiet. No messages printed out
@@ -3184,6 +3186,14 @@ yh_rc yh_domains_to_string(uint16_t domains, char *string, size_t max_len);
 
 #ifdef _MSC_VER
 #pragma strict_gs_check(on)
+#endif
+
+#ifdef FUZZING
+#include <scp.h>
+yh_rc compute_cryptogram(const uint8_t *key, uint16_t key_len, uint8_t type,
+                         const uint8_t context[SCP_CONTEXT_LEN], uint16_t L,
+                         uint8_t *key_out);
+void increment_ctr(uint8_t *ctr, uint16_t len);
 #endif
 
 #endif

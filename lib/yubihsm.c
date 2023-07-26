@@ -44,6 +44,7 @@
 
 #define STATIC_USB_BACKEND "usb"
 #define STATIC_HTTP_BACKEND "http"
+#define STATIC_FUZZ_BACKEND "yhfuzz"
 
 // If any of the values in scp.h are changed
 // they should be mirrored in yubihsm.h
@@ -65,8 +66,13 @@ _Static_assert(SCP_KEY_LEN == YH_KEY_LEN, "Message buffer size mismatch");
 
 #define LIST_SEPARATORS ":,;|"
 
+#ifdef FUZZING
+uint8_t _yh_verbosity = 0;
+FILE *_yh_output = NULL;
+#else
 uint8_t _yh_verbosity YH_INTERNAL = 0;
 FILE *_yh_output YH_INTERNAL = NULL;
+#endif
 
 static yh_rc compute_full_mac_ex(const uint8_t *data, uint16_t data_len,
                                  aes_context *aes_ctx, uint8_t *mac) {
@@ -166,10 +172,13 @@ static yh_rc compute_cryptogram_ex(aes_context *aes_ctx, uint8_t type,
   return YHR_SUCCESS;
 }
 
-static yh_rc compute_cryptogram(const uint8_t *key, uint16_t key_len,
-                                uint8_t type,
-                                const uint8_t context[SCP_CONTEXT_LEN],
-                                uint16_t L, uint8_t *key_out) {
+#ifndef FUZZING
+static
+#endif
+  yh_rc
+  compute_cryptogram(const uint8_t *key, uint16_t key_len, uint8_t type,
+                     const uint8_t context[SCP_CONTEXT_LEN], uint16_t L,
+                     uint8_t *key_out) {
   aes_context aes_ctx = {0};
 
   if (aes_set_key(key, key_len, &aes_ctx)) {
@@ -182,7 +191,11 @@ static yh_rc compute_cryptogram(const uint8_t *key, uint16_t key_len,
   return yrc;
 }
 
-static void increment_ctr(uint8_t *ctr, uint16_t len) {
+#ifndef FUZZING
+static
+#endif
+  void
+  increment_ctr(uint8_t *ctr, uint16_t len) {
 
   while (len > 0) {
     if (++ctr[--len]) {
@@ -4641,7 +4654,14 @@ static yh_rc load_backend(const char *name,
   } else if (strncmp(name, STATIC_HTTP_BACKEND, strlen(STATIC_HTTP_BACKEND)) ==
              0) {
     *bf = http_backend_functions();
-  } else {
+  }
+#ifdef FUZZING
+  else if (strncmp(name, STATIC_FUZZ_BACKEND, strlen(STATIC_FUZZ_BACKEND)) ==
+           0) {
+    *bf = fuzz_backend_functions();
+  }
+#endif
+  else {
     DBG_ERR("Failed finding backend named '%s'", name);
     return YHR_GENERIC_ERROR;
   }
@@ -4806,6 +4826,12 @@ yh_rc yh_init_connector(const char *url, yh_connector **connector) {
     DBG_INFO("Loading http backend");
     load_backend(HTTP_LIB, &backend, &bf);
   }
+#ifdef FUZZING
+  else if (strncmp(url, YH_FUZZ_URL_SCHEME, strlen(YH_FUZZ_URL_SCHEME)) == 0) {
+    DBG_INFO("Loading fuzzing backend");
+    load_backend(STATIC_FUZZ_BACKEND, &backend, &bf);
+  }
+#endif
   if (bf == NULL) {
     DBG_ERR("Failed loading the backend");
     return YHR_GENERIC_ERROR;

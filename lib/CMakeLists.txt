@@ -93,7 +93,13 @@ else(WIN32)
   set(USB_LIBRARY ${LIBUSB_LDFLAGS})
   set(CRYPT_LIBRARY ${LIBCRYPTO_LDFLAGS})
 
-  list(APPEND STATIC_SOURCE yubihsm_libusb.c yubihsm_usb.c yubihsm_curl.c)
+  if(FUZZING)
+    add_executable(fuzz_send_plain_msg ${STATIC_SOURCE} fuzz/fuzz_send_plain_msg.cc fuzz/yubihsm_fuzz.cc)
+    set_target_properties (fuzz_send_plain_msg PROPERTIES COMPILE_FLAGS "-DSTATIC")
+    target_link_libraries (fuzz_send_plain_msg ${CRYPT_LIBRARY} ${ADDITIONAL_LIBRARY})
+  else(FUZZING)
+    list(APPEND STATIC_SOURCE yubihsm_libusb.c yubihsm_usb.c yubihsm_curl.c)
+  endif()
 endif(WIN32)
 
 include_directories (
