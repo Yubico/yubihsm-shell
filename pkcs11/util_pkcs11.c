@@ -5920,7 +5920,12 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
                         CK_ULONG ulCount, yubihsm_pkcs11_session *session) {
 
   CK_RV rv = CKR_OK;
+#ifdef FUZZING
+  // in fuzzing builds make the data buffers smaller
+  CK_BYTE tmp[200] = {0};
+#else
   CK_BYTE tmp[8192] = {0};
+#endif
   for (CK_ULONG i = 0; i < ulCount; i++) {
     DBG_INFO("Getting attribute 0x%lx", pTemplate[i].type);
     CK_ULONG len = sizeof(tmp);
@@ -6037,7 +6042,12 @@ bool match_meta_attributes(yubihsm_pkcs11_session *session,
                            uint16_t cka_id_len, uint8_t *cka_label,
                            uint16_t cka_label_len) {
   CK_RV rv = CKR_OK;
+#ifdef FUZZING
+  // in fuzzing builds make the data buffers smaller
+  CK_BYTE tmp[200] = {0};
+#else
   CK_BYTE tmp[8192] = {0};
+#endif
   CK_ULONG len = sizeof(tmp);
 
   if (cka_id_len > 0) {
