@@ -1218,6 +1218,8 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
     case CKA_SUBJECT:
     case CKA_ISSUER:
     case CKA_SERIAL_NUMBER:
+      *((CK_BYTE_PTR *) value) = NULL;
+      *length = 0;
       break;
 
     default:
