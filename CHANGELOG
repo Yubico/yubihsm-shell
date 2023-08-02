@@ -1,8 +1,18 @@
 === Version 2.4.1
 
+pkcs11: Security update for https://www.yubico.com/support/security-advisories/ysa-2023-08/[YSA-2023-08]
 pkcs11: Allow only a user with access to all the object's domains to edit its attributes
 pkcs11: Allow for the creation of an asymmetric key even if CKA_ID or CKA_LABEL attribute values for the private and public key are different.
 pkcs11: Improve backup capabilities of objects whose attributes have been changed
+pkcs11: Add support for CKA_ALLOWED_MECHANISMS
+pkcs11: Fix CKA_SENSITIVE and CKA_PRIVATE return value for opaque objects
+pkcs11: Add support for CKA_EXTRACTABLE for imported certificates
+pkcs11: Fix regression that only allowed encryption with private keys
+lib: pkcs11: Delay client side MAC check to avoid leaving unauthenticated sessions open
+shell: Fix handling of ED25519 keys
+build: Update release script for Centos7
+build: Fix paths in pkg-config template
+build: Set linker flags by platform
 test: Improve test coverage
 
 === Version 2.4.0
