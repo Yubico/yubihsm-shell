@@ -1,6 +1,6 @@
 === Version 2.4.1
 
-pkcs11: Security update for https://www.yubico.com/support/security-advisories/ysa-2023-08/[YSA-2023-08]
+pkcs11: Security update for https://www.yubico.com/support/security-advisories/ysa-2023-01/[YSA-2023-01]
 pkcs11: Allow only a user with access to all the object's domains to edit its attributes
 pkcs11: Allow for the creation of an asymmetric key even if CKA_ID or CKA_LABEL attribute values for the private and public key are different.
 pkcs11: Improve backup capabilities of objects whose attributes have been changed
