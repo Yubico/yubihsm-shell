@@ -171,7 +171,7 @@ CK_RV get_mechanism_list(yubihsm_pkcs11_slot *slot,
     }
   }
 
-  CK_MECHANISM_TYPE buffer[128]; // NOTE: this is a bit hardcoded, but much more
+  CK_MECHANISM_TYPE buffer[128] = {0}; // NOTE: this is a bit hardcoded, but much more
   // than what we might add below.
   CK_ULONG items = 0;
 
@@ -1632,7 +1632,7 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
 
     case CKA_EC_POINT:
       if (yh_is_ec(object->algorithm)) {
-        uint8_t resp[2048];
+        uint8_t resp[2048] = {0};
         size_t resplen = sizeof(resp);
         yh_rc yrc = yh_util_get_public_key(session->slot->device_session,
                                            object->id, resp, &resplen, NULL);
@@ -1657,7 +1657,7 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
 
     case CKA_MODULUS:
       if (yh_is_rsa(object->algorithm)) {
-        uint8_t resp[2048];
+        uint8_t resp[2048] = {0};
         size_t resp_len = sizeof(resp);
 
         yh_rc yrc = yh_util_get_public_key(session->slot->device_session,
@@ -1699,7 +1699,7 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
 
 static CK_RV load_public_key(yh_session *session, uint16_t id, EVP_PKEY *key) {
 
-  uint8_t data[1024];
+  uint8_t data[1024] = {0};
   size_t data_len = sizeof(data) - 1;
 
   RSA *rsa = NULL;
@@ -1991,7 +1991,7 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
 
     case CKA_EC_POINT:
       if (yh_is_ec(object->algorithm)) {
-        uint8_t resp[2048];
+        uint8_t resp[2048] = {0};
         size_t resplen = sizeof(resp);
 
         yh_rc yrc = yh_util_get_public_key(session->slot->device_session,
@@ -2031,7 +2031,7 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
 
     case CKA_MODULUS:
       if (yh_is_rsa(object->algorithm)) {
-        uint8_t resp[2048];
+        uint8_t resp[2048] = {0};
         size_t resp_len = sizeof(resp);
 
         yh_rc yrc = yh_util_get_public_key(session->slot->device_session,
@@ -2192,7 +2192,7 @@ static CK_RV get_attribute_ecsession_key(CK_ATTRIBUTE_TYPE type,
 CK_RV check_sign_mechanism(yubihsm_pkcs11_slot *slot,
                            CK_MECHANISM_PTR pMechanism) {
 
-  CK_MECHANISM_TYPE mechanisms[128];
+  CK_MECHANISM_TYPE mechanisms[128] = {0};
   CK_ULONG count = 128;
 
   if (is_RSA_sign_mechanism(pMechanism->mechanism) == false &&
@@ -2219,7 +2219,7 @@ CK_RV check_sign_mechanism(yubihsm_pkcs11_slot *slot,
 CK_RV check_decrypt_mechanism(yubihsm_pkcs11_slot *slot,
                               CK_MECHANISM_PTR pMechanism) {
 
-  CK_MECHANISM_TYPE mechanisms[128];
+  CK_MECHANISM_TYPE mechanisms[128] = {0};
   CK_ULONG count = 128;
 
   if (is_RSA_decrypt_mechanism(pMechanism->mechanism) == false &&
@@ -2262,7 +2262,7 @@ CK_RV check_digest_mechanism(CK_MECHANISM_PTR pMechanism) {
 CK_RV check_wrap_mechanism(yubihsm_pkcs11_slot *slot,
                            CK_MECHANISM_PTR pMechanism) {
 
-  CK_MECHANISM_TYPE mechanisms[128];
+  CK_MECHANISM_TYPE mechanisms[128] = {0};
   CK_ULONG count = 128;
 
   if (pMechanism->mechanism != CKM_YUBICO_AES_CCM_WRAP) {
@@ -2789,7 +2789,7 @@ static CK_RV do_aes_encdec(yh_session *session, yubihsm_pkcs11_op_info *op_info,
         }
       } else {
         // `in` and `out` may overlap.
-        uint8_t iv[AES_BLOCK_SIZE];
+        uint8_t iv[AES_BLOCK_SIZE] = {0};
         memcpy(iv, in + in_len - AES_BLOCK_SIZE, AES_BLOCK_SIZE);
         if ((yhr = yh_util_decrypt_aes_cbc(session, op_info->op.encrypt.key_id,
                                            op_info->mechanism.cbc.iv, in,
@@ -2846,7 +2846,7 @@ static CK_RV perform_aes_update(yh_session *session,
   }
 
   // Temporarily store next remainder.
-  uint8_t tmp[AES_BLOCK_SIZE];
+  uint8_t tmp[AES_BLOCK_SIZE] = {0};
   memcpy(tmp, in + in_len - next, next);
   // Move input into place (may overlap).
   memmove(out + prev, in, size - prev);
@@ -2874,7 +2874,7 @@ static CK_RV perform_aes_final(yh_session *session,
                                yubihsm_pkcs11_op_info *op_info, CK_BYTE_PTR out,
                                CK_ULONG_PTR out_len) {
   size_t len = op_info->buffer_length;
-  uint8_t last[AES_BLOCK_SIZE * 2];
+  uint8_t last[AES_BLOCK_SIZE * 2] = {0};
 
   if (op_info->mechanism.mechanism != CKM_AES_CBC_PAD) {
     if (len != 0) {
@@ -3226,7 +3226,7 @@ CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
   } else {
     CK_RV rv;
     EVP_PKEY *key = EVP_PKEY_new();
-    uint8_t md_data[EVP_MAX_MD_SIZE];
+    uint8_t md_data[EVP_MAX_MD_SIZE] = {0};
     uint8_t *md = md_data;
     unsigned int md_len = sizeof(md_data);
     EVP_PKEY_CTX *ctx = NULL;
@@ -3256,7 +3256,7 @@ CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
     }
 
     int res;
-    unsigned char data[2048];
+    unsigned char data[2048] = {0};
     if (is_hashed_mechanism(op_info->mechanism.mechanism)) {
       if (EVP_DigestFinal_ex(op_info->op.verify.md_ctx, md, &md_len) <= 0) {
         rv = CKR_FUNCTION_FAILED;
@@ -5176,7 +5176,7 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
                         CK_ULONG ulCount, yubihsm_pkcs11_session *session) {
 
   CK_RV rv = CKR_OK;
-  CK_BYTE tmp[8192];
+  CK_BYTE tmp[8192] = {0};
   for (CK_ULONG i = 0; i < ulCount; i++) {
     DBG_INFO("Getting attribute 0x%lx", pTemplate[i].type);
     CK_ULONG len = sizeof(tmp);
