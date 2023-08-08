@@ -77,13 +77,8 @@ elif [ "${PLATFORM:0:6}" == "fedora" ]; then
                  libcurl-devel    \
                  rpmdevtools      \
                  pcsc-lite-devel  \
+                 libusb1-devel    \
                  help2man
-
-  if [ $PLATFORM == "fedora37" ]; then
-    dnf -y install libusb1-devel
-  else
-    dnf -y install libusb-devel
-  fi
 
   export CMAKE="cmake"
 fi
