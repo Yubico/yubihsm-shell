@@ -8,10 +8,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - environment: "ubuntu:22.10"
+          - environment: "ubuntu:23.04"
             cc: "gcc"
             upload_for_test: "false"
-          - environment: "ubuntu:22.10"
+          - environment: "ubuntu:23.04"
             cc: "clang"
             upload_for_test: "false"
           - environment: "ubuntu:22.04"
@@ -34,6 +34,12 @@ jobs:
             upload_for_test: "false"
           - environment: "ubuntu:14.04"
             cc: "gcc"
+            upload_for_test: "false"
+          - environment: "debian:12"
+            cc: "gcc"
+            upload_for_test: "false"
+          - environment: "debian:12"
+            cc: "clang"
             upload_for_test: "false"
           - environment: "debian:11"
             cc: "gcc"
@@ -157,16 +163,16 @@ jobs:
       matrix:
         include:
           # we do not perform clang builds for all environments, only fedora
-          - environment: "fedora:37"
+          - environment: "fedora:38"
             cc: "gcc"
             upload_for_test: "false"
-          - environment: "fedora:37"
+          - environment: "fedora:38"
             cc: "clang"
             upload_for_test: "false"
-          - environment: "fedora:36"
+          - environment: "fedora:37"
             cc: "gcc"
             upload_for_test: "false"
-          - environment: "fedora:36"
+          - environment: "fedora:37"
             cc: "clang"
             upload_for_test: "false"
           - environment: "centos:7"
