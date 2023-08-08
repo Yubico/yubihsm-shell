@@ -182,7 +182,6 @@ jobs:
         ]
         # perform gcc builds for all environments
         cc: [ "gcc" ]
-        version_number: [ "2.4.0" ]
 
     name: build on ${{ matrix.environment }}
     runs-on: ubuntu-latest
@@ -278,8 +277,6 @@ jobs:
           rm -rf ../yubihsm-shell
 
       - name: install binaries
-        env:
-          VERSION: ${{ matrix.version_number }}
         run: |
           set -x
           dpkg -i ./libykhsmauth1_*.deb ./libyubihsm-usb1_*.deb ./libyubihsm-http1_*.deb ./libyubihsm1_*.deb  ./yubihsm-shell_*.deb
