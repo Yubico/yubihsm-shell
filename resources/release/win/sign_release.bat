@@ -1,10 +1,9 @@
 SETLOCAL
 
-set CROSSCERT="C:\Program Files (x86)\Windows Kits\10\crosscertificates\DigiCert_High_Assurance_EV_Root_CA.crt"
-set CERTHASH="e3d2c802499e8837c3affdb6ca3c4448497ae317"
+set CERTHASH="107533FA07911D8BB375459B804DABA89CC61E77"
 set CERTHASHSTD="DD86A2E1383B0E4E1C823B606DDBBCC26E1FF82D"
 
-set SIGNCMD=signtool sign /ph /fd "SHA256" /ac %CROSSCERT% /sha1 %CERTHASH% /t "http://timestamp.digicert.com"
+set SIGNCMD=signtool sign /ph /fd "SHA256" /sha1 %CERTHASH% /t "http://timestamp.digicert.com"
 set SIGNCMDSTD=signtool sign /ph /fd "SHA256" /sha1 %CERTHASHSTD% /t "http://timestamp.digicert.com"
 
 rem Sign x64 components
