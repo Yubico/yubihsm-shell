@@ -2463,12 +2463,40 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           memcpy(template_value, pTemplate[i].pValue, template_value_len);
           break;
 
+        case CKA_KEY_TYPE: {
+          uint32_t value = *((CK_ULONG_PTR)(pTemplate[i].pValue));
+          switch (value) {
+            case CKK_YUBICO_AES128_CCM_WRAP:
+            case CKK_YUBICO_AES192_CCM_WRAP:
+            case CKK_YUBICO_AES256_CCM_WRAP:
+              type = YH_WRAP_KEY;
+              break;
+            case CKK_SHA_1_HMAC:
+            case CKK_SHA256_HMAC:
+            case CKK_SHA384_HMAC:
+            case CKK_SHA512_HMAC:
+              type = YH_HMAC_KEY;
+              break;
+            case CKK_AES:
+              type = YH_SYMMETRIC_KEY;
+              break;
+            case CKK_RSA:
+            case CKK_EC:
+              type = YH_ASYMMETRIC_KEY;
+              break;
+            default:
+              unknown = true;
+              DBG_INFO("Asking for unknown key type %x, returning empty set. "
+                       "%x",
+                       (uint32_t) pTemplate[i].type, value);
+          }
+        } break;
+
         case CKA_TOKEN:
         case CKA_PRIVATE:
         case CKA_SENSITIVE:
         case CKA_ALWAYS_SENSITIVE:
         case CKA_DESTROYABLE:
-        case CKA_KEY_TYPE:
         case CKA_APPLICATION:
         case CKA_CERTIFICATE_TYPE:
           DBG_INFO("Got type %x, ignoring it for results",
@@ -2492,7 +2520,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
       yh_object_descriptor
         tmp_objects[YH_MAX_ITEMS_COUNT + MAX_ECDH_SESSION_KEYS] = {0};
       size_t tmp_n_objects = YH_MAX_ITEMS_COUNT + MAX_ECDH_SESSION_KEYS;
-      rc = yh_util_list_objects(session->slot->device_session, 0, 0, domains,
+      rc = yh_util_list_objects(session->slot->device_session, 0, type, domains,
                                 &capabilities, algorithm, label, tmp_objects,
                                 &tmp_n_objects);
       if (rc != YHR_SUCCESS) {
