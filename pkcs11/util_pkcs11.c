@@ -5046,6 +5046,7 @@ CK_RV parse_wrap_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_VERIFY_RECOVER:
       case CKA_DERIVE:
       case CKA_COPYABLE:
+      case CKA_MODIFIABLE:
         if ((rv = check_bool_attribute(pTemplate[i].pValue, false)) != CKR_OK) {
           return rv;
         }
@@ -5129,6 +5130,8 @@ CK_RV parse_aes_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_DERIVE:
       case CKA_SIGN:
       case CKA_VERIFY:
+      case CKA_COPYABLE:
+      case CKA_MODIFIABLE:
         if ((rv = check_bool_attribute(pTemplate[i].pValue, false)) != CKR_OK) {
           DBG_ERR("Boolean false check failed for attribute 0x%lx",
                   pTemplate[i].type);
