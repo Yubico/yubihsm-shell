@@ -2351,23 +2351,24 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
 
         case CKA_CLASS: {
           uint32_t value = *((CK_ULONG_PTR)(pTemplate[i].pValue));
+          uint8_t class_type = 0;
           switch (value) {
             case CKO_CERTIFICATE:
               DBG_INFO("Filtering for certificate");
               algorithm =
                 YH_ALGO_OPAQUE_X509_CERTIFICATE; // TODO: handle other certs?
             case CKO_DATA:
-              type = YH_OPAQUE;
+              class_type = YH_OPAQUE;
               break;
 
             case CKO_PUBLIC_KEY:
               pub = true;
-              type = YH_ASYMMETRIC_KEY;
+              class_type = YH_ASYMMETRIC_KEY;
               break;
 
             case CKO_PRIVATE_KEY:
               session->operation.op.find.only_private = true;
-              type = YH_ASYMMETRIC_KEY;
+              class_type = YH_ASYMMETRIC_KEY;
               break;
 
             case CKO_SECRET_KEY:
@@ -2378,6 +2379,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
               unknown = true;
               DBG_INFO("Asking for unknown class %x, returning empty set. %x",
                        (uint32_t) pTemplate[i].type, value);
+          }
+          if (type == 0) {
+            type = class_type;
+          } else if (class_type != type) {
+            DBG_ERR("Mismatch in attribute values");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
           }
         } break;
         case CKA_LABEL:
@@ -2465,30 +2472,37 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
 
         case CKA_KEY_TYPE: {
           uint32_t value = *((CK_ULONG_PTR)(pTemplate[i].pValue));
+          uint8_t key_type = 0;
           switch (value) {
             case CKK_YUBICO_AES128_CCM_WRAP:
             case CKK_YUBICO_AES192_CCM_WRAP:
             case CKK_YUBICO_AES256_CCM_WRAP:
-              type = YH_WRAP_KEY;
+              key_type = YH_WRAP_KEY;
               break;
             case CKK_SHA_1_HMAC:
             case CKK_SHA256_HMAC:
             case CKK_SHA384_HMAC:
             case CKK_SHA512_HMAC:
-              type = YH_HMAC_KEY;
+              key_type = YH_HMAC_KEY;
               break;
             case CKK_AES:
-              type = YH_SYMMETRIC_KEY;
+              key_type = YH_SYMMETRIC_KEY;
               break;
             case CKK_RSA:
             case CKK_EC:
-              type = YH_ASYMMETRIC_KEY;
+              key_type = YH_ASYMMETRIC_KEY;
               break;
             default:
               unknown = true;
               DBG_INFO("Asking for unknown key type %x, returning empty set. "
                        "%x",
                        (uint32_t) pTemplate[i].type, value);
+          }
+          if (type == 0) {
+            type = key_type;
+          } else if (key_type != type) {
+            DBG_ERR("Mismatch in attribute values");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
           }
         } break;
 
