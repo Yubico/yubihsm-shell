@@ -1245,7 +1245,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
                                 ulPinLen, true, &session->slot->device_session);
     if (yrc != YHR_SUCCESS) {
       DBG_ERR("Failed to create session: %s", yh_strerror(yrc));
-      if (yrc == YHR_CRYPTOGRAM_MISMATCH || yrc == YHR_DEVICE_AUTHENTICATION_FAILED) {
+      if (yrc == YHR_CRYPTOGRAM_MISMATCH ||
+          yrc == YHR_DEVICE_AUTHENTICATION_FAILED) {
         rv = CKR_PIN_INCORRECT;
       } else {
         rv = yrc_to_rv(yrc);
@@ -2401,7 +2402,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
             session->operation.op.find.only_private = true;
             rc =
               yh_string_to_capabilities("decrypt-pkcs,decrypt-oaep,derive-ecdh,"
-                                        "unwrap-data",
+                                        "unwrap-data,decrypt-ecb,decrypt-cbc",
                                         &capabilities);
             if (rc != YHR_SUCCESS) {
               rv = yrc_to_rv(rc);
@@ -2412,8 +2413,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
 
         case CKA_ENCRYPT:
           if (*((CK_BBOOL *) pTemplate[i].pValue) == CK_TRUE) {
-            type = YH_WRAP_KEY;
-            rc = yh_string_to_capabilities("wrap-data", &capabilities);
+            // type = YH_WRAP_KEY;
+            rc = yh_string_to_capabilities("wrap-data,encrypt-ecb,encrypt-cbc",
+                                           &capabilities);
             if (rc != YHR_SUCCESS) {
               rv = yrc_to_rv(rc);
               goto c_foi_out;
