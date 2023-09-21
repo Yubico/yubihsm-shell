@@ -2514,7 +2514,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
                        "%x",
                        (uint32_t) pTemplate[i].type, value);
           }
-          rv = set_object_type(&type, YH_WRAP_KEY);
+          rv = set_object_type(&type, key_type);
           if (rv != CKR_OK) {
             goto c_foi_out;
           }
