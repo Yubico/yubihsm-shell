@@ -2279,6 +2279,18 @@ static bool should_include_sessionkeys(bool is_secret_key, bool extractable_set,
   return true;
 }
 
+static CK_RV set_object_type(uint8_t *type, uint8_t expected_type) {
+  if (*type == 0) {
+    *type = expected_type;
+    return CKR_OK;
+  }
+  if (*type != expected_type) {
+    DBG_ERR("Mismatch in attribute values");
+    return CKR_ATTRIBUTE_VALUE_INVALID;
+  }
+  return CKR_OK;
+}
+
 CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
 (CK_SESSION_HANDLE hSession, CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount) {
 
@@ -2380,11 +2392,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
               DBG_INFO("Asking for unknown class %x, returning empty set. %x",
                        (uint32_t) pTemplate[i].type, value);
           }
-          if (type == 0) {
-            type = class_type;
-          } else if (class_type != type) {
-            DBG_ERR("Mismatch in attribute values");
-            return CKR_ATTRIBUTE_VALUE_INVALID;
+          rv = set_object_type(&type, class_type);
+          if (rv != CKR_OK) {
+            goto c_foi_out;
           }
         } break;
         case CKA_LABEL:
@@ -2431,7 +2441,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
 
         case CKA_WRAP:
           if (*((CK_BBOOL *) pTemplate[i].pValue) == CK_TRUE) {
-            type = YH_WRAP_KEY;
+            rv = set_object_type(&type, YH_WRAP_KEY);
+            if (rv != CKR_OK) {
+              goto c_foi_out;
+            }
             rc = yh_string_to_capabilities("export-wrapped", &capabilities);
             if (rc != YHR_SUCCESS) {
               rv = yrc_to_rv(rc);
@@ -2442,7 +2455,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
 
         case CKA_UNWRAP:
           if (*((CK_BBOOL *) pTemplate[i].pValue) == CK_TRUE) {
-            type = YH_WRAP_KEY;
+            rv = set_object_type(&type, YH_WRAP_KEY);
+            if (rv != CKR_OK) {
+              goto c_foi_out;
+            }
             rc = yh_string_to_capabilities("import-wrapped", &capabilities);
             if (rc != YHR_SUCCESS) {
               rv = yrc_to_rv(rc);
@@ -2498,11 +2514,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
                        "%x",
                        (uint32_t) pTemplate[i].type, value);
           }
-          if (type == 0) {
-            type = key_type;
-          } else if (key_type != type) {
-            DBG_ERR("Mismatch in attribute values");
-            return CKR_ATTRIBUTE_VALUE_INVALID;
+          rv = set_object_type(&type, YH_WRAP_KEY);
+          if (rv != CKR_OK) {
+            goto c_foi_out;
           }
         } break;
 
