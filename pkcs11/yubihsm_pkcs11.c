@@ -2286,7 +2286,7 @@ static CK_RV set_object_type(uint8_t *type, uint8_t expected_type) {
   }
   if (*type != expected_type) {
     DBG_ERR("Mismatch in attribute values");
-    return CKR_ATTRIBUTE_VALUE_INVALID;
+    return CKR_TEMPLATE_INCONSISTENT;
   }
   return CKR_OK;
 }
