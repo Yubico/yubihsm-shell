@@ -2279,6 +2279,18 @@ static bool should_include_sessionkeys(bool is_secret_key, bool extractable_set,
   return true;
 }
 
+static CK_RV set_object_type(uint8_t *type, uint8_t expected_type) {
+  if (*type == 0) {
+    *type = expected_type;
+    return CKR_OK;
+  }
+  if (*type != expected_type) {
+    DBG_ERR("Mismatch in attribute values");
+    return CKR_TEMPLATE_INCONSISTENT;
+  }
+  return CKR_OK;
+}
+
 CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
 (CK_SESSION_HANDLE hSession, CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount) {
 
@@ -2351,23 +2363,24 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
 
         case CKA_CLASS: {
           uint32_t value = *((CK_ULONG_PTR)(pTemplate[i].pValue));
+          uint8_t class_type = 0;
           switch (value) {
             case CKO_CERTIFICATE:
               DBG_INFO("Filtering for certificate");
               algorithm =
                 YH_ALGO_OPAQUE_X509_CERTIFICATE; // TODO: handle other certs?
             case CKO_DATA:
-              type = YH_OPAQUE;
+              class_type = YH_OPAQUE;
               break;
 
             case CKO_PUBLIC_KEY:
               pub = true;
-              type = YH_ASYMMETRIC_KEY;
+              class_type = YH_ASYMMETRIC_KEY;
               break;
 
             case CKO_PRIVATE_KEY:
               session->operation.op.find.only_private = true;
-              type = YH_ASYMMETRIC_KEY;
+              class_type = YH_ASYMMETRIC_KEY;
               break;
 
             case CKO_SECRET_KEY:
@@ -2378,6 +2391,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
               unknown = true;
               DBG_INFO("Asking for unknown class %x, returning empty set. %x",
                        (uint32_t) pTemplate[i].type, value);
+          }
+          rv = set_object_type(&type, class_type);
+          if (rv != CKR_OK) {
+            goto c_foi_out;
           }
         } break;
         case CKA_LABEL:
@@ -2424,7 +2441,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
 
         case CKA_WRAP:
           if (*((CK_BBOOL *) pTemplate[i].pValue) == CK_TRUE) {
-            type = YH_WRAP_KEY;
+            rv = set_object_type(&type, YH_WRAP_KEY);
+            if (rv != CKR_OK) {
+              goto c_foi_out;
+            }
             rc = yh_string_to_capabilities("export-wrapped", &capabilities);
             if (rc != YHR_SUCCESS) {
               rv = yrc_to_rv(rc);
@@ -2435,7 +2455,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
 
         case CKA_UNWRAP:
           if (*((CK_BBOOL *) pTemplate[i].pValue) == CK_TRUE) {
-            type = YH_WRAP_KEY;
+            rv = set_object_type(&type, YH_WRAP_KEY);
+            if (rv != CKR_OK) {
+              goto c_foi_out;
+            }
             rc = yh_string_to_capabilities("import-wrapped", &capabilities);
             if (rc != YHR_SUCCESS) {
               rv = yrc_to_rv(rc);
@@ -2463,12 +2486,45 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           memcpy(template_value, pTemplate[i].pValue, template_value_len);
           break;
 
+        case CKA_KEY_TYPE: {
+          uint32_t value = *((CK_ULONG_PTR)(pTemplate[i].pValue));
+          uint8_t key_type = 0;
+          switch (value) {
+            case CKK_YUBICO_AES128_CCM_WRAP:
+            case CKK_YUBICO_AES192_CCM_WRAP:
+            case CKK_YUBICO_AES256_CCM_WRAP:
+              key_type = YH_WRAP_KEY;
+              break;
+            case CKK_SHA_1_HMAC:
+            case CKK_SHA256_HMAC:
+            case CKK_SHA384_HMAC:
+            case CKK_SHA512_HMAC:
+              key_type = YH_HMAC_KEY;
+              break;
+            case CKK_AES:
+              key_type = YH_SYMMETRIC_KEY;
+              break;
+            case CKK_RSA:
+            case CKK_EC:
+              key_type = YH_ASYMMETRIC_KEY;
+              break;
+            default:
+              unknown = true;
+              DBG_INFO("Asking for unknown key type %x, returning empty set. "
+                       "%x",
+                       (uint32_t) pTemplate[i].type, value);
+          }
+          rv = set_object_type(&type, key_type);
+          if (rv != CKR_OK) {
+            goto c_foi_out;
+          }
+        } break;
+
         case CKA_TOKEN:
         case CKA_PRIVATE:
         case CKA_SENSITIVE:
         case CKA_ALWAYS_SENSITIVE:
         case CKA_DESTROYABLE:
-        case CKA_KEY_TYPE:
         case CKA_APPLICATION:
         case CKA_CERTIFICATE_TYPE:
           DBG_INFO("Got type %x, ignoring it for results",
@@ -2492,7 +2548,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
       yh_object_descriptor
         tmp_objects[YH_MAX_ITEMS_COUNT + MAX_ECDH_SESSION_KEYS] = {0};
       size_t tmp_n_objects = YH_MAX_ITEMS_COUNT + MAX_ECDH_SESSION_KEYS;
-      rc = yh_util_list_objects(session->slot->device_session, 0, 0, domains,
+      rc = yh_util_list_objects(session->slot->device_session, 0, type, domains,
                                 &capabilities, algorithm, label, tmp_objects,
                                 &tmp_n_objects);
       if (rc != YHR_SUCCESS) {
