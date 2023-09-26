@@ -17,15 +17,14 @@
 #undef NDEBUG
 #endif
 #include <assert.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <openssl/rand.h>
+#include <openssl/bn.h>
 #include <openssl/rsa.h>
+#include <openssl/rand.h>
 #include <openssl/ec.h>
 #include <openssl/x509.h>
-#include <openssl/bn.h>
 
 #include "../pkcs11.h"
 #include "common.h"
@@ -120,13 +119,13 @@ static void import_ec_key(CK_OBJECT_HANDLE_PTR publicKeyPtr,
                           char *label_public, char *label_private) {
 
   int curve = NID_secp384r1;
-  CK_ULONG key_len = 48;
+  int key_len = 48;
 
   CK_ULONG class_k = CKO_PRIVATE_KEY;
   CK_ULONG class_c = CKO_CERTIFICATE;
   CK_ULONG kt = CKK_EC;
   CK_BYTE value_c[3100] = {0};
-  CK_CHAR *pvt = malloc(48);
+  CK_BYTE *pvt = malloc(48);
 
   CK_ATTRIBUTE privateKeyTemplate[] =
     {{CKA_CLASS, &class_k, sizeof(class_k)},
@@ -235,65 +234,6 @@ static void import_rsa_key(CK_OBJECT_HANDLE_PTR publicKeyPtr,
                            CK_BYTE *ckaid_public, CK_ULONG ckaid_public_len,
                            CK_BYTE *ckaid_private, CK_ULONG ckaid_private_len,
                            char *label_public, char *label_private) {
-
-  /*
-    CK_BYTE e[] = {0x01, 0x00, 0x01};
-    CK_BYTE *p, *q, *dp, *dq, *qinv;
-    int keylen = 2048;
-    int len = keylen / 16;
-    p = malloc(len);
-    q = malloc(len);
-    dp = malloc(len);
-    dq = malloc(len);
-    qinv = malloc(len);
-
-    EVP_PKEY *evp = EVP_PKEY_new();
-    RSA *rsak = RSA_new();
-    BIGNUM *e_bn;
-    CK_ULONG class_k = CKO_PRIVATE_KEY;
-    CK_ULONG kt = CKK_RSA;
-    const BIGNUM *bp, *bq, *biqmp, *bdmp1, *bdmq1;
-
-    // unsigned char  *px;
-    CK_BBOOL dec_capability = CK_TRUE;
-
-    CK_ATTRIBUTE privateKeyTemplate[] = {{CKA_CLASS, &class_k, sizeof(class_k)},
-                                         {CKA_KEY_TYPE, &kt, sizeof(kt)},
-                                         {CKA_ID, ckaid, ckaid_len},
-                                         {CKA_LABEL, label, strlen(label)},
-                                         {CKA_PUBLIC_EXPONENT, e, sizeof(e)},
-                                         {CKA_PRIME_1, p, len},
-                                         {CKA_PRIME_2, q, len},
-                                         {CKA_EXPONENT_1, dp, len},
-                                         {CKA_EXPONENT_2, dq, len},
-                                         {CKA_COEFFICIENT, qinv, len}};
-    e_bn = BN_bin2bn(e, 3, NULL);
-    if (e_bn == NULL)
-      exit(EXIT_FAILURE);
-
-    assert(RSA_generate_key_ex(rsak, keylen, e_bn, NULL) == 1);
-
-    RSA_get0_factors(rsak, &bp, &bq);
-    RSA_get0_crt_params(rsak, &bdmp1, &bdmq1, &biqmp);
-    BN_bn2binpad(bp, p, len);
-    BN_bn2binpad(bq, q, len);
-    BN_bn2binpad(bdmp1, dp, len);
-    BN_bn2binpad(bdmq1, dq, len);
-    BN_bn2binpad(biqmp, qinv, len);
-
-    if (EVP_PKEY_set1_RSA(evp, rsak) == 0)
-      exit(EXIT_FAILURE);
-
-    assert(p11->C_CreateObject(session, privateKeyTemplate, 9, keyid) ==
-    CKR_OK);
-
-    BN_free(e_bn);
-    free(p);
-    free(q);
-    free(dp);
-    free(dq);
-    free(qinv);
-    */
 
   int keylen = 2048;
   int len = keylen / 16;
