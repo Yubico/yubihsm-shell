@@ -20,8 +20,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <openssl/bn.h>
-#include <openssl/rsa.h>
 #include <openssl/rand.h>
 #include <openssl/ec.h>
 #include <openssl/x509.h>
@@ -119,13 +117,13 @@ static void import_ec_key(CK_OBJECT_HANDLE_PTR publicKeyPtr,
                           char *label_public, char *label_private) {
 
   int curve = NID_secp384r1;
-  int key_len = 48;
+  CK_ULONG key_len = 48;
 
   CK_ULONG class_k = CKO_PRIVATE_KEY;
   CK_ULONG class_c = CKO_CERTIFICATE;
   CK_ULONG kt = CKK_EC;
   CK_BYTE value_c[3100] = {0};
-  CK_BYTE *pvt = malloc(48);
+  CK_CHAR *pvt = malloc(48);
 
   CK_ATTRIBUTE privateKeyTemplate[] =
     {{CKA_CLASS, &class_k, sizeof(class_k)},
