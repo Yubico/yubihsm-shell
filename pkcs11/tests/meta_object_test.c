@@ -22,9 +22,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <openssl/rand.h>
+#include <openssl/rsa.h>
 #include <openssl/ec.h>
 #include <openssl/x509.h>
-#include <openssl/err.h>
+#include <openssl/bn.h>
 
 #include "../pkcs11.h"
 #include "common.h"
