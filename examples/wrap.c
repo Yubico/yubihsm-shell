@@ -67,7 +67,7 @@ int main(void) {
   assert(yrc == YHR_SUCCESS);
 
   yh_capabilities delegated_capabilities = {{0}};
-  yrc = yh_string_to_capabilities("sign-ecdsa:exportable-under-wrap",
+  yrc = yh_string_to_capabilities("sign-ecdsa:sign-eddsa:sign-pkcs:sign-pss:exportable-under-wrap",
                                   &delegated_capabilities); // delegated
                                                             // capabilities has
                                                             // to match the
@@ -90,7 +90,7 @@ int main(void) {
   printf("Generated wrapping key with ID %04x\n", wrapping_key_id);
 
   memset(capabilities.capabilities, 0, YH_CAPABILITIES_LEN);
-  yrc = yh_string_to_capabilities("sign-ecdsa:exportable-under-wrap",
+  yrc = yh_string_to_capabilities("sign-ecdsa:sign-eddsa:sign-pkcs:sign-pss:exportable-under-wrap",
                                   &capabilities);
   assert(yrc == YHR_SUCCESS);
 
@@ -101,7 +101,7 @@ int main(void) {
 
   printf("Generated ec key with ID %04x\n", key_id_before);
 
-  uint8_t public_key_before[512];
+  uint8_t public_key_before[1024];
   size_t public_key_before_len = sizeof(public_key_before);
   yrc = yh_util_get_public_key(session, key_id_before, public_key_before,
                                &public_key_before_len, NULL);
@@ -113,7 +113,7 @@ int main(void) {
   }
   printf("\n");
 
-  uint8_t wrapped_object[512];
+  uint8_t wrapped_object[2048];
   size_t wrapped_object_len = sizeof(wrapped_object);
   yh_object_type object_type_after;
   yrc =
@@ -132,7 +132,7 @@ int main(void) {
 
   printf("Successfully deleted ec key with ID %04x\n", key_id_before);
 
-  uint8_t public_key_after[512];
+  uint8_t public_key_after[1024];
   size_t public_key_after_len = sizeof(public_key_after);
   yrc = yh_util_get_public_key(session, key_id_before, public_key_after,
                                &public_key_after_len, NULL);
@@ -183,6 +183,187 @@ int main(void) {
   yrc =
     yh_util_get_object_info(session, key_id_after, YH_ASYMMETRIC_KEY, &object);
   assert(yrc == YHR_SUCCESS);
+
+  yrc = yh_util_delete_object(session, key_id_after, YH_ASYMMETRIC_KEY);
+  assert(yrc == YHR_SUCCESS);
+
+  printf("Successfully deleted ec key with ID %04x\n", key_id_after);
+
+  key_id_before = 0;
+  yrc = yh_util_generate_ed_key(session, &key_id_before, key_label, domain_five,
+                                &capabilities, YH_ALGO_EC_ED25519);
+  assert(yrc == YHR_SUCCESS);
+
+  printf("Generated ed25519 key with ID %04x\n", key_id_before);
+
+  public_key_before_len = sizeof(public_key_before);
+  yrc = yh_util_get_public_key(session, key_id_before, public_key_before,
+                               &public_key_before_len, NULL);
+  assert(yrc == YHR_SUCCESS);
+
+  printf("Public key before (%zu bytes) is:", public_key_before_len);
+  for (unsigned int i = 0; i < public_key_before_len; i++) {
+    printf(" %02x", public_key_before[i]);
+  }
+  printf("\n");
+
+  wrapped_object_len = sizeof(wrapped_object);
+  yrc =
+    yh_util_export_wrapped(session, wrapping_key_id, YH_ASYMMETRIC_KEY,
+                           key_id_before, wrapped_object, &wrapped_object_len);
+  assert(yrc == YHR_SUCCESS);
+
+  printf("Wrapped object (%zu bytes) is:", wrapped_object_len);
+  for (unsigned int i = 0; i < wrapped_object_len; i++) {
+    printf(" %02x", wrapped_object[i]);
+  }
+  printf("\n");
+
+  yrc = yh_util_delete_object(session, key_id_before, YH_ASYMMETRIC_KEY);
+  assert(yrc == YHR_SUCCESS);
+
+  printf("Successfully deleted ed25519 key with ID %04x\n", key_id_before);
+
+  public_key_after_len = sizeof(public_key_after);
+  yrc = yh_util_get_public_key(session, key_id_before, public_key_after,
+                               &public_key_after_len, NULL);
+  assert(yrc == YHR_DEVICE_OBJECT_NOT_FOUND);
+
+  printf("Unable to get public key for ed25519 key with ID %04x\n", key_id_before);
+
+  yrc = yh_util_import_wrapped(session, wrapping_key_id, wrapped_object,
+                               wrapped_object_len, &object_type_after,
+                               &key_id_after);
+  assert(yrc == YHR_SUCCESS);
+
+  printf("Successfully imported wrapped object with ID %04x\n", key_id_after);
+
+  if (object_type_after != YH_ASYMMETRIC_KEY) {
+    printf("Unexpected odbject type\n");
+    exit(EXIT_FAILURE);
+  }
+
+  if (key_id_before != key_id_after) {
+    printf("ID %04x and %04x do not match\n", key_id_before, key_id_after);
+    exit(EXIT_FAILURE);
+  } else {
+    printf("ID %04x and %04x match\n", key_id_before, key_id_after);
+  }
+
+  yrc = yh_util_get_public_key(session, key_id_after, public_key_after,
+                               &public_key_after_len, NULL);
+  assert(yrc == YHR_SUCCESS);
+
+  printf("Public key after (%zu bytes) is:", public_key_after_len);
+  for (unsigned int i = 0; i < public_key_after_len; i++) {
+    printf(" %02x", public_key_after[i]);
+  }
+  printf("\n");
+
+  if (public_key_before_len != public_key_after_len ||
+      memcmp(public_key_before, public_key_after, public_key_before_len) != 0) {
+    printf("Public key before and after do not match\n");
+    exit(EXIT_FAILURE);
+  } else {
+    printf("Public key before and after match\n");
+  }
+
+  yrc =
+    yh_util_get_object_info(session, key_id_after, YH_ASYMMETRIC_KEY, &object);
+  assert(yrc == YHR_SUCCESS);
+
+  yrc = yh_util_delete_object(session, key_id_after, YH_ASYMMETRIC_KEY);
+  assert(yrc == YHR_SUCCESS);
+
+  printf("Successfully deleted ed25519 key with ID %04x\n", key_id_after);
+
+  key_id_before = 0;
+  yrc = yh_util_generate_rsa_key(session, &key_id_before, key_label, domain_five,
+                                &capabilities, YH_ALGO_RSA_2048);
+  assert(yrc == YHR_SUCCESS);
+
+  printf("Generated 2048 bir RSA key with ID %04x\n", key_id_before);
+
+  public_key_before_len = sizeof(public_key_before);
+  yrc = yh_util_get_public_key(session, key_id_before, public_key_before,
+                               &public_key_before_len, NULL);
+  assert(yrc == YHR_SUCCESS);
+
+  printf("Public key before (%zu bytes) is:", public_key_before_len);
+  for (unsigned int i = 0; i < public_key_before_len; i++) {
+    printf(" %02x", public_key_before[i]);
+  }
+  printf("\n");
+
+  wrapped_object_len = sizeof(wrapped_object);
+  yrc =
+    yh_util_export_wrapped(session, wrapping_key_id, YH_ASYMMETRIC_KEY,
+                           key_id_before, wrapped_object, &wrapped_object_len);
+  assert(yrc == YHR_SUCCESS);
+
+  printf("Wrapped object (%zu bytes) is:", wrapped_object_len);
+  for (unsigned int i = 0; i < wrapped_object_len; i++) {
+    printf(" %02x", wrapped_object[i]);
+  }
+  printf("\n");
+
+  yrc = yh_util_delete_object(session, key_id_before, YH_ASYMMETRIC_KEY);
+  assert(yrc == YHR_SUCCESS);
+
+  printf("Successfully deleted RSA key with ID %04x\n", key_id_before);
+
+  public_key_after_len = sizeof(public_key_after);
+  yrc = yh_util_get_public_key(session, key_id_before, public_key_after,
+                               &public_key_after_len, NULL);
+  assert(yrc == YHR_DEVICE_OBJECT_NOT_FOUND);
+
+  printf("Unable to get public key for RSA key with ID %04x\n", key_id_before);
+
+  yrc = yh_util_import_wrapped(session, wrapping_key_id, wrapped_object,
+                               wrapped_object_len, &object_type_after,
+                               &key_id_after);
+  assert(yrc == YHR_SUCCESS);
+
+  printf("Successfully imported wrapped object with ID %04x\n", key_id_after);
+
+  if (object_type_after != YH_ASYMMETRIC_KEY) {
+    printf("Unexpected odbject type\n");
+    exit(EXIT_FAILURE);
+  }
+
+  if (key_id_before != key_id_after) {
+    printf("ID %04x and %04x do not match\n", key_id_before, key_id_after);
+    exit(EXIT_FAILURE);
+  } else {
+    printf("ID %04x and %04x match\n", key_id_before, key_id_after);
+  }
+
+  yrc = yh_util_get_public_key(session, key_id_after, public_key_after,
+                               &public_key_after_len, NULL);
+  assert(yrc == YHR_SUCCESS);
+
+  printf("Public key after (%zu bytes) is:", public_key_after_len);
+  for (unsigned int i = 0; i < public_key_after_len; i++) {
+    printf(" %02x", public_key_after[i]);
+  }
+  printf("\n");
+
+  if (public_key_before_len != public_key_after_len ||
+      memcmp(public_key_before, public_key_after, public_key_before_len) != 0) {
+    printf("Public key before and after do not match\n");
+    exit(EXIT_FAILURE);
+  } else {
+    printf("Public key before and after match\n");
+  }
+
+  yrc =
+    yh_util_get_object_info(session, key_id_after, YH_ASYMMETRIC_KEY, &object);
+  assert(yrc == YHR_SUCCESS);
+
+  yrc = yh_util_delete_object(session, key_id_after, YH_ASYMMETRIC_KEY);
+  assert(yrc == YHR_SUCCESS);
+
+  printf("Successfully deleted RSA key with ID %04x\n", key_id_after);
 
   yrc = yh_util_close_session(session);
   assert(yrc == YHR_SUCCESS);
