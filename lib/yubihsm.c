@@ -4648,14 +4648,16 @@ static yh_rc load_backend(const char *name,
   if (name == NULL) {
     DBG_ERR("No name given to load_backend");
     return YHR_GENERIC_ERROR;
-  } else if (strncmp(name, STATIC_USB_BACKEND, strlen(STATIC_USB_BACKEND)) ==
+  }
+#ifndef FUZZING
+  else if (strncmp(name, STATIC_USB_BACKEND, strlen(STATIC_USB_BACKEND)) ==
              0) {
     *bf = usb_backend_functions();
   } else if (strncmp(name, STATIC_HTTP_BACKEND, strlen(STATIC_HTTP_BACKEND)) ==
              0) {
     *bf = http_backend_functions();
   }
-#ifdef FUZZING
+#else
   else if (strncmp(name, STATIC_FUZZ_BACKEND, strlen(STATIC_FUZZ_BACKEND)) ==
            0) {
     *bf = fuzz_backend_functions();
