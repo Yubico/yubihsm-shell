@@ -3,11 +3,13 @@
 
 extern "C" {
 #include "yubihsm.h"
+
+uint8_t *backend_data;
+size_t backend_data_len;
 }
 
 #include "../src/fuzz/fuzzer.h"
 
-FuzzedDataProvider *fuzz_data;
 yh_connector *connector;
 
 static bool initialize() {
@@ -18,7 +20,7 @@ static bool initialize() {
   return true;
 }
 
-extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+extern "C" int LLVMFuzzerTestOneInput(uint8_t *data, size_t size) {
   static bool is_initialized = initialize();
 
   if (size < 2) {
@@ -27,7 +29,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   size_t data_len = data[0];
   size_t response_len = data[1];
 
-  fuzz_data = new FuzzedDataProvider(data + 2, size - 2);
+  backend_data = data + 2;
+  backend_data_len = size - 2;
 
   uint8_t *hsm_data = new uint8_t[data_len];
   uint8_t *response = new uint8_t[response_len];
@@ -36,9 +39,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   yh_send_plain_msg(connector, YHC_ECHO, hsm_data, data_len, &response_cmd,
                     response, &response_len);
 
-  delete hsm_data;
-  delete response;
-  delete fuzz_data;
+  delete[] hsm_data;
+  delete[] response;
 
   return 0;
 }

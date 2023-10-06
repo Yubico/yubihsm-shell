@@ -32,7 +32,6 @@ extern "C" {
 #include "../aes_cmac/aes_cmac.h"
 }
 
-#include <vector>
 #include "../src/fuzz/fuzzer.h"
 
 static void process_msg(Msg *msg, Msg *response);
@@ -325,18 +324,22 @@ static void process_msg(Msg *msg, Msg *response) {
        * here put some fuzzer data which gets decrypted and processed on the
        * host side
        */
-      std::vector<uint8_t> size_byte = fuzz_data->ConsumeBytes<uint8_t>(1);
+      uint8_t size_byte = 0;
+      if (backend_data_len > 0) {
+        size_byte = backend_data[0];
+        backend_data += 1;
+        backend_data_len -= 1;
+      }
 
-      if (size_byte.empty()) {
-        response->st.len = 0;
-      } else if (size_byte[0] > SCP_MSG_BUF_SIZE - 32) {
+      if (size_byte > SCP_MSG_BUF_SIZE - 32) {
         response->st.len = 0;
       } else {
-        vector<uint8_t> bytes = fuzz_data->ConsumeBytes<uint8_t>(size_byte[0]);
-        response->st.len = bytes.size();
-        if (!bytes.empty()) {
-          memcpy(response->st.data, bytes.data(), response->st.len);
+        if (size_byte > backend_data_len) {
+          size_byte = backend_data_len;
         }
+        memcpy(response->st.data, backend_data, size_byte);
+        backend_data += size_byte;
+        backend_data_len -= size_byte;
       }
       break;
   }

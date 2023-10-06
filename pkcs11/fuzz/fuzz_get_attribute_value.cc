@@ -1,6 +1,5 @@
 #include <assert.h>
 #include <string.h>
-#include <fuzzer/FuzzedDataProvider.h>
 
 #include <openssl/ec.h>
 #include <openssl/x509.h>
@@ -8,10 +7,13 @@
 #include "../src/fuzz/fuzzer.h"
 
 extern "C" {
-#include "../yubihsm_pkcs11.h"
+#include "pkcs11.h"
+#include "yubihsm_pkcs11.h"
+
+uint8_t *backend_data;
+size_t backend_data_len;
 }
 
-FuzzedDataProvider *fuzz_data;
 yh_connector *connector;
 CK_FUNCTION_LIST_PTR p11;
 CK_SESSION_HANDLE session;
@@ -86,7 +88,7 @@ typedef struct {
   CK_ULONG attribute_count;
 } test_case_t;
 
-extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+extern "C" int LLVMFuzzerTestOneInput(uint8_t *data, size_t size) {
   static bool is_initialized = initialize();
 
   test_case_t test_case;
@@ -109,6 +111,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   }
   memcpy(&test_case, data, sizeof(test_case));
 
+  data += sizeof(test_case);
+  size -= sizeof(test_case);
+
   if (test_case.ecdh_key_count > 10) {
     return 0;
   }
@@ -116,9 +121,6 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   if (test_case.attribute_count > 10) {
     return 0;
   }
-
-  fuzz_data = new FuzzedDataProvider(data + sizeof(test_case_t),
-                                     size - sizeof(test_case_t));
 
   CK_ATTRIBUTE_PTR attribute_array =
     new CK_ATTRIBUTE[test_case.attribute_count];
@@ -178,11 +180,23 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   }
 
   for (int i = 0; i < test_case.attribute_count; i++) {
-    unsigned long ulValueLen = fuzz_data->ConsumeIntegralInRange(0, 20);
-    attribute_array[i].type = fuzz_data->ConsumeIntegral<unsigned long>();
+    unsigned long ulValueLen = 0;
+    if (size > 0) {
+      ulValueLen = data[0];
+      data += 1;
+      size -= 1;
+    }
+    if (size >= sizeof(unsigned long)) {
+      memcpy(&attribute_array[i].type, data, sizeof(unsigned long));
+      data += sizeof(unsigned long);
+      size -= sizeof(unsigned long);
+    }
     attribute_array[i].pValue = new uint8_t[ulValueLen];
     attribute_array[i].ulValueLen = ulValueLen;
   }
+
+  backend_data = data;
+  backend_data_len = size;
 
   p11->C_GetAttributeValue(session, test_case.obj_handle, attribute_array,
                            test_case.attribute_count);
@@ -192,9 +206,6 @@ harness_out:
   assert(rv == CKR_OK);
   rv = p11->C_CloseSession(session);
   assert(rv == CKR_OK);
-
-  delete fuzz_data;
-  fuzz_data = NULL;
 
   for (int i = 0; i < test_case.attribute_count; i++) {
     if (attribute_array[i].pValue != NULL) {
