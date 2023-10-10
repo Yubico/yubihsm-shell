@@ -32,7 +32,7 @@ extern "C" {
 #include "../aes_cmac/aes_cmac.h"
 }
 
-#include "../src/fuzz/fuzzer.h"
+#include "yubihsm_fuzz.h"
 
 static void process_msg(Msg *msg, Msg *response);
 static bool compute_mac(Scp_ctx *s, uint8_t *key, Msg *msg, size_t raw_msg_len,

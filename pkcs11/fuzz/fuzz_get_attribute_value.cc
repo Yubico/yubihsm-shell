@@ -4,7 +4,7 @@
 #include <openssl/ec.h>
 #include <openssl/x509.h>
 
-#include "../src/fuzz/fuzzer.h"
+#include "yubihsm_fuzz.h"
 
 extern "C" {
 #include "pkcs11.h"

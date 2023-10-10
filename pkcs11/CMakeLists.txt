@@ -102,6 +102,9 @@ install(FILES pkcs11y.h DESTINATION "${YUBIHSM_INSTALL_INC_DIR}/pkcs11")
 add_subdirectory (tests)
 
 if (FUZZING)
+    include_directories(
+        ../lib/fuzz
+    )
     add_executable(fuzz_get_attribute_value
         # harness sources
         fuzz/fuzz_get_attribute_value.cc

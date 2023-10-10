@@ -8,7 +8,7 @@ uint8_t *backend_data;
 size_t backend_data_len;
 }
 
-#include "../src/fuzz/fuzzer.h"
+#include "yubihsm_fuzz.h"
 
 yh_connector *connector;
 
