@@ -1,0 +1,85 @@
+FROM ubuntu:23.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt -y -q update
+RUN apt -y -q install llvm-16 clang-16 lld-16
+RUN apt -y -q install cargo rustc
+
+RUN apt -y -q install build-essential cmake ninja-build pkg-config git
+
+RUN mkdir /llvm-msan
+WORKDIR /llvm-msan
+
+RUN git clone -b llvmorg-16.0.6 --depth 1 https://github.com/llvm/llvm-project.git
+WORKDIR /llvm-msan/llvm-project
+
+RUN cmake -GNinja -S llvm -B build-llvm                                     \
+    -DCMAKE_C_COMPILER=clang-16                                             \
+    -DCMAKE_CXX_COMPILER=clang++-16                                         \
+    -DLLVM_USE_LINKER=lld-16                                                \
+    -DCMAKE_BUILD_TYPE=Release                                              \
+    -DLLVM_ENABLE_PROJECTS="clang;lld;clang-tools-extra"                    \
+    -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;compiler-rt;libunwind"         \
+    -DLLVM_INSTALL_TOOLCHAIN_ONLY=YES                                       \
+    -DLLVM_TARGETS_TO_BUILD="X86"                                           \
+    -DCMAKE_INSTALL_PREFIX="/llvm-msan/install"                             \
+    -DLLVM_ENABLE_LLVM_LIBC=YES                                             \
+    -DLLVM_ENABLE_LIBCXX=YES
+
+RUN cmake --build build-llvm
+RUN cmake --install build-llvm
+
+RUN cmake -GNinja -S runtimes -B build-runtimes-msan                        \
+    -DCMAKE_C_COMPILER=/llvm-msan/install/bin/clang                         \
+    -DCMAKE_CXX_COMPILER=/llvm-msan/install/bin/clang++                     \
+    -DLLVM_USE_LINKER=/llvm-msan/install/bin/ld.lld                         \
+    -DCMAKE_BUILD_TYPE=Release                                              \
+    -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;compiler-rt;libunwind"         \
+    -DLLVM_USE_SANITIZER=MemoryWithOrigins                                  \
+    -DLLVM_TARGETS_TO_BUILD="X86"                                           \
+    -DCMAKE_INSTALL_PREFIX="/llvm-msan/install-runtimes-msan"               \
+    -DLLVM_ENABLE_LLVM_LIBC=YES                                             \
+    -DLLVM_ENABLE_LIBCXX=YES
+
+RUN cmake --build build-runtimes-msan
+RUN cmake --install build-runtimes-msan
+
+ENV CC=/llvm-msan/install/bin/clang
+ENV CXX=/llvm-msan/install/bin/clang++
+
+ENV CCFLAGS="-fsanitize=memory -stdlib=libc++ -fuse-ld=/llvm-msan/install/bin/ld.lld -I/llvm-msan/install/include -I/llvm-msan/install/include/c++/v1 -I/llvm-msan/install/include/c++/v1/"
+ENV CXXFLAGS="-fsanitize=memory -stdlib=libc++ -fuse-ld=/llvm-msan/install/bin/ld.lld -I/llvm-msan/install/include -I/llvm-msan/install/include/c++/v1 -I/llvm-msan/install/include/c++/v1/"
+ENV LDFLAGS="-fsanitize=memory -stdlib=libc++ -lc++abi -lc++ -L/llvm-msan/install-runtimes-msan/lib"
+
+RUN mkdir /openssl-msan
+WORKDIR /openssl-msan
+
+RUN git clone -b openssl-3.0.10 --depth 1 https://github.com/openssl/openssl.git
+WORKDIR /openssl-msan/openssl
+
+RUN ./config --debug no-tests                                               \
+        -fsanitize=memory                                                   \
+        -stdlib=libc++ -L/llvm-msan/install-runtimes-msan/lib               \
+        -I/llvm-msan/install-runtimes-msan/include                          \
+        -I/llvm-msan/install-runtimes-msan/include/c++/v1                   \
+        --prefix=/openssl-msan/install                                      \
+        --openssldir=/openssl-msan/work                                     \
+        --libdir=lib                                                        \
+        no-asm
+RUN make -j6 LDCMD="${CXX} ${CXXFLAGS} ${LDFLAGS}"
+RUN make install_sw
+
+ENV PKG_CONFIG_PATH=/openssl-msan/install/lib/pkgconfig
+
+RUN apt -y -q install libedit-dev libcurl4-openssl-dev libusb-1.0-0-dev libpcsclite-dev
+RUN apt -y -q install gengetopt help2man
+
+ENV CCFLAGS="${CCFLAGS} -Wno-error=unused-command-line-argument -Wno-error=unused-variable -Wno-error=missing-prototypes"
+ENV CXXFLAGS="${CXXFLAGS} -Wno-error=unused-command-line-argument -Wno-error=unused-variable -Wno-error=missing-prototypes"
+
+ENV MSAN_SYMBOLIZER_PATH=/llvm-msan/install/bin/llvm-symbolizer
+ENV MSAN_OPTIONS="symbolize=1 symbol_line=1"
+
+#cmake -DFUZZING=ON -DFUZZING_MSAN=ON -DWITHOUT_MANPAGES=ON -DDISABLE_LTO=ON -DENABLE_STATIC=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -B build-msan
+#ENV LD_LIBRARY_PATH=/llvm-msan/install-runtimes-msan/lib:/openssl-msan/install/lib
