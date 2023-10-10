@@ -105,6 +105,7 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t *data, size_t size) {
   CK_RV rv;
   CK_ATTRIBUTE derivedKeyTemplate[3];
   CK_OBJECT_HANDLE ecdh;
+  char pin[] = "0000";
 
   if (size < sizeof(test_case_t)) {
     return 0;
@@ -134,8 +135,8 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t *data, size_t size) {
                           &session);
   assert(rv == CKR_OK);
   rv = p11->C_Login(session, CKU_USER,
-                    (CK_UTF8CHAR_PTR) "0000" FUZZ_BACKEND_PASSWORD,
-                    (CK_ULONG) strlen("0000" FUZZ_BACKEND_PASSWORD));
+                    (CK_UTF8CHAR_PTR) strcat(pin, FUZZ_BACKEND_PASSWORD),
+                    (CK_ULONG) strlen(strcat(pin, FUZZ_BACKEND_PASSWORD)));
   assert(rv == CKR_OK);
 
   /* part of the implementation for C_GetAttributeValue applies to ECDH keys
@@ -179,7 +180,7 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t *data, size_t size) {
                      &ecdh);
   }
 
-  for (int i = 0; i < test_case.attribute_count; i++) {
+  for (unsigned int i = 0; i < test_case.attribute_count; i++) {
     unsigned long ulValueLen = 0;
     if (size > 0) {
       ulValueLen = data[0];
@@ -207,7 +208,7 @@ harness_out:
   rv = p11->C_CloseSession(session);
   assert(rv == CKR_OK);
 
-  for (int i = 0; i < test_case.attribute_count; i++) {
+  for (unsigned int i = 0; i < test_case.attribute_count; i++) {
     if (attribute_array[i].pValue != NULL) {
       delete[] (uint8_t *) attribute_array[i].pValue;
     }
