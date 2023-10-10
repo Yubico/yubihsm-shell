@@ -129,7 +129,8 @@ if (FUZZING)
         # cmdline sources
         ${GGO_C}
     )
-    set_target_properties (fuzz_get_attribute_value PROPERTIES COMPILE_FLAGS "-DSTATIC")
+    set_target_properties (fuzz_get_attribute_value PROPERTIES COMPILE_FLAGS "-DSTATIC -fsanitize=fuzzer")
+    set_target_properties (fuzz_get_attribute_value PROPERTIES LINK_FLAGS "-fsanitize=fuzzer")
     target_link_libraries(fuzz_get_attribute_value ${LIBCRYPTO_LDFLAGS})
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nested-anon-types")
 endif (FUZZING)
