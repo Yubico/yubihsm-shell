@@ -305,7 +305,23 @@ int main(void) {
   printf("\n");
 
   assert(signature_before_len == 64);
-  
+
+  #if (OPENSSL_VERSION_NUMBER < 0x10101000L) || defined(LIBRESSL_VERSION_NUMBER)
+  printf("Signature check skipped for ed25519 key\n");
+  #else
+  EVP_PKEY *edkey = EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, 0, public_key_before, public_key_before_len);
+  assert(edkey != NULL);
+
+  EVP_MD_CTX *edmdctx = EVP_MD_CTX_new();
+  assert(edmdctx != NULL);
+
+  assert(EVP_DigestVerifyInit(edmdctx, NULL, NULL, NULL, edkey) > 0);
+  assert(EVP_DigestVerify(edmdctx, signature_before, signature_before_len, hashed_data, hashed_data_len) > 0);
+
+  EVP_MD_CTX_free(edmdctx);
+  EVP_PKEY_free(edkey);
+  #endif
+
   wrapped_object_len = sizeof(wrapped_object);
   yrc =
     yh_util_export_wrapped(session, wrapping_key_id, YH_ASYMMETRIC_KEY,
@@ -379,6 +395,22 @@ int main(void) {
   printf("\n");
 
   assert(signature_after_len == 64);
+
+  #if (OPENSSL_VERSION_NUMBER < 0x10101000L) || defined(LIBRESSL_VERSION_NUMBER)
+  printf("Signature check skipped for ed25519 key\n");
+  #else
+  edkey = EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, 0, public_key_after, public_key_after_len);
+  assert(edkey != NULL);
+
+  edmdctx = EVP_MD_CTX_new();
+  assert(edmdctx != NULL);
+
+  assert(EVP_DigestVerifyInit(edmdctx, NULL, NULL, NULL, edkey) > 0);
+  assert(EVP_DigestVerify(edmdctx, signature_after, signature_after_len, hashed_data, hashed_data_len) > 0);
+
+  EVP_MD_CTX_free(edmdctx);
+  EVP_PKEY_free(edkey);
+  #endif
 
   if (signature_before_len != signature_after_len ||
       memcmp(signature_before, signature_after, signature_before_len) != 0) {
