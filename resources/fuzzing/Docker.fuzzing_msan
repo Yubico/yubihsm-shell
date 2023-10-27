@@ -80,6 +80,3 @@ ENV CXXFLAGS="${CXXFLAGS} -Wno-error=unused-command-line-argument -Wno-error=unu
 
 ENV MSAN_SYMBOLIZER_PATH=/llvm-msan/install/bin/llvm-symbolizer
 ENV MSAN_OPTIONS="symbolize=1 symbol_line=1"
-
-#cmake -DFUZZING=ON -DFUZZING_MSAN=ON -DWITHOUT_MANPAGES=ON -DDISABLE_LTO=ON -DENABLE_STATIC=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -B build-msan
-#ENV LD_LIBRARY_PATH=/llvm-msan/install-runtimes-msan/lib:/openssl-msan/install/lib
