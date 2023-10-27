@@ -1,0 +1,32 @@
+name: Create MSAN fuzzing docker image
+
+on:
+  push:
+    paths:
+      - "resources/fuzzing/Docker.fuzzing_msan"
+
+jobs:
+  build_and_push:
+    name: Build and Push
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build image
+        uses: docker/build-push-action@v5
+        with:
+          pull: true
+          push: true
+          tags: ghcr.io/yubico/yubihsm-shell/fuzzing-msan:latest
+          context: "{{defaultContext}}:resources/fuzzing"
+          file: "Docker.fuzzing_msan"
