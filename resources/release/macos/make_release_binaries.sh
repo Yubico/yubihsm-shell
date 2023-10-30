@@ -8,23 +8,16 @@ SO_VERSION=$3
 
 if [ "$ARCH" == "amd" ]; then
   BREW_LIB="/usr/local/opt"
-  BREW_CELLAR="/usr/local/Cellar"
+  #BREW_CELLAR="/usr/local/Cellar"
 elif [ "$ARCH" == "arm" ]; then
   BREW_LIB="/opt/homebrew/opt"
-  BREW_CELLAR="/opt/homebrew/Cellar"
+  #BREW_CELLAR="/opt/homebrew/Cellar"
 else
   echo "Unknown architecture"
   exit
 fi
 
 brew install cmake pkg-config gengetopt help2man openssl
-
-
-ls /usr/local/opt/openssl
-echo "-------------"
-ls /usr/local/opt/openssl/include
-echo "-------------"
-ls $BREW_LIB/openssl/include
 
 export PKG_CONFIG_PATH=$BREW_LIB/openssl/lib/pkgconfig
 
