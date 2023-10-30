@@ -9,7 +9,7 @@ jobs:
     name: Build dist with Linux
     runs-on: ubuntu-latest
     env:
-      VERSION: 2.4.1
+      VERSION: 2.4.2
     steps:
       - name: checkout
         uses: actions/checkout@v3
@@ -44,7 +44,7 @@ jobs:
           - os: windows-latest
             arch: x64
     env:
-      VERSION: 2.4.1
+      VERSION: 2.4.2
     steps:
       - name: Download source from source job
         uses: actions/download-artifact@v3
@@ -97,7 +97,7 @@ jobs:
           - os: macos-latest-xlarge
             arch: arm
     env:
-      VERSION: 2.4.1
+      VERSION: 2.4.2
       SO_VERSION: 2
     steps:
       - name: Download source from source job

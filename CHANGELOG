@@ -1,5 +1,12 @@
 === Version 2.4.1
 
+PKCS11: Add Symmetric key capabilities to searchable criteria
+PKCS11: Add support for CKA_KEY_TYPE when searching for objects
+PKCS11: Add support for CKA_MODIFIABLE and CKA_COPYABLE attributes for AES and Wrap keys
+Test: Increase test coverage
+
+=== Version 2.4.1
+
 pkcs11: Security update for https://www.yubico.com/support/security-advisories/ysa-2023-01/[YSA-2023-01]
 pkcs11: Allow only a user with access to all the object's domains to edit its attributes
 pkcs11: Allow for the creation of an asymmetric key even if CKA_ID or CKA_LABEL attribute values for the private and public key are different.
