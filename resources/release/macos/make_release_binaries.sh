@@ -19,6 +19,13 @@ fi
 
 brew install cmake pkg-config gengetopt help2man openssl
 
+
+ls /usr/local/opt/openssl
+echo "-------------"
+ls /usr/local/opt/openssl/include
+echo "-------------"
+ls $BREW_LIB/openssl/include
+
 export PKG_CONFIG_PATH=$BREW_LIB/openssl/lib/pkgconfig
 
 SOURCE_DIR=$PWD
@@ -34,7 +41,7 @@ cd $OUTPUT/lib
 ln -s "libcrypto.3.dylib" "libcrypto.dylib"
 cp "$BREW_LIB/openssl/lib/libcrypto.3.dylib" "$OUTPUT/lib"
 chmod +w "$OUTPUT/lib/libcrypto.3.dylib"
-cp -r $BREW_CELLAR/openssl/*/include/openssl "$OUTPUT/include"
+cp -r $BREW_LIB/openssl/include/openssl "$OUTPUT/include"
 
 install_name_tool -id "@loader_path/../lib/libcrypto.3.dylib" "$OUTPUT/lib/libcrypto.3.dylib"
 

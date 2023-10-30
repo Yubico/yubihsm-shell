@@ -318,7 +318,6 @@ jobs:
           VERBOSE: 1
         run: |
           
-#          export PKG_CONFIG_PATH=/usr/local/opt/openssl/lib/pkgconfig:$PKG_CONFIG_PATH
           mkdir build
           cd build
           cmake -DCMAKE_BUILD_TYPE=Release ..
@@ -329,7 +328,6 @@ jobs:
         env:
           VERBOSE: 1
         run: |
- #         export PKG_CONFIG_PATH=/usr/local/opt/openssl/lib/pkgconfig:$PKG_CONFIG_PATH
           mkdir build-static
           cd build-static
           cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release ..
