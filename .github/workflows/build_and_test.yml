@@ -8,6 +8,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - environment: "ubuntu:23.10"
+            cc: "gcc"
+            upload_for_test: "false"
+          - environment: "ubuntu:23.10"
+            cc: "clang"
+            upload_for_test: "false"
           - environment: "ubuntu:23.04"
             cc: "gcc"
             upload_for_test: "false"
@@ -288,7 +294,13 @@ jobs:
 
   build_macos:
     name: build on macos
-    runs-on: macos-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+          - os: macos-latest-xlarge
 
     steps:
 
@@ -305,7 +317,7 @@ jobs:
         env:
           VERBOSE: 1
         run: |
-          export PKG_CONFIG_PATH=/usr/local/opt/openssl@1.1/lib/pkgconfig:$PKG_CONFIG_PATH
+          
           mkdir build
           cd build
           cmake -DCMAKE_BUILD_TYPE=Release ..
@@ -316,7 +328,6 @@ jobs:
         env:
           VERBOSE: 1
         run: |
-          export PKG_CONFIG_PATH=/usr/local/opt/openssl@1.1/lib/pkgconfig:$PKG_CONFIG_PATH
           mkdir build-static
           cd build-static
           cmake -DENABLE_STATIC=ON -DCMAKE_BUILD_TYPE=Release ..
@@ -332,7 +343,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-
           - environment: "ubuntu:22.04"
             cc: "clang"
           - environment: "centos:7"

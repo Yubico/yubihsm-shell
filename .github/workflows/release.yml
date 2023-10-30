@@ -31,10 +31,18 @@ jobs:
           name: yubihsm-shell-src
           path: artifact
 
-  Windowsx86:
-    name: Build Windows x86 release
+  Windowsx-build:
+    name: Build Windows release
     needs: source
-    runs-on: windows-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            arch: x86
+          - os: windows-latest
+            arch: x64
     env:
       VERSION: 2.4.1
     steps:
@@ -49,81 +57,45 @@ jobs:
           tar xf yubihsm-shell-$env:VERSION.tar.gz
 
       - name: Build and make MSI installer
+        env:
+          ARCH: ${{ matrix.arch }}
         run: |
           Set-PSDebug -Trace 1
           $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-$env:VERSION"
           $MERGEDPATH = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC141_CRT_x86.msm"
 
           cd $YHSHELL_SRC_DIR/resources/release/win
-          ./make_release_binaries.ps1 Win32 C:/vcpkg
-          cd $YHSHELL_SRC_DIR/resources/release/win
-          ./repack_installer.ps1 x86 $env:WIX\bin "$MERGEDPATH"
+          if($env:ARCH -eq "x86")
+          {
+            ./make_release_binaries.ps1 Win32 C:/vcpkg
+          }
+          else
+          {
+            ./make_release_binaries.ps1 x64 C:/vcpkg
+          }
 
           mkdir $env:GITHUB_WORKSPACE/artifact
-          cp -r $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-x86 $env:GITHUB_WORKSPACE/artifact/
-          cp -r $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-x86.msi $env:GITHUB_WORKSPACE/artifact/
+          cp -r $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$env:ARCH $env:GITHUB_WORKSPACE/artifact/
 
-      - name: Install yubihsm-shell
-        run: |
-          Set-PSDebug -Trace 1
-          cd "$env:GITHUB_WORKSPACE\yubihsm-shell-$env:VERSION\resources\release\win"
-          msiexec /i yubihsm-shell-x86.msi /quiet /log $env:GITHUB_WORKSPACE/artifact/log_x86.txt
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-          name: yubihsm-shell-win32
+          name: yubihsm-shell-${{ matrix.arch }}
           path: artifact
 
-
-  windowsx64:
-    name: Build Windows x64 release
+  macos-build:
+    name: Build MacOS release
     needs: source
-    runs-on: windows-latest
-    env:
-      VERSION: 2.4.1
-    steps:
-      - name: Download source from source job
-        uses: actions/download-artifact@v3
-        with:
-          name: yubihsm-shell-src
-
-      - name: Extract source
-        run: |
-          Set-PSDebug -Trace 1
-          tar xf yubihsm-shell-$env:VERSION.tar.gz
-
-      - name: Build and make MSI installer
-        run: |
-          Set-PSDebug -Trace 1
-          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-$env:VERSION"
-          $MERGEDPATH = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC141_CRT_x86.msm"
-
-          cd $YHSHELL_SRC_DIR/resources/release/win
-          ./make_release_binaries.ps1 x64 C:/vcpkg
-          cd $YHSHELL_SRC_DIR/resources/release/win
-          ./repack_installer.ps1 x64 $env:WIX\bin "$MERGEDPATH"
-
-          mkdir $env:GITHUB_WORKSPACE/artifact
-          cp -r $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-x64 $env:GITHUB_WORKSPACE/artifact/
-          cp -r $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-x64.msi $env:GITHUB_WORKSPACE/artifact/
-
-      - name: Install yubihsm-shell
-        run: |
-          Set-PSDebug -Trace 1
-          cd "$env:GITHUB_WORKSPACE\yubihsm-shell-$env:VERSION\resources\release\win"
-          msiexec /i yubihsm-shell-x64.msi /quiet /log $env:GITHUB_WORKSPACE/artifact/log_x64.txt
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: yubihsm-shell-win64
-          path: artifact
-
-  macos_amd64:
-    name: Build MacOS amd64 release
-    needs: source
-    runs-on: macos-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            arch: amd
+          - os: macos-latest-xlarge
+            arch: arm
     env:
       VERSION: 2.4.1
       SO_VERSION: 2
@@ -139,31 +111,24 @@ jobs:
           tar xf yubihsm-shell-$VERSION.tar.gz
 
       - name: Build and make MSI installer
+        env:
+          ARCH: ${{ matrix.arch }}
         run: |
           set -e -o pipefail
           set -x
-
-          brew install openssl@1.1
-          ls /usr/local/opt
-          ls /usr/local/opt/openssl@1.1
-          ls /usr/local/opt/openssl@1.1/lib
-
-
+          
           YHSHELL_SRC_DIR="$GITHUB_WORKSPACE/yubihsm-shell-$VERSION"
 
           cd $YHSHELL_SRC_DIR
-          ./resources/release/macos/make_release_binaries.sh amd $VERSION $SO_VERSION
-          cd $YHSHELL_SRC_DIR/resources/release/macos/
-          ./make_installer.sh amd64 $YHSHELL_SRC_DIR/resources/release/macos/yubihsm-shell-darwin-amd-$VERSION
+          ./resources/release/macos/make_release_binaries.sh $ARCH $VERSION $SO_VERSION
 
           mkdir $GITHUB_WORKSPACE/artifact
-          cp -r $YHSHELL_SRC_DIR/resources/release/macos/yubihsm-shell-darwin-amd-$VERSION $GITHUB_WORKSPACE/artifact/
-          cp -r $YHSHELL_SRC_DIR/resources/release/macos/yubihsm2-sdk-darwin-amd64.pkg $GITHUB_WORKSPACE/artifact/
+          cp -r $YHSHELL_SRC_DIR/resources/release/macos/yubihsm-shell-darwin-$ARCH-$VERSION $GITHUB_WORKSPACE/artifact/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-          name: yubihsm-shell-darwin-amd64
+          name: yubihsm-shell-darwin-${{ matrix.arch }}64
           path: artifact
 
   debian_based:
@@ -171,6 +136,7 @@ jobs:
       fail-fast: false
       matrix:
         environment: [
+            "ubuntu:23.10",
             "ubuntu:23.04",
             "ubuntu:22.04",
             "ubuntu:20.04",
