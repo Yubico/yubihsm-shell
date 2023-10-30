@@ -65,11 +65,14 @@ jobs:
           $MERGEDPATH = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC\14.*\MergeModules\Microsoft_VC141_CRT_x86.msm"
 
           cd $YHSHELL_SRC_DIR/resources/release/win
-          if [ "$env:ARCH" = "x68" ]; then
+          if($env:ARCH -eq "x86")
+          {
             ./make_release_binaries.ps1 Win32 C:/vcpkg
+          }
           else
+          {
             ./make_release_binaries.ps1 x64 C:/vcpkg
-          fi
+          }
           cd $YHSHELL_SRC_DIR/resources/release/win
           ./repack_installer.ps1 $env:ARCH $env:WIX\bin "$MERGEDPATH"
 
