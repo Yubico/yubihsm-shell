@@ -1,0 +1,28 @@
+name: Build and Fuzz
+
+on: [push, pull_request]
+
+jobs:
+  fuzz_msan:
+    name: fuzz with MemorySanitizer
+    runs-on: ubuntu-latest
+    container: ghcr.io/yubico/yubihsm-shell/fuzzing-msan:latest
+
+    steps:
+
+      - name: clone the Yubico/yubihsm-shell repository
+        uses: actions/checkout@v3
+        with:
+          path: yubihsm-shell
+
+      - name: do build
+        working-directory: yubihsm-shell
+        run: |
+          cmake                   \
+            -DFUZZING=ON          \
+            -DFUZZING_MSAN=ON     \
+            -DWITHOUT_MANPAGES=ON \
+            -DDISABLE_LTO=ON      \
+            -DENABLE_STATIC=ON    \
+            -B build-msan
+          cmake --build build-msan
