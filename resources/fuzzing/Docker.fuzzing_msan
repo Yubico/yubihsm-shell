@@ -22,7 +22,7 @@ RUN cmake -GNinja -S llvm -B build-llvm                                     \
     -DLLVM_ENABLE_PROJECTS="clang;lld;clang-tools-extra"                    \
     -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;compiler-rt;libunwind"         \
     -DLLVM_INSTALL_TOOLCHAIN_ONLY=YES                                       \
-    -DLLVM_TARGETS_TO_BUILD="X86"                                           \
+    -DLLVM_TARGETS_TO_BUILD="host"                                          \
     -DCMAKE_INSTALL_PREFIX="/llvm-msan/install"                             \
     -DLLVM_ENABLE_LLVM_LIBC=YES                                             \
     -DLLVM_ENABLE_LIBCXX=YES
@@ -37,7 +37,7 @@ RUN cmake -GNinja -S runtimes -B build-runtimes-msan                        \
     -DCMAKE_BUILD_TYPE=Release                                              \
     -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;compiler-rt;libunwind"         \
     -DLLVM_USE_SANITIZER=MemoryWithOrigins                                  \
-    -DLLVM_TARGETS_TO_BUILD="X86"                                           \
+    -DLLVM_TARGETS_TO_BUILD="host"                                          \
     -DCMAKE_INSTALL_PREFIX="/llvm-msan/install-runtimes-msan"               \
     -DLLVM_ENABLE_LLVM_LIBC=YES                                             \
     -DLLVM_ENABLE_LIBCXX=YES
