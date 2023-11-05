@@ -109,7 +109,7 @@ and verify the signature with OpenSSL by running
 [source, bash]
 ----
 $ openssl dgst -sha256 -binary message.dat > digest.dat
-$ openssl pkutil -verify -in message.dat -sigfile signature.dat -pkeyopt rsa_padding_mode:pss -pubin -inkey key.pem -pkeyopt rsa_pss_saltlen:-1 -pkeyopt digest:sha256
+$ openssl pkeyutl -verify -in digest.dat -sigfile signature.dat -pkeyopt rsa_padding_mode:pss -pubin -inkey key.pem -pkeyopt rsa_pss_saltlen:-1 -pkeyopt digest:sha256
 ----
 
 A detailed list of possible actions and parameters is available in the
