@@ -4,7 +4,6 @@ if (CMAKE_C_COMPILER_ID STREQUAL "Clang" OR
     CMAKE_C_COMPILER_ID STREQUAL "AppleClang" OR
     CMAKE_C_COMPILER_ID STREQUAL "GNU")
 
-    add_compile_options (-Wall -Wextra -Werror)
     add_compile_options (-Wformat -Wformat-nonliteral -Wformat-security)
     add_compile_options (-Wshadow)
     #add_compile_options (-Wcast-qual)
@@ -13,6 +12,7 @@ if (CMAKE_C_COMPILER_ID STREQUAL "Clang" OR
     add_compile_options (-pedantic -pedantic-errors)
     add_compile_options (-fpie -fpic)
     if (NOT FUZZING)
+        add_compile_options (-Wall -Wextra -Werror)
         add_compile_options(-O2)
         add_definitions (-D_FORTIFY_SOURCE=2)
     endif ()

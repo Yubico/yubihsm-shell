@@ -26,3 +26,39 @@ jobs:
             -DENABLE_STATIC=ON    \
             -B build-msan
           cmake --build build-msan
+
+  fuzz_asan:
+    name: fuzz with AddressSanitizer
+    runs-on: ubuntu-latest
+    container: ubuntu:23.04
+
+    steps:
+
+      - name: install dependencies from package management
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt -q -y update
+          apt -q -y install                                                                 \
+            llvm-16 clang-16 lld-16                                                         \
+            build-essential cmake ninja-build pkg-config                                    \
+            libssl-dev libedit-dev libcurl4-openssl-dev libusb-1.0-0-dev libpcsclite-dev gengetopt
+
+      - name: clone the Yubico/yubihsm-shell repository
+        uses: actions/checkout@v3
+        with:
+          path: yubihsm-shell
+
+      - name: do build
+        env:
+          CC: clang-16
+          CXX: clang++-16
+        working-directory: yubihsm-shell
+        run: |
+          cmake                   \
+            -DFUZZING=ON          \
+            -DWITHOUT_MANPAGES=ON \
+            -DDISABLE_LTO=ON      \
+            -DENABLE_STATIC=ON    \
+            -B build-asan
+          cmake --build build-asan
