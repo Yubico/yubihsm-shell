@@ -1673,7 +1673,7 @@ yh_rc yh_util_get_object_info(yh_session *session, uint16_t id,
              response.delegated_capabilities, YH_CAPABILITIES_LEN);
     }
   } else {
-    DBG_ERR("Wrong response length, expecting %lu or 0, received %lu",
+    DBG_ERR("Wrong response length, expecting %lu, received %lu",
             (unsigned long) sizeof(yh_object_descriptor),
             (unsigned long) response_len);
     return YHR_WRONG_LENGTH;
