@@ -1,4 +1,4 @@
-=== Version 2.4.1
+=== Version 2.4.2
 
 PKCS11: Add Symmetric key capabilities to searchable criteria
 PKCS11: Add support for CKA_KEY_TYPE when searching for objects
