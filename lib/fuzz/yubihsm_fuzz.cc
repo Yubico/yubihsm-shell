@@ -331,16 +331,20 @@ static void process_msg(Msg *msg, Msg *response) {
         backend_data_len -= 1;
       }
 
+      // limit size_byte artificially
       if (size_byte > SCP_MSG_BUF_SIZE - 32) {
-        response->st.len = 0;
-      } else {
-        if (size_byte > backend_data_len) {
-          size_byte = backend_data_len;
-        }
-        memcpy(response->st.data, backend_data, size_byte);
-        backend_data += size_byte;
-        backend_data_len -= size_byte;
+        size_byte %= SCP_MSG_BUF_SIZE - 32;
       }
+
+      response->st.len = size_byte;
+      if (size_byte > backend_data_len) {
+        size_byte = backend_data_len;
+      }
+
+      memcpy(response->st.data, backend_data, size_byte);
+      backend_data += size_byte;
+      backend_data_len -= size_byte;
+
       break;
   }
 

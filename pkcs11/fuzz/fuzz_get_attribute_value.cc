@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stddef.h>
 #include <string.h>
 
 #include <openssl/ec.h>
@@ -17,22 +18,57 @@ size_t backend_data_len;
 yh_connector *connector;
 CK_FUNCTION_LIST_PTR p11;
 CK_SESSION_HANDLE session;
+CK_OBJECT_HANDLE yh_pubkey, yh_privkey;
 
-static bool initialize() {
+#define ECDH_ATTRIBUTE_COUNT 2
+
+static bool init_p11() {
   CK_C_INITIALIZE_ARGS initArgs;
-  char config[] = "connector=yhfuzz://yubihsm_fuzz debug";
+  CK_RV rv;
 
-  yh_set_verbosity(NULL, YH_VERB_ALL);
+  char config[] = "connector=yhfuzz://yubihsm_fuzz";
+  // char config[] = "connector=yhfuzz://yubihsm_fuzz debug libdebug";
 
   C_GetFunctionList(&p11);
 
   memset(&initArgs, 0, sizeof(initArgs));
-  initArgs.pReserved = (void *) config;
-  CK_RV rv = p11->C_Initialize(&initArgs);
+  initArgs.pReserved = config;
+
+  rv = p11->C_Initialize(&initArgs);
   assert(rv == CKR_OK);
 
   return true;
 }
+
+static void deinit_session() {
+  CK_RV rv;
+
+  rv = p11->C_Logout(session);
+  assert(rv == CKR_OK);
+
+  rv = p11->C_CloseSession(session);
+  assert(rv == CKR_OK);
+}
+
+static void init_session() {
+  CK_RV rv;
+  char pin[20] = "0000";
+
+  strcat(pin, FUZZ_BACKEND_PASSWORD);
+
+  memset(&session, 0, sizeof(session));
+
+  rv = p11->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, NULL, NULL,
+                          &session);
+  assert(rv == CKR_OK);
+
+  rv = p11->C_Login(session, CKU_USER, (CK_UTF8CHAR_PTR) pin,
+                    (CK_ULONG) strlen(pin));
+  assert(rv == CKR_OK);
+
+  // rv = generate_ecdh_keypair();
+  // assert(rv == CKR_OK);
+};
 
 static EVP_PKEY *generate_keypair_openssl() {
   EVP_PKEY *pkey = NULL;
@@ -49,171 +85,165 @@ static EVP_PKEY *generate_keypair_openssl() {
   return pkey;
 }
 
-static int generate_keypair_yh(CK_OBJECT_HANDLE_PTR publicKeyPtr,
-                               CK_OBJECT_HANDLE_PTR privateKeyPtr) {
-  CK_MECHANISM mechanism = {CKM_EC_KEY_PAIR_GEN, NULL_PTR, 0};
-
-  CK_BBOOL ck_true = CK_TRUE;
-
-  CK_OBJECT_CLASS pubkey_class = CKO_PUBLIC_KEY;
-  CK_OBJECT_CLASS privkey_class = CKO_PRIVATE_KEY;
-  CK_KEY_TYPE key_type = CKK_EC;
-  char label[] = "ecdhtest";
-
-  CK_BYTE P224_CURVE_PARAMS[] = {0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x21};
-
-  CK_ATTRIBUTE publicKeyTemplate[] =
-    {{CKA_CLASS, &pubkey_class, sizeof(pubkey_class)},
-     {CKA_VERIFY, &ck_true, sizeof(ck_true)},
-     {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
-     {CKA_LABEL, label, strlen(label)},
-     {CKA_EC_PARAMS, P224_CURVE_PARAMS, sizeof(P224_CURVE_PARAMS)}};
-
-  CK_ATTRIBUTE privateKeyTemplate[] = {{CKA_CLASS, &privkey_class,
-                                        sizeof(privkey_class)},
-                                       {CKA_LABEL, label, strlen(label)},
-                                       {CKA_DERIVE, &ck_true, sizeof(ck_true)}};
-
-  if ((p11->C_GenerateKeyPair(session, &mechanism, publicKeyTemplate, 5,
-                              privateKeyTemplate, 3, publicKeyPtr,
-                              privateKeyPtr)) != CKR_OK) {
-    return 0;
-  }
-  return 1;
-}
-
 typedef struct {
-  int ecdh_key_count;
-  CK_OBJECT_HANDLE obj_handle;
   CK_ULONG attribute_count;
+  CK_OBJECT_HANDLE obj_handle;
+  uint8_t derived_ecdh_key_count;
 } test_case_t;
 
-extern "C" int LLVMFuzzerTestOneInput(uint8_t *data, size_t size) {
-  static bool is_initialized = initialize();
+void populate_attribute_template(CK_ATTRIBUTE_PTR *attribute_array,
+                                 CK_ULONG attribute_count,
+                                 uint8_t **fuzzer_data,
+                                 size_t *fuzzer_data_size) {
+  CK_ATTRIBUTE_PTR new_array = new CK_ATTRIBUTE[attribute_count];
+  memset(new_array, 0, sizeof(CK_ATTRIBUTE) * attribute_count);
 
-  test_case_t test_case;
-  CK_OBJECT_HANDLE yh_pubkey, yh_privkey;
-  EVP_PKEY *openssl_keypair;
-  EC_KEY *peerkey;
-  unsigned char *peerkey_bytes;
-  int peerkey_len;
-  CK_ECDH1_DERIVE_PARAMS params;
-  CK_MECHANISM mechanism;
-  CK_OBJECT_CLASS key_class = CKO_SECRET_KEY;
-  CK_KEY_TYPE key_type = CKK_GENERIC_SECRET;
-  char label[] = "ecdh";
-  CK_RV rv;
-  CK_ATTRIBUTE derivedKeyTemplate[3];
-  CK_OBJECT_HANDLE ecdh;
-  char pin[] = "0000";
+  for (int i = 0; i < attribute_count; i++) {
+    unsigned long ulValueLen = 0;
 
-  if (size < sizeof(test_case_t)) {
-    return 0;
-  }
-  memcpy(&test_case, data, sizeof(test_case));
-
-  data += sizeof(test_case);
-  size -= sizeof(test_case);
-
-  if (test_case.ecdh_key_count > 10) {
-    return 0;
-  }
-
-  if (test_case.attribute_count > 10) {
-    return 0;
-  }
-
-  CK_ATTRIBUTE_PTR attribute_array =
-    new CK_ATTRIBUTE[test_case.attribute_count];
-
-  memset(&mechanism, 0, sizeof(mechanism));
-  memset(&yh_pubkey, 0, sizeof(yh_pubkey));
-  memset(&yh_privkey, 0, sizeof(yh_privkey));
-  memset(attribute_array, 0, sizeof(CK_ATTRIBUTE) * test_case.attribute_count);
-
-  rv = p11->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, NULL, NULL,
-                          &session);
-  assert(rv == CKR_OK);
-  rv = p11->C_Login(session, CKU_USER,
-                    (CK_UTF8CHAR_PTR) strcat(pin, FUZZ_BACKEND_PASSWORD),
-                    (CK_ULONG) strlen(strcat(pin, FUZZ_BACKEND_PASSWORD)));
-  assert(rv == CKR_OK);
-
-  /* part of the implementation for C_GetAttributeValue applies to ECDH keys
-   * in order to get better coverage of this function, we generate several ECDH
-   * keys the ECDH keys are generated with calls to C_DeriveKey
-   */
-
-  if (generate_keypair_yh(&yh_pubkey, &yh_privkey) == 0) {
-    goto harness_out;
-  }
-
-  for (int i = 0; i < test_case.ecdh_key_count; i++) {
-    // Generate keypair with openssl
-    openssl_keypair = generate_keypair_openssl();
-    if (openssl_keypair == NULL) {
-      return 0;
+    if (*fuzzer_data_size > 0) {
+      ulValueLen = (*fuzzer_data)[0];
+      *fuzzer_data += 1;
+      *fuzzer_data_size -= 1;
     }
 
-    peerkey = EVP_PKEY_get1_EC_KEY(openssl_keypair);
-    peerkey_bytes = NULL;
-    peerkey_len = i2o_ECPublicKey(peerkey, &peerkey_bytes);
-    assert(peerkey_len > 0);
-    EC_KEY_free(peerkey);
+    if (*fuzzer_data_size >= sizeof(unsigned long)) {
+      memcpy(&new_array[i].type, *fuzzer_data, sizeof(unsigned long));
+      *fuzzer_data += sizeof(unsigned long);
+      *fuzzer_data_size -= sizeof(unsigned long);
+    }
 
+    new_array[i].pValue = new uint8_t[ulValueLen]; // TODO populate pValue from
+                                                   // fuzzer generated data?
+    new_array[i].ulValueLen = ulValueLen;
+  }
+
+  *attribute_array = new_array;
+}
+
+void populate_derived_ecdh_key_template(CK_ATTRIBUTE_PTR *attribute_array,
+                                        uint8_t **fuzzer_data,
+                                        size_t *fuzzer_data_size) {
+
+  CK_ATTRIBUTE_PTR new_array = new CK_ATTRIBUTE[ECDH_ATTRIBUTE_COUNT];
+  memset(new_array, 0, sizeof(CK_ATTRIBUTE) * ECDH_ATTRIBUTE_COUNT);
+
+  uint8_t value_len = 0;
+  uint8_t label_len = 0;
+  if (*fuzzer_data_size > 0) {
+    value_len = (*fuzzer_data)[0];
+    *fuzzer_data += 1;
+    *fuzzer_data_size -= 1;
+  }
+  if (*fuzzer_data_size > 0) {
+    label_len = (*fuzzer_data)[0];
+    *fuzzer_data += 1;
+    *fuzzer_data_size -= 1;
+  }
+
+  new_array[0].type = CKA_VALUE_LEN;
+  new_array[0].ulValueLen = value_len;
+  new_array[0].pValue = new uint8_t[value_len];
+  if (*fuzzer_data_size < value_len) {
+    value_len = *fuzzer_data_size;
+  }
+  memcpy(new_array[0].pValue, *fuzzer_data, value_len);
+  *fuzzer_data_size -= value_len;
+
+  new_array[1].type = CKA_LABEL;
+  new_array[1].ulValueLen = label_len;
+  new_array[1].pValue = new uint8_t[label_len]; // TODO populate pValue from
+                                                // fuzzer generated data?
+  *attribute_array = new_array;
+}
+
+void derive_ecdh_session_keys(uint8_t derived_key_count,
+                              CK_ATTRIBUTE_PTR ecdh_attribute_array) {
+
+  if (derived_key_count > 10) {
+    // artificial limitation on the number of derived keys
+    derived_key_count = 10;
+  }
+
+  for (int i = 0; i < derived_key_count; i++) {
+    CK_OBJECT_HANDLE ecdh;
+
+    CK_ECDH1_DERIVE_PARAMS params;
+    memset(&params, 0, sizeof(params));
     params.kdf = CKD_NULL;
     params.pSharedData = NULL;
     params.ulSharedDataLen = 0;
-    params.pPublicData = peerkey_bytes;
-    params.ulPublicDataLen = peerkey_len;
+    // TODO populate pPublicData and ulPublicDataLen from fuzzer generated data?
+    params.pPublicData = new uint8_t[50];
+    params.ulPublicDataLen = 50;
 
+    CK_MECHANISM mechanism;
     memset(&mechanism, 0, sizeof(mechanism));
     mechanism.mechanism = CKM_ECDH1_DERIVE;
     mechanism.pParameter = (void *) &params;
     mechanism.ulParameterLen = sizeof(params);
 
-    derivedKeyTemplate[0] = {CKA_CLASS, &key_class, sizeof(key_class)};
-    derivedKeyTemplate[1] = {CKA_KEY_TYPE, &key_type, sizeof(key_type)};
-    derivedKeyTemplate[2] = {CKA_LABEL, label, strlen(label)};
+    p11->C_DeriveKey(session, &mechanism, yh_privkey, ecdh_attribute_array,
+                     ECDH_ATTRIBUTE_COUNT, &ecdh);
 
-    p11->C_DeriveKey(session, &mechanism, yh_privkey, derivedKeyTemplate, 3,
-                     &ecdh);
+    delete[] params.pPublicData;
   }
+}
 
-  for (unsigned int i = 0; i < test_case.attribute_count; i++) {
-    unsigned long ulValueLen = 0;
-    if (size > 0) {
-      ulValueLen = data[0];
-      data += 1;
-      size -= 1;
-    }
-    if (size >= sizeof(unsigned long)) {
-      memcpy(&attribute_array[i].type, data, sizeof(unsigned long));
-      data += sizeof(unsigned long);
-      size -= sizeof(unsigned long);
-    }
-    attribute_array[i].pValue = new uint8_t[ulValueLen];
-    attribute_array[i].ulValueLen = ulValueLen;
-  }
-
-  backend_data = data;
-  backend_data_len = size;
-
-  p11->C_GetAttributeValue(session, test_case.obj_handle, attribute_array,
-                           test_case.attribute_count);
-
-harness_out:
-  rv = p11->C_Logout(session);
-  assert(rv == CKR_OK);
-  rv = p11->C_CloseSession(session);
-  assert(rv == CKR_OK);
-
-  for (unsigned int i = 0; i < test_case.attribute_count; i++) {
+void free_attribute_template(CK_ATTRIBUTE_PTR attribute_array,
+                             CK_ULONG attribute_count) {
+  for (unsigned int i = 0; i < attribute_count; i++) {
     if (attribute_array[i].pValue != NULL) {
       delete[] (uint8_t *) attribute_array[i].pValue;
     }
   }
   delete[] attribute_array;
+}
+
+extern "C" int LLVMFuzzerTestOneInput(uint8_t *data, size_t size) {
+  static bool p11_initialized = init_p11();
+
+  if (size < sizeof(test_case_t)) {
+    return 0;
+  }
+
+  test_case_t test_case;
+  memcpy(&test_case, data, sizeof(test_case_t));
+  data += sizeof(test_case_t);
+  size -= sizeof(test_case_t);
+
+  /* limit the number of request attributes to 10
+   * this is an artificial limitation to make fuzzer iterations faster
+   */
+  if (test_case.attribute_count > 10) {
+    test_case.attribute_count = 10;
+  }
+
+  CK_ATTRIBUTE_PTR attribute_array;
+  populate_attribute_template(&attribute_array, test_case.attribute_count,
+                              &data, &size);
+  CK_ATTRIBUTE_PTR ecdh_attribute_array;
+  populate_derived_ecdh_key_template(&ecdh_attribute_array, &data, &size);
+
+  // the rest of the data is used for responses sent back by the backend
+  backend_data = data;
+  backend_data_len = size;
+
+  init_session();
+
+  /* objects of type ECDH_KEY_TYPE are treated differently by the
+   * C_GetAttributeValue logic in order to improve coverage, we derive several
+   * ECDH keys using C_DeriveKey
+   */
+  derive_ecdh_session_keys(test_case.derived_ecdh_key_count,
+                           ecdh_attribute_array);
+
+  p11->C_GetAttributeValue(session, test_case.obj_handle, attribute_array,
+                           test_case.attribute_count);
+
+  deinit_session();
+  free_attribute_template(attribute_array, test_case.attribute_count);
+  free_attribute_template(ecdh_attribute_array, ECDH_ATTRIBUTE_COUNT);
 
   fflush(stdout);
   return 0;
