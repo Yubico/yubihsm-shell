@@ -5933,6 +5933,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
   for (CK_ULONG i = 0; i < ulAttributeCount; i++) {
     switch (pTemplate[i].type) {
       case CKA_VALUE_LEN:
+        if (pTemplate[i].ulValueLen < sizeof(CK_ULONG)) {
+          rv = CKR_ATTRIBUTE_VALUE_INVALID;
+          goto c_drv_out;
+        }
         value_len = *((CK_ULONG *) pTemplate[i].pValue);
         break;
       case CKA_LABEL:
