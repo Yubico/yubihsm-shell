@@ -2,6 +2,9 @@
 #include <stddef.h>
 #include <string.h>
 
+#include "fuzzer/FuzzedDataProvider.h"
+#include <algorithm>
+
 #include <openssl/ec.h>
 #include <openssl/x509.h>
 
@@ -85,34 +88,16 @@ static EVP_PKEY *generate_keypair_openssl() {
   return pkey;
 }
 
-typedef struct {
-  CK_ULONG attribute_count;
-  CK_OBJECT_HANDLE obj_handle;
-  uint8_t derived_ecdh_key_count;
-} test_case_t;
-
 void populate_attribute_template(CK_ATTRIBUTE_PTR *attribute_array,
                                  CK_ULONG attribute_count,
-                                 uint8_t **fuzzer_data,
-                                 size_t *fuzzer_data_size) {
+                                 FuzzedDataProvider *fdp) {
   CK_ATTRIBUTE_PTR new_array = new CK_ATTRIBUTE[attribute_count];
   memset(new_array, 0, sizeof(CK_ATTRIBUTE) * attribute_count);
 
   for (int i = 0; i < attribute_count; i++) {
-    unsigned long ulValueLen = 0;
+    uint8_t ulValueLen = fdp->ConsumeIntegral<uint8_t>();
 
-    if (*fuzzer_data_size > 0) {
-      ulValueLen = (*fuzzer_data)[0];
-      *fuzzer_data += 1;
-      *fuzzer_data_size -= 1;
-    }
-
-    if (*fuzzer_data_size >= sizeof(unsigned long)) {
-      memcpy(&new_array[i].type, *fuzzer_data, sizeof(unsigned long));
-      *fuzzer_data += sizeof(unsigned long);
-      *fuzzer_data_size -= sizeof(unsigned long);
-    }
-
+    new_array[i].type = fdp->ConsumeIntegral<CK_ATTRIBUTE_TYPE>();
     new_array[i].pValue = new uint8_t[ulValueLen]; // TODO populate pValue from
                                                    // fuzzer generated data?
     new_array[i].ulValueLen = ulValueLen;
@@ -122,33 +107,22 @@ void populate_attribute_template(CK_ATTRIBUTE_PTR *attribute_array,
 }
 
 void populate_derived_ecdh_key_template(CK_ATTRIBUTE_PTR *attribute_array,
-                                        uint8_t **fuzzer_data,
-                                        size_t *fuzzer_data_size) {
-
+                                        FuzzedDataProvider *fdp) {
   CK_ATTRIBUTE_PTR new_array = new CK_ATTRIBUTE[ECDH_ATTRIBUTE_COUNT];
   memset(new_array, 0, sizeof(CK_ATTRIBUTE) * ECDH_ATTRIBUTE_COUNT);
 
-  uint8_t value_len = 0;
-  uint8_t label_len = 0;
-  if (*fuzzer_data_size > 0) {
-    value_len = (*fuzzer_data)[0];
-    *fuzzer_data += 1;
-    *fuzzer_data_size -= 1;
-  }
-  if (*fuzzer_data_size > 0) {
-    label_len = (*fuzzer_data)[0];
-    *fuzzer_data += 1;
-    *fuzzer_data_size -= 1;
-  }
+  uint8_t value_len = fdp->ConsumeIntegral<uint8_t>();
+  std::vector<uint8_t> value = fdp->ConsumeBytes<uint8_t>(value_len);
 
   new_array[0].type = CKA_VALUE_LEN;
   new_array[0].ulValueLen = value_len;
   new_array[0].pValue = new uint8_t[value_len];
-  if (*fuzzer_data_size < value_len) {
-    value_len = *fuzzer_data_size;
-  }
-  memcpy(new_array[0].pValue, *fuzzer_data, value_len);
-  *fuzzer_data_size -= value_len;
+
+  memset(new_array[0].pValue, 0, value_len);
+  memcpy(new_array[0].pValue, &value[0],
+         std::min(value.size(), (size_t) value_len));
+
+  uint8_t label_len = fdp->ConsumeIntegral<uint8_t>();
 
   new_array[1].type = CKA_LABEL;
   new_array[1].ulValueLen = label_len;
@@ -201,16 +175,25 @@ void free_attribute_template(CK_ATTRIBUTE_PTR attribute_array,
 }
 
 extern "C" int LLVMFuzzerTestOneInput(uint8_t *data, size_t size) {
+  typedef struct {
+    CK_ULONG attribute_count;
+    CK_OBJECT_HANDLE obj_handle;
+    uint8_t derived_ecdh_key_count;
+  } test_case_t;
+
   static bool p11_initialized = init_p11();
 
   if (size < sizeof(test_case_t)) {
     return 0;
   }
 
+  FuzzedDataProvider *fdp = new FuzzedDataProvider(data, size);
+
   test_case_t test_case;
-  memcpy(&test_case, data, sizeof(test_case_t));
-  data += sizeof(test_case_t);
-  size -= sizeof(test_case_t);
+  memset(&test_case, 0, sizeof(test_case_t));
+  test_case.attribute_count = fdp->ConsumeIntegral<CK_ULONG>();
+  test_case.obj_handle = fdp->ConsumeIntegral<CK_OBJECT_HANDLE>();
+  test_case.derived_ecdh_key_count = fdp->ConsumeIntegral<uint8_t>();
 
   /* limit the number of request attributes to 10
    * this is an artificial limitation to make fuzzer iterations faster
@@ -220,14 +203,14 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t *data, size_t size) {
   }
 
   CK_ATTRIBUTE_PTR attribute_array;
-  populate_attribute_template(&attribute_array, test_case.attribute_count,
-                              &data, &size);
   CK_ATTRIBUTE_PTR ecdh_attribute_array;
-  populate_derived_ecdh_key_template(&ecdh_attribute_array, &data, &size);
+  populate_attribute_template(&attribute_array, test_case.attribute_count, fdp);
+  populate_derived_ecdh_key_template(&ecdh_attribute_array, fdp);
 
   // the rest of the data is used for responses sent back by the backend
-  backend_data = data;
-  backend_data_len = size;
+  std::vector<uint8_t> backend_vector = fdp->ConsumeRemainingBytes<uint8_t>();
+  backend_data = &backend_vector[0];
+  backend_data_len = backend_vector.size();
 
   init_session();
 
@@ -244,6 +227,8 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t *data, size_t size) {
   deinit_session();
   free_attribute_template(attribute_array, test_case.attribute_count);
   free_attribute_template(ecdh_attribute_array, ECDH_ATTRIBUTE_COUNT);
+
+  delete fdp;
 
   fflush(stdout);
   return 0;
