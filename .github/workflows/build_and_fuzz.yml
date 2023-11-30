@@ -1,6 +1,9 @@
 name: Build and Fuzz
 
-on: [push, pull_request]
+on:
+  schedule:
+    # Run this every wednesday at 3:50. https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule
+    - cron: '50 3 * * 3'
 
 jobs:
   fuzz_msan:
@@ -26,6 +29,10 @@ jobs:
             -DENABLE_STATIC=ON    \
             -B build-msan
           cmake --build build-msan
+
+      - name: run harness for fuzz_get_attribute_value
+        working-directory: yubihsm-shell
+        run: ./build-msan/pkcs11/fuzz_get_attribute_value -max_total_time=1800
 
   fuzz_asan:
     name: fuzz with AddressSanitizer
@@ -62,3 +69,7 @@ jobs:
             -DENABLE_STATIC=ON    \
             -B build-asan
           cmake --build build-asan
+
+      - name: run harness for fuzz_get_attribute_value
+        working-directory: yubihsm-shell
+        run: ./build-asan/pkcs11/fuzz_get_attribute_value -max_total_time=1800
