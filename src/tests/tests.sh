@@ -32,7 +32,7 @@ PROG="../yubihsm-shell --connector=${DEFAULT_CONNECTOR_URL}"
 if [ "x$(uname)" = "xFreeBSD" ]; then
   DECODE="b64decode -pr"
 else
-  DECODE="base64 --decode"
+  DECODE="base64 --decode -i"
 fi
 
 echo "Hello World!" >"$DATA"
