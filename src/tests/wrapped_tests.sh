@@ -169,7 +169,9 @@ put_yhwrapped_asymmetric_rsa() {
   local -r keyid="0xfefe"
   local -r keyfile="$TMPDIR/${FUNCNAME[0]}_keyfile.pem"
   local -r keyfilew="$TMPDIR/${FUNCNAME[0]}_keyfile.wrapped"
-
+  local -r sigbuf="$TMPDIR/${FUNCNAME[0]}_sigbuf"
+  local -r signature="$TMPDIR/${FUNCNAME[0]}_signature"
+  
   $YHSHELL --action="get-object-info" --password="password" --authkey="1"     \
     --object-id="$wrapid" --object-type="wrap-key" && {
     echo "${FUNCNAME[0]}: delete wrapkey"
@@ -213,6 +215,16 @@ put_yhwrapped_asymmetric_rsa() {
     $YHSHELL --action="get-public-key" --password="password" --authkey="1"        \
       --object-id="$keyid" --out="$keyfile.$size.pub.shell"
     diff -u "$keyfile.$size.pub" "$keyfile.$size.pub.shell"
+
+    openssl rand 1024 > "$sigbuf"
+  
+    echo "${FUNCNAME[0]}: sign-pkcs1v15 rsa$size rsa-pkcs1-sha256"
+    $YHSHELL --action="sign-pkcs1v15" --password="password" --authkey="1"       \
+      --object-id="$keyid" --algorithm "rsa-pkcs1-sha256" --in="$sigbuf" --out "$signature.$size" --outformat="bin"
+
+    echo "${FUNCNAME[0]}: verifying rsa$size sha256 signature"
+    openssl dgst -sha256 -verify "$keyfile.$size" -signature "$signature.$size" "$sigbuf"
+
   done
 }
 
