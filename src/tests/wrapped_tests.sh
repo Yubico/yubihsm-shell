@@ -223,7 +223,7 @@ put_yhwrapped_asymmetric_rsa() {
       --object-id="$keyid" --algorithm "rsa-pkcs1-sha256" --in="$sigbuf" --out "$signature.$size" --outformat="bin"
 
     echo "${FUNCNAME[0]}: verifying rsa$size sha256 signature"
-    openssl dgst -sha256 -verify "$keyfile.$size" -signature "$signature.$size" "$sigbuf"
+    openssl dgst -sha256 -verify "$keyfile.$size.pub" -signature "$signature.$size" "$sigbuf"
 
   done
 }
