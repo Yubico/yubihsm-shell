@@ -5633,7 +5633,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
 
   CK_ECDH1_DERIVE_PARAMS *params = pMechanism->pParameter;
 
-  if (params->kdf == CKD_NULL) {
+  if (params->kdf == CKD_NULL || params->kdf == CKD_SHA1_KDF_SP800 ||
+      params->kdf == CKD_SHA256_KDF_SP800 ||
+      params->kdf == CKD_SHA384_KDF_SP800 ||
+      params->kdf == CKD_SHA512_KDF_SP800) {
     if ((params->pSharedData != NULL) || (params->ulSharedDataLen != 0)) {
       DBG_ERR("Mechanism parameters incompatible with key derivation function "
               "CKD_NULL");
@@ -5671,9 +5674,32 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
   yh_rc rc = yh_util_derive_ecdh(session->slot->device_session, privkey_id,
                                  pubkey, in_len, ecdh_key.ecdh_key, &out_len);
   if (rc != YHR_SUCCESS) {
-    DBG_ERR("Unable to derive ECDH key: %s", yh_strerror(rc));
+    DBG_ERR("Unable to derive raw ECDH key: %s", yh_strerror(rc));
     rv = yrc_to_rv(rc);
     goto c_drv_out;
+  }
+
+  const EVP_MD *md = NULL;
+  switch (params->kdf) {
+    case CKD_SHA1_KDF_SP800:
+      md = EVP_sha1();
+      break;
+    case CKD_SHA256_KDF_SP800:
+      md = EVP_sha256();
+      break;
+    case CKD_SHA384_KDF_SP800:
+      md = EVP_sha384();
+      break;
+    case CKD_SHA512_KDF_SP800:
+      md = EVP_sha512();
+      break;
+    default:
+      // do nothing
+      break;
+  }
+  if (md != NULL) {
+    apply_hash_function(md, ecdh_key.ecdh_key, out_len, ecdh_key.ecdh_key,
+                        &out_len);
   }
 
   if ((expected_key_length > 0) && (expected_key_length != out_len)) {

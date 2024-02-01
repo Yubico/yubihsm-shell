@@ -171,7 +171,8 @@ CK_RV get_mechanism_list(yubihsm_pkcs11_slot *slot,
     }
   }
 
-  CK_MECHANISM_TYPE buffer[128] = {0}; // NOTE: this is a bit hardcoded, but much more
+  CK_MECHANISM_TYPE buffer[128] = {
+    0}; // NOTE: this is a bit hardcoded, but much more
   // than what we might add below.
   CK_ULONG items = 0;
 
@@ -1028,14 +1029,14 @@ static void get_capability_attribute(yh_object_descriptor *object,
 }
 
 static CK_RV add_mech_type(CK_BYTE_PTR value, CK_ULONG max, CK_ULONG_PTR length,
-                          CK_MECHANISM_TYPE mech) {
+                           CK_MECHANISM_TYPE mech) {
   for (CK_ULONG i = 0; i < *length; i += sizeof(CK_MECHANISM_TYPE)) {
-    if (*(CK_MECHANISM_TYPE_PTR) (value + i) == mech)
+    if (*(CK_MECHANISM_TYPE_PTR)(value + i) == mech)
       return CKR_OK;
   }
-  if(*length + sizeof(CK_MECHANISM_TYPE) > max)
+  if (*length + sizeof(CK_MECHANISM_TYPE) > max)
     return CKR_BUFFER_TOO_SMALL;
-  *(CK_MECHANISM_TYPE_PTR) (value + *length) = mech;
+  *(CK_MECHANISM_TYPE_PTR)(value + *length) = mech;
   *length += sizeof(CK_MECHANISM_TYPE);
   return CKR_OK;
 }
@@ -1052,83 +1053,83 @@ static CK_RV get_allowed_mechs(yh_object_descriptor *object, CK_BYTE_PTR value,
   if (yh_is_rsa(object->algorithm)) {
     if (yh_check_capability(&object->capabilities, "sign-pkcs")) {
       rv = add_mech_type(value, max, length, CKM_RSA_PKCS);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_SHA1_RSA_PKCS);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_SHA256_RSA_PKCS);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_SHA384_RSA_PKCS);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_SHA512_RSA_PKCS);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
     }
     if (yh_check_capability(&object->capabilities, "sign-pss")) {
       rv = add_mech_type(value, max, length, CKM_RSA_PKCS_PSS);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_SHA1_RSA_PKCS_PSS);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_SHA256_RSA_PKCS_PSS);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_SHA384_RSA_PKCS_PSS);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_SHA512_RSA_PKCS_PSS);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
     }
     if (yh_check_capability(&object->capabilities, "decrypt-pkcs")) {
       rv = add_mech_type(value, max, length, CKM_RSA_PKCS);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
     }
     if (yh_check_capability(&object->capabilities, "decrypt-oaep")) {
       rv = add_mech_type(value, max, length, CKM_RSA_PKCS_OAEP);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
     }
   } else if (yh_is_ec(object->algorithm)) {
     if (yh_check_capability(&object->capabilities, "sign-ecdsa")) {
       rv = add_mech_type(value, max, length, CKM_ECDSA);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_ECDSA_SHA1);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_ECDSA_SHA256);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_ECDSA_SHA384);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_ECDSA_SHA512);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
     }
     if (yh_check_capability(&object->capabilities, "derive-ecdh")) {
       rv = add_mech_type(value, max, length, CKM_ECDH1_DERIVE);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
     }
   } else if (yh_is_aes(object->algorithm)) {
     if (yh_check_capability(&object->capabilities, "aes-ecb")) {
       rv = add_mech_type(value, max, length, CKM_AES_ECB);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
     }
     if (yh_check_capability(&object->capabilities, "aes-cbc")) {
       rv = add_mech_type(value, max, length, CKM_AES_CBC);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_AES_CBC_PAD);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
     }
   } else {
@@ -2187,6 +2188,43 @@ static CK_RV get_attribute_ecsession_key(CK_ATTRIBUTE_TYPE type,
   }
 
   return CKR_OK;
+}
+
+CK_RV apply_hash_function(const EVP_MD *md, uint8_t *value, size_t value_len,
+                          uint8_t *hashed_value, size_t *hashed_value_len) {
+  if (md == NULL) {
+    hashed_value = value;
+    return CKR_OK;
+  }
+  CK_RV rv = CKR_OK;
+
+  EVP_MD_CTX *mdctx = EVP_MD_CTX_create();
+  if (mdctx == NULL) {
+    rv = CKR_HOST_MEMORY;
+    goto hash_out;
+  }
+
+  if (EVP_DigestInit_ex(mdctx, md, NULL) == 0) {
+    rv = CKR_DATA_INVALID;
+    goto hash_out;
+  }
+
+  if (EVP_DigestUpdate(mdctx, value, value_len) != 1) {
+    rv = CKR_FUNCTION_FAILED;
+    goto hash_out;
+  }
+  if (EVP_DigestFinal_ex(mdctx, hashed_value,
+                         (unsigned int *) hashed_value_len) != 1) {
+    rv = CKR_FUNCTION_FAILED;
+    goto hash_out;
+  }
+
+hash_out:
+
+  if (mdctx != NULL) {
+    EVP_MD_CTX_destroy(mdctx);
+  }
+  return rv;
 }
 
 CK_RV check_sign_mechanism(yubihsm_pkcs11_slot *slot,
@@ -5270,7 +5308,8 @@ CK_RV validate_derive_key_attribute(CK_ATTRIBUTE_TYPE type, void *value) {
       break;
 
     case CKA_KEY_TYPE:
-      if (*((CK_ULONG_PTR) value) != CKK_GENERIC_SECRET) {
+      if (*((CK_ULONG_PTR) value) != CKK_GENERIC_SECRET &&
+          *((CK_ULONG_PTR) value) != CKK_AES) {
         DBG_ERR("Derived key type is unsupported");
         return CKR_ATTRIBUTE_VALUE_INVALID;
       }

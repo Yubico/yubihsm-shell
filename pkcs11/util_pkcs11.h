@@ -39,6 +39,9 @@ yubihsm_pkcs11_object_desc *_get_object_desc(yubihsm_pkcs11_slot *slot,
                                              uint16_t id, uint8_t type,
                                              uint16_t sequence);
 
+CK_RV apply_hash_function(const EVP_MD *md, uint8_t *value, size_t value_len,
+                          uint8_t *hashed_value, size_t *hashed_value_len);
+
 CK_RV check_sign_mechanism(yubihsm_pkcs11_slot *slot,
                            CK_MECHANISM_PTR pMechanism);
 
