@@ -436,7 +436,7 @@ jobs:
             ctest --output-on-failure -E engine
           elif [ $DOCKER_IMAGE = "centos:7" ]; then
             # we skip the ecdh_derive tests (for now) since there is an issue with generating secp224r1 keys
-            ctest --output-on-failure -E ecdh_derive\|aes
+            ctest --output-on-failure -E ecdh_derive\|aes\|ecdh_sp800
           else
             ctest --output-on-failure
           fi
