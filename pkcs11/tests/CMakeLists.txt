@@ -204,6 +204,12 @@ set (
   )
 
 set (
+        SOURCE_ECDH_SP800
+        ecdh_sp800_test.c
+        common.c
+)
+
+set (
   SOURCE_AES_ENCRYPT
   aes_encrypt_test.c
   common.c
@@ -218,6 +224,7 @@ set (
 if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 add_executable (aes_encrypt_test ${SOURCE_AES_ENCRYPT})
 add_executable (ecdh_derive_test ${SOURCE_ECDH_DERIVE})
+add_executable (ecdh_sp800_test ${SOURCE_ECDH_SP800})
 
 target_link_libraries(
   aes_encrypt_test
@@ -234,10 +241,20 @@ target_link_libraries (
   ${LIBCRYPTO_LDFLAGS}
   "-ldl")
 
+target_link_libraries (
+        ecdh_sp800_test
+        ${LIBCRYPTO_LDFLAGS}
+        "-ldl")
+
 add_test (
   NAME ecdh_derive_test
   COMMAND ${CMAKE_CURRENT_BINARY_DIR}/ecdh_derive_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
   )
+
+add_test (
+        NAME ecdh_sp800_test
+        COMMAND ${CMAKE_CURRENT_BINARY_DIR}/ecdh_sp800_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
+)
 
 if (NOT ${LIBCRYPTO_VERSION} VERSION_LESS 1.1)
   add_executable (rsa_enc_test ${SOURCE_RSA_ENC_TEST})
