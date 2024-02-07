@@ -5698,8 +5698,12 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
       break;
   }
   if (md != NULL) {
-    apply_hash_function(md, ecdh_key.ecdh_key, out_len, ecdh_key.ecdh_key,
-                        &out_len);
+    rv = apply_hash_function(md, ecdh_key.ecdh_key, out_len, ecdh_key.ecdh_key,
+                             &out_len);
+    if (rv != CKR_OK) {
+      DBG_ERR("Failed to apply hash function");
+      goto c_drv_out;
+    }
   }
 
   if ((expected_key_length > 0) && (expected_key_length != out_len)) {
