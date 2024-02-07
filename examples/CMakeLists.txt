@@ -52,6 +52,7 @@ set (
   SOURCE_WRAP
   wrap.c
   ../common/util.c
+  ../common/hash.c
   ../common/openssl-compat.c
   )
 

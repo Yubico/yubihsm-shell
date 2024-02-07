@@ -77,6 +77,9 @@ struct backend_functions {
 #ifdef STATIC
 struct backend_functions YH_INTERNAL *usb_backend_functions(void);
 struct backend_functions YH_INTERNAL *http_backend_functions(void);
+#ifdef FUZZING
+struct backend_functions YH_INTERNAL *fuzz_backend_functions(void);
+#endif
 #else
 struct backend_functions *backend_functions(void);
 #endif

@@ -63,7 +63,7 @@ add_definitions (-DVERSION="${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSI
 list(APPEND LCOV_REMOVE_PATTERNS "'${PROJECT_SOURCE_DIR}/src/cmdline.c'")
 
 add_executable (yubihsm-shell ${SOURCE})
-if (ENABLE_STATIC)
+if (ENABLE_STATIC AND NOT FUZZING)
   add_executable (yubihsm-shell_static ${SOURCE})
   set_target_properties (yubihsm-shell_static PROPERTIES COMPILE_FLAGS "-DSTATIC")
   target_link_libraries(yubihsm-shell_static

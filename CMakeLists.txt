@@ -26,6 +26,7 @@ project (yubihsm-shell)
 option(BUILD_ONLY_LIB "Library only build" OFF)
 option(SUPRESS_MSVC_WARNINGS "Suppresses a lot of the warnings when compiling with MSVC" ON)
 
+include(${CMAKE_SOURCE_DIR}/cmake/Fuzzing.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/SecurityFlags.cmake)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")

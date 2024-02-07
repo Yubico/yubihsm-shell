@@ -1258,6 +1258,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
   list_iterate(&session->slot->pkcs11_sessions, login_sessions);
   populate_cache_with_data_opaques(session->slot);
 
+#ifndef FUZZING
   yubihsm_pkcs11_object_desc *authkey_desc =
     _get_object_desc(session->slot, key_id, YH_AUTHENTICATION_KEY, 0xffff);
   if (authkey_desc == NULL) {
@@ -1265,6 +1266,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
     goto c_l_out;
   }
   session->slot->authkey_domains = authkey_desc->object.domains;
+#else
+  session->slot->authkey_domains = 0xffff;
+#endif
 
   DOUT;
 
@@ -5611,6 +5615,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
   for (CK_ULONG i = 0; i < ulAttributeCount; i++) {
     switch (pTemplate[i].type) {
       case CKA_VALUE_LEN:
+        if (pTemplate[i].ulValueLen < sizeof(CK_ULONG)) {
+          rv = CKR_ATTRIBUTE_VALUE_INVALID;
+          goto c_drv_out;
+        }
         expected_key_length = *((CK_ULONG *) pTemplate[i].pValue);
         break;
       case CKA_LABEL:

@@ -49,7 +49,12 @@
 
 #define SCP_AUTHKEY_ID_LEN 2
 
+#ifndef FUZZING
 #define SCP_MSG_BUF_SIZE 2048
+#else
+// in fuzzing builds make the data buffers smaller
+#define SCP_MSG_BUF_SIZE 100
+#endif
 
 // Message
 #pragma pack(push, 1)
