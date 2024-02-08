@@ -33,4 +33,10 @@
 #define CKM_YUBICO_AES_CCM_WRAP                                                \
   (CKM_VENDOR_DEFINED | YUBICO_BASE_VENDOR | YH_WRAP_KEY)
 
+// TODO: These values are from PKCS11 3.0 and should be removed when we upgrade
+#define CKD_YUBICO_SHA1_KDF_SP800 0x0000000EUL
+#define CKD_YUBICO_SHA256_KDF_SP800 0x00000010UL
+#define CKD_YUBICO_SHA384_KDF_SP800 0x00000011UL
+#define CKD_YUBICO_SHA512_KDF_SP800 0x00000012UL
+
 #endif

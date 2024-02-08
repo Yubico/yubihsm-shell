@@ -32,6 +32,7 @@
 #include "../common/insecure_memzero.h"
 #include "../common/parsing.h"
 #include "../common/util.h"
+#include "../common/hash.h"
 
 #ifdef __WIN32
 #include <winsock.h>
@@ -5620,11 +5621,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
 
   char *label_buf = NULL;
   size_t label_len = 0;
-  size_t expected_key_length = 0;
+  size_t value_len = 0;
   for (CK_ULONG i = 0; i < ulAttributeCount; i++) {
     switch (pTemplate[i].type) {
       case CKA_VALUE_LEN:
-        expected_key_length = *((CK_ULONG *) pTemplate[i].pValue);
+        value_len = *((CK_ULONG *) pTemplate[i].pValue);
         break;
       case CKA_LABEL:
         if (pTemplate[i].ulValueLen > YH_OBJ_LABEL_LEN) {
@@ -5646,7 +5647,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
 
   CK_ECDH1_DERIVE_PARAMS *params = pMechanism->pParameter;
 
-  if (params->kdf == CKD_NULL) {
+  if (params->kdf == CKD_NULL || params->kdf == CKD_YUBICO_SHA1_KDF_SP800 ||
+      params->kdf == CKD_YUBICO_SHA256_KDF_SP800 ||
+      params->kdf == CKD_YUBICO_SHA384_KDF_SP800 ||
+      params->kdf == CKD_YUBICO_SHA512_KDF_SP800) {
     if ((params->pSharedData != NULL) || (params->ulSharedDataLen != 0)) {
       DBG_ERR("Mechanism parameters incompatible with key derivation function "
               "CKD_NULL");
@@ -5684,15 +5688,62 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
   yh_rc rc = yh_util_derive_ecdh(session->slot->device_session, privkey_id,
                                  pubkey, in_len, ecdh_key.ecdh_key, &out_len);
   if (rc != YHR_SUCCESS) {
-    DBG_ERR("Unable to derive ECDH key: %s", yh_strerror(rc));
+    DBG_ERR("Unable to derive raw ECDH key: %s", yh_strerror(rc));
     rv = yrc_to_rv(rc);
     goto c_drv_out;
   }
 
-  if ((expected_key_length > 0) && (expected_key_length != out_len)) {
-    DBG_ERR("Failed to derive a key with the expected length");
-    rv = CKR_DATA_LEN_RANGE;
-    goto c_drv_out;
+  hash_t hash = _NONE;
+  switch (params->kdf) {
+    case CKD_NULL:
+      // Do nothing
+      break;
+    case CKD_YUBICO_SHA1_KDF_SP800:
+      hash = _SHA1;
+      break;
+    case CKD_YUBICO_SHA256_KDF_SP800:
+      hash = _SHA256;
+      break;
+    case CKD_YUBICO_SHA384_KDF_SP800:
+      hash = _SHA384;
+      break;
+    case CKD_YUBICO_SHA512_KDF_SP800:
+      hash = _SHA512;
+      break;
+    default:
+      DBG_ERR("Unsupported KDF");
+      rv = CKR_FUNCTION_NOT_SUPPORTED;
+      goto c_drv_out;
+  }
+
+  if (hash != _NONE) {
+    size_t dh_len = out_len;
+    out_len = sizeof(ecdh_key.ecdh_key);
+    if (!hash_bytes(ecdh_key.ecdh_key, dh_len, hash, ecdh_key.ecdh_key,
+                    &out_len)) {
+      DBG_ERR("Failed to apply hash function");
+      goto c_drv_out;
+    }
+    if (dh_len > out_len) {
+      // Wipe any remaining bytes of the dh secret
+      memset(ecdh_key.ecdh_key + out_len, 0, dh_len - out_len);
+    }
+  }
+
+  if (value_len > 0) {
+    if (out_len < value_len) {
+      DBG_ERR("Failed to derive a key with the expected length");
+      rv = CKR_DATA_LEN_RANGE;
+      goto c_drv_out;
+    }
+
+    if (out_len > value_len) {
+      // Truncate from the left
+      size_t offset = out_len - value_len;
+      memmove(ecdh_key.ecdh_key, ecdh_key.ecdh_key + offset, value_len);
+      memset(ecdh_key.ecdh_key + value_len, 0, offset);
+      out_len = value_len;
+    }
   }
 
   // Make a session variable to store the derived key
@@ -5701,7 +5752,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
   memcpy(ecdh_key.label, label_buf, label_len);
   list_append(&session->ecdh_session_keys, &ecdh_key);
 
-  insecure_memzero(ecdh_key.ecdh_key, out_len);
+  insecure_memzero(ecdh_key.ecdh_key, sizeof(ecdh_key.ecdh_key));
 
   *phKey = ecdh_key.id;
 
