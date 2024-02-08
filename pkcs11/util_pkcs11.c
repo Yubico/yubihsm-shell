@@ -2190,43 +2190,6 @@ static CK_RV get_attribute_ecsession_key(CK_ATTRIBUTE_TYPE type,
   return CKR_OK;
 }
 
-CK_RV apply_hash_function(const EVP_MD *md, uint8_t *value, size_t value_len,
-                          uint8_t *hashed_value, size_t *hashed_value_len) {
-  if (md == NULL) {
-    hashed_value = value;
-    return CKR_OK;
-  }
-  CK_RV rv = CKR_OK;
-
-  EVP_MD_CTX *mdctx = EVP_MD_CTX_create();
-  if (mdctx == NULL) {
-    rv = CKR_HOST_MEMORY;
-    goto hash_out;
-  }
-
-  if (EVP_DigestInit_ex(mdctx, md, NULL) == 0) {
-    rv = CKR_DATA_INVALID;
-    goto hash_out;
-  }
-
-  if (EVP_DigestUpdate(mdctx, value, value_len) != 1) {
-    rv = CKR_FUNCTION_FAILED;
-    goto hash_out;
-  }
-  if (EVP_DigestFinal_ex(mdctx, hashed_value,
-                         (unsigned int *) hashed_value_len) != 1) {
-    rv = CKR_FUNCTION_FAILED;
-    goto hash_out;
-  }
-
-hash_out:
-
-  if (mdctx != NULL) {
-    EVP_MD_CTX_destroy(mdctx);
-  }
-  return rv;
-}
-
 CK_RV check_sign_mechanism(yubihsm_pkcs11_slot *slot,
                            CK_MECHANISM_PTR pMechanism) {
 

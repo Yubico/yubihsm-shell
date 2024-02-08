@@ -31,6 +31,7 @@
 #include "yubihsm_pkcs11.h"
 #include "../common/insecure_memzero.h"
 #include "../common/parsing.h"
+#include "../common/hash.h"
 
 #ifdef __WIN32
 #include <winsock.h>
@@ -5671,39 +5672,42 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
 
   ecdh_session_key ecdh_key = {0};
   size_t out_len = sizeof(ecdh_key.ecdh_key);
-  yh_rc rc = yh_util_derive_ecdh(session->slot->device_session, privkey_id,
-                                 pubkey, in_len, ecdh_key.ecdh_key, &out_len);
+  size_t yh_out_len = sizeof(ecdh_key.ecdh_key);
+  yh_rc rc =
+    yh_util_derive_ecdh(session->slot->device_session, privkey_id, pubkey,
+                        in_len, ecdh_key.ecdh_key, &yh_out_len);
   if (rc != YHR_SUCCESS) {
     DBG_ERR("Unable to derive raw ECDH key: %s", yh_strerror(rc));
     rv = yrc_to_rv(rc);
     goto c_drv_out;
   }
 
-  const EVP_MD *md = NULL;
+  hash_t hash = _NONE;
   switch (params->kdf) {
+    case CKD_NULL:
+      out_len = yh_out_len;
+      break;
     case CKD_SHA1_KDF_SP800:
-      md = EVP_sha1();
+      hash = _SHA1;
       break;
     case CKD_SHA256_KDF_SP800:
-      md = EVP_sha256();
+      hash = _SHA256;
       break;
     case CKD_SHA384_KDF_SP800:
-      md = EVP_sha384();
+      hash = _SHA384;
       break;
     case CKD_SHA512_KDF_SP800:
-      md = EVP_sha512();
+      hash = _SHA512;
       break;
     default:
-      // do nothing
-      break;
-  }
-  if (md != NULL) {
-    rv = apply_hash_function(md, ecdh_key.ecdh_key, out_len, ecdh_key.ecdh_key,
-                             &out_len);
-    if (rv != CKR_OK) {
-      DBG_ERR("Failed to apply hash function");
+      DBG_ERR("Unsupported KDF");
+      rv = CKR_FUNCTION_NOT_SUPPORTED;
       goto c_drv_out;
-    }
+  }
+  if (hash != _NONE && !hash_bytes(ecdh_key.ecdh_key, yh_out_len, hash,
+                                   ecdh_key.ecdh_key, &out_len)) {
+    DBG_ERR("Failed to apply hash function");
+    goto c_drv_out;
   }
 
   if ((expected_key_length > 0) && (expected_key_length != out_len)) {
