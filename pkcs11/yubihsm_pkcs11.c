@@ -5682,6 +5682,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
 
   hash_t hash = _NONE;
   switch (params->kdf) {
+    case CKD_NULL:
+      // Do nothing
+      break;
     case CKD_YUBICO_SHA1_KDF_SP800:
       hash = _SHA1;
       break;
