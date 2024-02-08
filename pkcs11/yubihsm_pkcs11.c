@@ -5672,10 +5672,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
 
   ecdh_session_key ecdh_key = {0};
   size_t out_len = sizeof(ecdh_key.ecdh_key);
-  size_t yh_out_len = sizeof(ecdh_key.ecdh_key);
-  yh_rc rc =
-    yh_util_derive_ecdh(session->slot->device_session, privkey_id, pubkey,
-                        in_len, ecdh_key.ecdh_key, &yh_out_len);
+  yh_rc rc = yh_util_derive_ecdh(session->slot->device_session, privkey_id,
+                                 pubkey, in_len, ecdh_key.ecdh_key, &out_len);
   if (rc != YHR_SUCCESS) {
     DBG_ERR("Unable to derive raw ECDH key: %s", yh_strerror(rc));
     rv = yrc_to_rv(rc);
@@ -5684,9 +5682,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
 
   hash_t hash = _NONE;
   switch (params->kdf) {
-    case CKD_NULL:
-      out_len = yh_out_len;
-      break;
     case CKD_YUBICO_SHA1_KDF_SP800:
       hash = _SHA1;
       break;
@@ -5730,6 +5725,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
       // Truncate from the left
       size_t offset = out_len - value_len;
       memmove(ecdh_key.ecdh_key, ecdh_key.ecdh_key + offset, value_len);
+      memset(ecdh_key.ecdh_key + value_len, 0, offset);
       out_len = value_len;
     }
   }
