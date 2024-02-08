@@ -5608,11 +5608,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
 
   char *label_buf = NULL;
   size_t label_len = 0;
-  size_t expected_key_length = 0;
+  size_t value_len = 0;
   for (CK_ULONG i = 0; i < ulAttributeCount; i++) {
     switch (pTemplate[i].type) {
       case CKA_VALUE_LEN:
-        expected_key_length = *((CK_ULONG *) pTemplate[i].pValue);
+        value_len = *((CK_ULONG *) pTemplate[i].pValue);
         break;
       case CKA_LABEL:
         if (pTemplate[i].ulValueLen > YH_OBJ_LABEL_LEN) {
@@ -5704,16 +5704,34 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
       rv = CKR_FUNCTION_NOT_SUPPORTED;
       goto c_drv_out;
   }
-  if (hash != _NONE && !hash_bytes(ecdh_key.ecdh_key, yh_out_len, hash,
-                                   ecdh_key.ecdh_key, &out_len)) {
-    DBG_ERR("Failed to apply hash function");
-    goto c_drv_out;
+
+  if (hash != _NONE) {
+    size_t dh_len = out_len;
+    out_len = sizeof(ecdh_key.ecdh_key);
+    if (!hash_bytes(ecdh_key.ecdh_key, dh_len, hash, ecdh_key.ecdh_key,
+                    &out_len)) {
+      DBG_ERR("Failed to apply hash function");
+      goto c_drv_out;
+    }
+    if (dh_len > out_len) {
+      // Wipe any remaining bytes of the dh secret
+      memset(ecdh_key.ecdh_key + out_len, 0, dh_len - out_len);
+    }
   }
 
-  if ((expected_key_length > 0) && (expected_key_length != out_len)) {
-    DBG_ERR("Failed to derive a key with the expected length");
-    rv = CKR_DATA_LEN_RANGE;
-    goto c_drv_out;
+  if (value_len > 0) {
+    if (out_len < value_len) {
+      DBG_ERR("Failed to derive a key with the expected length");
+      rv = CKR_DATA_LEN_RANGE;
+      goto c_drv_out;
+    }
+
+    if (out_len > value_len) {
+      // Truncate from the left
+      size_t offset = out_len - value_len;
+      memmove(ecdh_key.ecdh_key, ecdh_key.ecdh_key + offset, value_len);
+      out_len = value_len;
+    }
   }
 
   // Make a session variable to store the derived key
@@ -5722,7 +5740,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
   memcpy(ecdh_key.label, label_buf, label_len);
   list_append(&session->ecdh_session_keys, &ecdh_key);
 
-  insecure_memzero(ecdh_key.ecdh_key, out_len);
+  insecure_memzero(ecdh_key.ecdh_key, sizeof(ecdh_key.ecdh_key));
 
   *phKey = ecdh_key.id;
 

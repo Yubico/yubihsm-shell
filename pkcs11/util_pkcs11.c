@@ -5271,8 +5271,7 @@ CK_RV validate_derive_key_attribute(CK_ATTRIBUTE_TYPE type, void *value) {
       break;
 
     case CKA_KEY_TYPE:
-      if (*((CK_ULONG_PTR) value) != CKK_GENERIC_SECRET &&
-          *((CK_ULONG_PTR) value) != CKK_AES) {
+      if (*((CK_ULONG_PTR) value) != CKK_GENERIC_SECRET) {
         DBG_ERR("Derived key type is unsupported");
         return CKR_ATTRIBUTE_VALUE_INVALID;
       }
