@@ -5634,10 +5634,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
 
   CK_ECDH1_DERIVE_PARAMS *params = pMechanism->pParameter;
 
-  if (params->kdf == CKD_NULL || params->kdf == CKD_SHA1_KDF_SP800 ||
-      params->kdf == CKD_SHA256_KDF_SP800 ||
-      params->kdf == CKD_SHA384_KDF_SP800 ||
-      params->kdf == CKD_SHA512_KDF_SP800) {
+  if (params->kdf == CKD_NULL || params->kdf == CKD_YUBICO_SHA1_KDF_SP800 ||
+      params->kdf == CKD_YUBICO_SHA256_KDF_SP800 ||
+      params->kdf == CKD_YUBICO_SHA384_KDF_SP800 ||
+      params->kdf == CKD_YUBICO_SHA512_KDF_SP800) {
     if ((params->pSharedData != NULL) || (params->ulSharedDataLen != 0)) {
       DBG_ERR("Mechanism parameters incompatible with key derivation function "
               "CKD_NULL");
@@ -5687,16 +5687,16 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
     case CKD_NULL:
       out_len = yh_out_len;
       break;
-    case CKD_SHA1_KDF_SP800:
+    case CKD_YUBICO_SHA1_KDF_SP800:
       hash = _SHA1;
       break;
-    case CKD_SHA256_KDF_SP800:
+    case CKD_YUBICO_SHA256_KDF_SP800:
       hash = _SHA256;
       break;
-    case CKD_SHA384_KDF_SP800:
+    case CKD_YUBICO_SHA384_KDF_SP800:
       hash = _SHA384;
       break;
-    case CKD_SHA512_KDF_SP800:
+    case CKD_YUBICO_SHA512_KDF_SP800:
       hash = _SHA512;
       break;
     default:

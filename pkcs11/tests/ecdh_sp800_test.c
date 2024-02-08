@@ -46,8 +46,9 @@ CK_BYTE *CURVE_PARAMS[] = {P224_PARAMS, P256_PARAMS, P384_PARAMS, P521_PARAMS};
 CK_ULONG CURVE_LENS[] = {sizeof(P224_PARAMS), sizeof(P256_PARAMS),
                          sizeof(P384_PARAMS), sizeof(P521_PARAMS)};
 int CURVE_COUNT = sizeof(CURVE_PARAMS) / sizeof(CURVE_PARAMS[0]);
-CK_ULONG KDFS[] = {CKD_NULL, CKD_SHA1_KDF_SP800, CKD_SHA256_KDF_SP800,
-                   CKD_SHA384_KDF_SP800, CKD_SHA512_KDF_SP800};
+CK_ULONG KDFS[] = {CKD_NULL, CKD_YUBICO_SHA1_KDF_SP800,
+                   CKD_YUBICO_SHA256_KDF_SP800, CKD_YUBICO_SHA384_KDF_SP800,
+                   CKD_YUBICO_SHA512_KDF_SP800};
 int KDFS_LEN = sizeof(KDFS) / sizeof(CK_ULONG);
 
 static void success(const char *message) { printf("%s. OK\n", message); }
@@ -246,16 +247,16 @@ static size_t openssl_derive(CK_ULONG kdf, EVP_PKEY *private_key,
       }
       memcpy(*ecdh_key, derived, len);
       goto c_free;
-    case CKD_SHA1_KDF_SP800:
+    case CKD_YUBICO_SHA1_KDF_SP800:
       md = EVP_sha1();
       break;
-    case CKD_SHA256_KDF_SP800:
+    case CKD_YUBICO_SHA256_KDF_SP800:
       md = EVP_sha256();
       break;
-    case CKD_SHA384_KDF_SP800:
+    case CKD_YUBICO_SHA384_KDF_SP800:
       md = EVP_sha384();
       break;
-    case CKD_SHA512_KDF_SP800:
+    case CKD_YUBICO_SHA512_KDF_SP800:
       md = EVP_sha512();
       break;
     default:
