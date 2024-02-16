@@ -2776,7 +2776,6 @@ CK_RV apply_sign_mechanism_update(yubihsm_pkcs11_op_info *op_info,
       break;
 
     case CKM_ECDSA:
-    case CKM_EDDSA:
       if (op_info->buffer_length + in_len > 128) {
         // NOTE(adma): Specs say ECDSA only supports data up to 1024 bit
         return CKR_DATA_LEN_RANGE;
@@ -2791,6 +2790,7 @@ CK_RV apply_sign_mechanism_update(yubihsm_pkcs11_op_info *op_info,
     case CKM_SHA256_HMAC:
     case CKM_SHA384_HMAC:
     case CKM_SHA512_HMAC:
+    case CKM_EDDSA:
       if (op_info->buffer_length + in_len > sizeof(op_info->buffer)) {
         return CKR_DATA_LEN_RANGE;
       }
