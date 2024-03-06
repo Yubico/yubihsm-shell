@@ -31,6 +31,7 @@
 #include "yubihsm_pkcs11.h"
 #include "../common/insecure_memzero.h"
 #include "../common/parsing.h"
+#include "../common/util.h"
 
 #ifdef __WIN32
 #include <winsock.h>
@@ -1398,7 +1399,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       case CKA_EXTRACTABLE:
         if ((rv = set_template_attribute(&template.exportable,
                                          pTemplate[i].pValue)) != CKR_OK) {
-          DBG_ERR("CKA_EXTRACTABLE inconsistent in Template");
+          DBG_ERR("CKA_EXTRACTABLE inconsistent in template");
           goto c_co_out;
         }
     }
@@ -1454,10 +1455,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
         }
       }
 
+      uint8_t p[512], q[512];
+
+      set_component(p, template.obj.rsa.p, template.objlen);
+      set_component(q, template.obj.rsa.q, template.objlen);
+
+      BN_free(template.obj.rsa.p);
+      BN_free(template.obj.rsa.q);
+
       rc = yh_util_import_rsa_key(session->slot->device_session, &template.id,
                                   template.label, 0xffff, &capabilities,
-                                  template.algorithm, template.obj.rsa.p,
-                                  template.obj.rsa.q);
+                                  template.algorithm, p, q);
       if (rc != YHR_SUCCESS) {
         DBG_ERR("Failed writing RSA key to device: %s", yh_strerror(rc));
         rv = yrc_to_rv(rc);
@@ -1488,9 +1496,14 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
         }
       }
 
+      uint8_t d[128];
+      set_component(d, template.obj.ec.d, template.objlen);
+
+      BN_free(template.obj.ec.d);
+
       rc = yh_util_import_ec_key(session->slot->device_session, &template.id,
                                  template.label, 0xffff, &capabilities,
-                                 template.algorithm, template.obj.buf);
+                                 template.algorithm, d);
       if (rc != YHR_SUCCESS) {
         DBG_ERR("Failed writing EC key to device: %s", yh_strerror(rc));
         rv = yrc_to_rv(rc);
@@ -4983,7 +4996,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
       case CKA_EXTRACTABLE:
         if ((rv = set_template_attribute(&template.exportable,
                                          pTemplate[i].pValue)) != CKR_OK) {
-          DBG_ERR("CKA_EXTRACTABLE inconsistent in Template");
+          DBG_ERR("CKA_EXTRACTABLE inconsistent in template");
           return rv;
         }
     }

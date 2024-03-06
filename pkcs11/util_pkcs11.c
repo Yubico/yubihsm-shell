@@ -1722,9 +1722,7 @@ static CK_RV load_public_key(yh_session *session, uint16_t id, EVP_PKEY *key) {
       goto l_p_k_failure;
     }
 
-    if (BN_hex2bn(&e, "10001") == 0) {
-      goto l_p_k_failure;
-    }
+    BN_set_word(e, 0x010001);
 
     n = BN_bin2bn(data + 1, data_len, NULL);
     if (n == NULL) {
@@ -3986,9 +3984,9 @@ CK_RV add_connectors(yubihsm_pkcs11_context *ctx, int n_connectors,
   return CKR_OK;
 }
 
-CK_RV set_template_attribute(yubihsm_pkcs11_attribute *attribute, void *value) {
+CK_RV set_template_attribute(yubihsm_pkcs11_attribute *attribute, CK_BBOOL *value) {
   if (*attribute == ATTRIBUTE_NOT_SET) {
-    if ((*(CK_BBOOL *) value) == true) {
+    if (*value == CK_TRUE) {
       *attribute = ATTRIBUTE_TRUE;
     } else {
       *attribute = ATTRIBUTE_FALSE;
@@ -3999,72 +3997,59 @@ CK_RV set_template_attribute(yubihsm_pkcs11_attribute *attribute, void *value) {
   }
 }
 
-CK_RV check_bool_attribute(void *value, bool check) {
-  CK_BBOOL b_val = *(CK_BBOOL *) value;
-  if (check == true && b_val == CK_TRUE) {
+CK_RV check_bool_attribute(CK_BBOOL *value, bool check) {
+  if (check == true && *value == CK_TRUE) {
     return CKR_OK;
-  } else if (check == false && b_val == CK_FALSE) {
+  } else if (check == false && *value == CK_FALSE) {
     return CKR_OK;
   }
   return CKR_ATTRIBUTE_VALUE_INVALID;
 }
 
+static int BN_cmp_f4(BIGNUM *bn) {
+  BIGNUM *f4 = BN_new();
+  BN_set_word(f4, 0x010001);
+  int cmp = BN_cmp(bn, f4);
+  BN_free(f4);
+  return cmp;
+}
+
 CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
                          yubihsm_pkcs11_object_template *template) {
-
-  uint8_t *e = NULL;
-  uint16_t primelen = 0;
+  BIGNUM *e = NULL;
   CK_RV rv;
   for (CK_ULONG i = 0; i < ulCount; i++) {
     switch (pTemplate[i].type) {
 
       case CKA_PRIME_1:
         if (template->obj.rsa.p == NULL) {
-          template->obj.rsa.p = (CK_BYTE_PTR) pTemplate[i].pValue;
-          if (pTemplate[i].ulValueLen % 2 != 0) {
-            pTemplate[i].ulValueLen--;
-            template->obj.rsa.p++;
-          }
-          if (primelen == 0 || primelen == pTemplate[i].ulValueLen) {
-            primelen = pTemplate[i].ulValueLen;
-          } else {
-            DBG_ERR("CKA_PRIME_1 inconsistent in Template");
-            return CKR_TEMPLATE_INCONSISTENT;
-          }
+          template->obj.rsa.p = BN_bin2bn(pTemplate[i].pValue, pTemplate[i].ulValueLen, NULL);
         } else {
-          DBG_ERR("CKA_PRIME_1 inconsistent in Template");
+          DBG_ERR("CKA_PRIME_1 inconsistent in template");
           return CKR_TEMPLATE_INCONSISTENT;
         }
         break;
 
       case CKA_PRIME_2:
         if (template->obj.rsa.q == NULL) {
-          template->obj.rsa.q = (CK_BYTE_PTR) pTemplate[i].pValue;
-          if (pTemplate[i].ulValueLen % 2 != 0) {
-            pTemplate[i].ulValueLen--;
-            template->obj.rsa.q++;
-          }
-          if (primelen == 0 || primelen == pTemplate[i].ulValueLen) {
-            primelen = pTemplate[i].ulValueLen;
-          } else {
-            DBG_ERR("CKA_PRIME_2 inconsistent in Template");
-            return CKR_TEMPLATE_INCONSISTENT;
-          }
+          template->obj.rsa.q = BN_bin2bn(pTemplate[i].pValue, pTemplate[i].ulValueLen, NULL);
         } else {
-          DBG_ERR("CKA_PRIME_2 inconsistent in Template");
+          DBG_ERR("CKA_PRIME_2 inconsistent in template");
           return CKR_TEMPLATE_INCONSISTENT;
         }
         break;
 
       case CKA_PUBLIC_EXPONENT:
-        if (e == NULL) {
-          e = (CK_BYTE_PTR) pTemplate[i].pValue;
-          if (pTemplate[i].ulValueLen != 3 ||
-              memcmp(e, "\x01\x00\x01", 3) != 0) {
-            DBG_ERR("CKA_PUBLIC_EXPONENT invalid in Template");
-            return CKR_ATTRIBUTE_VALUE_INVALID;
+        if(e == NULL) {
+          e = BN_bin2bn(pTemplate[i].pValue, pTemplate[i].ulValueLen, NULL);
+          if(e == NULL || BN_cmp_f4(e)) {
+            DBG_ERR("CKA_PUBLIC_EXPONENT invalid in template");
+            BN_free(e);
+            return CKR_ATTRIBUTE_VALUE_INVALID;;
           }
+          BN_free(e);
         } else {
+          DBG_ERR("CKA_PUBLIC_EXPONENT inconsistent in template");
           return CKR_TEMPLATE_INCONSISTENT;
         }
         break;
@@ -4072,7 +4057,7 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_SIGN:
         if ((rv = set_template_attribute(&template->sign,
                                          pTemplate[i].pValue)) != CKR_OK) {
-          DBG_ERR("CKA_SIGN inconsistent in Template");
+          DBG_ERR("CKA_SIGN inconsistent in template");
           return rv;
         }
         break;
@@ -4080,7 +4065,7 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_DECRYPT:
         if ((rv = set_template_attribute(&template->decrypt,
                                          pTemplate[i].pValue)) != CKR_OK) {
-          DBG_ERR("CKA_DECRYPT inconsistent in Template");
+          DBG_ERR("CKA_DECRYPT inconsistent in template");
           return rv;
         }
         break;
@@ -4138,9 +4123,13 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
         return CKR_ATTRIBUTE_TYPE_INVALID;
     }
   }
-  if (e && template->obj.rsa.p && template->obj.rsa.q) {
-    template->objlen = primelen;
-    switch (primelen) {
+  if (template->obj.rsa.p && template->obj.rsa.q) {
+    template->objlen = (BN_num_bits(template->obj.rsa.p) + 7) / 8;
+    if((BN_num_bits(template->obj.rsa.q) + 7) / 8 != template->objlen) {
+        DBG_ERR("Inconsistent prime sizes in template");
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    switch (template->objlen) {
       case 128:
         template->algorithm = YH_ALGO_RSA_2048;
         break;
@@ -4151,25 +4140,24 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
         template->algorithm = YH_ALGO_RSA_4096;
         break;
       default:
-        DBG_ERR("Invalid prime length in Template");
+        DBG_ERR("Invalid %u bit primes in template", template->objlen * 8);
         return CKR_ATTRIBUTE_VALUE_INVALID;
     }
   } else {
-    DBG_ERR("Iconsistent RSA Template");
+    DBG_ERR("Iconsistent RSA template");
     return CKR_TEMPLATE_INCONSISTENT;
   }
   return CKR_OK;
 }
 
-static CK_RV parse_ecparams(uint8_t *ecparams, uint16_t ecparams_len,
+static CK_RV parse_ecparams(const uint8_t *ecparams, uint16_t ecparams_len,
                             yh_algorithm *algorithm, uint16_t *key_len) {
   EC_GROUP *group = EC_GROUP_new(EC_GFp_simple_method());
-  const uint8_t *param_ptr = ecparams;
   int curve = 0;
   if (group == NULL) {
     return CKR_HOST_MEMORY;
   }
-  if (d2i_ECPKParameters(&group, &param_ptr, ecparams_len) != NULL) {
+  if (d2i_ECPKParameters(&group, &ecparams, ecparams_len) != NULL) {
     curve = EC_GROUP_get_curve_name(group);
   }
   EC_GROUP_free(group);
@@ -4221,28 +4209,28 @@ static CK_RV parse_ecparams(uint8_t *ecparams, uint16_t ecparams_len,
 CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
                         yubihsm_pkcs11_object_template *template) {
 
-  uint8_t *ecparams = NULL;
-  uint16_t ecparams_len = 0;
   CK_RV rv;
   for (CK_ULONG i = 0; i < ulCount; i++) {
     switch (pTemplate[i].type) {
 
       case CKA_VALUE:
-        if (template->obj.buf == NULL) {
-          template->obj.buf = (CK_BYTE_PTR) pTemplate[i].pValue;
-          template->objlen = pTemplate[i].ulValueLen;
+        if (template->obj.ec.d == NULL) {
+          template->obj.ec.d = BN_bin2bn(pTemplate[i].pValue, pTemplate[i].ulValueLen, NULL);
         } else {
-          DBG_ERR("CKA_VALUE inconsistent in Template");
+          DBG_ERR("CKA_VALUE inconsistent in template");
           return CKR_TEMPLATE_INCONSISTENT;
         }
         break;
 
       case CKA_EC_PARAMS:
-        if (ecparams == NULL) {
-          ecparams = (CK_BYTE_PTR) pTemplate[i].pValue;
-          ecparams_len = pTemplate[i].ulValueLen;
+        if (template->objlen == 0) {
+          rv = parse_ecparams(pTemplate[i].pValue, pTemplate[i].ulValueLen, &template->algorithm, &template->objlen);
+          if (rv != CKR_OK) {
+            DBG_ERR("Invalid EC parameters in template");
+            return rv;
+          }
         } else {
-          DBG_ERR("CKA_EC_PARAMS inconsistent in Template");
+          DBG_ERR("CKA_EC_PARAMS inconsistent in template");
           return CKR_TEMPLATE_INCONSISTENT;
         }
         break;
@@ -4250,7 +4238,7 @@ CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_SIGN:
         if ((rv = set_template_attribute(&template->sign,
                                          pTemplate[i].pValue)) != CKR_OK) {
-          DBG_ERR("CKA_SIGN inconsistent in Template");
+          DBG_ERR("CKA_SIGN inconsistent in template");
           return rv;
         }
         break;
@@ -4258,7 +4246,7 @@ CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_DERIVE:
         if ((rv = set_template_attribute(&template->derive,
                                          pTemplate[i].pValue)) != CKR_OK) {
-          DBG_ERR("CKA_DERIVE inconsistent in Template");
+          DBG_ERR("CKA_DERIVE inconsistent in template");
           return rv;
         }
         break;
@@ -4313,22 +4301,10 @@ CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
         return CKR_ATTRIBUTE_TYPE_INVALID;
     }
   }
-  if (ecparams && template->obj.buf) {
-    uint16_t key_len;
-    rv = parse_ecparams(ecparams, ecparams_len, &template->algorithm, &key_len);
-    if (rv != CKR_OK) {
-      DBG_ERR("Invalid EC parameters in Template");
-      return rv;
-    }
-    if (key_len != template->objlen) {
-      DBG_ERR("Invalid EC parameter length in Template");
-      return CKR_ATTRIBUTE_VALUE_INVALID;
-    }
-  } else {
-    DBG_ERR("Inconsistent EC Template");
+  if (template->obj.ec.d == NULL || template->objlen == 0) {
+    DBG_ERR("Inconsistent EC template");
     return CKR_TEMPLATE_INCONSISTENT;
   }
-
   return CKR_OK;
 }
 
@@ -4344,10 +4320,10 @@ CK_RV parse_hmac_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_VALUE:
         if (generate == false && template->obj.buf == NULL) {
           // TODO: consider hanshing the key here if it's longer than blocklen
-          template->obj.buf = (CK_BYTE_PTR) pTemplate[i].pValue;
+          template->obj.buf = pTemplate[i].pValue;
           template->objlen = pTemplate[i].ulValueLen;
         } else {
-          DBG_ERR("CKA_VALUE inconsistent in Template");
+          DBG_ERR("CKA_VALUE inconsistent in template");
           return CKR_TEMPLATE_INCONSISTENT;
         }
         break;
@@ -4355,7 +4331,7 @@ CK_RV parse_hmac_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_SIGN:
         if ((rv = set_template_attribute(&template->sign,
                                          pTemplate[i].pValue)) != CKR_OK) {
-          DBG_ERR("CKA_SIGN inconsistent in Template");
+          DBG_ERR("CKA_SIGN inconsistent in template");
           return rv;
         }
         break;
@@ -4363,7 +4339,7 @@ CK_RV parse_hmac_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_VERIFY:
         if ((rv = set_template_attribute(&template->verify,
                                          pTemplate[i].pValue)) != CKR_OK) {
-          DBG_ERR("CKA_VERIFY inconsistent in Template");
+          DBG_ERR("CKA_VERIFY inconsistent in template");
           return rv;
         }
         break;
@@ -4383,7 +4359,7 @@ CK_RV parse_hmac_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
             template->algorithm = YH_ALGO_HMAC_SHA512;
             break;
           default:
-            DBG_ERR("CKA_KEY_TYPE inconsistent in Template");
+            DBG_ERR("CKA_KEY_TYPE inconsistent in template");
             return CKR_TEMPLATE_INCONSISTENT;
         }
         break;
@@ -4432,7 +4408,7 @@ CK_RV parse_hmac_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
   if (template->algorithm && (generate == true || template->obj.buf)) {
     return CKR_OK;
   } else {
-    DBG_ERR("Inconsistent HMAC Template");
+    DBG_ERR("Inconsistent HMAC template");
     return CKR_TEMPLATE_INCONSISTENT;
   }
 }
@@ -4974,10 +4950,10 @@ CK_RV parse_wrap_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
 
       case CKA_VALUE:
         if (generate == false && template->obj.buf == NULL) {
-          template->obj.buf = (CK_BYTE_PTR) pTemplate[i].pValue;
+          template->obj.buf = pTemplate[i].pValue;
           template->objlen = pTemplate[i].ulValueLen;
         } else {
-          DBG_ERR("CKA_VALUE inconsistent in Template");
+          DBG_ERR("CKA_VALUE inconsistent in template");
           return CKR_TEMPLATE_INCONSISTENT;
         }
         break;
@@ -5000,7 +4976,7 @@ CK_RV parse_wrap_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_WRAP:
         if ((rv = set_template_attribute(&template->wrap,
                                          pTemplate[i].pValue)) != CKR_OK) {
-          DBG_ERR("CKA_WRAP inconsistent in Template");
+          DBG_ERR("CKA_WRAP inconsistent in template");
           return rv;
         }
         break;
@@ -5008,7 +4984,7 @@ CK_RV parse_wrap_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_UNWRAP:
         if ((rv = set_template_attribute(&template->unwrap,
                                          pTemplate[i].pValue)) != CKR_OK) {
-          DBG_ERR("CKA_UNWRAP inconsistent in Template");
+          DBG_ERR("CKA_UNWRAP inconsistent in template");
           return rv;
         }
         break;
@@ -5016,7 +4992,7 @@ CK_RV parse_wrap_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_ENCRYPT:
         if ((rv = set_template_attribute(&template->encrypt,
                                          pTemplate[i].pValue)) != CKR_OK) {
-          DBG_ERR("CKA_ENCRYPT inconsistent in Template");
+          DBG_ERR("CKA_ENCRYPT inconsistent in template");
           return rv;
         }
         break;
@@ -5024,7 +5000,7 @@ CK_RV parse_wrap_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       case CKA_DECRYPT:
         if ((rv = set_template_attribute(&template->decrypt,
                                          pTemplate[i].pValue)) != CKR_OK) {
-          DBG_ERR("CKA_DECRYPT inconsistent in Template");
+          DBG_ERR("CKA_DECRYPT inconsistent in template");
           return rv;
         }
         break;
@@ -5086,7 +5062,7 @@ CK_RV parse_aes_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
 
       case CKA_VALUE:
         if (generate == false && template->obj.buf == NULL) {
-          template->obj.buf = (CK_BYTE_PTR) pTemplate[i].pValue;
+          template->obj.buf = pTemplate[i].pValue;
           template->objlen = keylen = pTemplate[i].ulValueLen;
         } else {
           return CKR_TEMPLATE_INCONSISTENT;
