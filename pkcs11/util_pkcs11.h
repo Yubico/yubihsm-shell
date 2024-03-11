@@ -122,7 +122,7 @@ bool create_session(yubihsm_pkcs11_slot *slot, CK_FLAGS flags,
 void release_session(yubihsm_pkcs11_context *ctx,
                      yubihsm_pkcs11_session *session);
 
-CK_RV set_template_attribute(yubihsm_pkcs11_attribute *attribute, void *value);
+CK_RV set_template_attribute(yubihsm_pkcs11_attribute *attribute, CK_BBOOL *value);
 CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
                          yubihsm_pkcs11_object_template *template);
 CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
@@ -158,7 +158,7 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
 
 CK_RV validate_derive_key_attribute(CK_ATTRIBUTE_TYPE type, void *value);
 
-CK_RV check_bool_attribute(void *value, bool check);
+CK_RV check_bool_attribute(CK_BBOOL *value, bool check);
 CK_RV yrc_to_rv(yh_rc rc);
 
 CK_RV populate_cache_with_data_opaques(yubihsm_pkcs11_slot *slot);
