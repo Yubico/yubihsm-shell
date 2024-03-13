@@ -204,6 +204,12 @@ set (
   )
 
 set (
+  SOURCE_META_OBJECT
+  meta_object_test.c
+  common.c
+  )
+
+set (
   SOURCE_AES_ENCRYPT
   aes_encrypt_test.c
   common.c
@@ -241,15 +247,25 @@ add_test (
 
 if (NOT ${LIBCRYPTO_VERSION} VERSION_LESS 1.1)
   add_executable (rsa_enc_test ${SOURCE_RSA_ENC_TEST})
+  add_executable (meta_object_test ${SOURCE_META_OBJECT})
 
   target_link_libraries (
           rsa_enc_test
           ${LIBCRYPTO_LDFLAGS}
           "-ldl")
+  target_link_libraries (
+          meta_object_test
+          ${LIBCRYPTO_LDFLAGS}
+          yubihsm
+          "-ldl")
 
   add_test (
           NAME rsa_enc_test
           COMMAND ${CMAKE_CURRENT_BINARY_DIR}/rsa_enc_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
+  )
+  add_test (
+          NAME meta_object_test
+          COMMAND ${CMAKE_CURRENT_BINARY_DIR}/meta_object_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
   )
 endif(NOT ${LIBCRYPTO_VERSION} VERSION_LESS 1.1)
 
