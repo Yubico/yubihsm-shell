@@ -171,7 +171,8 @@ CK_RV get_mechanism_list(yubihsm_pkcs11_slot *slot,
     }
   }
 
-  CK_MECHANISM_TYPE buffer[128] = {0}; // NOTE: this is a bit hardcoded, but much more
+  CK_MECHANISM_TYPE buffer[128] = {
+    0}; // NOTE: this is a bit hardcoded, but much more
   // than what we might add below.
   CK_ULONG items = 0;
 
@@ -1028,14 +1029,14 @@ static void get_capability_attribute(yh_object_descriptor *object,
 }
 
 static CK_RV add_mech_type(CK_BYTE_PTR value, CK_ULONG max, CK_ULONG_PTR length,
-                          CK_MECHANISM_TYPE mech) {
+                           CK_MECHANISM_TYPE mech) {
   for (CK_ULONG i = 0; i < *length; i += sizeof(CK_MECHANISM_TYPE)) {
-    if (*(CK_MECHANISM_TYPE_PTR) (value + i) == mech)
+    if (*(CK_MECHANISM_TYPE_PTR)(value + i) == mech)
       return CKR_OK;
   }
-  if(*length + sizeof(CK_MECHANISM_TYPE) > max)
+  if (*length + sizeof(CK_MECHANISM_TYPE) > max)
     return CKR_BUFFER_TOO_SMALL;
-  *(CK_MECHANISM_TYPE_PTR) (value + *length) = mech;
+  *(CK_MECHANISM_TYPE_PTR)(value + *length) = mech;
   *length += sizeof(CK_MECHANISM_TYPE);
   return CKR_OK;
 }
@@ -1052,83 +1053,83 @@ static CK_RV get_allowed_mechs(yh_object_descriptor *object, CK_BYTE_PTR value,
   if (yh_is_rsa(object->algorithm)) {
     if (yh_check_capability(&object->capabilities, "sign-pkcs")) {
       rv = add_mech_type(value, max, length, CKM_RSA_PKCS);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_SHA1_RSA_PKCS);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_SHA256_RSA_PKCS);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_SHA384_RSA_PKCS);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_SHA512_RSA_PKCS);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
     }
     if (yh_check_capability(&object->capabilities, "sign-pss")) {
       rv = add_mech_type(value, max, length, CKM_RSA_PKCS_PSS);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_SHA1_RSA_PKCS_PSS);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_SHA256_RSA_PKCS_PSS);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_SHA384_RSA_PKCS_PSS);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_SHA512_RSA_PKCS_PSS);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
     }
     if (yh_check_capability(&object->capabilities, "decrypt-pkcs")) {
       rv = add_mech_type(value, max, length, CKM_RSA_PKCS);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
     }
     if (yh_check_capability(&object->capabilities, "decrypt-oaep")) {
       rv = add_mech_type(value, max, length, CKM_RSA_PKCS_OAEP);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
     }
   } else if (yh_is_ec(object->algorithm)) {
     if (yh_check_capability(&object->capabilities, "sign-ecdsa")) {
       rv = add_mech_type(value, max, length, CKM_ECDSA);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_ECDSA_SHA1);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_ECDSA_SHA256);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_ECDSA_SHA384);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_ECDSA_SHA512);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
     }
     if (yh_check_capability(&object->capabilities, "derive-ecdh")) {
       rv = add_mech_type(value, max, length, CKM_ECDH1_DERIVE);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
     }
   } else if (yh_is_aes(object->algorithm)) {
     if (yh_check_capability(&object->capabilities, "aes-ecb")) {
       rv = add_mech_type(value, max, length, CKM_AES_ECB);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
     }
     if (yh_check_capability(&object->capabilities, "aes-cbc")) {
       rv = add_mech_type(value, max, length, CKM_AES_CBC);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
       rv = add_mech_type(value, max, length, CKM_AES_CBC_PAD);
-      if(rv != CKR_OK)
+      if (rv != CKR_OK)
         return rv;
     }
   } else {
@@ -3984,7 +3985,8 @@ CK_RV add_connectors(yubihsm_pkcs11_context *ctx, int n_connectors,
   return CKR_OK;
 }
 
-CK_RV set_template_attribute(yubihsm_pkcs11_attribute *attribute, CK_BBOOL *value) {
+CK_RV set_template_attribute(yubihsm_pkcs11_attribute *attribute,
+                             CK_BBOOL *value) {
   if (*attribute == ATTRIBUTE_NOT_SET) {
     if (*value == CK_TRUE) {
       *attribute = ATTRIBUTE_TRUE;
@@ -4023,7 +4025,8 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
 
       case CKA_PRIME_1:
         if (template->obj.rsa.p == NULL) {
-          template->obj.rsa.p = BN_bin2bn(pTemplate[i].pValue, pTemplate[i].ulValueLen, NULL);
+          template->obj.rsa.p =
+            BN_bin2bn(pTemplate[i].pValue, pTemplate[i].ulValueLen, NULL);
         } else {
           DBG_ERR("CKA_PRIME_1 inconsistent in template");
           return CKR_TEMPLATE_INCONSISTENT;
@@ -4032,7 +4035,8 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
 
       case CKA_PRIME_2:
         if (template->obj.rsa.q == NULL) {
-          template->obj.rsa.q = BN_bin2bn(pTemplate[i].pValue, pTemplate[i].ulValueLen, NULL);
+          template->obj.rsa.q =
+            BN_bin2bn(pTemplate[i].pValue, pTemplate[i].ulValueLen, NULL);
         } else {
           DBG_ERR("CKA_PRIME_2 inconsistent in template");
           return CKR_TEMPLATE_INCONSISTENT;
@@ -4040,12 +4044,12 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
         break;
 
       case CKA_PUBLIC_EXPONENT:
-        if(e == NULL) {
+        if (e == NULL) {
           e = BN_bin2bn(pTemplate[i].pValue, pTemplate[i].ulValueLen, NULL);
-          if(e == NULL || BN_cmp_f4(e)) {
+          if (e == NULL || BN_cmp_f4(e)) {
             DBG_ERR("CKA_PUBLIC_EXPONENT invalid in template");
             BN_free(e);
-            return CKR_ATTRIBUTE_VALUE_INVALID;;
+            return CKR_ATTRIBUTE_VALUE_INVALID;
           }
           BN_free(e);
         } else {
@@ -4125,9 +4129,9 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
   }
   if (template->obj.rsa.p && template->obj.rsa.q) {
     template->objlen = (BN_num_bits(template->obj.rsa.p) + 7) / 8;
-    if((BN_num_bits(template->obj.rsa.q) + 7) / 8 != template->objlen) {
-        DBG_ERR("Inconsistent prime sizes in template");
-        return CKR_ATTRIBUTE_VALUE_INVALID;
+    if ((BN_num_bits(template->obj.rsa.q) + 7) / 8 != template->objlen) {
+      DBG_ERR("Inconsistent prime sizes in template");
+      return CKR_ATTRIBUTE_VALUE_INVALID;
     }
     switch (template->objlen) {
       case 128:
@@ -4215,7 +4219,8 @@ CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
 
       case CKA_VALUE:
         if (template->obj.ec.d == NULL) {
-          template->obj.ec.d = BN_bin2bn(pTemplate[i].pValue, pTemplate[i].ulValueLen, NULL);
+          template->obj.ec.d =
+            BN_bin2bn(pTemplate[i].pValue, pTemplate[i].ulValueLen, NULL);
         } else {
           DBG_ERR("CKA_VALUE inconsistent in template");
           return CKR_TEMPLATE_INCONSISTENT;
@@ -4224,7 +4229,8 @@ CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
 
       case CKA_EC_PARAMS:
         if (template->objlen == 0) {
-          rv = parse_ecparams(pTemplate[i].pValue, pTemplate[i].ulValueLen, &template->algorithm, &template->objlen);
+          rv = parse_ecparams(pTemplate[i].pValue, pTemplate[i].ulValueLen,
+                              &template->algorithm, &template->objlen);
           if (rv != CKR_OK) {
             DBG_ERR("Invalid EC parameters in template");
             return rv;
@@ -4319,7 +4325,7 @@ CK_RV parse_hmac_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
 
       case CKA_VALUE:
         if (generate == false && template->obj.buf == NULL) {
-          // TODO: consider hanshing the key here if it's longer than blocklen
+          // TODO: consider hashing the key here if it's longer than blocklen
           template->obj.buf = pTemplate[i].pValue;
           template->objlen = pTemplate[i].ulValueLen;
         } else {
