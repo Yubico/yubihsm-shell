@@ -312,7 +312,7 @@ c_truncate:
 
 c_free:
   if (len == 0) {
-    free(ecdh_key);
+    free(*ecdh_key);
   }
   EVP_PKEY_CTX_free(ctx);
   if (mdctx != NULL) {
