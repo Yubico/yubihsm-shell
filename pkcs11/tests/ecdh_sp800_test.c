@@ -97,11 +97,10 @@ static EVP_PKEY *generate_keypair_openssl(const char *curve) {
   eckey = EC_KEY_new_by_curve_name(eccgrp);
   if (!(EC_KEY_generate_key(eckey))) {
     fail("Failed to generate EC keypair with openssl");
-  } else {
-    pkey = EVP_PKEY_new();
-    if (!EVP_PKEY_assign_EC_KEY(pkey, eckey)) {
-      fail("Failed to assign ECC key to EVP_PKEY structure");
-    }
+  }
+  pkey = EVP_PKEY_new();
+  if (!EVP_PKEY_assign_EC_KEY(pkey, eckey)) {
+    fail("Failed to assign ECC key to EVP_PKEY structure");
   }
   return pkey;
 }
@@ -120,7 +119,9 @@ static CK_ULONG get_yhvalue(CK_OBJECT_HANDLE object, unsigned char *value,
                             CK_ULONG object_size) {
   if (object_size > 0) {
     CK_ATTRIBUTE template[] = {{CKA_VALUE, value, object_size}};
-    if ((p11->C_GetAttributeValue(session, object, template, 1)) == CKR_OK) {
+    if ((p11->C_GetAttributeValue(session, object, template,
+                                  sizeof(template) / sizeof(template[0]))) ==
+        CKR_OK) {
       return object_size;
     } else {
       printf("Failed to retrieve object value from yubihsm-pkcs11. 0x%lx\n",
@@ -140,7 +141,7 @@ static bool yh_derive(unsigned char *peerkey_bytes, int peerkey_len,
   params.pPublicData = peerkey_bytes;
   params.ulPublicDataLen = peerkey_len;
 
-  CK_MECHANISM mechanism = {CKM_ECDH1_DERIVE, (void *) &params, sizeof(params)};
+  CK_MECHANISM mechanism = {CKM_ECDH1_DERIVE, &params, sizeof(params)};
 
   CK_OBJECT_CLASS key_class = CKO_SECRET_KEY;
   CK_KEY_TYPE key_type = CKK_GENERIC_SECRET;
@@ -150,8 +151,10 @@ static bool yh_derive(unsigned char *peerkey_bytes, int peerkey_len,
      {CKA_VALUE_LEN, &ecdh_len, sizeof(ecdh_len)},
      {CKA_LABEL, label, strlen(label)}};
 
-  CK_RV rv = p11->C_DeriveKey(session, &mechanism, privkey, derivedKeyTemplate,
-                              4, ecdh_key);
+  CK_RV rv =
+    p11->C_DeriveKey(session, &mechanism, privkey, derivedKeyTemplate,
+                     sizeof(derivedKeyTemplate) / sizeof(derivedKeyTemplate[0]),
+                     ecdh_key);
   if (rv != CKR_OK) {
     //    fail("Failed to derived ECDH key on the YubiHSM");
     return false;
@@ -308,6 +311,9 @@ c_truncate:
   }
 
 c_free:
+  if (len == 0) {
+    free(ecdh_key);
+  }
   EVP_PKEY_CTX_free(ctx);
   if (mdctx != NULL) {
     EVP_MD_CTX_destroy(mdctx);
