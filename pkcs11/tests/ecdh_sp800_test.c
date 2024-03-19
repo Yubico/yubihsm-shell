@@ -287,7 +287,7 @@ static size_t openssl_derive(CK_ULONG kdf, EVP_PKEY *private_key,
   }
 
   size_t output_bits = 0;
-  const EVP_MD *md;
+  const EVP_MD *md = NULL;
   switch (kdf) {
     case CKD_NULL:
       memcpy(*ecdh_key, derived, len);
