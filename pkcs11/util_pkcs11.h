@@ -21,6 +21,7 @@
 #include <pkcs11y.h>
 
 #include "yubihsm_pkcs11.h"
+#include "../common/hash.h"
 
 CK_RV set_operation_part(yubihsm_pkcs11_op_info *op_info,
                          yubihsm_pkcs11_part_type part);
@@ -122,7 +123,8 @@ bool create_session(yubihsm_pkcs11_slot *slot, CK_FLAGS flags,
 void release_session(yubihsm_pkcs11_context *ctx,
                      yubihsm_pkcs11_session *session);
 
-CK_RV set_template_attribute(yubihsm_pkcs11_attribute *attribute, CK_BBOOL *value);
+CK_RV set_template_attribute(yubihsm_pkcs11_attribute *attribute,
+                             CK_BBOOL *value);
 CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
                          yubihsm_pkcs11_object_template *template);
 CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
@@ -185,4 +187,7 @@ CK_RV parse_meta_label_template(yubihsm_pkcs11_object_template *template,
                                 pkcs11_meta_object *pkcs11meta, bool public,
                                 uint8_t *value, size_t value_len);
 bool match_byte_array(uint8_t *a, uint16_t a_len, uint8_t *b, uint16_t b_len);
+
+size_t ecdh_with_kdf(ecdh_session_key *shared_secret, size_t shared_secret_len,
+                     CK_ULONG kdf, size_t value_len);
 #endif

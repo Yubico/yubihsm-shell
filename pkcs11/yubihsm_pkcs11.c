@@ -5685,6 +5685,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
 
   ecdh_session_key ecdh_key = {0};
   size_t out_len = sizeof(ecdh_key.ecdh_key);
+
+  if (value_len > out_len) {
+    DBG_ERR("Requested derived key is too long");
+    rv = CKR_ATTRIBUTE_VALUE_INVALID;
+    goto c_drv_out;
+  }
+
   yh_rc rc = yh_util_derive_ecdh(session->slot->device_session, privkey_id,
                                  pubkey, in_len, ecdh_key.ecdh_key, &out_len);
   if (rc != YHR_SUCCESS) {
@@ -5693,41 +5700,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
     goto c_drv_out;
   }
 
-  hash_t hash = _NONE;
-  switch (params->kdf) {
-    case CKD_NULL:
-      // Do nothing
-      break;
-    case CKD_YUBICO_SHA1_KDF_SP800:
-      hash = _SHA1;
-      break;
-    case CKD_YUBICO_SHA256_KDF_SP800:
-      hash = _SHA256;
-      break;
-    case CKD_YUBICO_SHA384_KDF_SP800:
-      hash = _SHA384;
-      break;
-    case CKD_YUBICO_SHA512_KDF_SP800:
-      hash = _SHA512;
-      break;
-    default:
-      DBG_ERR("Unsupported KDF");
-      rv = CKR_FUNCTION_NOT_SUPPORTED;
-      goto c_drv_out;
-  }
-
-  if (hash != _NONE) {
-    size_t dh_len = out_len;
-    out_len = sizeof(ecdh_key.ecdh_key);
-    if (!hash_bytes(ecdh_key.ecdh_key, dh_len, hash, ecdh_key.ecdh_key,
-                    &out_len)) {
-      DBG_ERR("Failed to apply hash function");
-      goto c_drv_out;
-    }
-    if (dh_len > out_len) {
-      // Wipe any remaining bytes of the dh secret
-      memset(ecdh_key.ecdh_key + out_len, 0, dh_len - out_len);
-    }
+  out_len = ecdh_with_kdf(&ecdh_key, out_len, params->kdf, value_len);
+  if (out_len == 0) {
+    DBG_ERR("Failed to derive ECDH key with KDF");
+    goto c_drv_out;
   }
 
   if (value_len > 0) {

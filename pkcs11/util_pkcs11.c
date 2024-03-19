@@ -20,6 +20,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include "../common/platform-config.h"
 #include "../common/util.h"
 #include "../common/time_win.h"
@@ -5307,4 +5308,79 @@ bool match_meta_attributes(yubihsm_pkcs11_session *session,
     }
   }
   return true;
+}
+
+size_t ecdh_with_kdf(ecdh_session_key *shared_secret, size_t shared_secret_len,
+                     CK_ULONG kdf, size_t value_len) {
+
+  size_t out_len = 0;
+  size_t output_bits = 0;
+
+  hash_t hash = _NONE;
+  switch (kdf) {
+    case CKD_NULL:
+      // Do nothing
+      break;
+    case CKD_YUBICO_SHA1_KDF_SP800:
+      hash = _SHA1;
+      output_bits = 160;
+      break;
+    case CKD_YUBICO_SHA256_KDF_SP800:
+      hash = _SHA256;
+      output_bits = 256;
+      break;
+    case CKD_YUBICO_SHA384_KDF_SP800:
+      hash = _SHA384;
+      output_bits = 384;
+      break;
+    case CKD_YUBICO_SHA512_KDF_SP800:
+      hash = _SHA512;
+      output_bits = 512;
+      break;
+    default:
+      DBG_ERR("Unsupported KDF");
+      return 0;
+  }
+
+  if (hash == _NONE) {
+    out_len = shared_secret_len;
+  } else {
+    size_t l = value_len * 8;
+    size_t reps = ceil((float) l / output_bits);
+    if (reps > INT32_MAX) {
+      DBG_ERR("Too many repetitions");
+      return 0;
+    }
+
+    uint8_t res[1024] = {0};
+    size_t k_len = shared_secret_len + 4;
+    uint8_t *k = malloc(k_len);
+    memset(k, 0, 4);
+    memcpy(k + 4, shared_secret->ecdh_key, shared_secret_len);
+
+    size_t hash_len = sizeof(res);
+    uint32_t counter = 0;
+    for (size_t i = 0; i < reps; i++) {
+      counter++;
+      memcpy(k, &counter, 4);
+
+      if (!hash_bytes(k, k_len, hash, res + (i * out_len), &hash_len)) {
+        DBG_ERR("Failed to apply hash function");
+        return 0;
+      }
+      out_len += hash_len;
+    }
+
+    if (value_len > out_len) {
+      DBG_ERR("Derived key is too short");
+      return 0;
+    }
+
+    memcpy(shared_secret->ecdh_key, res, value_len);
+    memset(shared_secret->ecdh_key + value_len, 0,
+           sizeof(shared_secret->ecdh_key) - value_len);
+    out_len = value_len;
+  }
+
+  return out_len;
 }

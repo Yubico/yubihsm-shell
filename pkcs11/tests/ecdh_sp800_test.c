@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <math.h>
 
 #include <openssl/evp.h>
 #include <openssl/ec.h>
@@ -194,6 +195,42 @@ static bool yh_derive_ecdh(CK_OBJECT_HANDLE priv_key, EVP_PKEY *peer_keypair,
   return true;
 }
 
+static size_t do_hash(const EVP_MD *md, uint8_t *hashed,
+                      unsigned char *raw_derived, size_t raw_derived_len) {
+
+  EVP_MD_CTX *mdctx = NULL;
+  size_t len = 0;
+
+  mdctx = EVP_MD_CTX_create();
+  if (mdctx == NULL) {
+    fail("Failed to create Hash context");
+    return 0;
+  }
+
+  if (EVP_DigestInit_ex(mdctx, md, NULL) == 0) {
+    fail("Failed to initialize digest");
+    len = 0;
+    goto h_free;
+  }
+
+  if (EVP_DigestUpdate(mdctx, raw_derived, raw_derived_len) != 1) {
+    fail("Failed to update digest");
+    len = 0;
+    goto h_free;
+  }
+  if (EVP_DigestFinal_ex(mdctx, hashed, (unsigned int *) &len) != 1) {
+    fail("Failed to finalize digest");
+    len = 0;
+    goto h_free;
+  }
+
+h_free:
+  if (mdctx != NULL) {
+    EVP_MD_CTX_destroy(mdctx);
+  }
+  return len;
+}
+
 static size_t openssl_derive(CK_ULONG kdf, EVP_PKEY *private_key,
                              EVP_PKEY *peer_key, unsigned char **ecdh_key,
                              CK_ULONG expected_ecdh_len) {
@@ -241,49 +278,6 @@ static size_t openssl_derive(CK_ULONG kdf, EVP_PKEY *private_key,
     goto c_free;
   }
 
-  const EVP_MD *md;
-  switch (kdf) {
-    case CKD_NULL:
-      *ecdh_key = malloc(len);
-      if (*ecdh_key == NULL) {
-        fail("Failed to allocate the buffer to hold the ECDH key derived with "
-             "openssl");
-        len = 0;
-        goto c_free;
-      }
-      memcpy(*ecdh_key, derived, len);
-      goto c_truncate;
-    case CKD_YUBICO_SHA1_KDF_SP800:
-      md = EVP_sha1();
-      break;
-    case CKD_YUBICO_SHA256_KDF_SP800:
-      md = EVP_sha256();
-      break;
-    case CKD_YUBICO_SHA384_KDF_SP800:
-      md = EVP_sha384();
-      break;
-    case CKD_YUBICO_SHA512_KDF_SP800:
-      md = EVP_sha512();
-      break;
-    default:
-      fail("Unsupported KDF");
-      len = 0;
-      goto c_free;
-  }
-
-  mdctx = EVP_MD_CTX_create();
-  if (mdctx == NULL) {
-    fail("Failed to create Hash context");
-    len = 0;
-    goto c_free;
-  }
-
-  if (EVP_DigestInit_ex(mdctx, md, NULL) == 0) {
-    fail("Failed to initialize digest");
-    len = 0;
-    goto c_free;
-  }
-
   *ecdh_key = malloc(BUFSIZE);
   if (*ecdh_key == NULL) {
     fail("Failed to allocate the buffer to hold the ECDH key derived with "
@@ -292,16 +286,64 @@ static size_t openssl_derive(CK_ULONG kdf, EVP_PKEY *private_key,
     goto c_free;
   }
 
-  if (EVP_DigestUpdate(mdctx, derived, len) != 1) {
-    fail("Failed to update digest");
+  size_t output_bits = 0;
+  const EVP_MD *md;
+  switch (kdf) {
+    case CKD_NULL:
+      memcpy(*ecdh_key, derived, len);
+      goto c_truncate;
+    case CKD_YUBICO_SHA1_KDF_SP800:
+      md = EVP_sha1();
+      output_bits = 160;
+      break;
+    case CKD_YUBICO_SHA256_KDF_SP800:
+      md = EVP_sha256();
+      output_bits = 256;
+      break;
+    case CKD_YUBICO_SHA384_KDF_SP800:
+      md = EVP_sha384();
+      output_bits = 384;
+      break;
+    case CKD_YUBICO_SHA512_KDF_SP800:
+      md = EVP_sha512();
+      output_bits = 384;
+      break;
+  }
+
+  size_t l = expected_ecdh_len * 8;
+  size_t reps = ceil((float) l / output_bits);
+
+  uint8_t res[BUFSIZE] = {0};
+  size_t res_len = 0;
+  size_t k_len = len + 4;
+  uint8_t *k = malloc(k_len);
+  memset(k, 0, 4);
+  memcpy(k + 4, derived, len);
+
+  size_t hashed_len = 0;
+  uint32_t counter = 0;
+  for (size_t i = 0; i < reps; i++) {
+    counter++;
+    memcpy(k, &counter, 4);
+
+    hashed_len = do_hash(md, res + (i * res_len), k, k_len);
+    if (hashed_len == 0) {
+      fail("Failed to apply hash function");
+      len = 0;
+      goto c_free;
+    }
+    res_len += hashed_len;
+  }
+
+  if (expected_ecdh_len > res_len) {
+    fail("Derived key is too short");
     len = 0;
     goto c_free;
   }
-  if (EVP_DigestFinal_ex(mdctx, *ecdh_key, (unsigned int *) &len) != 1) {
-    fail("Failed to finalize digest");
-    len = 0;
-    goto c_free;
-  }
+
+  memcpy(*ecdh_key, res, expected_ecdh_len);
+  memset((*ecdh_key) + expected_ecdh_len, 0, BUFSIZE - expected_ecdh_len);
+  len = expected_ecdh_len;
 
 c_truncate:
   if (expected_ecdh_len < len) {
@@ -477,9 +519,9 @@ int main(int argc, char **argv) {
     run_test(handle, CURVES[i], CKD_YUBICO_SHA1_KDF_SP800, 128, yh_pubkey[i],
              yh_pubkey[i], true);
     run_test(handle, CURVES[i], CKD_YUBICO_SHA1_KDF_SP800, 192, yh_pubkey[i],
-             yh_pubkey[i], false);
+             yh_pubkey[i], true);
     run_test(handle, CURVES[i], CKD_YUBICO_SHA1_KDF_SP800, 256, yh_pubkey[i],
-             yh_pubkey[i], false);
+             yh_pubkey[i], true);
 
     run_test(handle, CURVES[i], CKD_YUBICO_SHA256_KDF_SP800, 128, yh_pubkey[i],
              yh_pubkey[i], true);
