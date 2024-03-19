@@ -250,7 +250,7 @@ target_link_libraries (
 target_link_libraries (
         ecdh_sp800_test
         ${LIBCRYPTO_LDFLAGS}
-        "-ldl")
+        "-ldl" "-lm")
 
 add_test (
   NAME ecdh_derive_test
