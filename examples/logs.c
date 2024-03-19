@@ -73,7 +73,7 @@ int main(void) {
   size_t n_items = sizeof(logs) / sizeof(yh_log_entry);
   yh_log_entry last_previous_log;
   yh_log_entry *last_previous_log_ptr = &last_previous_log;
-  uint8_t option[128];
+  uint8_t option[256];
   size_t option_len;
 
   option[0] = YHC_SET_OPTION;
