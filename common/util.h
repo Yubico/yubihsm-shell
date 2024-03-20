@@ -17,11 +17,12 @@
 #ifndef YUBICOM_UTIL_H
 #define YUBICOM_UTIL_H
 
+#include <stdbool.h>
+#include <stdint.h>
+
 #ifndef _WIN32_BCRYPT
 #include <openssl/bn.h>
 #include <openssl/evp.h>
-#include <stdbool.h>
-#include <stdint.h>
 
 #include <yubihsm.h>
 #include "../common/platform-config.h"
