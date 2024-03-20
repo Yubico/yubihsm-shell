@@ -144,16 +144,8 @@ static const EVP_MD *get_md_type(CK_MECHANISM_TYPE mech) {
   }
 }
 
-static void test_sign_pss(int keysize, CK_MECHANISM_TYPE mech_type) {
-  EVP_PKEY *evp = EVP_PKEY_new();
-  RSA *rsak = RSA_new();
-  CK_OBJECT_HANDLE keyid;
-
-  import_rsa_key(keysize, &evp, &rsak, &keyid);
-  if (evp == NULL || rsak == NULL) {
-    exit(EXIT_FAILURE);
-  }
-
+static void test_sign_pss(CK_OBJECT_HANDLE keyid, CK_MECHANISM_TYPE mech_type,
+                          RSA *rsak) {
   CK_RSA_PKCS_PSS_PARAMS pss_params = {get_hash_mechanism(mech_type),
                                        get_mgf_algo(mech_type),
                                        EVP_MD_size(get_md_type(mech_type))};
@@ -191,10 +183,6 @@ static void test_sign_pss(int keysize, CK_MECHANISM_TYPE mech_type) {
                                      pss_params.sLen) == 1);
     free(pss_buf);
   }
-
-  RSA_free(rsak);
-  EVP_PKEY_free(evp);
-  destroy_object(p11, session, keyid);
 }
 
 int main(int argc, char **argv) {
@@ -212,11 +200,27 @@ int main(int argc, char **argv) {
   int keysizes[3] = {2048, 3072, 4096};
 
   for (int i = 0; i < 3; i++) {
-    test_sign_pss(keysizes[i], CKM_SHA1_RSA_PKCS_PSS);
-    test_sign_pss(keysizes[i], CKM_SHA256_RSA_PKCS_PSS);
-    test_sign_pss(keysizes[i], CKM_SHA384_RSA_PKCS_PSS);
-    test_sign_pss(keysizes[i], CKM_SHA512_RSA_PKCS_PSS);
+
+    EVP_PKEY *evp = EVP_PKEY_new();
+    RSA *rsak = RSA_new();
+    CK_OBJECT_HANDLE keyid;
+
+    import_rsa_key(keysizes[i], &evp, &rsak, &keyid);
+    if (evp == NULL || rsak == NULL) {
+      exit(EXIT_FAILURE);
+    }
+
+    test_sign_pss(keyid, CKM_SHA1_RSA_PKCS_PSS, rsak);
+    test_sign_pss(keyid, CKM_SHA256_RSA_PKCS_PSS, rsak);
+    test_sign_pss(keyid, CKM_SHA384_RSA_PKCS_PSS, rsak);
+    test_sign_pss(keyid, CKM_SHA512_RSA_PKCS_PSS, rsak);
+
+    RSA_free(rsak);
+    EVP_PKEY_free(evp);
+    destroy_object(p11, session, keyid);
   }
+  printf("OK!\n");
+
   close_session(p11, session);
   close_module(handle);
   return (EXIT_SUCCESS);
