@@ -17,10 +17,12 @@
 #include <ctype.h>
 #include <string.h>
 
+#ifndef _WIN32_BCRYPT
 #include <openssl/bio.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
+#endif
 
 #include "openssl-compat.h"
 #include "util.h"
