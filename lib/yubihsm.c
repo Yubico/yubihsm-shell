@@ -34,7 +34,6 @@
 #include "../common/pkcs5.h"
 #include "../common/hash.h"
 #include "../common/ecdh.h"
-#include "../common/util.h"
 
 #include "../aes_cmac/aes_cmac.h"
 
@@ -181,6 +180,15 @@ static yh_rc compute_cryptogram(const uint8_t *key, uint16_t key_len,
   yh_rc yrc = compute_cryptogram_ex(&aes_ctx, type, context, L, key_out);
   aes_destroy(&aes_ctx);
   return yrc;
+}
+
+static void increment_ctr(uint8_t *ctr, uint16_t len) {
+
+  while (len > 0) {
+    if (++ctr[--len]) {
+      break;
+    }
+  }
 }
 
 static yh_rc translate_device_error(uint8_t device_error) {

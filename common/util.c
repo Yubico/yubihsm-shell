@@ -17,15 +17,13 @@
 #include <ctype.h>
 #include <string.h>
 
-#include "util.h"
-
-#ifndef _WIN32_BCRYPT
 #include <openssl/bio.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
 
 #include "openssl-compat.h"
+#include "util.h"
 #include "insecure_memzero.h"
 #include "hash.h"
 
@@ -819,7 +817,6 @@ bool split_hmac_key(yh_algorithm algorithm, uint8_t *in, size_t in_len,
 
   return true;
 }
-#endif
 
 void increment_ctr(uint8_t *ctr, size_t len) {
   while (len > 0) {
