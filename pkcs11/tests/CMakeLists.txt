@@ -207,7 +207,6 @@ set (
         SOURCE_ECDH_SP800
         ecdh_sp800_test.c
         common.c
-        ../../common/util.c
 )
 
 set (

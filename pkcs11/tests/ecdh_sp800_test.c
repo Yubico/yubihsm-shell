@@ -28,7 +28,6 @@
 
 #include "../pkcs11.h"
 #include "../pkcs11y.h"
-#include "../../common/util.h"
 #include "common.h"
 
 #define BUFSIZE 1024
@@ -51,6 +50,14 @@ int CURVE_COUNT = sizeof(CURVE_PARAMS) / sizeof(CURVE_PARAMS[0]);
 static void success(const char *message) { printf("%s. OK\n", message); }
 
 static void fail(const char *message) { printf("%s. FAIL!\n", message); }
+
+static void increment_ctr(uint8_t *ctr, size_t len) {
+  while (len > 0) {
+    if (++ctr[--len]) {
+      break;
+    }
+  }
+}
 
 static void generate_keypair_yh(CK_BYTE *curve, CK_ULONG curve_len,
                                 CK_OBJECT_HANDLE_PTR publicKeyPtr,
@@ -89,7 +96,6 @@ static void generate_keypair_yh(CK_BYTE *curve, CK_ULONG curve_len,
 static EVP_PKEY *generate_keypair_openssl(const char *curve) {
   EVP_PKEY *pkey = NULL;
   EC_KEY *eckey = NULL;
-  OpenSSL_add_all_algorithms();
   int eccgrp = OBJ_txt2nid(curve);
   eckey = EC_KEY_new_by_curve_name(eccgrp);
   if (!(EC_KEY_generate_key(eckey))) {
