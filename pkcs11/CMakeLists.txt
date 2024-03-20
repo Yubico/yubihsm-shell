@@ -83,7 +83,6 @@ target_link_libraries(
   yubihsm
   ${LIBCRYPTO_LDFLAGS}
   ${GETOPT_LIBS}
-  "-lm"
   )
 
 if(WIN32)

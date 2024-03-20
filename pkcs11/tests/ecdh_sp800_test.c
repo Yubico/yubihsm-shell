@@ -47,14 +47,19 @@ CK_BYTE *CURVE_PARAMS[] = {P224_PARAMS, P256_PARAMS, P384_PARAMS, P521_PARAMS};
 CK_ULONG CURVE_LENS[] = {sizeof(P224_PARAMS), sizeof(P256_PARAMS),
                          sizeof(P384_PARAMS), sizeof(P521_PARAMS)};
 int CURVE_COUNT = sizeof(CURVE_PARAMS) / sizeof(CURVE_PARAMS[0]);
-CK_ULONG KDFS[] = {CKD_NULL, CKD_YUBICO_SHA1_KDF_SP800,
-                   CKD_YUBICO_SHA256_KDF_SP800, CKD_YUBICO_SHA384_KDF_SP800,
-                   CKD_YUBICO_SHA512_KDF_SP800};
-int KDFS_LEN = sizeof(KDFS) / sizeof(CK_ULONG);
 
 static void success(const char *message) { printf("%s. OK\n", message); }
 
 static void fail(const char *message) { printf("%s. FAIL!\n", message); }
+
+static void increment_ctr_bigendian(uint8_t *ctr, uint16_t len) {
+
+  while (len > 0) {
+    if (++ctr[--len]) {
+      break;
+    }
+  }
+}
 
 static void generate_keypair_yh(CK_BYTE *curve, CK_ULONG curve_len,
                                 CK_OBJECT_HANDLE_PTR publicKeyPtr,
@@ -315,18 +320,20 @@ static size_t openssl_derive(CK_ULONG kdf, EVP_PKEY *private_key,
 
   uint8_t res[BUFSIZE] = {0};
   size_t res_len = 0;
-  size_t k_len = len + 4;
+  uint8_t ctr[4] = {0};
+  size_t ctr_len = sizeof(ctr);
+
+  size_t k_len = len + ctr_len;
   uint8_t *k = malloc(k_len);
-  memset(k, 0, 4);
-  memcpy(k + 4, derived, len);
+  memset(k, 0, ctr_len);
+  memcpy(k + ctr_len, derived, len);
 
   size_t hashed_len = 0;
-  uint32_t counter = 0;
   for (size_t i = 0; i < reps; i++) {
-    counter++;
-    memcpy(k, &counter, 4);
+    increment_ctr_bigendian(ctr, ctr_len);
+    memcpy(k, ctr, ctr_len);
 
-    hashed_len = do_hash(md, res + (i * res_len), k, k_len);
+    hashed_len = do_hash(md, res + res_len, k, k_len);
     if (hashed_len == 0) {
       fail("Failed to apply hash function");
       len = 0;

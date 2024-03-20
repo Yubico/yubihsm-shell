@@ -44,7 +44,7 @@ bool YH_INTERNAL read_private_key(uint8_t *buf, size_t len, yh_algorithm *algo,
                                   uint8_t *bytes, size_t *bytes_len,
                                   bool internal_repr);
 bool YH_INTERNAL read_public_key(uint8_t *buf, size_t len, yh_algorithm *algo,
-                                  uint8_t *bytes, size_t *bytes_len);
+                                 uint8_t *bytes, size_t *bytes_len);
 void YH_INTERNAL format_digest(uint8_t *digest, char *str, uint16_t len);
 int YH_INTERNAL algo2nid(yh_algorithm algo);
 bool YH_INTERNAL algo2type(yh_algorithm algorithm, yh_object_type *type);
@@ -62,5 +62,6 @@ bool YH_INTERNAL base64_decode(const char *in, uint8_t *out, size_t *len);
 
 bool YH_INTERNAL split_hmac_key(yh_algorithm algorithm, uint8_t *in,
                                 size_t in_len, uint8_t *out, size_t *out_len);
+void increment_ctr_bigendian(uint8_t *ctr, size_t len);
 
 #endif

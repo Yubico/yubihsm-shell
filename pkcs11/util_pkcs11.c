@@ -20,8 +20,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
-#include "../common/platform-config.h"
 #include "../common/util.h"
 #include "../common/time_win.h"
 
@@ -5346,32 +5344,35 @@ size_t ecdh_with_kdf(ecdh_session_key *shared_secret, size_t shared_secret_len,
     out_len = shared_secret_len;
   } else {
     size_t l = value_len * 8;
-    size_t reps = ceil((float) l / output_bits);
+    size_t reps = 1 + l / output_bits;
     if (reps > INT32_MAX) {
       DBG_ERR("Too many repetitions");
       return 0;
     }
 
+    uint8_t ctr[4] = {0};
+    size_t ctr_len = sizeof(ctr);
     uint8_t res[1024] = {0};
-    size_t k_len = shared_secret_len + 4;
+    size_t res_len = 0;
+    size_t hashed_len = sizeof(res);
+
+    size_t k_len = shared_secret_len + ctr_len;
     uint8_t *k = malloc(k_len);
-    memset(k, 0, 4);
-    memcpy(k + 4, shared_secret->ecdh_key, shared_secret_len);
+    memset(k, 0, ctr_len);
+    memcpy(k + ctr_len, shared_secret->ecdh_key, shared_secret_len);
 
-    size_t hash_len = sizeof(res);
-    uint32_t counter = 0;
     for (size_t i = 0; i < reps; i++) {
-      counter++;
-      memcpy(k, &counter, 4);
+      increment_ctr_bigendian(ctr, ctr_len);
+      memcpy(k, ctr, ctr_len);
 
-      if (!hash_bytes(k, k_len, hash, res + (i * out_len), &hash_len)) {
+      if (!hash_bytes(k, k_len, hash, res + res_len, &hashed_len)) {
         DBG_ERR("Failed to apply hash function");
         return 0;
       }
-      out_len += hash_len;
+      res_len += hashed_len;
     }
 
-    if (value_len > out_len) {
+    if (value_len > res_len) {
       DBG_ERR("Derived key is too short");
       return 0;
     }
