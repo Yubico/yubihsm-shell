@@ -22,7 +22,6 @@
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
-#endif
 
 #include "openssl-compat.h"
 #include "util.h"
@@ -819,6 +818,7 @@ bool split_hmac_key(yh_algorithm algorithm, uint8_t *in, size_t in_len,
 
   return true;
 }
+#endif
 
 void increment_ctr(uint8_t *ctr, size_t len) {
   while (len > 0) {

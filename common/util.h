@@ -22,7 +22,6 @@
 #include <openssl/evp.h>
 #include <stdbool.h>
 #include <stdint.h>
-#endif
 
 #include <yubihsm.h>
 #include "../common/platform-config.h"
@@ -64,6 +63,7 @@ bool YH_INTERNAL base64_decode(const char *in, uint8_t *out, size_t *len);
 
 bool YH_INTERNAL split_hmac_key(yh_algorithm algorithm, uint8_t *in,
                                 size_t in_len, uint8_t *out, size_t *out_len);
+#endif
 void YH_INTERNAL increment_ctr(uint8_t *ctr, size_t len);
 
 #endif
