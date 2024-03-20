@@ -207,6 +207,7 @@ set (
         SOURCE_ECDH_SP800
         ecdh_sp800_test.c
         common.c
+        ../../common/util.c
 )
 
 set (
@@ -250,7 +251,7 @@ target_link_libraries (
 target_link_libraries (
         ecdh_sp800_test
         ${LIBCRYPTO_LDFLAGS}
-        "-ldl" "-lm")
+        "-ldl")
 
 add_test (
   NAME ecdh_derive_test

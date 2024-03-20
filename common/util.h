@@ -62,6 +62,6 @@ bool YH_INTERNAL base64_decode(const char *in, uint8_t *out, size_t *len);
 
 bool YH_INTERNAL split_hmac_key(yh_algorithm algorithm, uint8_t *in,
                                 size_t in_len, uint8_t *out, size_t *out_len);
-void increment_ctr_bigendian(uint8_t *ctr, size_t len);
+void increment_ctr(uint8_t *ctr, size_t len);
 
 #endif

@@ -30,6 +30,7 @@ set (
   ${CMAKE_CURRENT_SOURCE_DIR}/../common/rand.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../common/ecdh.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../common/openssl-compat.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/../common/util.c
   error.c
   lib_util.c
   yubihsm.c

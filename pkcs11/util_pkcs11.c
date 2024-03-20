@@ -5362,7 +5362,7 @@ size_t ecdh_with_kdf(ecdh_session_key *shared_secret, size_t shared_secret_len,
     memcpy(k + ctr_len, shared_secret->ecdh_key, shared_secret_len);
 
     for (size_t i = 0; i < reps; i++) {
-      increment_ctr_bigendian(ctr, ctr_len);
+      increment_ctr(ctr, ctr_len);
       memcpy(k, ctr, ctr_len);
 
       if (!hash_bytes(k, k_len, hash, res + res_len, &hashed_len)) {

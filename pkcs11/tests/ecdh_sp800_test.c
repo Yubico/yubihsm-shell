@@ -21,7 +21,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include <math.h>
 
 #include <openssl/evp.h>
 #include <openssl/ec.h>
@@ -29,6 +28,7 @@
 
 #include "../pkcs11.h"
 #include "../pkcs11y.h"
+#include "../../common/util.h"
 #include "common.h"
 
 #define BUFSIZE 1024
@@ -51,15 +51,6 @@ int CURVE_COUNT = sizeof(CURVE_PARAMS) / sizeof(CURVE_PARAMS[0]);
 static void success(const char *message) { printf("%s. OK\n", message); }
 
 static void fail(const char *message) { printf("%s. FAIL!\n", message); }
-
-static void increment_ctr_bigendian(uint8_t *ctr, uint16_t len) {
-
-  while (len > 0) {
-    if (++ctr[--len]) {
-      break;
-    }
-  }
-}
 
 static void generate_keypair_yh(CK_BYTE *curve, CK_ULONG curve_len,
                                 CK_OBJECT_HANDLE_PTR publicKeyPtr,
@@ -316,7 +307,7 @@ static size_t openssl_derive(CK_ULONG kdf, EVP_PKEY *private_key,
   }
 
   size_t l = expected_ecdh_len * 8;
-  size_t reps = ceil((float) l / output_bits);
+  size_t reps = 1 + l / output_bits;
 
   uint8_t res[BUFSIZE] = {0};
   size_t res_len = 0;
@@ -330,7 +321,7 @@ static size_t openssl_derive(CK_ULONG kdf, EVP_PKEY *private_key,
 
   size_t hashed_len = 0;
   for (size_t i = 0; i < reps; i++) {
-    increment_ctr_bigendian(ctr, ctr_len);
+    increment_ctr(ctr, ctr_len);
     memcpy(k, ctr, ctr_len);
 
     hashed_len = do_hash(md, res + res_len, k, k_len);

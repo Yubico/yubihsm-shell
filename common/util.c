@@ -818,7 +818,7 @@ bool split_hmac_key(yh_algorithm algorithm, uint8_t *in, size_t in_len,
   return true;
 }
 
-void increment_ctr_bigendian(uint8_t *ctr, size_t len) {
+void increment_ctr(uint8_t *ctr, size_t len) {
   while (len > 0) {
     if (++ctr[--len]) {
       break;
