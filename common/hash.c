@@ -94,7 +94,7 @@ bool hash_bytes(const uint8_t *in, size_t len, hash_t hash, uint8_t *out,
 #ifndef _WIN32_BCRYPT
 
   const EVP_MD *md;
-  uint32_t d_len = 0;
+  unsigned int d_len = 0;
   bool ret = false;
 
   md = get_hash(hash);
@@ -119,7 +119,7 @@ bool hash_bytes(const uint8_t *in, size_t len, hash_t hash, uint8_t *out,
   ret = true;
 
 hash_bytes_exit:
-  *out_len = (uint16_t) d_len;
+  *out_len = d_len;
   EVP_MD_CTX_destroy(mdctx);
   return ret;
 
@@ -368,7 +368,7 @@ bool hash_final(_hash_ctx *ctx, uint8_t *out, size_t *pcb_out) {
 #ifdef _WIN32_BCRYPT
   NTSTATUS status = 0;
 #else
-  uint32_t d_len = 0;
+  unsigned int d_len = 0;
 #endif
 
   if (!ctx) {
