@@ -5615,7 +5615,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
 
   CK_ULONG basekey_type = hBaseKey >> 16;
   if (basekey_type == ECDH_KEY_TYPE) {
-    DBG_ERR("Cannot derive an ECDH key from another ECDH key");
+    DBG_ERR("Cannot derive a session key from another session key");
     rv = CKR_ARGUMENTS_BAD;
     goto c_drv_out;
   }
@@ -5648,7 +5648,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
 
   CK_ECDH1_DERIVE_PARAMS *params = pMechanism->pParameter;
 
-  if ((params->pSharedData != NULL) || (params->ulSharedDataLen != 0)) {
+  if (params->kdf == CKD_NULL &&
+      ((params->pSharedData != NULL) || (params->ulSharedDataLen != 0))) {
     DBG_ERR("Mechanism parameters incompatible with key derivation function");
     rv = CKR_MECHANISM_PARAM_INVALID;
     goto c_drv_out;
