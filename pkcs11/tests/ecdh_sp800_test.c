@@ -201,7 +201,7 @@ static size_t do_hash(const EVP_MD *md, uint8_t *hashed,
                       unsigned char *raw_derived, size_t raw_derived_len) {
 
   EVP_MD_CTX *mdctx = NULL;
-  size_t len = 0;
+  unsigned int len = 0;
 
   mdctx = EVP_MD_CTX_create();
   if (mdctx == NULL) {
@@ -220,7 +220,7 @@ static size_t do_hash(const EVP_MD *md, uint8_t *hashed,
     len = 0;
     goto h_free;
   }
-  if (EVP_DigestFinal_ex(mdctx, hashed, (unsigned int *) &len) != 1) {
+  if (EVP_DigestFinal_ex(mdctx, hashed, &len) != 1) {
     fail("Failed to finalize digest");
     len = 0;
     goto h_free;
@@ -230,7 +230,7 @@ h_free:
   if (mdctx != NULL) {
     EVP_MD_CTX_destroy(mdctx);
   }
-  return len;
+  return (size_t) len;
 }
 
 static size_t openssl_derive(CK_ULONG kdf, EVP_PKEY *private_key,
@@ -317,8 +317,7 @@ static size_t openssl_derive(CK_ULONG kdf, EVP_PKEY *private_key,
 
   uint8_t res[BUFSIZE] = {0};
   size_t res_len = 0;
-  uint8_t ctr[4] = {0};
-  size_t ctr_len = sizeof(ctr);
+  size_t ctr_len = 4;
 
   size_t k_len = len + ctr_len;
   uint8_t *k = malloc(k_len);
@@ -327,8 +326,7 @@ static size_t openssl_derive(CK_ULONG kdf, EVP_PKEY *private_key,
 
   size_t hashed_len = 0;
   for (size_t i = 0; i < reps; i++) {
-    increment_ctr(ctr, ctr_len);
-    memcpy(k, ctr, ctr_len);
+    increment_ctr(k, ctr_len);
 
     hashed_len = do_hash(md, res + res_len, k, k_len);
     if (hashed_len == 0) {
