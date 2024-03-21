@@ -366,7 +366,7 @@ cleanup:
 }
 
 bool read_public_key(uint8_t *buf, size_t len, yh_algorithm *algo,
-                     uint8_t *bytes, size_t *bytes_len) {
+                      uint8_t *bytes, size_t *bytes_len) {
   BIO *bio = BIO_new(BIO_s_mem());
   if (bio == NULL) {
     return false;
@@ -421,7 +421,7 @@ bool read_public_key(uint8_t *buf, size_t len, yh_algorithm *algo,
   }
 
   size_t data_len = i2o_ECPublicKey(ec, 0);
-  if (data_len == 0 || data_len > *bytes_len) {
+  if(data_len == 0 || data_len > *bytes_len) {
     EC_KEY_free(ec);
     return false;
   }
@@ -816,12 +816,4 @@ bool split_hmac_key(yh_algorithm algorithm, uint8_t *in, size_t in_len,
   *out_len = 2 * block_size;
 
   return true;
-}
-
-void increment_ctr(uint8_t *ctr, size_t len) {
-  while (len > 0) {
-    if (++ctr[--len]) {
-      break;
-    }
-  }
 }

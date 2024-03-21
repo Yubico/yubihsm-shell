@@ -39,7 +39,6 @@
 
 #include "util_pkcs11.h"
 #include "debug_p11.h"
-#include "../common/util.h"
 #include "../common/openssl-compat.h"
 #include "../common/insecure_memzero.h"
 
@@ -5308,6 +5307,14 @@ bool match_meta_attributes(yubihsm_pkcs11_session *session,
     }
   }
   return true;
+}
+
+static void increment_ctr(uint8_t *ctr, size_t len) {
+  while (len > 0) {
+    if (++ctr[--len]) {
+      break;
+    }
+  }
 }
 
 CK_RV ecdh_with_kdf(ecdh_session_key *shared_secret, uint8_t *fixed_info,
