@@ -188,6 +188,6 @@ CK_RV parse_meta_label_template(yubihsm_pkcs11_object_template *template,
                                 uint8_t *value, size_t value_len);
 bool match_byte_array(uint8_t *a, uint16_t a_len, uint8_t *b, uint16_t b_len);
 
-size_t ecdh_with_kdf(ecdh_session_key *shared_secret, size_t shared_secret_len,
-                     CK_ULONG kdf, size_t value_len);
+CK_RV ecdh_with_kdf(ecdh_session_key *shared_secret, uint8_t *fixed_info,
+                    size_t fixed_len, CK_ULONG kdf, size_t value_len);
 #endif

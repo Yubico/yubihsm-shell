@@ -5612,14 +5612,14 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
     goto c_drv_out;
   }
 
-  int basekey_type = hBaseKey >> 16;
+  CK_ULONG basekey_type = hBaseKey >> 16;
   if (basekey_type == ECDH_KEY_TYPE) {
     DBG_ERR("Cannot derive an ECDH key from another ECDH key");
     rv = CKR_ARGUMENTS_BAD;
     goto c_drv_out;
   }
 
-  char *label_buf = NULL;
+  char *label = NULL;
   size_t label_len = 0;
   size_t value_len = 0;
   for (CK_ULONG i = 0; i < ulAttributeCount; i++) {
@@ -5632,7 +5632,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
           rv = CKR_ATTRIBUTE_VALUE_INVALID;
           goto c_drv_out;
         }
-        label_buf = pTemplate[i].pValue;
+        label = pTemplate[i].pValue;
         label_len = pTemplate[i].ulValueLen;
         break;
       default:
@@ -5647,29 +5647,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
 
   CK_ECDH1_DERIVE_PARAMS *params = pMechanism->pParameter;
 
-  if (params->kdf == CKD_NULL || params->kdf == CKD_YUBICO_SHA1_KDF_SP800 ||
-      params->kdf == CKD_YUBICO_SHA256_KDF_SP800 ||
-      params->kdf == CKD_YUBICO_SHA384_KDF_SP800 ||
-      params->kdf == CKD_YUBICO_SHA512_KDF_SP800) {
-    if ((params->pSharedData != NULL) || (params->ulSharedDataLen != 0)) {
-      DBG_ERR("Mechanism parameters incompatible with key derivation function "
-              "CKD_NULL");
-      rv = CKR_MECHANISM_PARAM_INVALID;
-      goto c_drv_out;
-    }
-  } else {
-    DBG_ERR("Unsupported value of mechanism parameter key derivation function");
+  if ((params->pSharedData != NULL) || (params->ulSharedDataLen != 0)) {
+    DBG_ERR("Mechanism parameters incompatible with key derivation function");
     rv = CKR_MECHANISM_PARAM_INVALID;
     goto c_drv_out;
   }
-
-  size_t in_len = params->ulPublicDataLen;
-  if (in_len != params->ulPublicDataLen) {
-    DBG_ERR("Invalid parameter");
-    return CKR_ARGUMENTS_BAD;
-  }
-
-  CK_BYTE_PTR pubkey = params->pPublicData;
 
   int seq = session->ecdh_session_keys.length + 1;
   if (seq > MAX_ECDH_SESSION_KEYS) {
@@ -5680,54 +5662,65 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
     goto c_drv_out;
   }
 
-  // Read the base key as the private keyID
-  uint16_t privkey_id = hBaseKey & 0xffff;
-
   ecdh_session_key ecdh_key = {0};
-  size_t out_len = sizeof(ecdh_key.ecdh_key);
+  ecdh_key.id = ECDH_KEY_TYPE << 16 | seq;
+  ecdh_key.len = sizeof(ecdh_key.ecdh_key);
 
-  if (value_len > out_len) {
+  DBG_INFO("ecdh_key.id = %zu", ecdh_key.id);
+  DBG_INFO("ecdh_key.len = %zu", ecdh_key.len);
+
+  if (value_len > ecdh_key.len) {
     DBG_ERR("Requested derived key is too long");
     rv = CKR_ATTRIBUTE_VALUE_INVALID;
     goto c_drv_out;
   }
 
+  // Read the base key as the private keyID
+  uint16_t privkey_id = hBaseKey & 0xffff;
+
   yh_rc rc = yh_util_derive_ecdh(session->slot->device_session, privkey_id,
-                                 pubkey, in_len, ecdh_key.ecdh_key, &out_len);
+                                 params->pPublicData, params->ulPublicDataLen,
+                                 ecdh_key.ecdh_key, &ecdh_key.len);
   if (rc != YHR_SUCCESS) {
     DBG_ERR("Unable to derive raw ECDH key: %s", yh_strerror(rc));
     rv = yrc_to_rv(rc);
     goto c_drv_out;
   }
 
-  out_len = ecdh_with_kdf(&ecdh_key, out_len, params->kdf, value_len);
-  if (out_len == 0) {
-    DBG_ERR("Failed to derive ECDH key with KDF");
+  DBG_INFO("ECDH ecdh_key.len = %zu", ecdh_key.len);
+
+  rv = ecdh_with_kdf(&ecdh_key, params->pSharedData, params->ulSharedDataLen,
+                     params->kdf, value_len);
+  if (rv != CKR_OK) {
+    DBG_ERR("Failed to derive ECDH key with KDF %lu", params->kdf);
     goto c_drv_out;
   }
 
+  DBG_INFO("KDF ecdh_key.len = %zu", ecdh_key.len);
+
   if (value_len > 0) {
-    if (out_len < value_len) {
-      DBG_ERR("Failed to derive a key with the expected length");
+    if (ecdh_key.len < value_len) {
+      DBG_ERR("Failed to derive a key with the requested length");
       rv = CKR_DATA_LEN_RANGE;
       goto c_drv_out;
     }
 
-    if (out_len > value_len) {
+    if (ecdh_key.len > value_len) {
       // Truncate from the left
-      size_t offset = out_len - value_len;
+      size_t offset = ecdh_key.len - value_len;
       memmove(ecdh_key.ecdh_key, ecdh_key.ecdh_key + offset, value_len);
       memset(ecdh_key.ecdh_key + value_len, 0, offset);
-      out_len = value_len;
+      ecdh_key.len = value_len;
+      DBG_INFO("Truncated ecdh_key.len = %zu", ecdh_key.len);
     }
   }
 
-  // Make a session variable to store the derived key
-  ecdh_key.id = ECDH_KEY_TYPE << 16 | seq;
-  ecdh_key.len = out_len;
-  memcpy(ecdh_key.label, label_buf, label_len);
+  memcpy(ecdh_key.label, label, label_len);
+
+  // Copy the derived key as a session object
   list_append(&session->ecdh_session_keys, &ecdh_key);
 
+  // Clear the derived key
   insecure_memzero(ecdh_key.ecdh_key, sizeof(ecdh_key.ecdh_key));
 
   *phKey = ecdh_key.id;

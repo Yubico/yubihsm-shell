@@ -197,8 +197,9 @@ static bool yh_derive_ecdh(CK_OBJECT_HANDLE priv_key, EVP_PKEY *peer_keypair,
   return true;
 }
 
-static size_t do_hash(const EVP_MD *md, uint8_t *hashed,
-                      unsigned char *raw_derived, size_t raw_derived_len) {
+static unsigned int do_hash(const EVP_MD *md, uint8_t *hashed,
+                            unsigned char *raw_derived,
+                            size_t raw_derived_len) {
 
   EVP_MD_CTX *mdctx = NULL;
   unsigned int len = 0;
@@ -211,13 +212,11 @@ static size_t do_hash(const EVP_MD *md, uint8_t *hashed,
 
   if (EVP_DigestInit_ex(mdctx, md, NULL) == 0) {
     fail("Failed to initialize digest");
-    len = 0;
     goto h_free;
   }
 
   if (EVP_DigestUpdate(mdctx, raw_derived, raw_derived_len) != 1) {
     fail("Failed to update digest");
-    len = 0;
     goto h_free;
   }
   if (EVP_DigestFinal_ex(mdctx, hashed, &len) != 1) {
@@ -230,7 +229,7 @@ h_free:
   if (mdctx != NULL) {
     EVP_MD_CTX_destroy(mdctx);
   }
-  return (size_t) len;
+  return len;
 }
 
 static size_t openssl_derive(CK_ULONG kdf, EVP_PKEY *private_key,
@@ -517,34 +516,19 @@ int main(int argc, char **argv) {
   run_test(handle, CURVES[2], CKD_NULL, 256, yh_pubkey[2], yh_pubkey[2], true);
   run_test(handle, CURVES[3], CKD_NULL, 256, yh_pubkey[3], yh_pubkey[3], true);
 
+  CK_ULONG key_lens[3] = {128, 192, 256};
+
   for (int i = 0; i < CURVE_COUNT; i++) {
-    run_test(handle, CURVES[i], CKD_YUBICO_SHA1_KDF_SP800, 128, yh_pubkey[i],
-             yh_pubkey[i], true);
-    run_test(handle, CURVES[i], CKD_YUBICO_SHA1_KDF_SP800, 192, yh_pubkey[i],
-             yh_pubkey[i], true);
-    run_test(handle, CURVES[i], CKD_YUBICO_SHA1_KDF_SP800, 256, yh_pubkey[i],
-             yh_pubkey[i], true);
-
-    run_test(handle, CURVES[i], CKD_YUBICO_SHA256_KDF_SP800, 128, yh_pubkey[i],
-             yh_pubkey[i], true);
-    run_test(handle, CURVES[i], CKD_YUBICO_SHA256_KDF_SP800, 192, yh_pubkey[i],
-             yh_pubkey[i], true);
-    run_test(handle, CURVES[i], CKD_YUBICO_SHA256_KDF_SP800, 256, yh_pubkey[i],
-             yh_pubkey[i], true);
-
-    run_test(handle, CURVES[i], CKD_YUBICO_SHA384_KDF_SP800, 128, yh_pubkey[i],
-             yh_pubkey[i], true);
-    run_test(handle, CURVES[i], CKD_YUBICO_SHA384_KDF_SP800, 192, yh_pubkey[i],
-             yh_pubkey[i], true);
-    run_test(handle, CURVES[i], CKD_YUBICO_SHA384_KDF_SP800, 256, yh_pubkey[i],
-             yh_pubkey[i], true);
-
-    run_test(handle, CURVES[i], CKD_YUBICO_SHA512_KDF_SP800, 128, yh_pubkey[i],
-             yh_pubkey[i], true);
-    run_test(handle, CURVES[i], CKD_YUBICO_SHA512_KDF_SP800, 192, yh_pubkey[i],
-             yh_pubkey[i], true);
-    run_test(handle, CURVES[i], CKD_YUBICO_SHA512_KDF_SP800, 256, yh_pubkey[i],
-             yh_pubkey[i], true);
+    for (size_t j = 0; j < 3; j++) {
+      run_test(handle, CURVES[i], CKD_YUBICO_SHA1_KDF_SP800, key_lens[j],
+               yh_pubkey[i], yh_pubkey[i], true);
+      run_test(handle, CURVES[i], CKD_YUBICO_SHA256_KDF_SP800, key_lens[j],
+               yh_pubkey[i], yh_pubkey[i], true);
+      run_test(handle, CURVES[i], CKD_YUBICO_SHA384_KDF_SP800, key_lens[j],
+               yh_pubkey[i], yh_pubkey[i], true);
+      run_test(handle, CURVES[i], CKD_YUBICO_SHA512_KDF_SP800, key_lens[j],
+               yh_pubkey[i], yh_pubkey[i], true);
+    }
   }
 
   printf("\n");

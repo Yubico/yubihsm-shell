@@ -5308,78 +5308,54 @@ bool match_meta_attributes(yubihsm_pkcs11_session *session,
   return true;
 }
 
-size_t ecdh_with_kdf(ecdh_session_key *shared_secret, size_t shared_secret_len,
-                     CK_ULONG kdf, size_t value_len) {
+CK_RV ecdh_with_kdf(ecdh_session_key *shared_secret, uint8_t *fixed_info,
+                    size_t fixed_len, CK_ULONG kdf, size_t value_len) {
 
-  size_t out_len = 0;
-  size_t output_bits = 0;
-
-  hash_t hash = _NONE;
+  hash_ctx hash = NULL;
   switch (kdf) {
     case CKD_NULL:
       // Do nothing
       break;
     case CKD_YUBICO_SHA1_KDF_SP800:
-      hash = _SHA1;
-      output_bits = 160;
+      hash_create(&hash, _SHA1);
       break;
     case CKD_YUBICO_SHA256_KDF_SP800:
-      hash = _SHA256;
-      output_bits = 256;
+      hash_create(&hash, _SHA256);
       break;
     case CKD_YUBICO_SHA384_KDF_SP800:
-      hash = _SHA384;
-      output_bits = 384;
+      hash_create(&hash, _SHA384);
       break;
     case CKD_YUBICO_SHA512_KDF_SP800:
-      hash = _SHA512;
-      output_bits = 512;
+      hash_create(&hash, _SHA512);
       break;
     default:
       DBG_ERR("Unsupported KDF");
       return 0;
   }
 
-  if (hash == _NONE) {
-    out_len = shared_secret_len;
-  } else {
-    size_t l = value_len * 8;
-    size_t reps = 1 + l / output_bits;
-    if (reps > INT32_MAX) {
-      DBG_ERR("Too many repetitions");
-      return 0;
-    }
-
-    size_t ctr_len = 4;
-    uint8_t res[1024] = {0};
+  if (hash) {
+    uint8_t ctr[sizeof(uint32_t)] = {0};
+    uint8_t res[ECDH_KEY_BUF_SIZE] = {0};
     size_t res_len = 0;
-    size_t hashed_len = sizeof(res);
 
-    size_t k_len = shared_secret_len + ctr_len;
-    uint8_t *k = malloc(k_len);
-    memset(k, 0, ctr_len);
-    memcpy(k + ctr_len, shared_secret->ecdh_key, shared_secret_len);
-
-    for (size_t i = 0; i < reps; i++) {
-      increment_ctr(k, ctr_len);
-
-      if (!hash_bytes(k, k_len, hash, res + res_len, &hashed_len)) {
-        DBG_ERR("Failed to apply hash function");
-        return 0;
-      }
-      res_len += hashed_len;
-    }
-
-    if (value_len > res_len) {
-      DBG_ERR("Derived key is too short");
-      return 0;
+    while (res_len < value_len) {
+      increment_ctr(ctr, sizeof(ctr));
+      hash_init(hash);
+      hash_update(hash, ctr, sizeof(ctr));
+      hash_update(hash, shared_secret->ecdh_key, shared_secret->len);
+      hash_update(hash, fixed_info, fixed_len);
+      size_t len = sizeof(res) - res_len;
+      hash_final(hash, res + res_len, &len);
+      res_len += len;
     }
 
     memcpy(shared_secret->ecdh_key, res, value_len);
     memset(shared_secret->ecdh_key + value_len, 0,
            sizeof(shared_secret->ecdh_key) - value_len);
-    out_len = value_len;
+    shared_secret->len = value_len;
+  } else if (kdf != CKD_NULL) {
+    return CKR_MECHANISM_PARAM_INVALID;
   }
 
-  return out_len;
+  return CKR_OK;
 }
