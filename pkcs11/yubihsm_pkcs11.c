@@ -5669,7 +5669,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
   ecdh_key.len = sizeof(ecdh_key.ecdh_key);
 
   DBG_INFO("ecdh_key.id = %zu", ecdh_key.id);
-  DBG_INFO("ecdh_key.len = %zu", ecdh_key.len);
 
   if (value_len > ecdh_key.len) {
     DBG_ERR("Requested derived key is too long");
