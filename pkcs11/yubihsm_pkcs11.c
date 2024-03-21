@@ -32,7 +32,6 @@
 #include "../common/insecure_memzero.h"
 #include "../common/parsing.h"
 #include "../common/util.h"
-#include "../common/hash.h"
 
 #ifdef __WIN32
 #include <winsock.h>

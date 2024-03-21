@@ -21,7 +21,6 @@
 #include <pkcs11y.h>
 
 #include "yubihsm_pkcs11.h"
-#include "../common/hash.h"
 
 CK_RV set_operation_part(yubihsm_pkcs11_op_info *op_info,
                          yubihsm_pkcs11_part_type part);

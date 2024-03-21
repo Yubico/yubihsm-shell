@@ -23,6 +23,7 @@
 #include "../common/platform-config.h"
 #include "../common/util.h"
 #include "../common/time_win.h"
+#include "../common/hash.h"
 
 #ifdef __WIN32
 #include <winsock.h>
