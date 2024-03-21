@@ -5311,6 +5311,10 @@ bool match_meta_attributes(yubihsm_pkcs11_session *session,
 CK_RV ecdh_with_kdf(ecdh_session_key *shared_secret, uint8_t *fixed_info,
                     size_t fixed_len, CK_ULONG kdf, size_t value_len) {
 
+  if (fixed_len > 0 && fixed_info == NULL) {
+    return CKR_MECHANISM_PARAM_INVALID;
+  }
+
   hash_ctx hash = NULL;
   switch (kdf) {
     case CKD_NULL:
@@ -5338,7 +5342,7 @@ CK_RV ecdh_with_kdf(ecdh_session_key *shared_secret, uint8_t *fixed_info,
     uint8_t res[ECDH_KEY_BUF_SIZE] = {0};
     size_t res_len = 0;
 
-    while (res_len < value_len) {
+    do {
       increment_ctr(ctr, sizeof(ctr));
       hash_init(hash);
       hash_update(hash, ctr, sizeof(ctr));
@@ -5347,6 +5351,10 @@ CK_RV ecdh_with_kdf(ecdh_session_key *shared_secret, uint8_t *fixed_info,
       size_t len = sizeof(res) - res_len;
       hash_final(hash, res + res_len, &len);
       res_len += len;
+    } while (res_len < value_len);
+
+    if (value_len == 0) {
+      value_len = res_len;
     }
 
     memcpy(shared_secret->ecdh_key, res, value_len);

@@ -46,6 +46,7 @@ CK_BYTE *CURVE_PARAMS[] = {P224_PARAMS, P256_PARAMS, P384_PARAMS, P521_PARAMS};
 CK_ULONG CURVE_LENS[] = {sizeof(P224_PARAMS), sizeof(P256_PARAMS),
                          sizeof(P384_PARAMS), sizeof(P521_PARAMS)};
 int CURVE_COUNT = sizeof(CURVE_PARAMS) / sizeof(CURVE_PARAMS[0]);
+size_t CURVE_ECDH_LEN[] = {28, 32, 48, 66};
 
 static void success(const char *message) { printf("%s. OK\n", message); }
 
@@ -134,9 +135,10 @@ static CK_ULONG get_yhvalue(CK_OBJECT_HANDLE object, unsigned char *value,
   return 0;
 }
 
-static bool yh_derive(unsigned char *peerkey_bytes, int peerkey_len,
-                      CK_OBJECT_HANDLE privkey, CK_ULONG kdf, char *label,
-                      CK_OBJECT_HANDLE_PTR ecdh_key, CK_ULONG ecdh_len) {
+static CK_RV yh_derive(unsigned char *peerkey_bytes, int peerkey_len,
+                       CK_OBJECT_HANDLE privkey, CK_ULONG kdf, char *label,
+                       CK_OBJECT_HANDLE_PTR ecdh_key, CK_ULONG value_len,
+                       CK_ULONG ecdh_len) {
   CK_ECDH1_DERIVE_PARAMS params;
   params.kdf = kdf;
   params.pSharedData = NULL;
@@ -151,50 +153,27 @@ static bool yh_derive(unsigned char *peerkey_bytes, int peerkey_len,
   CK_ATTRIBUTE derivedKeyTemplate[] =
     {{CKA_CLASS, &key_class, sizeof(key_class)},
      {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
-     {CKA_VALUE_LEN, &ecdh_len, sizeof(ecdh_len)},
+     {CKA_VALUE_LEN, &value_len, sizeof(value_len)},
      {CKA_LABEL, label, strlen(label)}};
 
-  CK_RV rv =
+  CK_RV rv = CKR_OK;
+
+  rv =
     p11->C_DeriveKey(session, &mechanism, privkey, derivedKeyTemplate,
                      sizeof(derivedKeyTemplate) / sizeof(derivedKeyTemplate[0]),
                      ecdh_key);
   if (rv != CKR_OK) {
-    //    fail("Failed to derived ECDH key on the YubiHSM");
-    return false;
+    return rv;
   }
 
-  CK_ULONG ecdh_actual_len = get_yhsize(*ecdh_key);
-  if (ecdh_actual_len != ecdh_len) {
+  CK_ULONG actual_len = get_yhsize(*ecdh_key);
+  if ((ecdh_len != actual_len)) {
     printf("Derived ECDH is not the expected length. Expected %lu. Found %lu\n",
-           ecdh_len, ecdh_actual_len);
+           ecdh_len, actual_len);
     rv = CKR_FUNCTION_FAILED;
   }
 
-  return rv == CKR_OK;
-}
-
-static bool yh_derive_ecdh(CK_OBJECT_HANDLE priv_key, EVP_PKEY *peer_keypair,
-                           CK_OBJECT_HANDLE_PTR ecdh_key, CK_ULONG kdf,
-                           CK_ULONG ecdh_len, char *label) {
-  EC_KEY *peerkey = EVP_PKEY_get1_EC_KEY(peer_keypair);
-  unsigned char *peerkey_bytes = NULL;
-  int peerkey_len = i2o_ECPublicKey(peerkey, &peerkey_bytes);
-  if (peerkey_len < 0) {
-    fail("Failed to extract public key from EC keypair generated with openssl");
-    return false;
-  }
-
-  EC_KEY_free(peerkey);
-
-  if (!yh_derive(peerkey_bytes, peerkey_len, priv_key, kdf, label, ecdh_key,
-                 ecdh_len)) {
-    OPENSSL_free(peerkey_bytes);
-    return false;
-  }
-
-  OPENSSL_free(peerkey_bytes);
-
-  return true;
+  return rv;
 }
 
 static unsigned int do_hash(const EVP_MD *md, uint8_t *hashed,
@@ -399,49 +378,73 @@ static unsigned char *openssl_derive_ecdh(CK_ULONG kdf, EVP_PKEY *private_key,
   return derivekey_openssl;
 }
 
-static bool test_ecdh_value(const char *curve, CK_ULONG kdf,
-                            CK_ULONG expected_ecdh_len,
-                            CK_OBJECT_HANDLE yh_privkey,
-                            CK_OBJECT_HANDLE yh_pubkey,
-                            CK_OBJECT_HANDLE_PTR ecdh1) {
+static void run_test(void *handle, const char *curve, CK_ULONG kdf,
+                     CK_OBJECT_HANDLE yh_privkey, CK_OBJECT_HANDLE yh_pubkey,
+                     CK_ULONG value_len, CK_ULONG ecdh_len, CK_RV exp_res) {
+
+  printf("EC key %s, KDF 0x%lx, value_len %lu. derived ECDH length: %lu. "
+         "Expected error code: 0x%lx....",
+         curve, kdf, value_len, ecdh_len, exp_res);
+
+  unsigned char *peerkey_bytes = NULL;
 
   // Generate keypair with openssl
-  EVP_PKEY *openssl_keypair = generate_keypair_openssl(curve);
-  if (openssl_keypair == NULL) {
+  EVP_PKEY *peer_keypair = generate_keypair_openssl(curve);
+  if (peer_keypair == NULL) {
     fail("Failed to generate keypair with OpenSSL");
-    return false;
+    goto clean_on_fail;
   }
 
+  EC_KEY *peerkey = EVP_PKEY_get1_EC_KEY(peer_keypair);
+
+  int peerkey_len = i2o_ECPublicKey(peerkey, &peerkey_bytes);
+  if (peerkey_len < 0) {
+    fail("Failed to extract public key from EC keypair generated with openssl");
+    goto clean_on_fail;
+  }
+
+  EC_KEY_free(peerkey);
+
   // Derive with yubihsm
-  if (!yh_derive_ecdh(yh_privkey, openssl_keypair, ecdh1, kdf,
-                      expected_ecdh_len, "ecdh1")) {
-    return false;
+  CK_OBJECT_HANDLE yh_ecdh_key;
+  CK_RV rv = yh_derive(peerkey_bytes, peerkey_len, yh_privkey, kdf, "ecdh",
+                       &yh_ecdh_key, value_len, ecdh_len);
+  if (rv != exp_res) {
+    fail("Wrong error code was returned");
+    goto clean_on_fail;
+  }
+  OPENSSL_free(peerkey_bytes);
+
+  // If testing error handling, no need to test further
+  if (exp_res != CKR_OK) {
+    printf("OK!\n");
+    return;
   }
 
   // Derive with openssl
   size_t ecdh_openssl_len = 0;
   unsigned char *ecdh_openssl =
-    openssl_derive_ecdh(kdf, openssl_keypair, yh_pubkey, expected_ecdh_len,
+    openssl_derive_ecdh(kdf, peer_keypair, yh_pubkey, ecdh_len,
                         &ecdh_openssl_len);
   if (ecdh_openssl_len == 0) {
     fail("Failed to derive key with openssl");
-    return false;
+    goto clean_on_fail;
   }
 
   // Compare sizes
-  CK_ULONG ecdh1_len = get_yhsize(*ecdh1);
+  CK_ULONG ecdh1_len = get_yhsize(yh_ecdh_key);
   if (ecdh1_len != ecdh_openssl_len) {
     fail(
       "ECDH keys derived with yubihsm-pkcs11 and with openssl do not have the "
       "same size");
-    return false;
+    goto clean_on_fail;
   }
 
   // Compare values
   unsigned char ecdh1_bytes[BUFSIZE]; // public key in DER
-  if (get_yhvalue(*ecdh1, ecdh1_bytes, ecdh1_len) == 0) {
+  if (get_yhvalue(yh_ecdh_key, ecdh1_bytes, ecdh1_len) == 0) {
     fail("Failed to retrieve derived key from yubihsm-pkcs11");
-    return false;
+    goto clean_on_fail;
   }
 
   bool equal = true;
@@ -458,28 +461,19 @@ static bool test_ecdh_value(const char *curve, CK_ULONG kdf,
     fail(
       "ECDH keys derived with yubihsm-pkcs11 and with openssl do not have the "
       "same value");
-    return false;
+    goto clean_on_fail;
   }
 
-  return true;
-}
+  printf("OK!\n");
+  return;
 
-static void run_test(void *handle, char *curve, CK_ULONG kdf, CK_ULONG aes_len,
-                     CK_OBJECT_HANDLE yh_pubkey, CK_OBJECT_HANDLE yh_privkey,
-                     bool expected_to_succeed) {
-  CK_OBJECT_HANDLE ecdh;
-  printf("EC key %s, KDF 0x%lx, AES keylen %lu. Expected to succeed: %d...",
-         curve, kdf, aes_len, expected_to_succeed);
-  bool res =
-    test_ecdh_value(curve, kdf, aes_len / 8, yh_privkey, yh_pubkey, &ecdh);
-  if ((res && expected_to_succeed) || (!res && !expected_to_succeed)) {
-    printf("OK!\n");
-  } else {
-    printf("FAIL!\n");
-    close_session(p11, session);
-    close_module(handle);
-    exit(EXIT_FAILURE);
+clean_on_fail:
+  if (peerkey_bytes != NULL) {
+    OPENSSL_free(peerkey_bytes);
   }
+  close_session(p11, session);
+  close_module(handle);
+  exit(EXIT_FAILURE);
 }
 
 int main(int argc, char **argv) {
@@ -505,31 +499,48 @@ int main(int argc, char **argv) {
   printf("\n");
 
   for (int i = 0; i < CURVE_COUNT; i++) {
-    run_test(handle, CURVES[i], CKD_NULL, 128, yh_pubkey[i], yh_pubkey[i],
-             true);
-    run_test(handle, CURVES[i], CKD_NULL, 192, yh_pubkey[i], yh_pubkey[i],
-             true);
+    run_test(handle, CURVES[i], CKD_NULL, yh_privkey[i], yh_pubkey[i], 128 / 8,
+             128 / 8, CKR_OK);
+    run_test(handle, CURVES[i], CKD_NULL, yh_privkey[i], yh_pubkey[i], 192 / 8,
+             192 / 8, CKR_OK);
   }
 
-  run_test(handle, CURVES[0], CKD_NULL, 256, yh_pubkey[0], yh_pubkey[0], false);
-  run_test(handle, CURVES[1], CKD_NULL, 256, yh_pubkey[1], yh_pubkey[1], true);
-  run_test(handle, CURVES[2], CKD_NULL, 256, yh_pubkey[2], yh_pubkey[2], true);
-  run_test(handle, CURVES[3], CKD_NULL, 256, yh_pubkey[3], yh_pubkey[3], true);
+  run_test(handle, CURVES[0], CKD_NULL, yh_privkey[0], yh_pubkey[0], 256 / 8,
+           256 / 8, CKR_DATA_LEN_RANGE);
+  run_test(handle, CURVES[1], CKD_NULL, yh_privkey[1], yh_pubkey[1], 256 / 8,
+           256 / 8, CKR_OK);
+  run_test(handle, CURVES[2], CKD_NULL, yh_privkey[2], yh_pubkey[2], 256 / 8,
+           256 / 8, CKR_OK);
+  run_test(handle, CURVES[3], CKD_NULL, yh_privkey[3], yh_pubkey[3], 256 / 8,
+           256 / 8, CKR_OK);
 
   CK_ULONG key_lens[3] = {128, 192, 256};
 
   for (int i = 0; i < CURVE_COUNT; i++) {
     for (size_t j = 0; j < 3; j++) {
-      run_test(handle, CURVES[i], CKD_YUBICO_SHA1_KDF_SP800, key_lens[j],
-               yh_pubkey[i], yh_pubkey[i], true);
-      run_test(handle, CURVES[i], CKD_YUBICO_SHA256_KDF_SP800, key_lens[j],
-               yh_pubkey[i], yh_pubkey[i], true);
-      run_test(handle, CURVES[i], CKD_YUBICO_SHA384_KDF_SP800, key_lens[j],
-               yh_pubkey[i], yh_pubkey[i], true);
-      run_test(handle, CURVES[i], CKD_YUBICO_SHA512_KDF_SP800, key_lens[j],
-               yh_pubkey[i], yh_pubkey[i], true);
+      run_test(handle, CURVES[i], CKD_YUBICO_SHA1_KDF_SP800, yh_privkey[i],
+               yh_pubkey[i], key_lens[j] / 8, key_lens[j] / 8, CKR_OK);
+      run_test(handle, CURVES[i], CKD_YUBICO_SHA256_KDF_SP800, yh_privkey[i],
+               yh_pubkey[i], key_lens[j] / 8, key_lens[j] / 8, CKR_OK);
+      run_test(handle, CURVES[i], CKD_YUBICO_SHA384_KDF_SP800, yh_privkey[i],
+               yh_pubkey[i], key_lens[j] / 8, key_lens[j] / 8, CKR_OK);
+      run_test(handle, CURVES[i], CKD_YUBICO_SHA512_KDF_SP800, yh_privkey[i],
+               yh_pubkey[i], key_lens[j] / 8, key_lens[j] / 8, CKR_OK);
     }
+
+    run_test(handle, CURVES[i], CKD_NULL, yh_privkey[i], yh_pubkey[i], 0,
+             CURVE_ECDH_LEN[i], CKR_OK);
+    run_test(handle, CURVES[i], CKD_YUBICO_SHA1_KDF_SP800, yh_privkey[i],
+             yh_pubkey[i], 0, 20, CKR_OK);
+    run_test(handle, CURVES[i], CKD_YUBICO_SHA256_KDF_SP800, yh_privkey[i],
+             yh_pubkey[i], 0, 32, CKR_OK);
+    run_test(handle, CURVES[i], CKD_YUBICO_SHA384_KDF_SP800, yh_privkey[i],
+             yh_pubkey[i], 0, 48, CKR_OK);
+    run_test(handle, CURVES[i], CKD_YUBICO_SHA512_KDF_SP800, yh_privkey[i],
+             yh_pubkey[i], 0, 64, CKR_OK);
   }
+  run_test(handle, CURVES[0], CKD_NULL, yh_privkey[0], yh_pubkey[0], 1024, 0,
+           CKR_ATTRIBUTE_VALUE_INVALID);
 
   printf("\n");
   for (int i = 0; i < CURVE_COUNT; i++) {

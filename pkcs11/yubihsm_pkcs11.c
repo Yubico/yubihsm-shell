@@ -5606,7 +5606,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
     goto c_drv_out;
   }
 
-  if (pMechanism->mechanism != CKM_ECDH1_DERIVE) {
+  if (pMechanism->mechanism != CKM_ECDH1_DERIVE ||
+      pMechanism->pParameter == NULL) {
     DBG_ERR("Invalid mechanism for key generation: %lu", pMechanism->mechanism);
     rv = CKR_MECHANISM_INVALID;
     goto c_drv_out;
