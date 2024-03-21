@@ -297,8 +297,8 @@ static size_t openssl_derive(CK_ULONG kdf, EVP_PKEY *private_key,
   size_t res_len = 0;
   size_t ctr_len = 4;
 
+  uint8_t k[BUFSIZE] = {0};
   size_t k_len = len + ctr_len;
-  uint8_t *k = malloc(k_len);
   memset(k, 0, ctr_len);
   memcpy(k + ctr_len, derived, len);
 

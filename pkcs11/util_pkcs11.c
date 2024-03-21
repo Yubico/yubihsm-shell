@@ -20,6 +20,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "../common/platform-config.h"
 #include "../common/util.h"
 #include "../common/time_win.h"
 
