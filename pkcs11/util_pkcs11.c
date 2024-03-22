@@ -5327,23 +5327,25 @@ CK_RV ecdh_with_kdf(ecdh_session_key *shared_secret, uint8_t *fixed_info,
   hash_ctx hash = NULL;
   switch (kdf) {
     case CKD_NULL:
+      DBG_INFO("KDF is CKD_NULL");
       // Do nothing
       break;
     case CKD_YUBICO_SHA1_KDF_SP800:
+      DBG_INFO("KDF is CKD_SHA1_KDF_SP800");
       hash_create(&hash, _SHA1);
       break;
     case CKD_YUBICO_SHA256_KDF_SP800:
+      DBG_INFO("KDF is CKD_SHA256_KDF_SP800");
       hash_create(&hash, _SHA256);
       break;
     case CKD_YUBICO_SHA384_KDF_SP800:
+      DBG_INFO("KDF is CKD_SHA384_KDF_SP800");
       hash_create(&hash, _SHA384);
       break;
     case CKD_YUBICO_SHA512_KDF_SP800:
+      DBG_INFO("KDF is CKD_SHA512_KDF_SP800");
       hash_create(&hash, _SHA512);
       break;
-    default:
-      DBG_ERR("Unsupported KDF");
-      return 0;
   }
 
   if (hash) {
@@ -5371,6 +5373,7 @@ CK_RV ecdh_with_kdf(ecdh_session_key *shared_secret, uint8_t *fixed_info,
            sizeof(shared_secret->ecdh_key) - value_len);
     shared_secret->len = value_len;
   } else if (kdf != CKD_NULL) {
+    DBG_ERR("Unsupported KDF %lu", kdf);
     return CKR_MECHANISM_PARAM_INVALID;
   }
 
