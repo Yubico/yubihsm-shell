@@ -218,6 +218,8 @@ if(NOT BUILD_ONLY_LIB)
   add_subdirectory (examples)
 
   add_subdirectory(yhwrap)
+
+  add_subdirectory(yhunwrap)
 endif()
 
 add_custom_target (
