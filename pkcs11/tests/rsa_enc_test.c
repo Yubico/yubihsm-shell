@@ -36,7 +36,7 @@
 static CK_FUNCTION_LIST_PTR p11;
 static CK_SESSION_HANDLE session;
 
-static void import_rsa_key(int keylen, EVP_PKEY **evp, RSA **rsak,
+static void import_rsa_key(int keylen, RSA *rsak,
                            CK_OBJECT_HANDLE_PTR keyid) {
   CK_BYTE e[] = {0x01, 0x00, 0x01};
   CK_BYTE *p, *q, *dp, *dq, *qinv;
@@ -47,11 +47,9 @@ static void import_rsa_key(int keylen, EVP_PKEY **evp, RSA **rsak,
   dq = malloc(len);
   qinv = malloc(len);
 
-  BIGNUM *e_bn;
   CK_ULONG class_k = CKO_PRIVATE_KEY;
   CK_ULONG kt = CKK_RSA;
   CK_BYTE id[] = {0, 0};
-  const BIGNUM *bp, *bq, *biqmp, *bdmp1, *bdmq1;
 
   // unsigned char  *px;
   CK_BBOOL dec_capability = CK_TRUE;
@@ -67,22 +65,20 @@ static void import_rsa_key(int keylen, EVP_PKEY **evp, RSA **rsak,
                                        {CKA_EXPONENT_1, dp, len},
                                        {CKA_EXPONENT_2, dq, len},
                                        {CKA_COEFFICIENT, qinv, len}};
-  e_bn = BN_bin2bn(e, 3, NULL);
+  BIGNUM *e_bn = BN_bin2bn(e, 3, NULL);
   if (e_bn == NULL)
     exit(EXIT_FAILURE);
 
-  assert(RSA_generate_key_ex(*rsak, keylen, e_bn, NULL) == 1);
+  assert(RSA_generate_key_ex(rsak, keylen, e_bn, NULL) == 1);
 
-  RSA_get0_factors(*rsak, &bp, &bq);
-  RSA_get0_crt_params(*rsak, &bdmp1, &bdmq1, &biqmp);
+  const BIGNUM *bp, *bq, *biqmp, *bdmp1, *bdmq1;
+  RSA_get0_factors(rsak, &bp, &bq);
+  RSA_get0_crt_params(rsak, &bdmp1, &bdmq1, &biqmp);
   BN_bn2binpad(bp, p, len);
   BN_bn2binpad(bq, q, len);
   BN_bn2binpad(bdmp1, dp, len);
   BN_bn2binpad(bdmq1, dq, len);
   BN_bn2binpad(biqmp, qinv, len);
-
-  if (EVP_PKEY_set1_RSA(*evp, *rsak) == 0)
-    exit(EXIT_FAILURE);
 
   assert(p11->C_CreateObject(session, privateKeyTemplate, 10, keyid) == CKR_OK);
 
@@ -186,12 +182,11 @@ static void test_rsa_encrypt(CK_OBJECT_HANDLE privkey, CK_OBJECT_HANDLE pubkey, 
 }
 
 static void test_encrypt_RSA(int keysize, CK_ULONG expected_enc_len) {
-  EVP_PKEY *evp = EVP_PKEY_new();
   RSA *rsak = RSA_new();
   CK_OBJECT_HANDLE keyid;
 
-  import_rsa_key(keysize, &evp, &rsak, &keyid);
-  if (evp == NULL || rsak == NULL)
+  import_rsa_key(keysize, rsak, &keyid);
+  if (keyid == 0)
     exit(EXIT_FAILURE);
 
   CK_BYTE id[] = {0, 0};
@@ -231,7 +226,6 @@ static void test_encrypt_RSA(int keysize, CK_ULONG expected_enc_len) {
                    expected_enc_len);
 
   RSA_free(rsak);
-  EVP_PKEY_free(evp);
   destroy_object(p11, session, keyid);
 }
 
