@@ -50,7 +50,6 @@ static void import_rsa_key(int keylen, EVP_PKEY **evp, RSA **rsak,
   CK_BYTE id[] = {0, 0};
   const BIGNUM *bp, *bq, *biqmp, *bdmp1, *bdmq1;
 
-  // unsigned char  *px;
   CK_BBOOL sign_capability = CK_TRUE;
 
   CK_ATTRIBUTE privateKeyTemplate[] = {{CKA_CLASS, &class_k, sizeof(class_k)},
