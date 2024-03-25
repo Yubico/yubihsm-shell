@@ -1,3 +1,11 @@
+yubihsm-shell (2.5.0) unstable; urgency=medium
+
+	* pkcs11: Add support for applying KDF after ECDH derivation
+	* pkcs11: shell: Fix minor bugs
+	* test: Increase test coverage
+
+ -- Aveen Ismail <aveen.ismail@yubico.com>  Mon, 25 Mar 2024 23:27:50 +0100
+
 yubihsm-shell (2.4.2) unstable; urgency=medium
 
 	* pkcs11: Add Symmetric key capabilities to searchable criteria

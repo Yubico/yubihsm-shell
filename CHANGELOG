@@ -1,3 +1,9 @@
+=== Version 2.5.0
+
+PKCS11: Add support for applying KDF after ECDH derivation
+PKCS11: Shell: Fix minor bugs
+Test: Increase test coverage
+
 === Version 2.4.2
 
 PKCS11: Add Symmetric key capabilities to searchable criteria
