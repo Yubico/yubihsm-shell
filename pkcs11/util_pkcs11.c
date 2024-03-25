@@ -23,6 +23,7 @@
 #include "../common/platform-config.h"
 #include "../common/util.h"
 #include "../common/time_win.h"
+#include "../common/hash.h"
 
 #ifdef __WIN32
 #include <winsock.h>
@@ -38,7 +39,6 @@
 
 #include "util_pkcs11.h"
 #include "debug_p11.h"
-#include "../common/util.h"
 #include "../common/openssl-compat.h"
 #include "../common/insecure_memzero.h"
 
@@ -5307,4 +5307,75 @@ bool match_meta_attributes(yubihsm_pkcs11_session *session,
     }
   }
   return true;
+}
+
+static void increment_ctr(uint8_t *ctr, size_t len) {
+  while (len > 0) {
+    if (++ctr[--len]) {
+      break;
+    }
+  }
+}
+
+CK_RV ecdh_with_kdf(ecdh_session_key *shared_secret, uint8_t *fixed_info,
+                    size_t fixed_len, CK_ULONG kdf, size_t value_len) {
+
+  if (fixed_len > 0 && fixed_info == NULL) {
+    return CKR_MECHANISM_PARAM_INVALID;
+  }
+
+  hash_ctx hash = NULL;
+  switch (kdf) {
+    case CKD_NULL:
+      DBG_INFO("KDF is CKD_NULL");
+      // Do nothing
+      break;
+    case CKD_YUBICO_SHA1_KDF_SP800:
+      DBG_INFO("KDF is CKD_SHA1_KDF_SP800");
+      hash_create(&hash, _SHA1);
+      break;
+    case CKD_YUBICO_SHA256_KDF_SP800:
+      DBG_INFO("KDF is CKD_SHA256_KDF_SP800");
+      hash_create(&hash, _SHA256);
+      break;
+    case CKD_YUBICO_SHA384_KDF_SP800:
+      DBG_INFO("KDF is CKD_SHA384_KDF_SP800");
+      hash_create(&hash, _SHA384);
+      break;
+    case CKD_YUBICO_SHA512_KDF_SP800:
+      DBG_INFO("KDF is CKD_SHA512_KDF_SP800");
+      hash_create(&hash, _SHA512);
+      break;
+  }
+
+  if (hash) {
+    uint8_t ctr[sizeof(uint32_t)] = {0};
+    uint8_t res[ECDH_KEY_BUF_SIZE] = {0};
+    size_t res_len = 0;
+
+    do {
+      increment_ctr(ctr, sizeof(ctr));
+      hash_init(hash);
+      hash_update(hash, ctr, sizeof(ctr));
+      hash_update(hash, shared_secret->ecdh_key, shared_secret->len);
+      hash_update(hash, fixed_info, fixed_len);
+      size_t len = sizeof(res) - res_len;
+      hash_final(hash, res + res_len, &len);
+      res_len += len;
+    } while (res_len < value_len);
+
+    if (value_len == 0) {
+      value_len = res_len;
+    }
+
+    memcpy(shared_secret->ecdh_key, res, value_len);
+    memset(shared_secret->ecdh_key + value_len, 0,
+           sizeof(shared_secret->ecdh_key) - value_len);
+    shared_secret->len = value_len;
+  } else if (kdf != CKD_NULL) {
+    DBG_ERR("Unsupported KDF %lu", kdf);
+    return CKR_MECHANISM_PARAM_INVALID;
+  }
+
+  return CKR_OK;
 }
