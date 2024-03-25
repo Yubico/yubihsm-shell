@@ -1,5 +1,5 @@
 #! /usr/bin/dh-exec
-usr/lib/libykhsmauth*.so /usr/lib/x86_64-linux-gnu
-usr/share/pkgconfig/ykhsmauth.pc /usr/lib/x86_64-linux-gnu
+usr/lib/libykhsmauth*.so /usr/lib/
+usr/share/pkgconfig/ykhsmauth.pc /usr/lib/
 
 usr/include/ykhsmauth.h
