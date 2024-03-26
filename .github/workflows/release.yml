@@ -273,7 +273,7 @@ jobs:
       fail-fast: false
       matrix:
         environment: [
-            "fedora:37",
+            "fedora:39",
             "fedora:38",
             "centos:7"
         ]
