@@ -588,8 +588,15 @@ ykhsmauth_rc ykhsmauth_list_keys(ykhsmauth_state *state,
 ykhsmauth_rc ykhsmauth_get_challenge(ykhsmauth_state *state, const char *label,
                                      uint8_t *challenge,
                                      size_t *challenge_len) {
+  return ykhsmauth_get_challenge_ex(state, label, NULL, 0, challenge, challenge_len);
+}
 
-  if (state == NULL || label == NULL ||
+ykhsmauth_rc ykhsmauth_get_challenge_ex(ykhsmauth_state *state, const char *label,
+                                     const uint8_t *cpw, size_t cpw_len,
+                                     uint8_t *challenge,
+                                     size_t *challenge_len) {
+
+  if (state == NULL || label == NULL || cpw_len > YKHSMAUTH_PW_LEN ||
       strlen(label) < YKHSMAUTH_MIN_LABEL_LEN ||
       strlen(label) > YKHSMAUTH_MAX_LABEL_LEN || challenge == NULL ||
       challenge_len == NULL) {
@@ -599,6 +606,9 @@ ykhsmauth_rc ykhsmauth_get_challenge(ykhsmauth_state *state, const char *label,
   APDU apdu = {{0, YKHSMAUTH_INS_GET_CHALLENGE, 0, 0, 0, {0}}};
 
   add_tag(&apdu, YKHSMAUTH_TAG_LABEL, label, strlen(label), 0);
+  if(cpw && cpw_len) {
+    add_tag(&apdu, YKHSMAUTH_TAG_PW, cpw, cpw_len, YKHSMAUTH_PW_LEN - cpw_len);
+  }
 
   unsigned char data[256] = {0};
   DWORD recv_len = sizeof(data);
