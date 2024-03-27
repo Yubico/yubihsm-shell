@@ -187,14 +187,6 @@ endif()
 
 message("LIBCRYPTO_VERSION: ${LIBCRYPTO_VERSION}")
 
-# If disabled, make sure to make the 'ykhsmauth-label' option in src/cmdline.ggo invisible
-option(ENABLE_YKHSM_AUTH "Enable/disable ykhsmauth module" ON)
-if(ENABLE_YKHSM_AUTH)
-  add_definitions(-DYKHSMAUTH_ENABLED="1")
-endif()
-
-option(ENABLE_ASYMMETRIC_AUTH "Enable support for asymmetric authentication" ON)
-
 add_subdirectory (lib)
 
 if(NOT BUILD_ONLY_LIB)
@@ -208,10 +200,8 @@ if(NOT BUILD_ONLY_LIB)
     set(LIBPCSC_LDFLAGS "-Wl,-framework -Wl,PCSC")
   endif()
 
-  if(ENABLE_YKHSM_AUTH)
-    add_subdirectory (ykhsmauth)
-    add_subdirectory (yubihsm-auth)
-  endif()
+  add_subdirectory (ykhsmauth)
+  add_subdirectory (yubihsm-auth)
 
   add_subdirectory (src)
 
