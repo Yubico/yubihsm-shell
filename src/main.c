@@ -408,13 +408,11 @@ static void create_command_list(CommandList *c) {
                                     "e:session,w:object_id,F:out=-", fmt_nofmt,
                                     fmt_base64, "Get a template object", NULL,
                                     NULL});
-#ifdef USE_ASYMMETRIC_AUTH
   register_subcommand(*c, (Command){"devicepubkey", yh_com_get_device_pubkey,
                                     NULL, fmt_nofmt, fmt_PEM,
                                     "Get the device public key for asymmetric "
                                     "authentication",
                                     NULL, NULL});
-#endif
   *c =
     register_command(*c, (Command){"help", yh_com_help, "s:command=", fmt_nofmt,
                                    fmt_nofmt, "Display help text", NULL, NULL});
@@ -467,7 +465,6 @@ static void create_command_list(CommandList *c) {
                                     "password=-",
                                     fmt_password, fmt_nofmt,
                                     "Store an authentication key", NULL, NULL});
-#ifdef USE_ASYMMETRIC_AUTH
   register_subcommand(*c,
                       (Command){"authkey_asym", yh_com_put_authentication_asym,
                                 "e:session,w:key_id,s:label,d:domains,c:"
@@ -476,7 +473,6 @@ static void create_command_list(CommandList *c) {
                                 fmt_PEM, fmt_nofmt,
                                 "Store an asymmetric authentication key", NULL,
                                 NULL});
-#endif
   register_subcommand(*c, (Command){"opaque", yh_com_put_opaque,
                                     "e:session,w:object_id,s:label,d:domains,c:"
                                     "capabilities,a:algorithm,i:data=-",
@@ -535,22 +531,18 @@ static void create_command_list(CommandList *c) {
                                     "Open a session with a device using a "
                                     "specific Authentication Key",
                                     NULL, NULL});
-#ifdef USE_ASYMMETRIC_AUTH
   register_subcommand(*c, (Command){"open_asym", yh_com_open_session_asym,
                                     "w:authkey,i:privkey=-", fmt_PEM,
                                     fmt_nofmt,
                                     "Open a session with a device using a "
                                     "specific Asymmetric Authentication Key",
                                     NULL, NULL});
-#endif
-#ifdef YKHSMAUTH_ENABLED
   register_subcommand(*c, (Command){"ykopen", yh_com_open_yksession,
                                     "w:authkey,s:label,i:password=-,s:reader=",
                                     fmt_password, fmt_nofmt,
                                     "Open a session with a device using an "
                                     "Authentication in a YubiKey",
                                     NULL, NULL});
-#endif
   *c = register_command(*c, (Command){"sign", yh_com_noop, NULL, fmt_nofmt,
                                       fmt_nofmt, "Sign data", NULL, NULL});
   register_subcommand(
@@ -676,14 +668,12 @@ static void create_command_list(CommandList *c) {
                                 "e:session,w:key_id,i:password=-", fmt_password,
                                 fmt_nofmt, "Change an authentication key", NULL,
                                 NULL});
-#ifdef USE_ASYMMETRIC_AUTH
   register_subcommand(*c, (Command){"authkey_asym",
                                     yh_com_change_authentication_key_asym,
                                     "e:session,w:key_id,i:pubkey=-",
                                     fmt_PEM, fmt_nofmt,
                                     "Change an asymmetric authentication key",
                                     NULL, NULL});
-#endif
 
   *c = msort_list(*c);
   for (Command *t = *c; t != NULL; t = t->next) {
@@ -1840,8 +1830,6 @@ static int parse_configured_connectors(yubihsm_context *ctx, char **connectors,
   return 0;
 }
 
-#ifdef USE_ASYMMETRIC_AUTH
-
 static void free_configured_pubkeys(yubihsm_context *ctx) {
   if (ctx->device_pubkey_list) {
     for (int i = 0; ctx->device_pubkey_list[i]; i++) {
@@ -1876,7 +1864,6 @@ static int parse_configured_pubkeys(yubihsm_context *ctx, char **pubkeys,
 
   return 0;
 }
-#endif
 
 int main(int argc, char *argv[]) {
 
@@ -1968,20 +1955,12 @@ int main(int argc, char *argv[]) {
     goto main_exit;
   }
 
-#ifdef USE_ASYMMETRIC_AUTH
   if (parse_configured_pubkeys(&g_ctx, args_info.device_pubkey_arg,
                                args_info.device_pubkey_given) == -1) {
     fprintf(stderr, "Unable to parse device pubkey list\n");
     rc = EXIT_FAILURE;
     goto main_exit;
   }
-#else
-  if (args_info.device_pubkey_given) {
-    fprintf(stderr, "This build does not support device-pubkey option\n");
-    rc = EXIT_FAILURE;
-    goto main_exit;
-  }
-#endif
 
   if (getenv("DEBUG") != NULL) {
     args_info.verbose_arg = YH_VERB_ALL;
@@ -1995,7 +1974,6 @@ int main(int argc, char *argv[]) {
     goto main_exit;
   }
 
-#ifdef YKHSMAUTH_ENABLED
   ykhsmauth_rc ykhsmauthrc;
   ykhsmauthrc =
     ykhsmauth_init(&g_ctx.state, 1); // TODO(adma): do something about verbosity
@@ -2004,7 +1982,6 @@ int main(int argc, char *argv[]) {
     rc = EXIT_FAILURE;
     goto main_exit;
   }
-#endif
 
   if (g_ctx.connector_list[0] == NULL) {
     fprintf(stderr, "Using default connector URL: %s\n", DEFAULT_CONNECTOR_URL);
@@ -2085,7 +2062,6 @@ int main(int argc, char *argv[]) {
         rc = EXIT_FAILURE;
         goto main_exit;
       }
-#ifdef YKHSMAUTH_ENABLED
       if (args_info.ykhsmauth_label_given) {
         arg[1].s = args_info.ykhsmauth_label_arg;
         arg[1].len = strlen(args_info.ykhsmauth_label_arg);
@@ -2095,13 +2071,10 @@ int main(int argc, char *argv[]) {
         arg[3].len = strlen(args_info.ykhsmauth_reader_arg);
         comrc = yh_com_open_yksession(&g_ctx, arg, fmt_password, fmt_nofmt);
       } else {
-#endif
         arg[1].x = buf;
         arg[1].len = pw_len;
         comrc = yh_com_open_session(&g_ctx, arg, fmt_password, fmt_nofmt);
-#ifdef YKHSMAUTH_ENABLED
       }
-#endif
       insecure_memzero(buf, pw_len);
       free(buf);
       if (comrc != 0) {
@@ -2399,15 +2372,10 @@ int main(int argc, char *argv[]) {
         } break;
 
         case action_arg_getMINUS_deviceMINUS_pubkey:
-#ifdef USE_ASYMMETRIC_AUTH
           comrc = yh_com_get_device_pubkey(&g_ctx, arg, fmt_nofmt,
                                            g_out_fmt == fmt_nofmt ? fmt_PEM
                                                                   : g_out_fmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to get device public key");
-#else
-          fprintf(stderr, "get-device-pubkey not supported in this build.");
-          rc = EXIT_FAILURE;
-#endif
           break;
 
         case action_arg_getMINUS_objectMINUS_info: {
@@ -3095,14 +3063,10 @@ main_exit:
   }
 
   yh_exit();
-#ifdef YKHSMAUTH_ENABLED
   ykhsmauth_done(g_ctx.state);
   g_ctx.state = NULL;
-#endif
 
-#ifdef USE_ASYMMETRIC_AUTH
   free_configured_pubkeys(&g_ctx);
-#endif
 
   free_configured_connectors(&g_ctx);
 
