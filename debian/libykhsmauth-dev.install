@@ -1,5 +1,5 @@
 #! /usr/bin/dh-exec
-usr/lib/libykhsmauth*.so /usr/lib/${DEB_HOST_MULTIARCH}
-usr/share/pkgconfig/ykhsmauth.pc /usr/lib/${DEB_HOST_MULTIARCH}
+usr/lib/libykhsm*.so /usr/lib/x86_64-linux-gnu
+usr/share/pkgconfig/ykhsmauth.pc /usr/lib/x86_64-linux-gnu/pkgconfig
 
 usr/include/ykhsmauth.h
