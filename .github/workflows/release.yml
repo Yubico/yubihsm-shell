@@ -136,13 +136,13 @@ jobs:
       fail-fast: false
       matrix:
         environment: [
-#            "ubuntu:23.10",
-#            "ubuntu:23.04",
-#            "ubuntu:22.04",
-#            "ubuntu:20.04",
-#            "ubuntu:18.04",
-#            "ubuntu:16.04",
-#            "ubuntu:14.04",
+            "ubuntu:23.10",
+            "ubuntu:23.04",
+            "ubuntu:22.04",
+            "ubuntu:20.04",
+            "ubuntu:18.04",
+            "ubuntu:16.04",
+            "ubuntu:14.04",
             "debian:12",
             "debian:11",
             "debian:10"
