@@ -120,6 +120,18 @@ static bool unwrap_data(uint8_t *key, size_t key_len, uint8_t *in, size_t in_len
   // Clean up
   EVP_CIPHER_CTX_free(ctx);
 
+  // Reverse first 32 bytes of the expanded secret key
+  if (*out_len < OBJECT_HEADER_SIZE + 32) {
+    return false;
+  }
+  uint8_t temp;
+  int i;
+  for (i = 0; i < 16; i++) {
+    temp = out[OBJECT_HEADER_SIZE + i];
+    out[OBJECT_HEADER_SIZE + i] = out[OBJECT_HEADER_SIZE + 31 - i];
+    out[OBJECT_HEADER_SIZE + 31 - i] = temp;
+  }
+
   return true;
 }
 
