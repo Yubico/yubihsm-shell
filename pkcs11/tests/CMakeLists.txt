@@ -34,7 +34,6 @@ set(
   ReadOnlySessionTest.SOLoginFail
   ReadOnlySessionTest.CreateKeyPairObjects
   ReadOnlySessionTest.CreateSecretKeyAttributes
-  ReadOnlySessionTest.SecretKeyTestVectors
   ReadOnlySessionTest.SignVerifyRecover
   ReadOnlySessionTest.GenerateKeyInvalid
   ReadOnlySessionTest.GenerateKeyPairInvalid
@@ -66,112 +65,75 @@ set(
   Ciphers/SecretKeyTest.EncryptDecrypt/1
   Ciphers/SecretKeyTest.EncryptDecrypt/2
   Ciphers/SecretKeyTest.EncryptDecrypt/3
-  Ciphers/SecretKeyTest.EncryptDecrypt/4
-  Ciphers/SecretKeyTest.EncryptDecrypt/5
   Ciphers/SecretKeyTest.EncryptFailDecrypt/0
   Ciphers/SecretKeyTest.EncryptFailDecrypt/1
   Ciphers/SecretKeyTest.EncryptFailDecrypt/2
   Ciphers/SecretKeyTest.EncryptFailDecrypt/3
-  Ciphers/SecretKeyTest.EncryptFailDecrypt/4
-  Ciphers/SecretKeyTest.EncryptFailDecrypt/5
   Ciphers/SecretKeyTest.EncryptDecryptGetSpace/0
   Ciphers/SecretKeyTest.EncryptDecryptGetSpace/1
   Ciphers/SecretKeyTest.EncryptDecryptGetSpace/2
   Ciphers/SecretKeyTest.EncryptDecryptGetSpace/3
-  Ciphers/SecretKeyTest.EncryptDecryptGetSpace/4
-  Ciphers/SecretKeyTest.EncryptDecryptGetSpace/5
   Ciphers/SecretKeyTest.EncryptDecryptParts/0
   Ciphers/SecretKeyTest.EncryptDecryptParts/1
   Ciphers/SecretKeyTest.EncryptDecryptParts/2
   Ciphers/SecretKeyTest.EncryptDecryptParts/3
-  Ciphers/SecretKeyTest.EncryptDecryptParts/4
-  Ciphers/SecretKeyTest.EncryptDecryptParts/5
   Ciphers/SecretKeyTest.EncryptDecryptInitInvalid/0
   Ciphers/SecretKeyTest.EncryptDecryptInitInvalid/1
   Ciphers/SecretKeyTest.EncryptDecryptInitInvalid/2
   Ciphers/SecretKeyTest.EncryptDecryptInitInvalid/3
-  Ciphers/SecretKeyTest.EncryptDecryptInitInvalid/4
-  Ciphers/SecretKeyTest.EncryptDecryptInitInvalid/5
   Ciphers/SecretKeyTest.EncryptErrors/0
   Ciphers/SecretKeyTest.EncryptErrors/1
   Ciphers/SecretKeyTest.EncryptErrors/2
   Ciphers/SecretKeyTest.EncryptErrors/3
-  Ciphers/SecretKeyTest.EncryptErrors/4
-  Ciphers/SecretKeyTest.EncryptErrors/5
   Ciphers/SecretKeyTest.DecryptErrors/0
   Ciphers/SecretKeyTest.DecryptErrors/1
   Ciphers/SecretKeyTest.DecryptErrors/2
   Ciphers/SecretKeyTest.DecryptErrors/3
-  Ciphers/SecretKeyTest.DecryptErrors/4
-  Ciphers/SecretKeyTest.DecryptErrors/5
   Ciphers/SecretKeyTest.EncryptUpdateErrors/0
   Ciphers/SecretKeyTest.EncryptUpdateErrors/1
   Ciphers/SecretKeyTest.EncryptUpdateErrors/2
   Ciphers/SecretKeyTest.EncryptUpdateErrors/3
-  Ciphers/SecretKeyTest.EncryptUpdateErrors/4
-  Ciphers/SecretKeyTest.EncryptUpdateErrors/5
   Ciphers/SecretKeyTest.EncryptModePolicing1/0
   Ciphers/SecretKeyTest.EncryptModePolicing1/1
   Ciphers/SecretKeyTest.EncryptModePolicing1/2
   Ciphers/SecretKeyTest.EncryptModePolicing1/3
-  Ciphers/SecretKeyTest.EncryptModePolicing1/4
-  Ciphers/SecretKeyTest.EncryptModePolicing1/5
   Ciphers/SecretKeyTest.EncryptModePolicing2/0
   Ciphers/SecretKeyTest.EncryptModePolicing2/1
   Ciphers/SecretKeyTest.EncryptModePolicing2/2
   Ciphers/SecretKeyTest.EncryptModePolicing2/3
-  Ciphers/SecretKeyTest.EncryptModePolicing2/4
-  Ciphers/SecretKeyTest.EncryptModePolicing2/5
   Ciphers/SecretKeyTest.EncryptInvalidIV/0
   Ciphers/SecretKeyTest.EncryptInvalidIV/1
   Ciphers/SecretKeyTest.EncryptInvalidIV/2
   Ciphers/SecretKeyTest.EncryptInvalidIV/3
-  Ciphers/SecretKeyTest.EncryptInvalidIV/4
-  Ciphers/SecretKeyTest.EncryptInvalidIV/5
   Ciphers/SecretKeyTest.DecryptInvalidIV/0
   Ciphers/SecretKeyTest.DecryptInvalidIV/1
   Ciphers/SecretKeyTest.DecryptInvalidIV/2
   Ciphers/SecretKeyTest.DecryptInvalidIV/3
-  Ciphers/SecretKeyTest.DecryptInvalidIV/4
   Ciphers/SecretKeyTest.DecryptInvalidIV/3
-  Ciphers/SecretKeyTest.DecryptInvalidIV/4
-  Ciphers/SecretKeyTest.DecryptInvalidIV/5
   Ciphers/SecretKeyTest.DecryptUpdateErrors/0
   Ciphers/SecretKeyTest.DecryptUpdateErrors/1
   Ciphers/SecretKeyTest.DecryptUpdateErrors/2
   Ciphers/SecretKeyTest.DecryptUpdateErrors/3
-  Ciphers/SecretKeyTest.DecryptUpdateErrors/4
-  Ciphers/SecretKeyTest.DecryptUpdateErrors/5
   Ciphers/SecretKeyTest.EncryptFinalImmediate/0
   Ciphers/SecretKeyTest.EncryptFinalImmediate/1
   Ciphers/SecretKeyTest.EncryptFinalImmediate/2
   Ciphers/SecretKeyTest.EncryptFinalImmediate/3
-  Ciphers/SecretKeyTest.EncryptFinalImmediate/4
-  Ciphers/SecretKeyTest.EncryptFinalImmediate/5
   Ciphers/SecretKeyTest.EncryptFinalErrors1/0
   Ciphers/SecretKeyTest.EncryptFinalErrors1/1
   Ciphers/SecretKeyTest.EncryptFinalErrors1/2
   Ciphers/SecretKeyTest.EncryptFinalErrors1/3
-  Ciphers/SecretKeyTest.EncryptFinalErrors1/4
-  Ciphers/SecretKeyTest.EncryptFinalErrors1/5
   Ciphers/SecretKeyTest.EncryptFinalErrors2/0
   Ciphers/SecretKeyTest.EncryptFinalErrors2/1
   Ciphers/SecretKeyTest.EncryptFinalErrors2/2
   Ciphers/SecretKeyTest.EncryptFinalErrors2/3
-  Ciphers/SecretKeyTest.EncryptFinalErrors2/4
-  Ciphers/SecretKeyTest.EncryptFinalErrors2/5
   Ciphers/SecretKeyTest.DecryptFinalErrors1/0
   Ciphers/SecretKeyTest.DecryptFinalErrors1/1
   Ciphers/SecretKeyTest.DecryptFinalErrors1/2
   Ciphers/SecretKeyTest.DecryptFinalErrors1/3
-  Ciphers/SecretKeyTest.DecryptFinalErrors1/4
-  Ciphers/SecretKeyTest.DecryptFinalErrors1/5
   Ciphers/SecretKeyTest.DecryptFinalErrors2/0
   Ciphers/SecretKeyTest.DecryptFinalErrors2/1
   Ciphers/SecretKeyTest.DecryptFinalErrors2/2
   Ciphers/SecretKeyTest.DecryptFinalErrors2/3
-  Ciphers/SecretKeyTest.DecryptFinalErrors2/4
-  Ciphers/SecretKeyTest.DecryptFinalErrors2/5
   Digests/DigestTest.DigestKey/0
   Digests/DigestTest.DigestKey/1
   Digests/DigestTest.DigestKey/2
@@ -242,6 +204,12 @@ set (
   )
 
 set (
+        SOURCE_ECDH_SP800
+        ecdh_sp800_test.c
+        common.c
+)
+
+set (
   SOURCE_AES_ENCRYPT
   aes_encrypt_test.c
   common.c
@@ -253,9 +221,16 @@ set (
   common.c
   )
 
+set (
+        SOURCE_RSA_PSS_SIGN_TEST
+        pss_sign_test.c
+        common.c
+)
+
 if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 add_executable (aes_encrypt_test ${SOURCE_AES_ENCRYPT})
 add_executable (ecdh_derive_test ${SOURCE_ECDH_DERIVE})
+add_executable (ecdh_sp800_test ${SOURCE_ECDH_SP800})
 
 target_link_libraries(
   aes_encrypt_test
@@ -272,10 +247,20 @@ target_link_libraries (
   ${LIBCRYPTO_LDFLAGS}
   "-ldl")
 
+target_link_libraries (
+        ecdh_sp800_test
+        ${LIBCRYPTO_LDFLAGS}
+        "-ldl")
+
 add_test (
   NAME ecdh_derive_test
   COMMAND ${CMAKE_CURRENT_BINARY_DIR}/ecdh_derive_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
   )
+
+add_test (
+        NAME ecdh_sp800_test
+        COMMAND ${CMAKE_CURRENT_BINARY_DIR}/ecdh_sp800_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
+)
 
 if (NOT ${LIBCRYPTO_VERSION} VERSION_LESS 1.1)
   add_executable (rsa_enc_test ${SOURCE_RSA_ENC_TEST})
@@ -288,6 +273,19 @@ if (NOT ${LIBCRYPTO_VERSION} VERSION_LESS 1.1)
   add_test (
           NAME rsa_enc_test
           COMMAND ${CMAKE_CURRENT_BINARY_DIR}/rsa_enc_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
+  )
+
+
+  add_executable (pss_sign_test ${SOURCE_RSA_PSS_SIGN_TEST})
+
+  target_link_libraries (
+          pss_sign_test
+          ${LIBCRYPTO_LDFLAGS}
+          "-ldl")
+
+  add_test (
+          NAME pss_sign_test
+          COMMAND ${CMAKE_CURRENT_BINARY_DIR}/pss_sign_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
   )
 endif(NOT ${LIBCRYPTO_VERSION} VERSION_LESS 1.1)
 

@@ -39,7 +39,8 @@ if [ "$PLATFORM" == "centos7" ]; then
 #  . /opt/rh/devtoolset-7/enable
 
   GENGETOPT_VER=2.23
-  curl -o gengetopt-${GENGETOPT_VER}.rpm https://download-ib01.fedoraproject.org/pub/epel/7/x86_64/Packages/g/gengetopt-2.23-1.el7.x86_64.rpm
+  #curl -o gengetopt-${GENGETOPT_VER}.rpm https://download-ib01.fedoraproject.org/pub/epel/7/x86_64/Packages/g/gengetopt-2.23-1.el7.x86_64.rpm
+  curl -o gengetopt-${GENGETOPT_VER}.rpm  https://dl.fedoraproject.org/pub/epel/7/x86_64/Packages/g/gengetopt-2.23-1.el7.x86_64.rpm
   yum -y install ./gengetopt-${GENGETOPT_VER}.rpm
 
   export CMAKE="cmake"
@@ -76,13 +77,8 @@ elif [ "${PLATFORM:0:6}" == "fedora" ]; then
                  libcurl-devel    \
                  rpmdevtools      \
                  pcsc-lite-devel  \
+                 libusb1-devel    \
                  help2man
-
-  if [ $PLATFORM == "fedora37" ]; then
-    dnf -y install libusb1-devel
-  else
-    dnf -y install libusb-devel
-  fi
 
   export CMAKE="cmake"
 fi

@@ -169,7 +169,9 @@ put_yhwrapped_asymmetric_rsa() {
   local -r keyid="0xfefe"
   local -r keyfile="$TMPDIR/${FUNCNAME[0]}_keyfile.pem"
   local -r keyfilew="$TMPDIR/${FUNCNAME[0]}_keyfile.wrapped"
-
+  local -r sigbuf="$TMPDIR/${FUNCNAME[0]}_sigbuf"
+  local -r signature="$TMPDIR/${FUNCNAME[0]}_signature"
+  
   $YHSHELL --action="get-object-info" --password="password" --authkey="1"     \
     --object-id="$wrapid" --object-type="wrap-key" && {
     echo "${FUNCNAME[0]}: delete wrapkey"
@@ -213,6 +215,16 @@ put_yhwrapped_asymmetric_rsa() {
     $YHSHELL --action="get-public-key" --password="password" --authkey="1"        \
       --object-id="$keyid" --out="$keyfile.$size.pub.shell"
     diff -u "$keyfile.$size.pub" "$keyfile.$size.pub.shell"
+
+    openssl rand 1024 > "$sigbuf"
+  
+    echo "${FUNCNAME[0]}: sign-pkcs1v15 rsa$size rsa-pkcs1-sha256"
+    $YHSHELL --action="sign-pkcs1v15" --password="password" --authkey="1"       \
+      --object-id="$keyid" --algorithm "rsa-pkcs1-sha256" --in="$sigbuf" --out "$signature.$size" --outformat="bin"
+
+    echo "${FUNCNAME[0]}: verifying rsa$size sha256 signature"
+    openssl dgst -sha256 -verify "$keyfile.$size.pub" -signature "$signature.$size" "$sigbuf"
+
   done
 }
 
@@ -282,11 +294,14 @@ put_yhwrapped_asymmetric_eddsa() {
     return
   fi
 
+  local -r edkeyid="0xeded"
   local -r wrapid="0xdead"
   local -r wrapkey="$TMPDIR/${FUNCNAME[0]}_wrapkey"
   local -r keyid="0xfefe"
   local -r keyfile="$TMPDIR/${FUNCNAME[0]}_keyfile.pem"
   local -r keyfilew="$TMPDIR/${FUNCNAME[0]}_keyfile.wrapped"
+  local -r sigfile1="$TMPDIR/${FUNCNAME[0]}_sig_1"
+  local -r sigfile2="$TMPDIR/${FUNCNAME[0]}_sig_2"
 
   $YHSHELL --action="get-object-info" --password="password" --authkey="1"     \
     --object-id="$wrapid" --object-type="wrap-key" && {
@@ -310,6 +325,23 @@ put_yhwrapped_asymmetric_eddsa() {
   }
   echo "${FUNCNAME[0]}: creating ed key"
   openssl genpkey -algorithm Ed25519 -out "$keyfile"
+
+  $YHSHELL --action="get-object-info" --password="password" --authkey="1"   \
+    --object-id="$edkeyid" --object-type="asymmetric-key" && {
+    echo "${FUNCNAME[0]}: delete imported ed key"
+    $YHSHELL --action="delete-object" --password="password" --authkey="1"   \
+      --object-id="$edkeyid" --object-type="asymmetric-key"
+  }
+  echo "${FUNCNAME[0]}: importing ed key"
+  $YHSHELL --action="put-asymmetric-key" --password="password" --authkey="1"        \
+    --object-id="$edkeyid" --label="${FUNCNAME[0]}" --domains="all"             \
+    --capabilities="all"                                                     \
+    --in="$keyfile" --informat="binary"
+
+  echo "${FUNCNAME[0]}: signing with ed key"
+  rm -f $sigfile1
+  $YHSHELL --action="sign-eddsa" --object-id="$edkeyid" --algorithm="ed25519" --in="$wrapkey" --out="$sigfile1" --password="password"
+
   $YHWRAP --algorithm="ed25519"                                              \
     --capabilities="all" --delegated="all"                                   \
     --domains="all" --id="$keyid" --in="$keyfile"                            \
@@ -325,6 +357,12 @@ put_yhwrapped_asymmetric_eddsa() {
     --object-id="$keyid" --out="$keyfile.pub.shell"
 
   diff -u "$keyfile.pub" "$keyfile.pub.shell"
+
+  echo "${FUNCNAME[0]}: signing with wrapped ed key"
+  rm -f "$sigfile2"
+  $YHSHELL --action="sign-eddsa" --object-id="$keyid" --algorithm="ed25519" --in="$wrapkey" --out="$sigfile2" --password="password"
+
+  diff -u "$sigfile1" "$sigfile2"
 }
 
 main() {

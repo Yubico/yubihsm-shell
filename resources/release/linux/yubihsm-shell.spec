@@ -1,7 +1,7 @@
 %global _yubihsm yubihsm
 
 Name:		yubihsm-shell
-Version:	2.4.0
+Version:	2.5.0
 Release:	1%{?dist}
 Summary:	Tools to interact with YubiHSM 2
 
@@ -76,5 +76,5 @@ install -m 0644 ../LICENSE %{buildroot}/%{_prefix}/share/licenses/%{name}
 
 
 %changelog
-* Wed Dec 1 2021 Aveen Ismail <aveen.ismail@yubico.com> - 2.3.0
-- Releasing version 2.3.0
+* Wed Mar 27 2024 Aveen Ismail <aveen.ismail@yubico.com> - 2.5.0
+- Releasing version 2.5.0

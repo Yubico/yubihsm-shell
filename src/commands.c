@@ -1055,7 +1055,7 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     }
     BIGNUM *e = BN_new();
     BIGNUM *n = BN_bin2bn(response, response_len, NULL);
-    BN_hex2bn(&e, "10001");
+    BN_set_word(e, 0x010001);
     if (RSA_set0_key(rsa, n, e, NULL) != 1) {
       fprintf(stderr, "Failed to set RSA key\n");
       RSA_free(rsa);

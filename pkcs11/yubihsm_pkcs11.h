@@ -21,6 +21,7 @@
 #include "list.h"
 #include <openssl/evp.h>
 #include "../common/platform-config.h"
+#include "../lib/internal.h"
 
 #ifndef _MSVC
 #include <sys/time.h>
@@ -197,6 +198,7 @@ typedef struct {
 
 typedef struct {
   uint16_t id;
+  uint16_t authkey_domains;
   uint16_t max_session_id;
   char *connector_name;
   yh_connector *connector;
@@ -237,9 +239,12 @@ typedef struct {
   uint16_t objlen;
   union {
     struct {
-      uint8_t *p;
-      uint8_t *q;
+      BIGNUM *p;
+      BIGNUM *q;
     } rsa;
+    struct {
+      BIGNUM *d;
+    } ec;
     uint8_t *buf;
   } obj;
 } yubihsm_pkcs11_object_template;

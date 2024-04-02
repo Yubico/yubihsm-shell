@@ -51,6 +51,8 @@ set (
 set (
   SOURCE_WRAP
   wrap.c
+  ../common/util.c
+  ../common/openssl-compat.c
   )
 
 set (

@@ -1,7 +1,33 @@
+yubihsm-shell (2.5.0) unstable; urgency=medium
+
+	* pkcs11: Add support for applying KDF after ECDH derivation
+	* pkcs11: shell: Fix minor bugs
+	* test: Increase test coverage
+
+ -- Aveen Ismail <aveen.ismail@yubico.com>  Mon, 25 Mar 2024 23:27:50 +0100
+
+yubihsm-shell (2.4.2) unstable; urgency=medium
+
+	* pkcs11: Add Symmetric key capabilities to searchable criteria
+	* pkcs11: Add support for CKA_KEY_TYPE when searching for objects
+	* pkcs11: Add support for CKA_MODIFIABLE and CKA_COPYABLE attributes for AES and Wrap keys
+	* test: Increase test coverage
+
+ -- Aveen Ismail <aveen.ismail@yubico.com>  Mon, 30 Oct 2023 14:55:20 +0100
+
+yubihsm-shell (2.4.1) unstable; urgency=medium
+
+	* pkcs11: Allow only a user with access to all the object's domains to edit its attributes
+	* pkcs11: Allow for the creation of an asymmetric key even if CKA_ID or CKA_LABEL attribute values for the private and public key are different.
+	* pkcs11: Improve backup capabilities of objects whose attributes have been changed
+	* test: Improve test coverage
+
+ -- Aveen Ismail <aveen.ismail@yubico.com>  Wed, 29 Mar 2023 15:14:26 +0100
+
 yubihsm-shell (2.4.0) unstable; urgency=medium
 
-  * lib: shell: pkcs11: Add support for symmetric encryption, AES-ECB and AES-CBC
-  * shell: Enable asymmetric authentication by default
+  * lib: shell: pkcs11: Add support for symmetric encryption, AES-ECB and AES-CBC (Requires firmware version 2.3 and later)
+  * shell: Enable asymmetric authentication by default (Requires firmware version 2.3 and later)
   * shell: Allow hex format when creating symmetric authentication key
   * shell: Improve usage of the list command
   * shell: Allow yubihsm-auth reader to be specified

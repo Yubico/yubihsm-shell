@@ -122,7 +122,8 @@ bool create_session(yubihsm_pkcs11_slot *slot, CK_FLAGS flags,
 void release_session(yubihsm_pkcs11_context *ctx,
                      yubihsm_pkcs11_session *session);
 
-CK_RV set_template_attribute(yubihsm_pkcs11_attribute *attribute, void *value);
+CK_RV set_template_attribute(yubihsm_pkcs11_attribute *attribute,
+                             CK_BBOOL *value);
 CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
                          yubihsm_pkcs11_object_template *template);
 CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
@@ -158,16 +159,19 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
 
 CK_RV validate_derive_key_attribute(CK_ATTRIBUTE_TYPE type, void *value);
 
-CK_RV check_bool_attribute(void *value, bool check);
+CK_RV check_bool_attribute(CK_BBOOL *value, bool check);
 CK_RV yrc_to_rv(yh_rc rc);
 
 CK_RV populate_cache_with_data_opaques(yubihsm_pkcs11_slot *slot);
 CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
-                        pkcs11_meta_object *meta_object, bool replace);
+                        pkcs11_meta_object *meta_object,
+                        yh_capabilities *target_capabilities,
+                        uint16_t target_domains, bool replace);
 
 yubihsm_pkcs11_object_desc *
 find_meta_object_by_target(yubihsm_pkcs11_slot *slot, uint16_t target_id,
-                           uint8_t target_type, uint8_t target_sequence);
+                           uint8_t target_type, uint8_t target_sequence,
+                           uint16_t target_domains);
 
 bool match_meta_attributes(yubihsm_pkcs11_session *session,
                            yh_object_descriptor *object, uint8_t *cka_id,
@@ -175,10 +179,14 @@ bool match_meta_attributes(yubihsm_pkcs11_session *session,
                            uint16_t cka_label_len);
 
 bool is_meta_object(yh_object_descriptor *object);
-CK_RV parse_meta_id_template(pkcs11_meta_object *pkcs11meta, bool public,
-                             uint16_t *id, uint8_t *value, size_t value_len);
-void parse_meta_label_template(yubihsm_pkcs11_object_template *template,
-                               pkcs11_meta_object *pkcs11meta, bool public,
-                               uint8_t *value, size_t value_len);
+CK_RV parse_meta_id_template(yubihsm_pkcs11_object_template *template,
+                             pkcs11_meta_object *pkcs11meta, bool public,
+                             uint8_t *value, size_t value_len);
+CK_RV parse_meta_label_template(yubihsm_pkcs11_object_template *template,
+                                pkcs11_meta_object *pkcs11meta, bool public,
+                                uint8_t *value, size_t value_len);
 bool match_byte_array(uint8_t *a, uint16_t a_len, uint8_t *b, uint16_t b_len);
+
+CK_RV ecdh_with_kdf(ecdh_session_key *shared_secret, uint8_t *fixed_info,
+                    size_t fixed_len, CK_ULONG kdf, size_t value_len);
 #endif

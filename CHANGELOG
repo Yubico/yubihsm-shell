@@ -1,3 +1,33 @@
+=== Version 2.5.0
+
+PKCS11: Add support for applying KDF after ECDH derivation
+PKCS11: Shell: Fix minor bugs
+Test: Increase test coverage
+
+=== Version 2.4.2
+
+PKCS11: Add Symmetric key capabilities to searchable criteria
+PKCS11: Add support for CKA_KEY_TYPE when searching for objects
+PKCS11: Add support for CKA_MODIFIABLE and CKA_COPYABLE attributes for AES and Wrap keys
+Test: Increase test coverage
+
+=== Version 2.4.1
+
+pkcs11: Security update for https://www.yubico.com/support/security-advisories/ysa-2023-01/[YSA-2023-01]
+pkcs11: Allow only a user with access to all the object's domains to edit its attributes
+pkcs11: Allow for the creation of an asymmetric key even if CKA_ID or CKA_LABEL attribute values for the private and public key are different.
+pkcs11: Improve backup capabilities of objects whose attributes have been changed
+pkcs11: Add support for CKA_ALLOWED_MECHANISMS
+pkcs11: Fix CKA_SENSITIVE and CKA_PRIVATE return value for opaque objects
+pkcs11: Add support for CKA_EXTRACTABLE for imported certificates
+pkcs11: Fix regression that only allowed encryption with private keys
+lib: pkcs11: Delay client side MAC check to avoid leaving unauthenticated sessions open
+shell: Fix handling of ED25519 keys
+build: Update release script for Centos7
+build: Fix paths in pkg-config template
+build: Set linker flags by platform
+test: Improve test coverage
+
 === Version 2.4.0
 
 lib: shell: pkcs11: Add support for symmetric encryption, AES-ECB and AES-CBC (Requires firmware version 2.3 and later)

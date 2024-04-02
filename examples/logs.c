@@ -73,6 +73,19 @@ int main(void) {
   size_t n_items = sizeof(logs) / sizeof(yh_log_entry);
   yh_log_entry last_previous_log;
   yh_log_entry *last_previous_log_ptr = &last_previous_log;
+  uint8_t option[256];
+  size_t option_len;
+
+  option[0] = YHC_SET_OPTION;
+  option[1] = 0x01;
+  option[2] = YHC_SET_LOG_INDEX;
+  option[3] = 0x01;
+  option[4] = YHC_GET_OBJECT_INFO;
+  option[5] = 0x01;
+  option_len = 2 * 3;
+  yrc =
+    yh_util_set_option(session, YH_OPTION_COMMAND_AUDIT, option_len, option);
+  assert(yrc == YHR_SUCCESS);
 
   yrc = yh_util_get_log_entries(session, &unlogged_boot, &unlogged_auth, logs,
                                 &n_items);
@@ -136,9 +149,6 @@ int main(void) {
   assert(ret == true);
 
   printf("Logs correctly verified\n");
-
-  uint8_t option[128];
-  size_t option_len;
 
   option[0] = YHC_SET_OPTION;
   option[1] = 0x00;

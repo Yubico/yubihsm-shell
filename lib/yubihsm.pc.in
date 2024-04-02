@@ -1,5 +1,5 @@
 libdir=-L@YUBIHSM_INSTALL_LIB_DIR@
-includedir=-I@INSTALL_INC_DIR@
+includedir=-I@YUBIHSM_INSTALL_INC_DIR@
 
 Name: yubihsm
 Description: Yubico YubiHSM C Library

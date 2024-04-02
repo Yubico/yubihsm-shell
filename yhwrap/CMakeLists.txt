@@ -21,6 +21,7 @@ set (
   SOURCE
   ../common/hash.c
   ../common/parsing.c
+  ../common/pkcs5.c
   ../common/util.c
   ../common/openssl-compat.c
   main.c
