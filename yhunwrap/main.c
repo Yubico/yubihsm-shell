@@ -127,9 +127,9 @@ static bool unwrap_data(uint8_t *key, size_t key_len, uint8_t *in, size_t in_len
   uint8_t temp;
   int i;
   for (i = 0; i < 16; i++) {
-    temp = *(out + OBJECT_HEADER_SIZE + i);
-    *(out + OBJECT_HEADER_SIZE + i) = *(out + OBJECT_HEADER_SIZE + 31 - i);
-    *(out + OBJECT_HEADER_SIZE + 31 - i) = temp;
+    temp = out[OBJECT_HEADER_SIZE + i];
+    out[OBJECT_HEADER_SIZE + i] = out[OBJECT_HEADER_SIZE + 31 - i];
+    out[OBJECT_HEADER_SIZE + 31 - i] = temp;
   }
 
   return true;
