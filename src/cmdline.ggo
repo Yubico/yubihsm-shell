@@ -107,4 +107,4 @@ option "noproxy" - "Comma separated list of hosts ignore proxy for" string optio
 option "verbose" v "Print more information" int optional default="0"
 option "pre-connect" P "Connect immediately in interactive mode" flag off
 
-option "device-pubkey" - "List of device public keys allowed for asymmetric authentication" string optional multiple hidden
+option "device-pubkey" - "List of device public keys allowed for asymmetric authentication" string optional multiple
