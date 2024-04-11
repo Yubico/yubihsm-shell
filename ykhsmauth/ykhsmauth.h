@@ -174,6 +174,9 @@ ykhsmauth_rc ykhsmauth_list_keys(ykhsmauth_state *state,
                                  size_t *list_items);
 ykhsmauth_rc ykhsmauth_get_challenge(ykhsmauth_state *state, const char *label,
                                      uint8_t *challenge, size_t *challenge_len);
+ykhsmauth_rc ykhsmauth_get_challenge_ex(ykhsmauth_state *state, const char *label,
+                                     const uint8_t *cpw, size_t cpw_len,
+                                     uint8_t *challenge, size_t *challenge_len);
 ykhsmauth_rc ykhsmauth_get_pubkey(ykhsmauth_state *state, const char *label,
                                   uint8_t *pubkey, size_t *pubkey_len);
 ykhsmauth_rc ykhsmauth_get_mgmkey_retries(ykhsmauth_state *state,

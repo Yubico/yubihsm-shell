@@ -50,18 +50,21 @@ static bool parse_label(const char *prompt, char *label, char *parsed,
 
 static bool parse_pw(const char *prompt, char *pw, uint8_t *parsed,
                      size_t *parsed_len) {
-  if (strlen(pw) > *parsed_len) {
-    fprintf(stderr, "Unable to read password, buffer too small\n");
-    return false;
-  }
-
   if (strlen(pw) == 0) {
     if (read_string(prompt, (char *) parsed, *parsed_len, HIDDEN_CHECKED) ==
         false) {
       return false;
     }
   } else {
-    strncpy((char *) parsed, pw, *parsed_len);
+    if(strcmp(pw, "-")) {
+      if (strlen(pw) > *parsed_len) {
+        fprintf(stderr, "Unable to read password, buffer too small\n");
+        return false;
+      }
+      strncpy((char *) parsed, pw, *parsed_len);
+    } else {
+      *parsed = 0;
+    }
   }
 
   *parsed_len = strlen((char *) parsed);
@@ -357,9 +360,11 @@ static void print_key(char *prompt, uint8_t *key, size_t len) {
   fprintf(stdout, "\n");
 }
 
-static bool get_challenge(ykhsmauth_state *state, char *label) {
+static bool get_challenge(ykhsmauth_state *state, char *label, char *credpassword) {
   char label_parsed[YKHSMAUTH_MAX_LABEL_LEN + 2] = {0};
   size_t label_parsed_len = sizeof(label_parsed);
+  uint8_t cpw_parsed[YKHSMAUTH_PW_LEN + 2] = {0};
+  size_t cpw_parsed_len = sizeof(cpw_parsed);
   uint8_t challenge[YKHSMAUTH_YUBICO_ECP256_PUBKEY_LEN] = {0};
   size_t challenge_len = sizeof(challenge);
 
@@ -367,8 +372,19 @@ static bool get_challenge(ykhsmauth_state *state, char *label) {
     return false;
   }
 
+  if (parse_pw("Credential Password (max 16 characters)", credpassword,
+               cpw_parsed, &cpw_parsed_len) == false) {
+    return false;
+  }
+
+  if (cpw_parsed_len > YKHSMAUTH_PW_LEN) {
+    fprintf(stderr, "Credential password can not be more than %d characters.\n",
+            YKHSMAUTH_PW_LEN);
+    return false;
+  }
+
   ykhsmauth_rc ykhsmauthrc =
-    ykhsmauth_get_challenge(state, label_parsed, challenge, &challenge_len);
+    ykhsmauth_get_challenge_ex(state, label_parsed, cpw_parsed, cpw_parsed_len, challenge, &challenge_len);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Unable to get challenge: %s\n",
             ykhsmauth_strerror(ykhsmauthrc));
@@ -562,7 +578,7 @@ int main(int argc, char *argv[]) {
       break;
 
     case action_arg_getMINUS_challenge:
-      result = get_challenge(state, args_info.label_arg);
+      result = get_challenge(state, args_info.label_arg, args_info.credpwd_arg);
       break;
 
     case action_arg_getMINUS_pubkey:
