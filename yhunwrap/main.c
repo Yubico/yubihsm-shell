@@ -289,6 +289,7 @@ int main(int argc, char *argv[]) {
   size_t wrapkey_buf_len = sizeof(wrapkey_buf);
   if (read_file(wrapkey_file, wrapkey_buf, &wrapkey_buf_len) == false) {
     fprintf(stderr, "Unable to read wrapkey file\n");
+    goto main_exit;
   }
 
   output_file = open_file(args_info.out_arg, false);
