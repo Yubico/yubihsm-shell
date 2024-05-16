@@ -67,8 +67,6 @@ jobs:
           Set-PSDebug -Trace 1
           $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-"
           $MERGEDPATH = Get-ChildItem "C:\Program Files*\Microsoft Visual Studio\*\Enterprise\VC\Redist\MSVC\v14*\MergeModules\Microsoft_VC*_CRT_$env:ARCH.msm"
-          
-          echo "MERGEDPATH = $MERGEDPATH"
 
           cd $YHSHELL_SRC_DIR/resources/release/win
           ./make_release_binaries.ps1 $env:ARCH_CMAKE C:/vcpkg

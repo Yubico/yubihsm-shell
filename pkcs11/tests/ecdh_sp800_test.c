@@ -17,6 +17,7 @@
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
