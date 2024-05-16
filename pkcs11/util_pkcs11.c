@@ -36,6 +36,7 @@
 #include <openssl/ecdsa.h>
 #include <openssl/rsa.h>
 #include <openssl/x509.h>
+#include <openssl/evp.h>
 
 #include "util_pkcs11.h"
 #include "debug_p11.h"
