@@ -8,9 +8,6 @@ SO_VERSION=$3
 
 BREW_LIB="/opt/homebrew/opt"
 
-brew update
-brew install cmake pkg-config gengetopt help2man openssl
-
 export PKG_CONFIG_PATH=$BREW_LIB/openssl/lib/pkgconfig
 
 SOURCE_DIR=$PWD

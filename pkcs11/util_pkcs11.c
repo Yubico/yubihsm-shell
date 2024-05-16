@@ -1834,13 +1834,7 @@ static CK_RV load_public_key(yh_session *session, uint16_t id, EVP_PKEY **key) {
     if (EVP_PKEY_assign_RSA(*key, rsa) == 0) {
       goto l_p_k_failure;
     }
-  } else if (yh_is_ed(algo)) {
-    *key =
-      EVP_PKEY_new_raw_public_key(algo2nid(algo), NULL, data + 1, data_len);
-    if (*key == NULL) {
-      goto l_p_k_failure;
-    }
-  } else {
+  } else if (yh_is_ec(algo)) {
     ec_key = EC_KEY_new();
     if (ec_key == NULL) {
       goto l_p_k_failure;
@@ -1885,6 +1879,17 @@ static CK_RV load_public_key(yh_session *session, uint16_t id, EVP_PKEY **key) {
 
     EC_POINT_free(ec_point);
     EC_GROUP_free(ec_group);
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
+  } else if (yh_is_ed(algo)) {
+    *key =
+      EVP_PKEY_new_raw_public_key(algo2nid(algo), NULL, data + 1, data_len);
+    if (*key == NULL) {
+      goto l_p_k_failure;
+    }
+#endif
+  } else {
+    DBG_ERR("Unsupported key algorithm");
+    goto l_p_k_failure;
   }
 
   return CKR_OK;
@@ -3368,6 +3373,7 @@ CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
       goto pv_failure;
     }
 
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
     if (EVP_PKEY_base_id(key) == EVP_PKEY_ED25519) {
       EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
       int rc = EVP_DigestVerifyInit(md_ctx, NULL, NULL, NULL, key);
@@ -3387,6 +3393,7 @@ CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
         return CKR_FUNCTION_FAILED;
       }
     }
+#endif
 
     ctx = EVP_PKEY_CTX_new(key, NULL);
     if (ctx == NULL) {

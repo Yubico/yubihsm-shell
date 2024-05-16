@@ -70,6 +70,8 @@ install -m 0644 ../LICENSE %{buildroot}/%{_prefix}/share/licenses/%{name}
 %{_includedir}/ykhsmauth.h
 %dir %{_includedir}/pkcs11
 %{_includedir}/pkcs11/pkcs11.h
+%{_includedir}/pkcs11/pkcs11f.h
+%{_includedir}/pkcs11/pkcs11t.h
 %{_includedir}/pkcs11/pkcs11y.h
 %{_libdir}/pkgconfig/yubihsm.pc
 %{_libdir}/pkgconfig/ykhsmauth.pc
