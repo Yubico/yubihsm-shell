@@ -20,7 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../pkcs11.h"
+#include "../pkcs11y.h"
 #include "common.h"
 
 #define FAIL(fmt, ...)                                                         \

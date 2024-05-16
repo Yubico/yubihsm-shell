@@ -25,7 +25,7 @@
 #include <openssl/x509.h>
 #include <openssl/rand.h>
 
-#include "../pkcs11.h"
+#include "../pkcs11y.h"
 #include "common.h"
 
 #define BUFSIZE 1024

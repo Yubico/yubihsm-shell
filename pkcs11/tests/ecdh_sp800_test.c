@@ -26,7 +26,6 @@
 #include <openssl/ec.h>
 #include <openssl/x509.h>
 
-#include "../pkcs11.h"
 #include "../pkcs11y.h"
 #include "common.h"
 

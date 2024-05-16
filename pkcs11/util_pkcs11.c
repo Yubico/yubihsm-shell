@@ -1714,7 +1714,7 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
         size_t resplen = sizeof(resp);
 
         yh_rc yrc =
-          yh_util_get_public_key(session, object->id, resp, &resplen, NULL);
+          yh_util_get_public_key(session->slot->device_session, object->id, resp, &resplen, NULL);
         if (yrc != YHR_SUCCESS) {
           return yrc_to_rv(yrc);
         }
@@ -2127,7 +2127,7 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
         size_t resplen = sizeof(resp);
 
         yh_rc yrc =
-          yh_util_get_public_key(session, object->id, resp, &resplen, NULL);
+          yh_util_get_public_key(session->slot->device_session, object->id, resp, &resplen, NULL);
         if (yrc != YHR_SUCCESS) {
           return yrc_to_rv(yrc);
         }
