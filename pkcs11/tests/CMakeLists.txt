@@ -227,6 +227,12 @@ set (
         common.c
 )
 
+set (
+        SOURCE_PKCS11_INTERFACES_TEST
+        pkcs11_interfaces_test.c
+        common.c
+)
+
 if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 add_executable (aes_encrypt_test ${SOURCE_AES_ENCRYPT})
 add_executable (ecdh_derive_test ${SOURCE_ECDH_DERIVE})
@@ -286,6 +292,18 @@ if (NOT ${LIBCRYPTO_VERSION} VERSION_LESS 1.1)
   add_test (
           NAME pss_sign_test
           COMMAND ${CMAKE_CURRENT_BINARY_DIR}/pss_sign_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
+  )
+
+
+  add_executable (pkcs11_interfaces_test ${SOURCE_PKCS11_INTERFACES_TEST})
+
+  target_link_libraries (
+          pkcs11_interfaces_test
+          "-ldl")
+
+  add_test (
+          NAME pkcs11_interfaces_test
+          COMMAND ${CMAKE_CURRENT_BINARY_DIR}/pkcs11_interfaces_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
   )
 endif(NOT ${LIBCRYPTO_VERSION} VERSION_LESS 1.1)
 

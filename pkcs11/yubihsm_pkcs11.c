@@ -74,6 +74,11 @@
 
 static const CK_FUNCTION_LIST function_list;
 static const CK_FUNCTION_LIST_3_0 function_list_3;
+static struct CK_INTERFACE active_interface;
+
+static const CK_INTERFACE interfaces_list[] =
+  {{(CK_CHAR_PTR) "PKCS 11", (CK_VOID_PTR) &function_list_3, 0},
+   {(CK_CHAR_PTR) "PKCS 11", (CK_VOID_PTR) &function_list, 0}};
 
 static bool g_yh_initialized = false;
 
@@ -450,7 +455,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetInfo)(CK_INFO_PTR pInfo) {
 
   CK_VERSION ver = {VERSION_MAJOR, (VERSION_MINOR * 10) + VERSION_PATCH};
 
-  pInfo->cryptokiVersion = function_list.version;
+  pInfo->cryptokiVersion = ((CK_FUNCTION_LIST_3_0 *) active_interface.pFunctionList)->version;
 
   memset(pInfo->manufacturerID, ' ', sizeof(pInfo->manufacturerID));
   memcpy((char *) pInfo->manufacturerID, YUBIHSM_PKCS11_MANUFACTURER,
@@ -480,6 +485,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetFunctionList)
   }
 
   *ppFunctionList = (CK_FUNCTION_LIST_PTR) &function_list;
+  active_interface = interfaces_list[1];
 
   DOUT;
   return CKR_OK;
@@ -5795,10 +5801,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_CancelFunction)(CK_SESSION_HANDLE hSession) {
   return CKR_FUNCTION_NOT_PARALLEL;
 }
 
-static const CK_INTERFACE interfaces_list[] =
-  {{(CK_CHAR_PTR) "PKCS 11", (CK_VOID_PTR) &function_list_3, 0},
-   {(CK_CHAR_PTR) "PKCS 11", (CK_VOID_PTR) &function_list, 0}};
-
 /* C_GetInterfaceList returns all the interfaces supported by the module*/
 CK_DEFINE_FUNCTION(CK_RV, C_GetInterfaceList)
 (CK_INTERFACE_PTR pInterfacesList, /* returned interfaces */
@@ -5874,6 +5876,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetInterface)
              interfaces_list[i].pInterfaceName, func_list->version.major,
              func_list->version.minor);
     *ppInterface = (CK_INTERFACE_PTR) &interfaces_list[i];
+    active_interface = interfaces_list[i];
     rv = CKR_OK;
     break;
   }

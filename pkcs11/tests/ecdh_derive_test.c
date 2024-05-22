@@ -37,7 +37,7 @@ CK_BYTE P256_PARAMS[] = {0x06, 0x08, 0x2a, 0x86, 0x48,
 CK_BYTE P384_PARAMS[] = {0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x22};
 CK_BYTE P521_PARAMS[] = {0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x23};
 
-static CK_FUNCTION_LIST_PTR p11;
+static CK_FUNCTION_LIST_3_0_PTR p11;
 static CK_SESSION_HANDLE session;
 
 char *CURVES[] = {"secp224r1", "prime256v1", "secp384r1", "secp521r1"};
