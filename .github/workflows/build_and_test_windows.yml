@@ -106,6 +106,8 @@ jobs:
           }
           
           echo 3
+          
+          ls
 
           $log = "$env:GITHUB_WORKSPACE\install.log"
           $procMain = Start-Process "msiexec" "/i `"OpenSC-0.23.0.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
