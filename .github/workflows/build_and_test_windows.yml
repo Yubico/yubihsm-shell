@@ -66,7 +66,7 @@ jobs:
         run: |
           Set-PSDebug -Trace 1
           $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-"
-          $MERGEDPATH = Get-Childitem –Path "C:\Program Files*\Microsoft Visual Studio\Enterprise\VC\Redist\MSVC\v*" -Include *CRT_$env:ARCH.msm -Recurse -ErrorAction SilentlyContinue
+          $MERGEDPATH = Get-ChildItem "C:\Program Files*\Microsoft Visual Studio\*\Enterprise\VC\Redist\MSVC\v14*\MergeModules\Microsoft_VC*_CRT_$env:ARCH.msm"
           
           echo "MERGEDPATH = $MERGEDPATH"
 
