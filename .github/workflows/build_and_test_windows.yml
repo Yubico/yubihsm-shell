@@ -76,7 +76,7 @@ jobs:
           ./yubihsm-shell.exe --help | findstr "Usage: yubihsm-shell [OPTION]"
           cd $YHSHELL_SRC_DIR/resources/release/win
           ./repack_installer.ps1 $env:ARCH $env:WIX\bin "$MERGEDPATH"
-          #cp yubihsm-shell-$env:ARCH.msi yubihsm-shell.msi
+          cp yubihsm-shell-$env:ARCH.msi yubihsm-shell.msi
 
       - name: Test installer and PKCS11 module
         env:
@@ -113,7 +113,7 @@ jobs:
           $procMain = Start-Process "msiexec" "/i `"OpenSC-0.23.0.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
           echo 4
           $procMain.WaitForExit()
-          $procMain = Start-Process "msiexec" "/i `"yubihsm-shell-$env:ARCH.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
+          $procMain = Start-Process "msiexec" "/i `"yubihsm-shell.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
           echo 5
           $procMain.WaitForExit()
           echo 6
