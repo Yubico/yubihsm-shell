@@ -66,6 +66,10 @@ jobs:
         run: |
           Set-PSDebug -Trace 1
           $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-"
+          
+          Get-Childitem –Path C:\ -Include *CRT_$env:ARCH.msm -Recurse -ErrorAction SilentlyContinue
+          
+          
           $MERGEDPATH = Get-ChildItem "C:\Program Files*\Microsoft Visual Studio\*\MergeModules\Microsoft_VC*_CRT_$env:ARCH.msm"
 
           cd $YHSHELL_SRC_DIR/resources/release/win
