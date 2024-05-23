@@ -56,13 +56,12 @@ jobs:
           Set-PSDebug -Trace 1
           tar xf yubihsm-shell-$env:VERSION.tar.gz
 
-      - name: Build and make MSI installer
+      - name: Build release binaries
         env:
           ARCH: ${{ matrix.arch }}
         run: |
           Set-PSDebug -Trace 1
           $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-$env:VERSION"
-          $MERGEDPATH = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC\v143\MergeModules\Microsoft_VC143_CRT_$env:ARCH.msm"
 
           cd $YHSHELL_SRC_DIR/resources/release/win
           if($env:ARCH -eq "x86")

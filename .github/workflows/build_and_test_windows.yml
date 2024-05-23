@@ -113,9 +113,9 @@ jobs:
           $procMain = Start-Process "msiexec" "/i `"OpenSC-0.23.0.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
           echo 4
           $procMain.WaitForExit()
-          $procMain = Start-Process "msiexec" "/i `"yubihsm-shell.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
+          $procMain = Start-Process "msiexec" "/i `"yubihsm-shell.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru -Wait
           echo 5
-          $procMain.WaitForExit()
+          $procMain.WaitForExit(60000)
           echo 6
 
 
