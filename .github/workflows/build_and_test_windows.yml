@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install prerequisites
         run: |
           set -x
@@ -50,7 +50,7 @@ jobs:
 
     steps:
       - name: Download source from job_1
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: yubihsm-shell-src
 
@@ -129,6 +129,8 @@ jobs:
             $env:PATH += ";C:\Program Files\Yubico\YubiHSM Shell\bin"
             $PKCS11_MODULE = "C:\Program Files\Yubico\YubiHSM Shell\bin\pkcs11\yubihsm_pkcs11.dll"
           }
+          
+          ls 'C:\Program Files\OpenSC Project\OpenSC\tools'
 
           yubihsm-shell.exe --version | findstr "yubihsm-shell"
           yubihsm-shell.exe --help | findstr "Usage: yubihsm-shell [OPTION]"
@@ -136,7 +138,7 @@ jobs:
           type .\outputFile.txt | findstr "YubiHSM"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: yubihsm-shell-install_log
           path: install_shell.log
