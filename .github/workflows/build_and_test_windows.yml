@@ -82,10 +82,7 @@ jobs:
           ./repack_installer.ps1 $env:ARCH $env:WIX\bin "$MERGEDPATH"
           cp yubihsm-shell-$env:ARCH.msi yubihsm-shell.msi
 
-      - name: Test installer
-        env:
-          ARCH: ${{ matrix.arch }}
-
+      - name: Install yubihsm-shell from installer
         run: |
           Set-PSDebug -Trace 1
 
@@ -93,6 +90,27 @@ jobs:
 
           $log = "$env:GITHUB_WORKSPACE\install_shell.log"
           $procMain = Start-Process "msiexec" "/i `"yubihsm-shell.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
+
+      - name: Install OpenSC
+        env:
+          ARCH: ${{ matrix.arch }}
+
+        run: |
+          Set-PSDebug -Trace 1
+
+          cd $env:GITHUB_WORKSPACE\yubihsm-shell-\resources\release\win
+          
+          if($env:ARCH -eq "x86")
+          {
+            Invoke-WebRequest -Uri  https://github.com/OpenSC/OpenSC/releases/download/0.25.1/OpenSC-0.25.1_win32.msi -OutFile OpenSC.msi -UseBasicParsing
+          }
+          else
+          {
+            Invoke-WebRequest -Uri  https://github.com/OpenSC/OpenSC/releases/download/0.25.1/OpenSC-0.25.1_win64.msi -OutFile OpenSC.msi -UseBasicParsing
+          }
+
+          $log = "$env:GITHUB_WORKSPACE\install_opensc.log"
+          $procMain = Start-Process "msiexec" "/i `"OpenSC.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
 
       - name: Test PKCS11 module
         env:
@@ -107,19 +125,6 @@ jobs:
           $PKCS11_CONFIG="connector=http://127.0.0.1:12345"
           $PKCS11_CONFIG | Out-File $env:GITHUB_WORKSPACE\yubihsm_pkcs11.conf
           $env:YUBIHSM_PKCS11_CONF="$env:GITHUB_WORKSPACE\yubihsm_pkcs11.conf"
-
-          if($env:ARCH -eq "x86")
-          {
-            Invoke-WebRequest -Uri  https://github.com/OpenSC/OpenSC/releases/download/0.25.1/OpenSC-0.25.1_win32.msi -OutFile OpenSC-0.23.0.msi -UseBasicParsing
-          }
-          else
-          {
-            Invoke-WebRequest -Uri  https://github.com/OpenSC/OpenSC/releases/download/0.25.1/OpenSC-0.25.1_win64.msi -OutFile OpenSC-0.23.0.msi -UseBasicParsing
-          }
-
-          $log = "$env:GITHUB_WORKSPACE\install_opensc.log"
-          $procMain = Start-Process "msiexec" "/i `"OpenSC-0.23.0.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
-          $procMain.WaitForExit()
 
           if($env:ARCH -eq "x86")
           {
