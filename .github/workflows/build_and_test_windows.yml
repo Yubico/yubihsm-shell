@@ -141,4 +141,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: yubihsm-shell-install_log
-          path: install_shell.log
+          path: install_opensc.log
