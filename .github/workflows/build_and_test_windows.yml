@@ -89,7 +89,6 @@ jobs:
 
           $log = "$env:GITHUB_WORKSPACE\install_shell.log"
           $procMain = Start-Process "msiexec" "/i `"yubihsm-shell.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
-          $procMain.WaitForExit()
 
       - name: Test PKCS11 module
         env:
