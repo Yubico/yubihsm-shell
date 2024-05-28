@@ -78,7 +78,20 @@ jobs:
           ./repack_installer.ps1 $env:ARCH $env:WIX\bin "$MERGEDPATH"
           cp yubihsm-shell-$env:ARCH.msi yubihsm-shell.msi
 
-      - name: Test installer and PKCS11 module
+      - name: Test installer
+        env:
+          ARCH: ${{ matrix.arch }}
+
+        run: |
+          Set-PSDebug -Trace 1
+
+          cd $env:GITHUB_WORKSPACE\yubihsm-shell-\resources\release\win
+
+          $log = "$env:GITHUB_WORKSPACE\install_shell.log"
+          $procMain = Start-Process "msiexec" "/i `"yubihsm-shell.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
+          $procMain.WaitForExit()
+
+      - name: Test PKCS11 module
         env:
           ARCH: ${{ matrix.arch }}
 
@@ -87,14 +100,10 @@ jobs:
 
           cd $env:GITHUB_WORKSPACE\yubihsm-shell-\resources\release\win
           
-          echo 1
-
           # No actual connection, but this is enough to make sure that the PKCS11 module is found and loaded
           $PKCS11_CONFIG="connector=http://127.0.0.1:12345"
           $PKCS11_CONFIG | Out-File $env:GITHUB_WORKSPACE\yubihsm_pkcs11.conf
           $env:YUBIHSM_PKCS11_CONF="$env:GITHUB_WORKSPACE\yubihsm_pkcs11.conf"
-
-          echo 2
 
           if($env:ARCH -eq "x86")
           {
@@ -104,20 +113,10 @@ jobs:
           {
             Invoke-WebRequest -Uri  https://github.com/OpenSC/OpenSC/releases/download/0.23.0/OpenSC-0.23.0_win64.msi -OutFile OpenSC-0.23.0.msi -UseBasicParsing
           }
-          
-          echo 3
-          
-          ls
 
-          $log = "$env:GITHUB_WORKSPACE\install.log"
+          $log = "$env:GITHUB_WORKSPACE\install_opensc.log"
           $procMain = Start-Process "msiexec" "/i `"OpenSC-0.23.0.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
-          echo 4
           $procMain.WaitForExit()
-          $procMain = Start-Process "msiexec" "/i `"yubihsm-shell.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru -Wait
-          echo 5
-          $procMain.WaitForExit(60000)
-          echo 6
-
 
           if($env:ARCH -eq "x86")
           {
@@ -132,17 +131,13 @@ jobs:
             $PKCS11_MODULE = "C:\Program Files\Yubico\YubiHSM Shell\bin\pkcs11\yubihsm_pkcs11.dll"
           }
 
-          echo 7
           yubihsm-shell.exe --version | findstr "yubihsm-shell"
           yubihsm-shell.exe --help | findstr "Usage: yubihsm-shell [OPTION]"
-          echo 8
           pkcs11-tool.exe --module $PKCS11_MODULE --show-info *> .\outputFile.txt
-          echo 9
           type .\outputFile.txt | findstr "YubiHSM"
-          echo 10
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
           name: yubihsm-shell-install_log
-          path: install.log
+          path: install_shell.log
