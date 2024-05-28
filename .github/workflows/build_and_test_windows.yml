@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
       - name: Install prerequisites
         run: |
           set -x
@@ -50,7 +50,7 @@ jobs:
 
     steps:
       - name: Download source from job_1
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v3
         with:
           name: yubihsm-shell-src
 
@@ -138,7 +138,7 @@ jobs:
           type .\outputFile.txt | findstr "YubiHSM"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: yubihsm-shell-install_log
           path: install_shell.log
