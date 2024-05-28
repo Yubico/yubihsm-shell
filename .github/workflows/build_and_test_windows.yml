@@ -140,3 +140,9 @@ jobs:
           echo 9
           type .\outputFile.txt | findstr "YubiHSM"
           echo 10
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: yubihsm-shell-install_log
+          path: install.log
