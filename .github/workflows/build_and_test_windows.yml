@@ -38,15 +38,19 @@ jobs:
           - os: windows-2019
             arch: x86
             arch_cmake: Win32
+            tag: win2019_x86
           - os: windows-2019
             arch: x64
             arch_cmake: x64
+            tag: win2019_x64
           - os: windows-2022
             arch: x86
             arch_cmake: Win32
+            tag: win2022_x86
           - os: windows-2022
             arch: x64
             arch_cmake: x64
+            tag: win2022_x64
 
     steps:
       - name: Download source from job_1
@@ -140,5 +144,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-          name: yubihsm-shell-install_log
+          name: yubihsm-shell-install_log_${{ matrix.tag }}
           path: install_opensc.log
