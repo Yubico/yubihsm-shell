@@ -110,11 +110,11 @@ jobs:
 
           if($env:ARCH -eq "x86")
           {
-            Invoke-WebRequest -Uri  https://github.com/OpenSC/OpenSC/releases/download/0.23.0/OpenSC-0.23.0_win32.msi -OutFile OpenSC-0.23.0.msi -UseBasicParsing
+            Invoke-WebRequest -Uri  https://github.com/OpenSC/OpenSC/releases/download/0.25.1/OpenSC-0.25.1_win32.msi -OutFile OpenSC-0.23.0.msi -UseBasicParsing
           }
           else
           {
-            Invoke-WebRequest -Uri  https://github.com/OpenSC/OpenSC/releases/download/0.23.0/OpenSC-0.23.0_win64.msi -OutFile OpenSC-0.23.0.msi -UseBasicParsing
+            Invoke-WebRequest -Uri  https://github.com/OpenSC/OpenSC/releases/download/0.25.1/OpenSC-0.25.1_win64.msi -OutFile OpenSC-0.23.0.msi -UseBasicParsing
           }
 
           $log = "$env:GITHUB_WORKSPACE\install_opensc.log"
