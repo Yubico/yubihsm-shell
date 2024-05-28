@@ -90,6 +90,7 @@ jobs:
 
           $log = "$env:GITHUB_WORKSPACE\install_shell.log"
           $procMain = Start-Process "msiexec" "/i `"yubihsm-shell.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
+          $procMain.WaitForExit()
 
       - name: Install OpenSC
         env:
@@ -111,6 +112,7 @@ jobs:
 
           $log = "$env:GITHUB_WORKSPACE\install_opensc.log"
           $procMain = Start-Process "msiexec" "/i `"OpenSC.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
+          $procMain.WaitForExit()
 
       - name: Test PKCS11 module
         env:
