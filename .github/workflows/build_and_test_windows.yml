@@ -129,7 +129,6 @@ jobs:
 
           if($env:ARCH -eq "x86")
           {
-            ls 'C:\Program Files (x86)'
             $env:PATH += ";C:\Program Files (x86)\OpenSC Project\OpenSC\tools"
             $env:PATH += ";C:\Program Files (x86)\Yubico\YubiHSM Shell\bin"
             $PKCS11_MODULE = "C:\Program Files (x86)\Yubico\YubiHSM Shell\bin\pkcs11\yubihsm_pkcs11.dll"
@@ -137,6 +136,9 @@ jobs:
           else
           {
             ls 'C:\Program Files'
+            ls 'C:\Program Files\Yubico'
+            ls 'C:\Program Files\Yubico\YubiHSM Shell'
+            ls 'C:\Program Files\Yubico\YubiHSM Shell\bin'
             $env:PATH += ";C:\Program Files\OpenSC Project\OpenSC\tools"
             $env:PATH += ";C:\Program Files\Yubico\YubiHSM Shell\bin"
             $PKCS11_MODULE = "C:\Program Files\Yubico\YubiHSM Shell\bin\pkcs11\yubihsm_pkcs11.dll"
