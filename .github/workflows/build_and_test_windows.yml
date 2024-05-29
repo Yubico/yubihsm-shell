@@ -85,11 +85,8 @@ jobs:
       - name: Install yubihsm-shell from installer
         run: |
           Set-PSDebug -Trace 1
-
-          cd $env:GITHUB_WORKSPACE\yubihsm-shell-\resources\release\win
-
           $log = "$env:GITHUB_WORKSPACE\install_shell.log"
-          Start-Process "msiexec" "/i `"$env:GITHUB_WORKSPACE\yubihsm-shell-\resources\release\win\yubihsm-shell.msi`" /qn /norestart /L*v `"$log`"" -Wait -NoNewWindow -PassThru
+          Start-Process "msiexec" "/i `"$env:GITHUB_WORKSPACE\yubihsm-shell-\resources\release\win\yubihsm-shell.msi`" /qn /norestart /L*v `"$log`"" -NoNewWindow -PassThru
 
       - name: Install OpenSC
         env:
@@ -107,6 +104,7 @@ jobs:
             Invoke-WebRequest -Uri  https://github.com/OpenSC/OpenSC/releases/download/0.25.1/OpenSC-0.25.1_win64.msi -OutFile OpenSC.msi -UseBasicParsing
           }
 
+          Start-Sleep -Seconds 600
           $log = "$env:GITHUB_WORKSPACE\install_opensc.log"
           $procMain = Start-Process "msiexec" "/i `"$env:GITHUB_WORKSPACE\OpenSC.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
           $procMain.WaitForExit()
