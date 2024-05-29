@@ -12,7 +12,7 @@ jobs:
       VERSION: 2.5.0
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install prerequisites
         run: |
           set -x
@@ -26,7 +26,7 @@ jobs:
           mkdir $GITHUB_WORKSPACE/artifact
           mv $GITHUB_WORKSPACE/yubihsm-shell-$VERSION.tar.gz $GITHUB_WORKSPACE/artifact/
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: yubihsm-shell-src
           path: artifact
@@ -47,7 +47,7 @@ jobs:
       VERSION: 2.5.0
     steps:
       - name: Download source from source job
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: yubihsm-shell-src
 
@@ -78,7 +78,7 @@ jobs:
 
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: yubihsm-shell-${{ matrix.arch }}
           path: artifact
@@ -100,7 +100,7 @@ jobs:
       SO_VERSION: 2
     steps:
       - name: Download source from source job
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: yubihsm-shell-src
 
@@ -125,7 +125,7 @@ jobs:
           cp -r $YHSHELL_SRC_DIR/resources/release/macos/yubihsm-shell-darwin-$ARCH-$VERSION $GITHUB_WORKSPACE/artifact/
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: yubihsm-shell-darwin-${{ matrix.arch }}64
           path: artifact
@@ -184,7 +184,7 @@ jobs:
                                   jq
 
       - name: clone the Yubico/yubihsm-shell repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           path: yubihsm-shell
 
@@ -262,7 +262,7 @@ jobs:
 
 
       - name: upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: "yubihsm-shell-${{ env.PLATFORM }}-amd64"
           path: ${{ env.PLATFORM }}
@@ -284,7 +284,7 @@ jobs:
     steps:
 
       - name: clone the Yubico/yubihsm-shell repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           path: yubihsm-shell
 
@@ -377,7 +377,7 @@ jobs:
 
 
       - name: upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: "yubihsm-shell-${{ env.PLATFORM }}-amd64"
           path: ${{ env.PLATFORM }}
