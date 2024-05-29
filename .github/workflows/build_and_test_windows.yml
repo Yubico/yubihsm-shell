@@ -89,7 +89,7 @@ jobs:
           cd $env:GITHUB_WORKSPACE\yubihsm-shell-\resources\release\win
 
           $log = "$env:GITHUB_WORKSPACE\install_shell.log"
-          $procMain = Start-Process "msiexec" "/i `"yubihsm-shell.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
+          Start-Process "msiexec" "/i `"$env:GITHUB_WORKSPACE\yubihsm-shell-\resources\release\win\yubihsm-shell.msi`" /qn /norestart /L*v `"$log`"" -Wait -NoNewWindow -PassThru
 
       - name: Install OpenSC
         env:
@@ -97,8 +97,6 @@ jobs:
 
         run: |
           Set-PSDebug -Trace 1
-
-          cd $env:GITHUB_WORKSPACE\yubihsm-shell-\resources\release\win
           
           if($env:ARCH -eq "x86")
           {
@@ -110,7 +108,7 @@ jobs:
           }
 
           $log = "$env:GITHUB_WORKSPACE\install_opensc.log"
-          $procMain = Start-Process "msiexec" "/i `"OpenSC.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
+          $procMain = Start-Process "msiexec" "/i `"$env:GITHUB_WORKSPACE\OpenSC.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
           $procMain.WaitForExit()
 
       - name: Test PKCS11 module
