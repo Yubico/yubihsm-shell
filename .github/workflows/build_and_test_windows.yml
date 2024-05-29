@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install prerequisites
         run: |
           set -x
@@ -22,7 +22,7 @@ jobs:
           mkdir $GITHUB_WORKSPACE/artifact
           mv $GITHUB_WORKSPACE/yubihsm-shell-.tar.gz $GITHUB_WORKSPACE/artifact/
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: yubihsm-shell-src
           path: artifact
@@ -53,8 +53,8 @@ jobs:
             tag: win2022_x64
 
     steps:
-      - name: Download source from job_1
-        uses: actions/download-artifact@v3
+      - name: Download source from source job
+        uses: actions/download-artifact@v4
         with:
           name: yubihsm-shell-src
 
@@ -104,10 +104,9 @@ jobs:
             Invoke-WebRequest -Uri  https://github.com/OpenSC/OpenSC/releases/download/0.25.1/OpenSC-0.25.1_win64.msi -OutFile OpenSC.msi -UseBasicParsing
           }
 
-          Start-Sleep -Seconds 600
+          Start-Sleep -Seconds 120
           $log = "$env:GITHUB_WORKSPACE\install_opensc.log"
-          $procMain = Start-Process "msiexec" "/i `"$env:GITHUB_WORKSPACE\OpenSC.msi`" /qn /l*! `"$log`"" -NoNewWindow -PassThru
-          $procMain.WaitForExit()
+          Start-Process "msiexec" "/i `"$env:GITHUB_WORKSPACE\OpenSC.msi`" /qn /l*! `"$log`"" -Wait -NoNewWindow -PassThru
 
       - name: Test PKCS11 module
         env:
@@ -131,10 +130,6 @@ jobs:
           }
           else
           {
-            ls 'C:\Program Files'
-            ls 'C:\Program Files\Yubico'
-            ls 'C:\Program Files\Yubico\YubiHSM Shell'
-            ls 'C:\Program Files\Yubico\YubiHSM Shell\bin'
             $env:PATH += ";C:\Program Files\OpenSC Project\OpenSC\tools"
             $env:PATH += ";C:\Program Files\Yubico\YubiHSM Shell\bin"
             $PKCS11_MODULE = "C:\Program Files\Yubico\YubiHSM Shell\bin\pkcs11\yubihsm_pkcs11.dll"
@@ -144,9 +139,3 @@ jobs:
           yubihsm-shell.exe --help | findstr "Usage: yubihsm-shell [OPTION]"
           pkcs11-tool.exe --module $PKCS11_MODULE --show-info *> .\outputFile.txt
           type .\outputFile.txt | findstr "YubiHSM"
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: yubihsm-shell-install_log_${{ matrix.tag }}
-          path: install_shell.log
