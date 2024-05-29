@@ -152,4 +152,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: yubihsm-shell-install_log_${{ matrix.tag }}
-          path: install_opensc.log
+          path: install_shell.log
