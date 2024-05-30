@@ -30,7 +30,7 @@ jobs:
                             jq
 
       - name: clone the Yubico/yubihsm-shell repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           path: yubihsm-shell
 
@@ -85,7 +85,7 @@ jobs:
           ./opensc_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so
 
       - name: clone the YubicoLabs/yubihsm_sunpkcs11_tests repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: YubicoLabs/yubihsm_sunpkcs11_tests
           path: yubihsm_sunpkcs11_tests
