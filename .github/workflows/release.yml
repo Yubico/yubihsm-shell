@@ -262,7 +262,7 @@ jobs:
 
 
       - name: upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: "yubihsm-shell-${{ env.PLATFORM }}-amd64"
           path: ${{ env.PLATFORM }}
@@ -377,7 +377,7 @@ jobs:
 
 
       - name: upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: "yubihsm-shell-${{ env.PLATFORM }}-amd64"
           path: ${{ env.PLATFORM }}
