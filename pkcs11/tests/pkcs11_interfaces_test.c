@@ -37,6 +37,7 @@ static CK_C_GetInterface get_interface_function(void *handle) {
 
 static void get_default_functions(void *handle) {
  funcs = get_function_list(handle);
+ fprintf(stderr, "------------------ funcs == null? %d\n", (funcs == NULL));
 }
 
 static void get_named_functions(void *handle) {
@@ -60,8 +61,21 @@ static void test_lib_info(CK_ULONG vmajor, CK_ULONG vminor) {
  const CK_CHAR_PTR MANUFACTURER_ID = (const CK_CHAR_PTR)"Yubico (www.yubico.com)";
  const CK_CHAR_PTR PKCS11_DESCRIPTION = (const CK_CHAR_PTR)"YubiHSM PKCS#11 Library";
 
+ CK_C_INITIALIZE_ARGS initArgs;
+ memset(&initArgs, 0, sizeof(initArgs));
+
+ const char *connector_url;
+ connector_url = getenv("DEFAULT_CONNECTOR_URL");
+ if (connector_url == NULL) {
+   connector_url = DEFAULT_CONNECTOR_URL;
+ }
+ char config[256];
+ assert(strlen(connector_url) + strlen("connector=") < 256);
+ sprintf(config, "connector=%s", connector_url);
+ initArgs.pReserved = (void *) config;
+ assert(((CK_FUNCTION_LIST_3_0*)funcs)->C_Initialize(&initArgs) == CKR_OK);
+
  CK_INFO info;
- assert(((CK_FUNCTION_LIST_3_0*)funcs)->C_Initialize(NULL) == CKR_OK);
  assert(((CK_FUNCTION_LIST_3_0*)funcs)->C_GetInfo(&info) == CKR_OK);
  assert(strncmp((const char*)info.manufacturerID, (const char*)MANUFACTURER_ID, strlen((const char*)MANUFACTURER_ID)) == 0);
 
