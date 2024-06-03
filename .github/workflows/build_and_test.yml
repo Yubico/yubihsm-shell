@@ -305,7 +305,7 @@ jobs:
     steps:
 
       - name: install dependencies using brew
-        run: brew install gengetopt help2man libedit
+        run: brew install gengetopt help2man libedit opensc
 
       - name: clone the Yubico/yubihsm-shell repository
         uses: actions/checkout@v4
@@ -322,6 +322,13 @@ jobs:
           cd build
           cmake -DCMAKE_BUILD_TYPE=Release ..
           cmake --build .
+
+      - name: Test loading PKCS11 module
+        working-directory: yubihsm-shell
+        run: |
+          echo connector=http://127.0.0.1:12345 > yubihsm_pkcs11.conf
+          export YUBIHSM_PKCS11_CONF=$GITHUB_WORKSPACE/yubihsm-shell/yubihsm_pkcs11.conf
+          pkcs11-tool --module build/pkcs11/yubihsm_pkcs11.dylib --show-info | grep Yubico
 
       - name: do static build
         working-directory: yubihsm-shell
