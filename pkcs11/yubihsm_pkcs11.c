@@ -6017,7 +6017,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_LoginUser)
                                 ulPinLen, true, &session->slot->device_session);
     if (yrc != YHR_SUCCESS) {
       DBG_ERR("Failed to create session: %s", yh_strerror(yrc));
-      if (yrc == YHR_CRYPTOGRAM_MISMATCH) {
+      if (yrc == YHR_CRYPTOGRAM_MISMATCH ||
+          yrc == YHR_DEVICE_AUTHENTICATION_FAILED) {
         rv = CKR_PIN_INCORRECT;
       } else {
         rv = yrc_to_rv(yrc);
