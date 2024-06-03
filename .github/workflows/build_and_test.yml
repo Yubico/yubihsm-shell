@@ -328,7 +328,7 @@ jobs:
         run: |
           echo connector=http://127.0.0.1:12345 > yubihsm_pkcs11.conf
           export YUBIHSM_PKCS11_CONF=$GITHUB_WORKSPACE/yubihsm-shell/yubihsm_pkcs11.conf
-          pkcs11-tool --module build/pkcs11/yubihsm_pkcs11.dylib --show-info
+          pkcs11-tool --module build/pkcs11/yubihsm_pkcs11.dylib --show-info | grep Yubico
 
       - name: do static build
         working-directory: yubihsm-shell
