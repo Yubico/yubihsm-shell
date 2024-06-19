@@ -37,19 +37,19 @@ void close_module(void *handle) {
   assert(r == 0);
 }
 
-CK_FUNCTION_LIST_PTR get_function_list(void *handle) {
-  CK_C_GetFunctionList fn;
-  *(void **) (&fn) = dlsym(handle, "C_GetFunctionList");
+CK_FUNCTION_LIST_3_0_PTR get_function_list(void *handle) {
+  CK_C_GetInterface fn;
+  *(void **) (&fn) = dlsym(handle, "C_GetInterface");
   assert(fn != NULL);
 
-  CK_FUNCTION_LIST_PTR p11;
-  CK_RV rv = fn(&p11);
+  CK_INTERFACE_PTR interface;
+  CK_RV rv = fn(NULL, NULL, &interface, 0);
   assert(rv == CKR_OK);
 
-  return p11;
+  return interface->pFunctionList;
 }
 
-CK_SESSION_HANDLE open_session(CK_FUNCTION_LIST_PTR p11) {
+CK_SESSION_HANDLE open_session(CK_FUNCTION_LIST_3_0_PTR p11) {
   CK_SESSION_HANDLE session;
   CK_C_INITIALIZE_ARGS initArgs;
   memset(&initArgs, 0, sizeof(initArgs));
@@ -61,7 +61,7 @@ CK_SESSION_HANDLE open_session(CK_FUNCTION_LIST_PTR p11) {
   }
   char config[256];
   assert(strlen(connector_url) + strlen("connector=") < 256);
-  sprintf(config, "connector=%s", connector_url);
+  snprintf(config, sizeof(config), "connector=%s", connector_url);
   initArgs.pReserved = (void *) config;
   CK_RV rv = p11->C_Initialize(&initArgs);
   assert(rv == CKR_OK);
@@ -79,7 +79,7 @@ CK_SESSION_HANDLE open_session(CK_FUNCTION_LIST_PTR p11) {
   return session;
 }
 
-void close_session(CK_FUNCTION_LIST_PTR p11, CK_SESSION_HANDLE session) {
+void close_session(CK_FUNCTION_LIST_3_0_PTR p11, CK_SESSION_HANDLE session) {
   CK_RV rv = p11->C_Logout(session);
   assert(rv == CKR_OK);
 
@@ -90,7 +90,7 @@ void close_session(CK_FUNCTION_LIST_PTR p11, CK_SESSION_HANDLE session) {
   assert(rv == CKR_OK);
 }
 
-void print_session_state(CK_FUNCTION_LIST_PTR p11, CK_SESSION_HANDLE session) {
+void print_session_state(CK_FUNCTION_LIST_3_0_PTR p11, CK_SESSION_HANDLE session) {
   CK_SESSION_INFO pInfo;
   CK_RV rv = p11->C_GetSessionInfo(session, &pInfo);
   assert(rv == CKR_OK);
@@ -119,7 +119,7 @@ void print_session_state(CK_FUNCTION_LIST_PTR p11, CK_SESSION_HANDLE session) {
   }
 }
 
-bool destroy_object(CK_FUNCTION_LIST_PTR p11, CK_SESSION_HANDLE session,
+bool destroy_object(CK_FUNCTION_LIST_3_0_PTR p11, CK_SESSION_HANDLE session,
                     CK_OBJECT_HANDLE key) {
   if ((p11->C_DestroyObject(session, key)) != CKR_OK) {
     printf("WARN. Failed to destroy object 0x%lx on HSM. FAIL\n", key);

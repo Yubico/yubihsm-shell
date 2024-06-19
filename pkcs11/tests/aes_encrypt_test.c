@@ -20,7 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../pkcs11.h"
+#include "../pkcs11y.h"
 #include "common.h"
 
 #define FAIL(fmt, ...)                                                         \
@@ -130,7 +130,7 @@ static struct test tests[] = {
 };
 
 static CK_BBOOL g_true = TRUE;
-static CK_RV create_aes_key(CK_FUNCTION_LIST_PTR p11, CK_SESSION_HANDLE session,
+static CK_RV create_aes_key(CK_FUNCTION_LIST_3_0_PTR p11, CK_SESSION_HANDLE session,
                             CK_BYTE_PTR key, CK_ULONG len,
                             CK_OBJECT_HANDLE *handle) {
   CK_OBJECT_CLASS class = CKO_SECRET_KEY;
@@ -213,7 +213,7 @@ static int do_test_single_part(InitFunc init, SingleFunc single,
   return 0;
 }
 
-static int test_single_part(CK_FUNCTION_LIST_PTR p11, CK_SESSION_HANDLE session,
+static int test_single_part(CK_FUNCTION_LIST_3_0_PTR p11, CK_SESSION_HANDLE session,
                             CK_OBJECT_HANDLE handle, struct test *test) {
   CK_MECHANISM mechanism = {test->mechanism, NULL, 0};
   if (mechanism.mechanism != CKM_AES_ECB) {
@@ -358,7 +358,7 @@ static size_t pad_output_size(size_t in, size_t out) {
   return pending <= 16 ? 0 : simple_output_size(in, out);
 }
 
-static CK_RV test_multiple_part(CK_FUNCTION_LIST_PTR p11,
+static CK_RV test_multiple_part(CK_FUNCTION_LIST_3_0_PTR p11,
                                 CK_SESSION_HANDLE session,
                                 CK_OBJECT_HANDLE handle, struct test *test) {
   CK_MECHANISM mechanism = {test->mechanism, NULL, 0};
@@ -389,7 +389,7 @@ static CK_RV test_multiple_part(CK_FUNCTION_LIST_PTR p11,
   return CKR_OK;
 }
 
-static int run_test(CK_FUNCTION_LIST_PTR p11, CK_SESSION_HANDLE session,
+static int run_test(CK_FUNCTION_LIST_3_0_PTR p11, CK_SESSION_HANDLE session,
                     struct test *test) {
   CK_OBJECT_HANDLE handle = 0;
   int rv;
@@ -409,7 +409,7 @@ end:
   return rv;
 }
 
-static CK_RV is_aes_supported(CK_FUNCTION_LIST_PTR p11,
+static CK_RV is_aes_supported(CK_FUNCTION_LIST_3_0_PTR p11,
                               CK_SESSION_HANDLE session) {
   CK_SESSION_INFO info;
   CK_RV r;
@@ -470,7 +470,7 @@ int main(int argc, char *argv[]) {
   }
 
   void *handle = open_module(argv[1]);
-  CK_FUNCTION_LIST_PTR p11 = get_function_list(handle);
+  CK_FUNCTION_LIST_3_0_PTR p11 = get_function_list(handle);
   CK_SESSION_HANDLE session = open_session(p11);
   print_session_state(p11, session);
 

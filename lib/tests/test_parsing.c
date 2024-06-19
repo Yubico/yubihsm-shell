@@ -97,7 +97,7 @@ static void test_capabilities2(void) {
   size_t len = 0;
   for (size_t i = 0;
        i < sizeof(capabilities_list) / sizeof(capabilities_list[0]); i++) {
-    sprintf(capabilities_string + len, "%s:", capabilities_list[i]);
+    snprintf(capabilities_string + len, sizeof(capabilities_string) - len, "%s:", capabilities_list[i]);
     len += strlen(capabilities_list[i]) + 1;
   }
   capabilities_string[len - 1] = '\0';

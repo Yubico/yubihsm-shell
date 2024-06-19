@@ -36,6 +36,7 @@
 #include <openssl/ecdsa.h>
 #include <openssl/rsa.h>
 #include <openssl/x509.h>
+#include <openssl/evp.h>
 
 #include "util_pkcs11.h"
 #include "debug_p11.h"
@@ -43,7 +44,9 @@
 #include "../common/insecure_memzero.h"
 
 #define UNUSED(x) (void) (x)
+#define ASN1_OCTET_STRING 0x04
 #define ASN1_OID 0x06
+#define ASN1_PRINTABLE_STRING 0x13
 static const uint8_t oid_secp224r1[] = {ASN1_OID, 0x05, 0x2b, 0x81,
                                         0x04,     0x00, 0x21};
 static const uint8_t oid_secp256r1[] = {ASN1_OID, 0x08, 0x2a, 0x86, 0x48,
@@ -63,6 +66,20 @@ static const uint8_t oid_brainpool384r1[] = {ASN1_OID, 0x09, 0x2b, 0x24,
 static const uint8_t oid_brainpool512r1[] = {ASN1_OID, 0x09, 0x2b, 0x24,
                                              0x03,     0x03, 0x02, 0x08,
                                              0x01,     0x01, 0x0d};
+static const uint8_t oid_ed25519[] = {ASN1_PRINTABLE_STRING,
+                                      0x0c,
+                                      0x65,
+                                      0x64,
+                                      0x77,
+                                      0x61,
+                                      0x72,
+                                      0x64,
+                                      0x73,
+                                      0x32,
+                                      0x35,
+                                      0x35,
+                                      0x31,
+                                      0x39};
 
 CK_RV yrc_to_rv(yh_rc rc) {
   switch (rc) {
@@ -132,6 +149,22 @@ CK_RV yrc_to_rv(yh_rc rc) {
       return CKR_FUNCTION_REJECTED;
     default:
       return CKR_GENERAL_ERROR;
+  }
+}
+
+static CK_ULONG encode_length(CK_BYTE_PTR buffer, CK_ULONG length) {
+  if (length < 0x80) {
+    *buffer++ = length;
+    return 1;
+  } else if (length < 0x100) {
+    *buffer++ = 0x81;
+    *buffer++ = length;
+    return 2;
+  } else {
+    *buffer++ = 0x82;
+    *buffer++ = (length >> 8) & 0xff;
+    *buffer++ = length & 0xff;
+    return 3;
   }
 }
 
@@ -233,6 +266,11 @@ CK_RV get_mechanism_list(yubihsm_pkcs11_slot *slot,
       case YH_ALGO_EC_BP384:
       case YH_ALGO_EC_BP512:
         add_mech(buffer, &items, CKM_EC_KEY_PAIR_GEN);
+        break;
+
+      case YH_ALGO_EC_ED25519:
+        add_mech(buffer, &items, CKM_EDDSA);
+        add_mech(buffer, &items, CKM_EC_EDWARDS_KEY_PAIR_GEN);
         break;
 
       case YH_ALGO_HMAC_SHA1:
@@ -504,6 +542,20 @@ CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
                                         &pInfo->ulMaxKeySize);
       pInfo->flags = CKF_HW | CKF_GENERATE_KEY_PAIR | CKF_EC_F_P |
                      CKF_EC_NAMEDCURVE | CKF_EC_UNCOMPRESS;
+      break;
+
+    case CKM_EC_EDWARDS_KEY_PAIR_GEN:
+      pInfo->ulMaxKeySize = 255;
+      pInfo->ulMinKeySize = 255;
+      pInfo->flags = CKF_HW | CKF_GENERATE_KEY_PAIR | CKF_EC_F_P |
+                     CKF_EC_NAMEDCURVE | CKF_EC_COMPRESS;
+      break;
+
+    case CKM_EDDSA:
+      pInfo->ulMaxKeySize = 255;
+      pInfo->ulMinKeySize = 255;
+      pInfo->flags = CKF_HW | CKF_SIGN | CKF_VERIFY | CKF_EC_F_P |
+                     CKF_EC_NAMEDCURVE | CKF_EC_COMPRESS;
       break;
 
     case CKM_SHA_1_HMAC:
@@ -843,7 +895,7 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
     write_meta_item(p, PKCS11_PUBKEY_LABEL_TAG, &meta_object->cka_label_pubkey);
 
   char opaque_label[YH_OBJ_LABEL_LEN] = {0};
-  sprintf(opaque_label, "Meta object for 0x%02x%02x%04x",
+  snprintf(opaque_label, sizeof(opaque_label), "Meta object for 0x%02x%02x%04x",
           meta_object->target_sequence, meta_object->target_type,
           meta_object->target_id);
 
@@ -1483,6 +1535,8 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       if (object->type == YH_ASYMMETRIC_KEY) {
         if (yh_is_rsa(object->algorithm)) {
           *((CK_KEY_TYPE *) value) = CKK_RSA;
+        } else if (yh_is_ed(object->algorithm)) {
+          *((CK_KEY_TYPE *) value) = CKK_EC_EDWARDS;
         } else {
           *((CK_KEY_TYPE *) value) = CKK_EC;
         }
@@ -1558,6 +1612,10 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
                  yh_is_ec(object->algorithm) == true) {
         get_capability_attribute(object, "sign-ecdsa", true, value, length,
                                  NULL);
+      } else if (object->type == YH_ASYMMETRIC_KEY &&
+                 yh_is_ed(object->algorithm) == true) {
+        get_capability_attribute(object, "sign-eddsa", true, value, length,
+                                 NULL);
       } else {
         *((CK_BBOOL *) value) = CK_FALSE;
         *length = sizeof(CK_BBOOL);
@@ -1625,6 +1683,10 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
           oid = oid_brainpool512r1;
           *length = sizeof(oid_brainpool512r1);
           break;
+        case YH_ALGO_EC_ED25519:
+          oid = oid_ed25519;
+          *length = sizeof(oid_ed25519);
+          break;
         default:
           return CKR_ATTRIBUTE_TYPE_INVALID;
       }
@@ -1642,15 +1704,42 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
         }
 
         uint8_t *p = value;
-        *p++ = 0x04;
-        if (resplen + 1 >= 0x80) {
-          *p++ = 0x81;
-        }
-        *p++ = resplen + 1;
-        *p++ = 0x04;
+        *p++ = ASN1_OCTET_STRING;
+        p += encode_length(p, resplen + 1);
+        *p++ = 0x04; // UNCOMPRESSED POINT
         memcpy(p, resp, resplen);
         p += resplen;
         *length = p - (uint8_t *) value;
+      } else if (yh_is_ed(object->algorithm)) {
+        uint8_t resp[2048];
+        size_t resplen = sizeof(resp);
+
+        yh_rc yrc =
+          yh_util_get_public_key(session->slot->device_session, object->id, resp, &resplen, NULL);
+        if (yrc != YHR_SUCCESS) {
+          return yrc_to_rv(yrc);
+        }
+
+        uint8_t *p = value;
+        *p++ = ASN1_OCTET_STRING;
+        p += encode_length(p, resplen);
+        memcpy(p, resp, resplen);
+        p += resplen;
+        *length = p - (uint8_t *) value;
+      } else {
+        return CKR_ATTRIBUTE_TYPE_INVALID;
+      }
+      break;
+
+    case CKA_MODULUS_BITS:
+      if (yh_is_rsa(object->algorithm)) {
+        size_t key_length = 0;
+        yh_rc yrc = yh_get_key_bitlength(object->algorithm, &key_length);
+        if (yrc != YHR_SUCCESS) {
+          return yrc_to_rv(yrc);
+        }
+        *(CK_ULONG *) value = key_length;
+        *length = sizeof(CK_ULONG);
       } else {
         return CKR_ATTRIBUTE_TYPE_INVALID;
       }
@@ -1698,7 +1787,7 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
   return CKR_OK;
 }
 
-static CK_RV load_public_key(yh_session *session, uint16_t id, EVP_PKEY *key) {
+static CK_RV load_public_key(yh_session *session, uint16_t id, EVP_PKEY **key) {
 
   uint8_t data[1024] = {0};
   size_t data_len = sizeof(data) - 1;
@@ -1737,10 +1826,15 @@ static CK_RV load_public_key(yh_session *session, uint16_t id, EVP_PKEY *key) {
     n = NULL;
     e = NULL;
 
-    if (EVP_PKEY_assign_RSA(key, rsa) == 0) {
+    *key = EVP_PKEY_new();
+    if (*key == NULL) {
       goto l_p_k_failure;
     }
-  } else {
+
+    if (EVP_PKEY_assign_RSA(*key, rsa) == 0) {
+      goto l_p_k_failure;
+    }
+  } else if (yh_is_ec(algo)) {
     ec_key = EC_KEY_new();
     if (ec_key == NULL) {
       goto l_p_k_failure;
@@ -1774,12 +1868,28 @@ static CK_RV load_public_key(yh_session *session, uint16_t id, EVP_PKEY *key) {
       goto l_p_k_failure;
     }
 
-    if (EVP_PKEY_assign_EC_KEY(key, ec_key) == 0) {
+    *key = EVP_PKEY_new();
+    if (*key == NULL) {
+      goto l_p_k_failure;
+    }
+
+    if (EVP_PKEY_assign_EC_KEY(*key, ec_key) == 0) {
       goto l_p_k_failure;
     }
 
     EC_POINT_free(ec_point);
     EC_GROUP_free(ec_group);
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
+  } else if (yh_is_ed(algo)) {
+    *key =
+      EVP_PKEY_new_raw_public_key(algo2nid(algo), NULL, data + 1, data_len);
+    if (*key == NULL) {
+      goto l_p_k_failure;
+    }
+#endif
+  } else {
+    DBG_ERR("Unsupported key algorithm");
+    goto l_p_k_failure;
   }
 
   return CKR_OK;
@@ -1853,6 +1963,10 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
                  yh_is_ec(object->algorithm) == true) {
         get_capability_attribute(object, "sign-ecdsa", true, value, length,
                                  NULL);
+      } else if (object->type == (0x80 | YH_ASYMMETRIC_KEY) &&
+                 yh_is_ed(object->algorithm) == true) {
+        get_capability_attribute(object, "sign-eddsa", true, value, length,
+                                 NULL);
       } else {
         *((CK_BBOOL *) value) = CK_FALSE;
         *length = sizeof(CK_BBOOL);
@@ -1883,6 +1997,10 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
           case YH_ALGO_EC_BP384:
           case YH_ALGO_EC_BP512:
             *((CK_KEY_TYPE *) value) = CKK_EC;
+            break;
+
+          case YH_ALGO_EC_ED25519:
+            *((CK_KEY_TYPE *) value) = CKK_EC_EDWARDS;
             break;
 
           default:
@@ -1981,6 +2099,10 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
           oid = oid_brainpool512r1;
           *length = sizeof(oid_brainpool512r1);
           break;
+        case YH_ALGO_EC_ED25519:
+          oid = oid_ed25519;
+          *length = sizeof(oid_ed25519);
+          break;
         default:
           return CKR_ATTRIBUTE_TYPE_INVALID;
       }
@@ -2000,12 +2122,25 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
         }
 
         uint8_t *p = value;
-        *p++ = 0x04;
-        if (resplen + 1 >= 0x80) {
-          *p++ = 0x81;
+        *p++ = ASN1_OCTET_STRING;
+        p += encode_length(p, resplen + 1);
+        *p++ = 0x04; // UNCOMPRESSED POINT
+        memcpy(p, resp, resplen);
+        p += resplen;
+        *length = p - (uint8_t *) value;
+      } else if (yh_is_ed(object->algorithm)) {
+        uint8_t resp[2048];
+        size_t resplen = sizeof(resp);
+
+        yh_rc yrc =
+          yh_util_get_public_key(session->slot->device_session, object->id, resp, &resplen, NULL);
+        if (yrc != YHR_SUCCESS) {
+          return yrc_to_rv(yrc);
         }
-        *p++ = resplen + 1;
-        *p++ = 0x04;
+
+        uint8_t *p = value;
+        *p++ = ASN1_OCTET_STRING;
+        p += encode_length(p, resplen);
         memcpy(p, resp, resplen);
         p += resplen;
         *length = p - (uint8_t *) value;
@@ -2059,13 +2194,10 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_VALUE: {
-      EVP_PKEY *pkey = EVP_PKEY_new();
-      if (pkey == NULL) {
-        return CKR_HOST_MEMORY;
-      }
+      EVP_PKEY *pkey = NULL;
 
       CK_RV rv =
-        load_public_key(session->slot->device_session, object->id, pkey);
+        load_public_key(session->slot->device_session, object->id, &pkey);
       if (rv != CKR_OK) {
         EVP_PKEY_free(pkey);
         return rv;
@@ -2194,9 +2326,10 @@ CK_RV check_sign_mechanism(yubihsm_pkcs11_slot *slot,
   CK_MECHANISM_TYPE mechanisms[128] = {0};
   CK_ULONG count = 128;
 
-  if (is_RSA_sign_mechanism(pMechanism->mechanism) == false &&
-      is_ECDSA_sign_mechanism(pMechanism->mechanism) == false &&
-      is_HMAC_sign_mechanism(pMechanism->mechanism) == false) {
+  if (!is_RSA_sign_mechanism(pMechanism->mechanism) &&
+      !is_ECDSA_sign_mechanism(pMechanism->mechanism) &&
+      !is_EDDSA_sign_mechanism(pMechanism->mechanism) &&
+      !is_HMAC_sign_mechanism(pMechanism->mechanism)) {
 
     return CKR_MECHANISM_INVALID;
   }
@@ -2296,6 +2429,7 @@ CK_RV apply_sign_mechanism_init(yubihsm_pkcs11_op_info *op_info) {
     case CKM_SHA256_HMAC:
     case CKM_SHA384_HMAC:
     case CKM_SHA512_HMAC:
+    case CKM_EDDSA:
       // NOTE(adma): no hash required for these mechanisms
       op_info->op.sign.md_ctx = NULL;
       return CKR_OK;
@@ -2361,6 +2495,7 @@ CK_RV apply_verify_mechanism_init(yubihsm_pkcs11_op_info *op_info) {
     case CKM_SHA256_HMAC:
     case CKM_SHA384_HMAC:
     case CKM_SHA512_HMAC:
+    case CKM_EDDSA:
       // NOTE(adma): no hash required for these mechanisms
       return CKR_OK;
 
@@ -2661,6 +2796,7 @@ CK_RV apply_sign_mechanism_update(yubihsm_pkcs11_op_info *op_info,
     case CKM_SHA256_HMAC:
     case CKM_SHA384_HMAC:
     case CKM_SHA512_HMAC:
+    case CKM_EDDSA:
       if (op_info->buffer_length + in_len > sizeof(op_info->buffer)) {
         return CKR_DATA_LEN_RANGE;
       }
@@ -2706,6 +2842,7 @@ CK_RV apply_verify_mechanism_update(yubihsm_pkcs11_op_info *op_info,
     case CKM_RSA_PKCS:
     case CKM_RSA_PKCS_PSS:
     case CKM_ECDSA:
+    case CKM_EDDSA:
       // NOTE(adma): no hash required for these mechanisms
       if (op_info->buffer_length + in_len > sizeof(op_info->buffer)) {
         return CKR_DATA_LEN_RANGE;
@@ -3053,7 +3190,8 @@ CK_RV apply_verify_mechanism_finalize(yubihsm_pkcs11_op_info *op_info,
     }
   } else if (is_RSA_sign_mechanism(op_info->mechanism.mechanism)) {
     siglen = (op_info->op.verify.key_len + 7) / 8;
-  } else if (is_ECDSA_sign_mechanism(op_info->mechanism.mechanism)) {
+  } else if (is_ECDSA_sign_mechanism(op_info->mechanism.mechanism) ||
+             is_EDDSA_sign_mechanism(op_info->mechanism.mechanism)) {
     siglen = ((op_info->op.verify.key_len + 7) / 8) * 2;
   } else {
     return CKR_MECHANISM_INVALID;
@@ -3229,20 +3367,33 @@ CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
     uint8_t *md = md_data;
     unsigned int md_len = sizeof(md_data);
     EVP_PKEY_CTX *ctx = NULL;
-#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
-    EVP_MD *evp_md = NULL;
-    EVP_MD *evp_mgf1md = NULL;
-#endif
 
-    if (key == NULL) {
-      rv = CKR_HOST_MEMORY;
-      goto pv_failure;
-    }
-
-    rv = load_public_key(session, op_info->op.verify.key_id, key);
+    rv = load_public_key(session, op_info->op.verify.key_id, &key);
     if (rv != CKR_OK) {
       goto pv_failure;
     }
+
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
+    if (EVP_PKEY_base_id(key) == EVP_PKEY_ED25519) {
+      EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
+      int rc = EVP_DigestVerifyInit(md_ctx, NULL, NULL, NULL, key);
+      if (rc <= 0) {
+        EVP_MD_CTX_free(md_ctx);
+        return CKR_FUNCTION_FAILED;
+      }
+      rc = EVP_DigestVerify(md_ctx, signature, signature_len, op_info->buffer,
+                            op_info->buffer_length);
+      EVP_MD_CTX_free(md_ctx);
+      EVP_PKEY_free(key);
+      if (rc == 1) {
+        return CKR_OK;
+      } else if (rc == 0) {
+        return CKR_SIGNATURE_INVALID;
+      } else {
+        return CKR_FUNCTION_FAILED;
+      }
+    }
+#endif
 
     ctx = EVP_PKEY_CTX_new(key, NULL);
     if (ctx == NULL) {
@@ -3254,7 +3405,6 @@ CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
       goto pv_failure;
     }
 
-    int res;
     unsigned char data[2048] = {0};
     if (is_hashed_mechanism(op_info->mechanism.mechanism)) {
       if (EVP_DigestFinal_ex(op_info->op.verify.md_ctx, md, &md_len) <= 0) {
@@ -3272,6 +3422,7 @@ CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
           rv = CKR_DATA_INVALID;
           goto pv_failure;
         }
+
         md = op_info->buffer + di_len;
         md_len = op_info->buffer_length - di_len;
       }
@@ -3294,15 +3445,12 @@ CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
       rv = CKR_FUNCTION_FAILED;
       goto pv_failure;
     }
-#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
-    evp_md = EVP_MD_meth_dup(op_info->op.verify.md);
-    if (EVP_PKEY_CTX_set_signature_md(ctx, evp_md) <= 0) {
-#else
+
     if (EVP_PKEY_CTX_set_signature_md(ctx, op_info->op.verify.md) <= 0) {
-#endif
       rv = CKR_FUNCTION_FAILED;
       goto pv_failure;
     }
+
     if (op_info->op.verify.padding) {
       if (EVP_PKEY_CTX_set_rsa_padding(ctx, op_info->op.verify.padding) <= 0) {
         rv = CKR_FUNCTION_FAILED;
@@ -3314,17 +3462,13 @@ CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
           rv = CKR_FUNCTION_FAILED;
           goto pv_failure;
         }
-#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
-        evp_mgf1md = EVP_MD_meth_dup(op_info->op.verify.mgf1md);
-        if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, evp_mgf1md) <= 0) {
-#else
         if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, op_info->op.verify.mgf1md) <= 0) {
-#endif
           rv = CKR_FUNCTION_FAILED;
           goto pv_failure;
         }
       }
     }
+
     if (is_ECDSA_sign_mechanism(op_info->mechanism.mechanism)) {
       memcpy(data, signature, signature_len);
       signature = data;
@@ -3334,7 +3478,8 @@ CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
         goto pv_failure;
       }
     }
-    res = EVP_PKEY_verify(ctx, signature, signature_len, md, md_len);
+
+    int res = EVP_PKEY_verify(ctx, signature, signature_len, md, md_len);
 
     if (res == 1) {
       rv = CKR_OK;
@@ -3345,23 +3490,8 @@ CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
     }
 
   pv_failure:
-#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
-    if (evp_md != NULL) {
-      EVP_MD_meth_free(evp_md);
-    }
-    if (evp_mgf1md != NULL) {
-      EVP_MD_meth_free(evp_mgf1md);
-    }
-#endif
-    if (ctx != NULL) {
-      EVP_PKEY_CTX_free(ctx);
-      ctx = NULL;
-    }
-
-    if (key != NULL) {
-      EVP_PKEY_free(key);
-      key = NULL;
-    }
+    EVP_PKEY_CTX_free(ctx);
+    EVP_PKEY_free(key);
 
     return rv;
   }
@@ -3421,13 +3551,23 @@ CK_RV perform_signature(yh_session *session, yubihsm_pkcs11_op_info *op_info,
                                    op_info->buffer, op_info->buffer_length,
                                    op_info->buffer, &outlen);
     }
+  } else if (is_EDDSA_sign_mechanism(op_info->mechanism.mechanism)) {
+    yrc = yh_util_sign_eddsa(session, op_info->op.sign.key_id, op_info->buffer,
+                             op_info->buffer_length, op_info->buffer, &outlen);
   } else if (is_ECDSA_sign_mechanism(op_info->mechanism.mechanism)) {
     yrc = yh_util_sign_ecdsa(session, op_info->op.sign.key_id, op_info->buffer,
                              op_info->buffer_length, op_info->buffer, &outlen);
+    if (yrc == YHR_SUCCESS) {
+      // NOTE(adma): ECDSA, we must remove the DER encoding and only
+      // return R,S as required by the specs
+      if (strip_DER_encoding_from_ECSIG(op_info->buffer, &outlen,
+                                        op_info->op.sign.sig_len) == false) {
+        return CKR_FUNCTION_FAILED;
+      }
+    }
   } else if (is_HMAC_sign_mechanism(op_info->mechanism.mechanism)) {
     yrc = yh_util_sign_hmac(session, op_info->op.sign.key_id, op_info->buffer,
                             op_info->buffer_length, op_info->buffer, &outlen);
-
   } else {
     DBG_ERR("Mechanism %lu not supported", op_info->mechanism.mechanism);
     return CKR_MECHANISM_INVALID;
@@ -3435,15 +3575,6 @@ CK_RV perform_signature(yh_session *session, yubihsm_pkcs11_op_info *op_info,
 
   if (yrc != YHR_SUCCESS) {
     return yrc_to_rv(yrc);
-  }
-
-  if (is_ECDSA_sign_mechanism(op_info->mechanism.mechanism)) {
-    // NOTE(adma): ECDSA, we must remove the DER encoding and only
-    // return R,S as required by the specs
-    if (strip_DER_encoding_from_ECSIG(op_info->buffer, &outlen,
-                                      op_info->op.sign.sig_len) == false) {
-      return CKR_FUNCTION_FAILED;
-    }
   }
 
   if (outlen > *signature_len) {
@@ -3492,15 +3623,10 @@ CK_RV perform_rsa_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
     return CKR_ARGUMENTS_BAD;
   }
 
-  EVP_PKEY *public_key = EVP_PKEY_new();
-  if (public_key == NULL) {
-    DBG_ERR("Failed to create EVP_PKEY object for public key");
-    return CKR_HOST_MEMORY;
-  }
-
+  EVP_PKEY *public_key = NULL;
   EVP_PKEY_CTX *ctx = NULL;
 
-  CK_RV rv = load_public_key(session, op_info->op.encrypt.key_id, public_key);
+  CK_RV rv = load_public_key(session, op_info->op.encrypt.key_id, &public_key);
   if (rv != CKR_OK) {
     DBG_ERR("Failed to load public key");
     goto rsa_enc_cleanup;
@@ -3732,6 +3858,19 @@ bool is_ECDSA_sign_mechanism(CK_MECHANISM_TYPE m) {
     case CKM_ECDSA_SHA256:
     case CKM_ECDSA_SHA384:
     case CKM_ECDSA_SHA512:
+      return true;
+
+    default:
+      break;
+  }
+
+  return false;
+}
+
+bool is_EDDSA_sign_mechanism(CK_MECHANISM_TYPE m) {
+
+  switch (m) {
+    case CKM_EDDSA:
       return true;
 
     default:
@@ -4210,6 +4349,17 @@ static CK_RV parse_ecparams(const uint8_t *ecparams, uint16_t ecparams_len,
   return CKR_OK;
 }
 
+static CK_RV parse_edparams(uint8_t *ecparams, uint16_t ecparams_len,
+                            yh_algorithm *algorithm, uint16_t *key_len) {
+  if (ecparams_len != sizeof(oid_ed25519) ||
+      memcmp(ecparams, oid_ed25519, sizeof(oid_ed25519))) {
+    return CKR_CURVE_NOT_SUPPORTED;
+  }
+  *algorithm = YH_ALGO_EC_ED25519;
+  *key_len = 32;
+  return CKR_OK;
+}
+
 CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
                         yubihsm_pkcs11_object_template *template) {
 
@@ -4311,6 +4461,77 @@ CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
     DBG_ERR("Inconsistent EC template");
     return CKR_TEMPLATE_INCONSISTENT;
   }
+  return CKR_OK;
+}
+
+CK_RV parse_ed_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
+                        yubihsm_pkcs11_object_template *template) {
+
+  uint8_t *ecparams = NULL;
+  uint16_t ecparams_len = 0;
+  CK_RV rv;
+  for (CK_ULONG i = 0; i < ulCount; i++) {
+    switch (pTemplate[i].type) {
+
+      case CKA_VALUE:
+        if (template->obj.buf == NULL) {
+          template->obj.buf = (CK_BYTE_PTR) pTemplate[i].pValue;
+          template->objlen = pTemplate[i].ulValueLen;
+        } else {
+          return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+
+      case CKA_EC_PARAMS:
+        if (ecparams == NULL) {
+          ecparams = (CK_BYTE_PTR) pTemplate[i].pValue;
+          ecparams_len = pTemplate[i].ulValueLen;
+        } else {
+          return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+
+      case CKA_SIGN:
+        if ((rv = set_template_attribute(&template->sign,
+                                         pTemplate[i].pValue)) != CKR_OK) {
+          return rv;
+        }
+        break;
+
+      case CKA_TOKEN:
+      case CKA_PRIVATE:
+      case CKA_SENSITIVE:
+        if ((rv = check_bool_attribute(pTemplate[i].pValue, true)) != CKR_OK) {
+          return rv;
+        }
+        break;
+
+      case CKA_CLASS:
+      case CKA_KEY_TYPE:
+      case CKA_SUBJECT:
+      case CKA_ID:
+      case CKA_LABEL:
+      case CKA_EXTRACTABLE:
+      case CKA_DERIVE:
+        break;
+
+      default:
+        return CKR_ATTRIBUTE_TYPE_INVALID;
+    }
+  }
+  if (ecparams && template->obj.buf) {
+    uint16_t key_len;
+    rv = parse_edparams(ecparams, ecparams_len, &template->algorithm, &key_len);
+    if (rv != CKR_OK) {
+      return rv;
+    }
+    if (key_len != template->objlen) {
+      return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+  } else {
+    return CKR_TEMPLATE_INCONSISTENT;
+  }
+
   return CKR_OK;
 }
 
@@ -4946,6 +5167,214 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
   return CKR_OK;
 }
 
+CK_RV parse_ed_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
+                                 CK_ULONG ulPublicKeyAttributeCount,
+                                 CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
+                                 CK_ULONG ulPrivateKeyAttributeCount,
+                                 yubihsm_pkcs11_object_template *template,
+                                 pkcs11_meta_object *pkcs11meta) {
+
+  uint8_t *ecparams = NULL;
+  uint16_t ecparams_len = 0;
+  CK_RV rv;
+
+  memset(template->label, 0, sizeof(template->label));
+  for (CK_ULONG i = 0; i < ulPublicKeyAttributeCount; i++) {
+    switch (pPublicKeyTemplate[i].type) {
+      case CKA_CLASS:
+        if (*((CK_ULONG_PTR) pPublicKeyTemplate[i].pValue) != CKO_PUBLIC_KEY) {
+          DBG_ERR("CKA_CLASS inconsistent in PublicKeyTemplate");
+          return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+
+      case CKA_KEY_TYPE:
+        if (*((CK_ULONG_PTR) pPublicKeyTemplate[i].pValue) != CKK_EC_EDWARDS) {
+          DBG_ERR("CKA_KEY_TYPE inconsistent in PublicKeyTemplate");
+          return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+
+      case CKA_ID:
+        rv = parse_meta_id_template(template, pkcs11meta, true,
+                                    pPublicKeyTemplate[i].pValue,
+                                    pPublicKeyTemplate[i].ulValueLen);
+        if (rv != CKR_OK) {
+          return rv;
+        }
+        break;
+
+      case CKA_EC_PARAMS:
+        if (ecparams == NULL) {
+          ecparams = (CK_BYTE_PTR) pPublicKeyTemplate[i].pValue;
+          ecparams_len = pPublicKeyTemplate[i].ulValueLen;
+        } else {
+          DBG_ERR("CKA_PUBLIC_EXPONENT inconsistent in PublicKeyTemplate");
+          return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+
+      case CKA_LABEL:
+        rv = parse_meta_label_template(template, pkcs11meta, true,
+                                       pPublicKeyTemplate[i].pValue,
+                                       pPublicKeyTemplate[i].ulValueLen);
+        if (rv != CKR_OK) {
+          return rv;
+        }
+        break;
+
+      case CKA_TOKEN:
+      case CKA_EXTRACTABLE:
+      case CKA_DESTROYABLE:
+      case CKA_VERIFY:
+        if ((rv = check_bool_attribute(pPublicKeyTemplate[i].pValue, true)) !=
+            CKR_OK) {
+          DBG_ERR("Boolean truth check failed for attribute 0x%lx",
+                  pPublicKeyTemplate[i].type);
+          return rv;
+        }
+        break;
+
+      case CKA_SENSITIVE:
+      case CKA_PRIVATE:
+      case CKA_COPYABLE:
+      case CKA_MODIFIABLE:
+      case CKA_ENCRYPT:
+      case CKA_DECRYPT:
+      case CKA_SIGN:
+      case CKA_SIGN_RECOVER:
+      case CKA_WRAP:
+      case CKA_WRAP_WITH_TRUSTED:
+      case CKA_UNWRAP:
+      case CKA_DERIVE:
+      case CKA_VERIFY_RECOVER:
+        if ((rv = check_bool_attribute(pPublicKeyTemplate[i].pValue, false)) !=
+            CKR_OK) {
+          DBG_ERR("Boolean false check failed for attribute 0x%lx",
+                  pPublicKeyTemplate[i].type);
+          return rv;
+        }
+        break;
+
+      case CKA_SUBJECT:
+        break;
+
+      default:
+        DBG_ERR("invalid attribute type in PublicKeyTemplate: 0x%lx\n",
+                pPublicKeyTemplate[i].type);
+        return CKR_ATTRIBUTE_TYPE_INVALID;
+    }
+  }
+
+  for (CK_ULONG i = 0; i < ulPrivateKeyAttributeCount; i++) {
+    switch (pPrivateKeyTemplate[i].type) {
+      case CKA_CLASS:
+        if (*((CK_ULONG_PTR) pPrivateKeyTemplate[i].pValue) !=
+            CKO_PRIVATE_KEY) {
+          DBG_ERR("CKA_CLASS inconsistent in PrivateKeyTemplate");
+          return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+
+      case CKA_KEY_TYPE:
+        if (*((CK_ULONG_PTR) pPrivateKeyTemplate[i].pValue) != CKK_EC_EDWARDS) {
+          DBG_ERR("CKA_KEY_TYPE inconsistent in PrivateKeyTemplate");
+          return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+
+      case CKA_ID: {
+        rv = parse_meta_id_template(template, pkcs11meta, false,
+                                    pPrivateKeyTemplate[i].pValue,
+                                    pPrivateKeyTemplate[i].ulValueLen);
+        if (rv != CKR_OK) {
+          return rv;
+        }
+      } break;
+
+      case CKA_SIGN:
+        if ((rv = set_template_attribute(&template->sign,
+                                         pPrivateKeyTemplate[i].pValue)) !=
+            CKR_OK) {
+          DBG_ERR("CKA_SIGN inconsistent in PrivateKeyTemplate");
+          return rv;
+        }
+        break;
+
+      case CKA_EXTRACTABLE:
+        if ((rv = set_template_attribute(&template->exportable,
+                                         pPrivateKeyTemplate[i].pValue)) !=
+            CKR_OK) {
+          DBG_ERR("CKA_EXTRACTABLE inconsistent in PrivateKeyTemplate");
+          return rv;
+        }
+        break;
+
+      case CKA_LABEL:
+        rv = parse_meta_label_template(template, pkcs11meta, false,
+                                       pPrivateKeyTemplate[i].pValue,
+                                       pPrivateKeyTemplate[i].ulValueLen);
+        if (rv != CKR_OK) {
+          return rv;
+        }
+        break;
+
+      case CKA_TOKEN:
+      case CKA_SENSITIVE:
+      case CKA_PRIVATE:
+      case CKA_DESTROYABLE:
+        if ((rv = check_bool_attribute(pPrivateKeyTemplate[i].pValue, true)) !=
+            CKR_OK) {
+          DBG_ERR("Boolean truth check failed for attribute 0x%lx",
+                  pPrivateKeyTemplate[i].type);
+          return rv;
+        }
+        break;
+
+      case CKA_COPYABLE:
+      case CKA_MODIFIABLE:
+      case CKA_ENCRYPT:
+      case CKA_DECRYPT:
+      case CKA_SIGN_RECOVER:
+      case CKA_VERIFY:
+      case CKA_VERIFY_RECOVER:
+      case CKA_WRAP:
+      case CKA_WRAP_WITH_TRUSTED:
+      case CKA_UNWRAP:
+      case CKA_DERIVE:
+        if ((rv = check_bool_attribute(pPrivateKeyTemplate[i].pValue, false)) !=
+            CKR_OK) {
+          DBG_ERR("Boolean false check failed for attribute 0x%lx",
+                  pPrivateKeyTemplate[i].type);
+          return rv;
+        }
+        break;
+
+      case CKA_SUBJECT:
+        break;
+
+      default:
+        DBG_ERR("invalid attribute type in PrivateKeyTemplate: 0x%lx\n",
+                pPrivateKeyTemplate[i].type);
+        return CKR_ATTRIBUTE_TYPE_INVALID;
+    }
+  }
+
+  if (ecparams == NULL) {
+    DBG_ERR("CKA_ECPARAMS not set");
+    return CKR_TEMPLATE_INCOMPLETE;
+  }
+
+  uint16_t key_len;
+  rv = parse_edparams(ecparams, ecparams_len, &template->algorithm, &key_len);
+  if (rv != CKR_OK) {
+    DBG_ERR("Failed to parse CKA_ECPARAMS");
+    return rv;
+  }
+
+  return CKR_OK;
+}
+
 CK_RV parse_wrap_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
                           yubihsm_pkcs11_object_template *template,
                           yh_algorithm algorithm, bool generate) {
@@ -5330,19 +5759,19 @@ CK_RV ecdh_with_kdf(ecdh_session_key *shared_secret, uint8_t *fixed_info,
       DBG_INFO("KDF is CKD_NULL");
       // Do nothing
       break;
-    case CKD_YUBICO_SHA1_KDF_SP800:
+    case CKD_SHA1_KDF_SP800:
       DBG_INFO("KDF is CKD_SHA1_KDF_SP800");
       hash_create(&hash, _SHA1);
       break;
-    case CKD_YUBICO_SHA256_KDF_SP800:
+    case CKD_SHA256_KDF_SP800:
       DBG_INFO("KDF is CKD_SHA256_KDF_SP800");
       hash_create(&hash, _SHA256);
       break;
-    case CKD_YUBICO_SHA384_KDF_SP800:
+    case CKD_SHA384_KDF_SP800:
       DBG_INFO("KDF is CKD_SHA384_KDF_SP800");
       hash_create(&hash, _SHA384);
       break;
-    case CKD_YUBICO_SHA512_KDF_SP800:
+    case CKD_SHA512_KDF_SP800:
       DBG_INFO("KDF is CKD_SHA512_KDF_SP800");
       hash_create(&hash, _SHA512);
       break;

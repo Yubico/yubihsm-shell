@@ -109,6 +109,12 @@ jobs:
           set -x
           tar xf yubihsm-shell-$VERSION.tar.gz
 
+      - name: Install dependecies
+        run: |
+          brew update
+          brew install cmake pkg-config gengetopt help2man
+          brew reinstall openssl@3
+
       - name: Build and make MSI installer
         env:
           ARCH: ${{ matrix.arch }}

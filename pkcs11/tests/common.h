@@ -18,15 +18,15 @@
 #define YUBIHSM_PKCS11_TESTS_COMMON_H
 
 #include <stdbool.h>
-#include "../pkcs11.h"
+#include "../pkcs11y.h"
 
 void *open_module(const char *path);
 void close_module(void *handle);
-CK_FUNCTION_LIST_PTR get_function_list(void *handle);
-CK_SESSION_HANDLE open_session(CK_FUNCTION_LIST_PTR p11);
-void close_session(CK_FUNCTION_LIST_PTR p11, CK_SESSION_HANDLE session);
-void print_session_state(CK_FUNCTION_LIST_PTR p11, CK_SESSION_HANDLE session);
-bool destroy_object(CK_FUNCTION_LIST_PTR p11, CK_SESSION_HANDLE session,
+CK_FUNCTION_LIST_3_0_PTR get_function_list(void *handle);
+CK_SESSION_HANDLE open_session(CK_FUNCTION_LIST_3_0_PTR p11);
+void close_session(CK_FUNCTION_LIST_3_0_PTR p11, CK_SESSION_HANDLE session);
+void print_session_state(CK_FUNCTION_LIST_3_0_PTR p11, CK_SESSION_HANDLE session);
+bool destroy_object(CK_FUNCTION_LIST_3_0_PTR p11, CK_SESSION_HANDLE session,
                     CK_OBJECT_HANDLE key);
 
 #endif

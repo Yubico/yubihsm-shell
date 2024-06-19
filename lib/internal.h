@@ -37,13 +37,13 @@ struct yh_connector {
   void *backend;
   struct backend_functions *bf;
   yh_backend *connection;
-  char *status_url;
-  char *api_url;
+  char status_url[256];
+  char api_url[256];
   bool has_device;
   uint8_t version_major;
   uint8_t version_minor;
   uint8_t version_patch;
-  uint8_t address[32];
+  char address[32];
   uint32_t port;
   uint32_t pid;
 };

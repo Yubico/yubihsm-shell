@@ -28,12 +28,12 @@
 #include <openssl/rand.h>
 #include <openssl/err.h>
 
-#include "../pkcs11.h"
+#include "../pkcs11y.h"
 #include "common.h"
 
 #define BUFSIZE 1024
 
-static CK_FUNCTION_LIST_PTR p11;
+static CK_FUNCTION_LIST_3_0_PTR p11;
 static CK_SESSION_HANDLE session;
 
 static void import_rsa_key(int keylen, RSA *rsak,

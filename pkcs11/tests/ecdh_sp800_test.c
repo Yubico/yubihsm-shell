@@ -17,6 +17,7 @@
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,7 +27,6 @@
 #include <openssl/ec.h>
 #include <openssl/x509.h>
 
-#include "../pkcs11.h"
 #include "../pkcs11y.h"
 #include "common.h"
 
@@ -38,7 +38,7 @@ CK_BYTE P256_PARAMS[] = {0x06, 0x08, 0x2a, 0x86, 0x48,
 CK_BYTE P384_PARAMS[] = {0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x22};
 CK_BYTE P521_PARAMS[] = {0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x23};
 
-static CK_FUNCTION_LIST_PTR p11;
+static CK_FUNCTION_LIST_3_0_PTR p11;
 static CK_SESSION_HANDLE session;
 
 char *CURVES[] = {"secp224r1", "prime256v1", "secp384r1", "secp521r1"};
@@ -272,19 +272,19 @@ static size_t openssl_derive(CK_ULONG kdf, EVP_PKEY *private_key,
     case CKD_NULL:
       memcpy(*ecdh_key, derived, len);
       goto c_truncate;
-    case CKD_YUBICO_SHA1_KDF_SP800:
+    case CKD_SHA1_KDF_SP800:
       md = EVP_sha1();
       output_bits = 160;
       break;
-    case CKD_YUBICO_SHA256_KDF_SP800:
+    case CKD_SHA256_KDF_SP800:
       md = EVP_sha256();
       output_bits = 256;
       break;
-    case CKD_YUBICO_SHA384_KDF_SP800:
+    case CKD_SHA384_KDF_SP800:
       md = EVP_sha384();
       output_bits = 384;
       break;
-    case CKD_YUBICO_SHA512_KDF_SP800:
+    case CKD_SHA512_KDF_SP800:
       md = EVP_sha512();
       output_bits = 384;
       break;
@@ -518,25 +518,25 @@ int main(int argc, char **argv) {
 
   for (int i = 0; i < CURVE_COUNT; i++) {
     for (size_t j = 0; j < 3; j++) {
-      run_test(handle, CURVES[i], CKD_YUBICO_SHA1_KDF_SP800, yh_privkey[i],
+      run_test(handle, CURVES[i], CKD_SHA1_KDF_SP800, yh_privkey[i],
                yh_pubkey[i], key_lens[j] / 8, key_lens[j] / 8, CKR_OK);
-      run_test(handle, CURVES[i], CKD_YUBICO_SHA256_KDF_SP800, yh_privkey[i],
+      run_test(handle, CURVES[i], CKD_SHA256_KDF_SP800, yh_privkey[i],
                yh_pubkey[i], key_lens[j] / 8, key_lens[j] / 8, CKR_OK);
-      run_test(handle, CURVES[i], CKD_YUBICO_SHA384_KDF_SP800, yh_privkey[i],
+      run_test(handle, CURVES[i], CKD_SHA384_KDF_SP800, yh_privkey[i],
                yh_pubkey[i], key_lens[j] / 8, key_lens[j] / 8, CKR_OK);
-      run_test(handle, CURVES[i], CKD_YUBICO_SHA512_KDF_SP800, yh_privkey[i],
+      run_test(handle, CURVES[i], CKD_SHA512_KDF_SP800, yh_privkey[i],
                yh_pubkey[i], key_lens[j] / 8, key_lens[j] / 8, CKR_OK);
     }
 
     run_test(handle, CURVES[i], CKD_NULL, yh_privkey[i], yh_pubkey[i], 0,
              CURVE_ECDH_LEN[i], CKR_OK);
-    run_test(handle, CURVES[i], CKD_YUBICO_SHA1_KDF_SP800, yh_privkey[i],
+    run_test(handle, CURVES[i], CKD_SHA1_KDF_SP800, yh_privkey[i],
              yh_pubkey[i], 0, 20, CKR_OK);
-    run_test(handle, CURVES[i], CKD_YUBICO_SHA256_KDF_SP800, yh_privkey[i],
+    run_test(handle, CURVES[i], CKD_SHA256_KDF_SP800, yh_privkey[i],
              yh_pubkey[i], 0, 32, CKR_OK);
-    run_test(handle, CURVES[i], CKD_YUBICO_SHA384_KDF_SP800, yh_privkey[i],
+    run_test(handle, CURVES[i], CKD_SHA384_KDF_SP800, yh_privkey[i],
              yh_pubkey[i], 0, 48, CKR_OK);
-    run_test(handle, CURVES[i], CKD_YUBICO_SHA512_KDF_SP800, yh_privkey[i],
+    run_test(handle, CURVES[i], CKD_SHA512_KDF_SP800, yh_privkey[i],
              yh_pubkey[i], 0, 64, CKR_OK);
   }
   run_test(handle, CURVES[0], CKD_NULL, yh_privkey[0], yh_pubkey[0], 1024, 0,

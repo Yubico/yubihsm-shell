@@ -1346,7 +1346,7 @@ yh_rc yh_get_connector_address(yh_connector *connector, char **const address) {
     return YHR_INVALID_PARAMETERS;
   }
 
-  *address = (char *) connector->address;
+  *address = connector->address;
 
   return YHR_SUCCESS;
 }
@@ -4305,31 +4305,11 @@ static yh_rc create_connector(yh_connector **connector, const char *url,
   yh_rc rc = YHR_SUCCESS;
 
   if (strncmp(url, YH_USB_URL_SCHEME, strlen(YH_USB_URL_SCHEME)) == 0) {
-    (*connector)->status_url = strdup(url);
-    if ((*connector)->status_url == NULL) {
-      rc = YHR_MEMORY_ERROR;
-      goto cc_failure;
-    }
-    (*connector)->api_url = strdup(url);
-    if ((*connector)->api_url == NULL) {
-      rc = YHR_MEMORY_ERROR;
-      goto cc_failure;
-    }
+    snprintf((*connector)->status_url, sizeof((*connector)->status_url), "%s", url);
+    snprintf((*connector)->api_url, sizeof((*connector)->api_url), "%s", url);
   } else {
-    (*connector)->status_url =
-      calloc(1, strlen(url) + strlen(STATUS_ENDPOINT) + 1);
-    if ((*connector)->status_url == NULL) {
-      rc = YHR_MEMORY_ERROR;
-      goto cc_failure;
-    }
-    sprintf((*connector)->status_url, "%s%s", url, STATUS_ENDPOINT);
-
-    (*connector)->api_url = calloc(1, strlen(url) + strlen(API_ENDPOINT) + 1);
-    if ((*connector)->api_url == NULL) {
-      rc = YHR_MEMORY_ERROR;
-      goto cc_failure;
-    }
-    sprintf((*connector)->api_url, "%s%s", url, API_ENDPOINT);
+    snprintf((*connector)->status_url, sizeof((*connector)->status_url), "%s%s", url, STATUS_ENDPOINT);
+    snprintf((*connector)->api_url, sizeof((*connector)->api_url), "%s%s", url, API_ENDPOINT);
   }
 
   (*connector)->connection = bf->backend_create();
@@ -4344,15 +4324,6 @@ static yh_rc create_connector(yh_connector **connector, const char *url,
   return YHR_SUCCESS;
 
 cc_failure:
-  if ((*connector)->status_url) {
-    free((*connector)->status_url);
-    (*connector)->status_url = NULL;
-  }
-
-  if ((*connector)->api_url) {
-    free((*connector)->api_url);
-    (*connector)->api_url = NULL;
-  }
 
   if (*connector) {
     free(*connector);
@@ -4373,15 +4344,8 @@ static void destroy_connector(yh_connector *connector) {
     connector->connection = NULL;
   }
 
-  if (connector->status_url != NULL) {
-    free(connector->status_url);
-    connector->status_url = NULL;
-  }
-
-  if (connector->api_url != NULL) {
-    free(connector->api_url);
-    connector->api_url = NULL;
-  }
+  memset(connector->status_url, 0, sizeof(connector->status_url));
+  memset(connector->api_url, 0, sizeof(connector->api_url));
 
   if (connector->bf) {
     connector->bf->backend_cleanup();
@@ -4746,7 +4710,7 @@ yh_rc yh_get_key_bitlength(yh_algorithm algorithm, size_t *result) {
       break;
 
     case YH_ALGO_EC_ED25519:
-      *result = 256;
+      *result = 255;
       break;
 
     case YH_ALGO_HMAC_SHA1:
