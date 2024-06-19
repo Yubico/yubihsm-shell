@@ -1346,7 +1346,7 @@ yh_rc yh_get_connector_address(yh_connector *connector, char **const address) {
     return YHR_INVALID_PARAMETERS;
   }
 
-  *address = (char *) connector->address;
+  *address = connector->address;
 
   return YHR_SUCCESS;
 }
@@ -4305,8 +4305,8 @@ static yh_rc create_connector(yh_connector **connector, const char *url,
   yh_rc rc = YHR_SUCCESS;
 
   if (strncmp(url, YH_USB_URL_SCHEME, strlen(YH_USB_URL_SCHEME)) == 0) {
-    memcpy((*connector)->status_url, url, strlen(url));
-    memcpy((*connector)->api_url, url, strlen(url));
+    snprintf((*connector)->status_url, sizeof((*connector)->status_url), "%s", url);
+    snprintf((*connector)->api_url, sizeof((*connector)->api_url), "%s", url);
   } else {
     snprintf((*connector)->status_url, sizeof((*connector)->status_url), "%s%s", url, STATUS_ENDPOINT);
     snprintf((*connector)->api_url, sizeof((*connector)->api_url), "%s%s", url, API_ENDPOINT);

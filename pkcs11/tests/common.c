@@ -61,7 +61,7 @@ CK_SESSION_HANDLE open_session(CK_FUNCTION_LIST_3_0_PTR p11) {
   }
   char config[256];
   assert(strlen(connector_url) + strlen("connector=") < 256);
-  sprintf(config, "connector=%s", connector_url);
+  snprintf(config, sizeof(config), "connector=%s", connector_url);
   initArgs.pReserved = (void *) config;
   CK_RV rv = p11->C_Initialize(&initArgs);
   assert(rv == CKR_OK);

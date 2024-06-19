@@ -115,7 +115,7 @@ void parse_status_data(char *data, yh_connector *connector) {
 
       connector->pid = pid;
     } else if (strncmp(str, ADDRESS_STR, strlen(ADDRESS_STR)) == 0) {
-      strncpy((char *) connector->address, str + strlen(ADDRESS_STR),
+      strncpy(connector->address, str + strlen(ADDRESS_STR),
               sizeof(connector->address) - 1);
     } else if (strncmp(str, PORT_STR, strlen(PORT_STR)) == 0) {
       char *endptr;

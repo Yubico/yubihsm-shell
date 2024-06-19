@@ -43,7 +43,7 @@ struct yh_connector {
   uint8_t version_major;
   uint8_t version_minor;
   uint8_t version_patch;
-  uint8_t address[32];
+  char address[32];
   uint32_t port;
   uint32_t pid;
 };

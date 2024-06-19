@@ -212,7 +212,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
       char *new_args = realloc(args_parsed, len + strlen(part) + 4);
       if (new_args) {
         args_parsed = new_args;
-        sprintf(args_parsed + len, "--%s ", part);
+        snprintf(args_parsed + len, strlen(part) + 4, "--%s ", part);
       } else {
         DBG_ERR("Failed allocating memory for args");
         rv = CKR_HOST_MEMORY;
@@ -707,7 +707,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetTokenInfo)
   memcpy((char *) pInfo->model, s, l);
 
   memset(pInfo->serialNumber, ' ', sizeof(pInfo->serialNumber));
-  l = sprintf((char *) pInfo->serialNumber, "%08u", serial);
+  l = snprintf((char *) pInfo->serialNumber, sizeof(pInfo->serialNumber), "%08u", serial);
   pInfo->serialNumber[l] = ' ';
 
   pInfo->flags = CKF_RNG | CKF_LOGIN_REQUIRED | CKF_USER_PIN_INITIALIZED |

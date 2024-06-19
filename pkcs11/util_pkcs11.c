@@ -895,7 +895,7 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
     write_meta_item(p, PKCS11_PUBKEY_LABEL_TAG, &meta_object->cka_label_pubkey);
 
   char opaque_label[YH_OBJ_LABEL_LEN] = {0};
-  sprintf(opaque_label, "Meta object for 0x%02x%02x%04x",
+  snprintf(opaque_label, sizeof(opaque_label), "Meta object for 0x%02x%02x%04x",
           meta_object->target_sequence, meta_object->target_type,
           meta_object->target_id);
 
