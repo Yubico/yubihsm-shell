@@ -70,7 +70,7 @@ static void test_lib_info(CK_ULONG vmajor, CK_ULONG vminor) {
  }
  char config[256] = {0};
  assert(strlen(connector_url) + strlen("connector=") < 256);
- snprintf(config, strlen(connector_url) + strlen("connector="), "connector=%s", connector_url);
+ snprintf(config, sizeof(config), "connector=%s", connector_url);
  initArgs.pReserved = (void *) config;
  assert(((CK_FUNCTION_LIST_3_0*)funcs)->C_Initialize(&initArgs) == CKR_OK);
 

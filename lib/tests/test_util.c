@@ -35,21 +35,21 @@ static void test_status(void) {
     yh_connector c;
   } tests[] = {
     {"status=OK\nversion=1.2.3\n",
-     {NULL, NULL, NULL, NULL, NULL, true, 1, 2, 3, "", 0, 0}},
-    {"", {NULL, NULL, NULL, NULL, NULL, false, 0, 0, 0, "", 0, 0}},
-    {"foobar", {NULL, NULL, NULL, NULL, NULL, false, 0, 0, 0, "", 0, 0}},
-    {"\n\n\n\n\n\n", {NULL, NULL, NULL, NULL, NULL, false, 0, 0, 0, "", 0, 0}},
+     {NULL, NULL, NULL, {0}, {0}, true, 1, 2, 3, "", 0, 0}},
+    {"", {NULL, NULL, NULL, {0}, {0}, false, 0, 0, 0, "", 0, 0}},
+    {"foobar", {NULL, NULL, NULL, {0}, {0}, false, 0, 0, 0, "", 0, 0}},
+    {"\n\n\n\n\n\n", {NULL, NULL, NULL, {0}, {0}, false, 0, 0, 0, "", 0, 0}},
     {"status=NO_DEVICE\nserial=*\nversion=1.0.2\npid=412\naddress=\nport=12345",
-     {NULL, NULL, NULL, NULL, NULL, false, 1, 0, 2, "", 12345, 412}},
-    {"version=1.2", {NULL, NULL, NULL, NULL, NULL, false, 1, 2, 0, "", 0, 0}},
+     {NULL, NULL, NULL, {0}, {0}, false, 1, 0, 2, "", 12345, 412}},
+    {"version=1.2", {NULL, NULL, NULL, {0}, {0}, false, 1, 2, 0, "", 0, 0}},
     {"version=foobar",
-     {NULL, NULL, NULL, NULL, NULL, false, 0, 0, 0, "", 0, 0}},
+     {NULL, NULL, NULL, {0}, {0}, false, 0, 0, 0, "", 0, 0}},
     {"version=2..\nstatus=OK",
-     {NULL, NULL, NULL, NULL, NULL, true, 2, 0, 0, "", 0, 0}},
+     {NULL, NULL, NULL, {0}, {0}, true, 2, 0, 0, "", 0, 0}},
   };
 
   for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
-    yh_connector c = {NULL, NULL, NULL, NULL, NULL, false, 0, 0, 0, "", 0, 0};
+    yh_connector c = {NULL, NULL, NULL, {0}, {0}, false, 0, 0, 0, "", 0, 0};
     char *data = strdup(tests[i].data);
 
     parse_status_data(data, &c);
