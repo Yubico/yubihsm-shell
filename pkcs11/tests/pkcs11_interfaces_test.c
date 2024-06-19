@@ -37,7 +37,6 @@ static CK_C_GetInterface get_interface_function(void *handle) {
 
 static void get_default_functions(void *handle) {
  funcs = get_function_list(handle);
- fprintf(stderr, "------------------ funcs == null? %d\n", (funcs == NULL));
 }
 
 static void get_named_functions(void *handle) {
@@ -69,9 +68,9 @@ static void test_lib_info(CK_ULONG vmajor, CK_ULONG vminor) {
  if (connector_url == NULL) {
    connector_url = DEFAULT_CONNECTOR_URL;
  }
- char config[256];
+ char config[256] = {0};
  assert(strlen(connector_url) + strlen("connector=") < 256);
- sprintf(config, "connector=%s", connector_url);
+ snprintf(config, strlen(connector_url) + strlen("connector="), "connector=%s", connector_url);
  initArgs.pReserved = (void *) config;
  assert(((CK_FUNCTION_LIST_3_0*)funcs)->C_Initialize(&initArgs) == CKR_OK);
 
