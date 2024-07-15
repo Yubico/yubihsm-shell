@@ -704,7 +704,9 @@ bool write_file(const uint8_t *buf, size_t buf_len, FILE *fp, format_t format) {
   } while (!feof(fp) && !ferror(fp) && length > 0);
 
   if (fp == stdout || fp == stderr) {
-    fprintf(fp, "\n");
+    if ( format != _binary ) {
+      fprintf(fp, "\n");
+    }
   }
 
   if (b64 != NULL) {
