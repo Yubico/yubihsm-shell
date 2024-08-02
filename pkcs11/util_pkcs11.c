@@ -1371,7 +1371,7 @@ static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_VALUE_LEN:
-      if (object->type == YH_WRAP_KEY || object->type == YH_SYMMETRIC_KEY) {
+      if (object->type == YH_WRAP_KEY || object->type == YH_SYMMETRIC_KEY || object->type == YH_HMAC_KEY) {
         size_t key_length = 0;
         yh_rc yrc = yh_get_key_bitlength(object->algorithm, &key_length);
         if (yrc != YHR_SUCCESS) {
