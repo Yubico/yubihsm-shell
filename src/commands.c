@@ -711,7 +711,7 @@ int yh_com_echo(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(fmt);
 
   uint8_t data[YH_MSG_BUF_SIZE] = {0};
-  uint16_t data_len = 0;
+  size_t data_len = 0;
 
   uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = 0;
@@ -1022,7 +1022,8 @@ int yh_com_get_storage(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 // argc = 3
 // arg 0: e:session
 // arg 1: w:key_id
-// arg 2: f:filename
+// arg 2: t:key_type
+// arg 3: f:filename
 int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                       cmd_format fmt) {
 
@@ -1034,8 +1035,8 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   yh_algorithm algo = 0;
   EVP_PKEY *public_key = NULL;
 
-  yh_rc yrc = yh_util_get_public_key(argv[0].e, argv[1].w, response,
-                                     &response_len, &algo);
+  yh_rc yrc = yh_util_get_public_key_ex(argv[0].e, argv[2].t, argv[1].w,
+                                        response, &response_len, &algo);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to get public key: %s\n", yh_strerror(yrc));
     return -1;
@@ -1367,7 +1368,8 @@ int yh_com_get_object_info(yubihsm_context *ctx, Argument *argv,
 // arg 1: w:keyid
 // arg 2: t:type
 // arg 3: w:id
-// arg 4: f:file
+// arg 4: b:include_seed
+// arg 5: f:file
 int yh_com_get_wrapped(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                        cmd_format fmt) {
   uint8_t response[YH_MSG_BUF_SIZE] = {0};
@@ -1375,8 +1377,11 @@ int yh_com_get_wrapped(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
   UNUSED(in_fmt);
 
-  yh_rc yrc = yh_util_export_wrapped(argv[0].e, argv[1].w, argv[2].b, argv[3].w,
-                                     response, &response_len);
+  uint8_t format = argv[4].b ? 1 : 0;
+
+  yh_rc yrc =
+    yh_util_export_wrapped_ex(argv[0].e, argv[1].w, argv[2].b, argv[3].w,
+                              format, response, &response_len);
 
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to get wrapped object: %s\n", yh_strerror(yrc));
@@ -1388,6 +1393,96 @@ int yh_com_get_wrapped(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   }
 
   return -1;
+}
+
+// NOTE: Get an RSA wrapped key or object
+// argc = 7
+// arg 0: e:session
+// arg 1: w:keyid
+// arg 2: t:type
+// arg 3: w:id
+// arg 4: a:aes
+// arg 5: a:oaep
+// arg 6: a:mgf1
+// arg 7: f:file
+static int do_rsa_wrap(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                       cmd_format fmt, bool key_wrap) {
+  UNUSED(in_fmt);
+
+  int hash = 0;
+  yh_algorithm aes = argv[4].a;
+  yh_algorithm oaep = argv[5].a;
+  yh_algorithm mgf1 = argv[6].a;
+  yh_rc yrc;
+
+  if (aes == 0) {
+    aes = YH_ALGO_AES256;
+  }
+
+  switch (oaep) {
+    case YH_ALGO_RSA_OAEP_SHA1:
+      hash = _SHA1;
+      break;
+
+    case YH_ALGO_RSA_OAEP_SHA256:
+      hash = _SHA256;
+      break;
+
+    case YH_ALGO_RSA_OAEP_SHA384:
+      hash = _SHA384;
+      break;
+
+    case YH_ALGO_RSA_OAEP_SHA512:
+      hash = _SHA512;
+      break;
+
+    default:
+      fprintf(stderr, "Unrecognized OAEP algorithm\n");
+      return -1;
+  }
+
+  uint8_t label[64] = {0};
+  size_t label_len = sizeof(label);
+
+  if (hash_bytes(NULL, 0, hash, label, &label_len) == false) {
+    fprintf(stderr, "Unable to hash data\n");
+    return -1;
+  }
+
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
+  size_t response_len = sizeof(response);
+
+  if (key_wrap) {
+    yrc = yh_util_get_rsa_wrapped_key(argv[0].e, argv[1].w, argv[2].b,
+                                      argv[3].w, aes, oaep, mgf1, label,
+                                      label_len, response, &response_len);
+  } else {
+    yrc = yh_util_export_rsa_wrapped(argv[0].e, argv[1].w, argv[2].b, argv[3].w,
+                                     aes, oaep, mgf1, label, label_len,
+                                     response, &response_len);
+  }
+
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to encrypt data with OAEP: %s\n", yh_strerror(yrc));
+    return yrc;
+  }
+
+  if (!write_file(response, response_len, ctx->out, fmt_to_fmt(fmt))) {
+    fprintf(stderr, "Failed to write wrapped object to file");
+    return YHR_GENERIC_ERROR;
+  }
+
+  return YHR_SUCCESS;
+}
+
+int yh_com_get_rsa_wrapped(yubihsm_context *ctx, Argument *argv,
+                           cmd_format in_fmt, cmd_format fmt) {
+  return do_rsa_wrap(ctx, argv, in_fmt, fmt, false);
+}
+
+int yh_com_get_rsa_wrapped_key(yubihsm_context *ctx, Argument *argv,
+                               cmd_format in_fmt, cmd_format fmt) {
+  return do_rsa_wrap(ctx, argv, in_fmt, fmt, true);
 }
 
 // NOTE(adma): Get a template object
@@ -1990,7 +2085,7 @@ int yh_com_put_symmetric(yubihsm_context *ctx, Argument *argv,
 // arg 2: s:label
 // arg 3: w:domains
 // arg 4: c:capabilities
-// arg 5: i:key
+// arg 5: x:key
 int yh_com_put_asymmetric(yubihsm_context *ctx, Argument *argv,
                           cmd_format in_fmt, cmd_format fmt) {
 
@@ -2284,6 +2379,7 @@ int yh_com_put_wrapkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(ctx);
   UNUSED(in_fmt);
   UNUSED(fmt);
+
   yh_algorithm algo = 0;
 
   if (argv[6].len == 16) {
@@ -2310,6 +2406,140 @@ int yh_com_put_wrapkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   return 0;
 }
 
+// NOTE: Store an RSA wrapping key
+// argc = 6
+// arg 0: e:session
+// arg 1: w:key_id
+// arg 2: s:label
+// arg 3: w:domains
+// arg 4: c:capabilities
+// arg 5: c:delegated_capabilities
+// arg 6: x:key
+int yh_com_put_rsa_wrapkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                       cmd_format fmt) {
+  UNUSED(ctx);
+  UNUSED(in_fmt);
+  UNUSED(fmt);
+
+  uint8_t key[512] = {0};
+  size_t key_material_len = sizeof(key);
+  yh_algorithm algo = 0;
+
+  bool ret = read_private_key(argv[6].x, argv[6].len, &algo, key,
+                              &key_material_len, false);
+  if (ret == false) {
+    fprintf(stderr, "Unable to read wrap key\n");
+    return -1;
+  }
+
+  yh_rc yrc = yh_util_import_wrap_key(argv[0].e, &argv[1].w, argv[2].s,
+                                      argv[3].w, &argv[4].c, algo, &argv[5].c,
+                                      key, key_material_len);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to store wrapkey: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  fprintf(stderr, "Stored Wrap key 0x%04x\n", argv[1].w);
+
+  return 0;
+}
+
+static bool read_rsa_pubkey(const uint8_t *buf, size_t len,
+                            uint8_t *bytes, size_t *bytes_len) {
+  BIO *bio;
+
+  if ((bio = BIO_new(BIO_s_mem())) == NULL)
+    return false;
+
+  (void) BIO_write(bio, buf, len);
+
+  RSA *rsa = NULL;
+  EVP_PKEY *pubkey = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
+  BIO_free_all(bio);
+
+  if (pubkey == NULL || EVP_PKEY_base_id(pubkey) != EVP_PKEY_RSA ||
+      (rsa = EVP_PKEY_get1_RSA(pubkey)) == NULL) {
+    fprintf(stderr, "Failed to parse RSA public key\n");
+    EVP_PKEY_free(pubkey);
+    return false;
+  }
+
+  bool ret = false;
+  const BIGNUM *n = NULL;
+  RSA_get0_key(rsa, &n, NULL, NULL);
+  if (n == NULL) {
+    goto fail;
+  }
+
+  size_t nn = BN_num_bytes(n);
+  if (*bytes_len < nn) {
+    fprintf(stderr, "%s: insufficient dst buffer space\n", __func__);
+    goto fail;
+  }
+
+  *bytes_len = (size_t) BN_bn2bin(n, bytes);
+
+  ret = true;
+fail:
+  RSA_free(rsa);
+  EVP_PKEY_free(pubkey);
+  return ret;
+
+}
+
+// NOTE: Store a public wrap key
+// argc = 6
+// arg 0: e:session
+// arg 1: w:key_id
+// arg 2: s:label
+// arg 3: w:domains
+// arg 4: c:capabilities
+// arg 5: c:delegated_capabilities
+// arg 6: i:pubkey
+int yh_com_put_public_wrapkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                              cmd_format fmt) {
+  UNUSED(ctx);
+  UNUSED(in_fmt);
+  UNUSED(fmt);
+
+  uint8_t pubkey[512];
+  size_t pubkey_len = sizeof(pubkey);
+  yh_algorithm algo = 0;
+
+  if (!read_rsa_pubkey(argv[6].x, argv[6].len, pubkey, &pubkey_len)) {
+    fprintf(stderr, "Failed to read public key\n");
+    return -1;
+  }
+
+  switch (pubkey_len) {
+    case 256:
+      algo = YH_ALGO_RSA_2048;
+      break;
+    case 384:
+      algo = YH_ALGO_RSA_3072;
+      break;
+    case 512:
+      algo = YH_ALGO_RSA_4096;
+      break;
+    default:
+      fprintf(stderr, "Invalid public key length (%zu)\n", pubkey_len);
+      return -1;
+  }
+
+  yh_rc yrc = yh_util_import_public_wrap_key(argv[0].e, &argv[1].w, argv[2].s,
+                                          argv[3].w, &argv[4].c, algo,
+                                          &argv[5].c, pubkey, pubkey_len);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to store public wrap key: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  fprintf(stderr, "Stored public wrap key 0x%04x\n", argv[1].w);
+
+  return 0;
+}
+
 // NOTE: Store a wrapped object
 // argc = 3
 // arg 0: e:session
@@ -2326,6 +2556,146 @@ int yh_com_put_wrapped(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
   yh_rc yrc = yh_util_import_wrapped(argv[0].e, argv[1].w, argv[2].x,
                                      argv[2].len, &object_type, &object_id);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to store wrapped object: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  const char *type = "";
+  yh_type_to_string(object_type, &type);
+
+  fprintf(stderr, "Object imported as 0x%04x of type %s\n", object_id, type);
+
+  return 0;
+}
+
+// NOTE: Store an asymetrically wrapped object
+// argc = 3
+// arg 0: e:session
+// arg 1: w:key_id
+// arg 2: a:oaep
+// arg 3: a:mgf1
+// arg 4: i:data
+int yh_com_put_rsa_wrapped(yubihsm_context *ctx, Argument *argv,
+                           cmd_format in_fmt, cmd_format fmt) {
+  UNUSED(ctx);
+  UNUSED(in_fmt);
+  UNUSED(fmt);
+
+  yh_object_type object_type = 0;
+  uint16_t object_id = 0;
+
+  yh_algorithm mgf1 = argv[3].a;
+  yh_algorithm oaep = argv[2].a;
+  int hash = 0;
+
+  switch (oaep) {
+    case YH_ALGO_RSA_OAEP_SHA1:
+      hash = _SHA1;
+      break;
+
+    case YH_ALGO_RSA_OAEP_SHA256:
+      hash = _SHA256;
+      break;
+
+    case YH_ALGO_RSA_OAEP_SHA384:
+      hash = _SHA384;
+      break;
+
+    case YH_ALGO_RSA_OAEP_SHA512:
+      hash = _SHA512;
+      break;
+
+    default:
+      fprintf(stderr, "Unrecognized OAEP algorithm\n");
+      return -1;
+  }
+
+  uint8_t label[64] = {0};
+  size_t label_len = sizeof(label);
+
+  if (hash_bytes(NULL, 0, hash, label, &label_len) == false) {
+    fprintf(stderr, "Unable to hash data.\n");
+    return -1;
+  }
+
+  yh_rc yrc = yh_util_import_rsa_wrapped(argv[0].e, argv[1].w, oaep, mgf1,
+                                         label, label_len, argv[4].x,
+                                         argv[4].len, &object_type, &object_id);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to store wrapped object: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  const char *type = "";
+  yh_type_to_string(object_type, &type);
+
+  fprintf(stderr, "Object imported as 0x%04x of type %s\n", object_id, type);
+
+  return 0;
+}
+
+// NOTE: Store an asymetrically wrapped key object
+// argc = 3
+// arg 0: e:session
+// arg 1: w:wrapkey_id
+// arg 2: t:type
+// arg 3: w:key_id
+// arg 4: a:key_algorithm
+// arg 5: s:label
+// arg 6: w:domains
+// arg 7: c:capabilities
+// arg 8: a:oaep
+// arg 9: a:mgf1
+// arg 10: i:data
+int yh_com_put_rsa_wrapped_key(yubihsm_context *ctx, Argument *argv,
+                               cmd_format in_fmt, cmd_format fmt) {
+  UNUSED(ctx);
+  UNUSED(in_fmt);
+  UNUSED(fmt);
+
+  yh_object_type object_type = argv[2].t;
+  uint16_t object_id = argv[3].w;
+
+  yh_algorithm mgf1 = argv[9].a;
+  yh_algorithm oaep = argv[8].a;
+  int hash = 0;
+
+  switch (oaep) {
+    case YH_ALGO_RSA_OAEP_SHA1:
+      hash = _SHA1;
+      break;
+
+    case YH_ALGO_RSA_OAEP_SHA256:
+      hash = _SHA256;
+      break;
+
+    case YH_ALGO_RSA_OAEP_SHA384:
+      hash = _SHA384;
+      break;
+
+    case YH_ALGO_RSA_OAEP_SHA512:
+      hash = _SHA512;
+      break;
+
+    default:
+      fprintf(stderr, "Unrecognized OAEP algorithm\n");
+      return -1;
+  }
+
+  uint8_t label[64] = {0};
+  size_t label_len = sizeof(label);
+
+  if (hash_bytes(NULL, 0, hash, label, &label_len) == false) {
+    fprintf(stderr, "Unable to hash data\n");
+    return -1;
+  }
+
+  yh_rc yrc =
+    yh_util_put_rsa_wrapped_key(argv[0].e, argv[1].w, object_type, &object_id,
+                                argv[4].a, argv[5].s, argv[6].w, &argv[7].c,
+                                oaep, mgf1, label, label_len, argv[10].x,
+                                argv[10].len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to store wrapped object: %s\n", yh_strerror(yrc));
     return -1;
@@ -2604,6 +2974,7 @@ int yh_com_get_device_info(yubihsm_context *ctx, Argument *argv,
   yh_algorithm algorithms[YH_MAX_ALGORITHM_COUNT] = {0};
   size_t n_algorithms = sizeof(algorithms);
 
+
   yh_rc yrc =
     yh_util_get_device_info(ctx->connector, &major, &minor, &patch, &serial,
                             &log_total, &log_used, algorithms, &n_algorithms);
@@ -2626,6 +2997,14 @@ int yh_com_get_device_info(yubihsm_context *ctx, Argument *argv,
     }
   }
   fprintf(ctx->out, "\n");
+
+  char part_number[256] = {0};
+  size_t part_number_len = sizeof(part_number);
+  yrc =
+    yh_util_get_partnumber(ctx->connector, part_number, &part_number_len);
+  if (yrc == YHR_SUCCESS && part_number_len > 0) {
+    fprintf(ctx->out, "Part number:\t\t%s\n", part_number);
+  }
 
   return 0;
 }

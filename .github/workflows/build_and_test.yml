@@ -8,16 +8,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - environment: "ubuntu:23.10"
+          - environment: "ubuntu:24.04"
             cc: "gcc"
             upload_for_test: "false"
-          - environment: "ubuntu:23.10"
+          - environment: "ubuntu:24.04"
             cc: "clang"
             upload_for_test: "false"
-          - environment: "ubuntu:23.04"
+          - environment: "ubuntu:23.10"
             cc: "gcc"
             upload_for_test: "false"
-          - environment: "ubuntu:23.04"
+          - environment: "ubuntu:23.10"
             cc: "clang"
             upload_for_test: "false"
           - environment: "ubuntu:22.04"
@@ -32,15 +32,15 @@ jobs:
           - environment: "ubuntu:20.04"
             cc: "clang"
             upload_for_test: "false"
-          - environment: "ubuntu:18.04"
-            cc: "gcc"
-            upload_for_test: "false"
-          - environment: "ubuntu:16.04"
-            cc: "gcc"
-            upload_for_test: "false"
-          - environment: "ubuntu:14.04"
-            cc: "gcc"
-            upload_for_test: "false"
+#          - environment: "ubuntu:18.04"
+#            cc: "gcc"
+#            upload_for_test: "false"
+#          - environment: "ubuntu:16.04"
+#            cc: "gcc"
+#            upload_for_test: "false"
+#          - environment: "ubuntu:14.04"
+#            cc: "gcc"
+#            upload_for_test: "false"
           - environment: "debian:12"
             cc: "gcc"
             upload_for_test: "false"
@@ -52,9 +52,6 @@ jobs:
             upload_for_test: "false"
           - environment: "debian:11"
             cc: "clang"
-            upload_for_test: "false"
-          - environment: "debian:10"
-            cc: "gcc"
             upload_for_test: "false"
 
     name: build on ${{ matrix.environment }} (${{ matrix.cc }},${{ matrix.upload_for_test}})
@@ -87,7 +84,7 @@ jobs:
           fi
 
       - name: clone the Yubico/yubihsm-shell repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           path: yubihsm-shell
 
@@ -169,21 +166,18 @@ jobs:
       matrix:
         include:
           # we do not perform clang builds for all environments, only fedora
-          - environment: "fedora:38"
-            cc: "gcc"
-            upload_for_test: "false"
-          - environment: "fedora:38"
-            cc: "clang"
-            upload_for_test: "false"
-          - environment: "fedora:37"
-            cc: "gcc"
-            upload_for_test: "false"
-          - environment: "fedora:37"
-            cc: "clang"
-            upload_for_test: "false"
-          - environment: "centos:7"
+          - environment: "fedora:40"
             cc: "gcc"
             upload_for_test: "true"
+          - environment: "fedora:40"
+            cc: "clang"
+            upload_for_test: "false"
+          - environment: "fedora:39"
+            cc: "gcc"
+            upload_for_test: "false"
+          - environment: "fedora:39"
+            cc: "clang"
+            upload_for_test: "false"
 
     name: build on ${{ matrix.environment }} (${{ matrix.cc }}, ${{ matrix.upload_for_test }})
     runs-on: ubuntu-latest
@@ -352,7 +346,7 @@ jobs:
         include:
           - environment: "ubuntu:22.04"
             cc: "clang"
-          - environment: "centos:7"
+          - environment: "fedora:40"
             cc: "gcc"
 
     name: run unit tests
@@ -371,7 +365,7 @@ jobs:
           apt install -q -y build-essential cmake python3 python3-pip python3-setuptools curl libedit2 libpcsclite1 libengine-pkcs11-openssl opensc swig openjdk-11-jdk-headless libssl3
 
       - name: install dependencies from package management (rpm based)
-        if: ${{ matrix.environment == 'centos:7' }}
+        if: ${{ matrix.environment == 'fedora:40' }}
         run: |
           yum install -y gcc gcc-c++ cmake python3-devel python3-pip python3-setuptools curl libedit gengetopt openssl libcurl pcsc-lite swig java-11-openjdk-headless which
 

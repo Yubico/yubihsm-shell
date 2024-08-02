@@ -388,7 +388,7 @@ static void create_command_list(CommandList *c) {
                                     fmt_nofmt, fmt_nofmt, "Get storages stats",
                                     NULL, NULL});
   register_subcommand(*c, (Command){"pubkey", yh_com_get_pubkey,
-                                    "e:session,w:key_id,F:file=-", fmt_nofmt,
+                                    "e:session,w:key_id,t:key_type=asymmetric-key,F:file=-", fmt_nofmt,
                                     fmt_PEM, "Get a public key", NULL, NULL});
   register_subcommand(*c,
                       (Command){"objectinfo", yh_com_get_object_info,
@@ -396,9 +396,19 @@ static void create_command_list(CommandList *c) {
                                 "Get information about an object", NULL, NULL});
   register_subcommand(*c,
                       (Command){"wrapped", yh_com_get_wrapped,
-                                "e:session,w:wrapkey_id,t:type,w:id,F:file=-",
+                                "e:session,w:wrapkey_id,t:type,w:id,b:include_seed=0,F:file=-",
                                 fmt_nofmt, fmt_base64,
                                 "Get an object under wrap", NULL, NULL});
+  register_subcommand(*c,
+                      (Command){"rsa_wrapped", yh_com_get_rsa_wrapped,
+                                "e:session,w:wrapkey_id,t:type,w:id,a:aes=aes256,a:hash=rsa-oaep-sha256,mgf1=mgf1-sha256,F:file=-",
+                                fmt_nofmt, fmt_binary,
+                                "Get an object under RSA wrap", NULL, NULL});
+  register_subcommand(*c,
+                      (Command){"rsa_wrapped_key", yh_com_get_rsa_wrapped_key,
+                                "e:session,w:wrapkey_id,t:type,w:id,a:aes=aes256,a:hash=rsa-oaep-sha256,mgf1=mgf1-sha256,F:file=-",
+                                fmt_nofmt, fmt_binary,
+                                "Get a (a)symmetric key under RSA wrap", NULL, NULL});
   register_subcommand(*c, (Command){"deviceinfo", yh_com_get_device_info, NULL,
                                     fmt_nofmt, fmt_nofmt,
                                     "Extract the version number, serial number "
@@ -493,9 +503,29 @@ static void create_command_list(CommandList *c) {
                                 "capabilities,c:delegated_capabilities,i:key",
                                 fmt_hex, fmt_nofmt, "Store a wrapping key",
                                 NULL, NULL});
+  register_subcommand(*c,
+                      (Command){"rsa_wrapkey", yh_com_put_rsa_wrapkey,
+                                "e:session,w:key_id,s:label,d:domains,c:"
+                                "capabilities,c:delegated_capabilities,i:key=-",
+                                fmt_PEM, fmt_nofmt, "Store an RSA wrapping key",
+                                NULL, NULL});
+  register_subcommand(*c,
+                      (Command){"pub_wrapkey", yh_com_put_public_wrapkey,
+                                "e:session,w:key_id,s:label,d:domains,c:"
+                                "capabilities,c:delegated_capabilities,i:key=-",
+                                fmt_PEM, fmt_nofmt, "Store an RSA wrapping key",
+                                NULL, NULL});
   register_subcommand(*c, (Command){"wrapped", yh_com_put_wrapped,
                                     "e:session,w:wrapkey_id,i:data=-",
                                     fmt_base64, fmt_nofmt,
+                                    "Store a wrapped object", NULL, NULL});
+  register_subcommand(*c, (Command){"rsa_wrapped", yh_com_put_rsa_wrapped,
+                                    "e:session,w:wrapkey_id,a:hash=rsa-oaep-sha256,mgf1=mgf1-sha256,i:data=-",
+                                    fmt_binary, fmt_nofmt,
+                                    "Store a wrapped object", NULL, NULL});
+  register_subcommand(*c, (Command){"rsa_wrapped_key", yh_com_put_rsa_wrapped_key,
+                                    "e:session,w:wrapkey_id,t:type,w:key_id,a:algorithm,s:label,d:domains,c:capabilities,a:hash=rsa-oaep-sha256,mgf1=mgf1-sha256,i:data=-",
+                                    fmt_binary, fmt_nofmt,
                                     "Store a wrapped object", NULL, NULL});
   register_subcommand(*c, (Command){"template", yh_com_put_template,
                                     "e:session,w:object_id,s:label,d:domains,c:"
@@ -2049,7 +2079,7 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    Argument arg[7];
+    Argument arg[11];
 
     if (requires_session == true) {
       uint8_t *buf = 0;
@@ -2362,8 +2392,14 @@ int main(int argc, char *argv[]) {
 
         case action_arg_getMINUS_publicMINUS_key: {
           arg[1].w = args_info.object_id_arg;
-          arg[2].s = args_info.out_arg;
-          arg[2].len = strlen(args_info.out_arg);
+          if(args_info.object_type_given) {
+            yrc = yh_string_to_type(args_info.object_type_arg, &arg[2].t);
+            LIB_SUCCEED_OR_DIE(yrc, "Unable to parse type: ");
+          } else {
+            arg[2].t = YH_ASYMMETRIC_KEY;
+          }
+          arg[3].s = args_info.out_arg;
+          arg[3].len = strlen(args_info.out_arg);
 
           comrc =
             yh_com_get_pubkey(&g_ctx, arg, fmt_nofmt,
@@ -2412,12 +2448,88 @@ int main(int argc, char *argv[]) {
 
           arg[3].w = args_info.object_id_arg;
 
-          arg[4].s = args_info.out_arg;
-          arg[4].len = strlen(args_info.out_arg);
+          arg[4].b = args_info.include_seed_given;
+
+          arg[5].s = args_info.out_arg;
+          arg[5].len = strlen(args_info.out_arg);
 
           comrc =
             yh_com_get_wrapped(&g_ctx, arg, fmt_nofmt,
                                g_out_fmt == fmt_nofmt ? fmt_base64 : g_out_fmt);
+          COM_SUCCEED_OR_DIE(comrc, "Unable to get wrapped object");
+        } break;
+
+        case action_arg_getMINUS_rsaMINUS_wrapped: {
+          if (args_info.object_type_given == 0) {
+            fprintf(stderr, "Missing argument object-type\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          if (args_info.wrap_id_given == 0) {
+            fprintf(stderr, "Missing argument wrap-id\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          arg[1].w = args_info.wrap_id_arg;
+          yrc = yh_string_to_type(args_info.object_type_arg, &arg[2].t);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse type: ");
+
+          arg[3].w = args_info.object_id_arg;
+
+          yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[4].a);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
+
+          yrc = yh_string_to_algo(args_info.oaep_arg, &arg[5].a);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse OAEP algorithm: ");
+
+          yrc = yh_string_to_algo(args_info.mgf1_arg, &arg[6].a);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse MGF1 algorithm: ");
+
+          arg[7].s = args_info.out_arg;
+          arg[7].len = strlen(args_info.out_arg);
+
+          comrc =
+            yh_com_get_rsa_wrapped(&g_ctx, arg, fmt_nofmt,
+                               g_out_fmt == fmt_nofmt ? fmt_binary : g_out_fmt);
+          COM_SUCCEED_OR_DIE(comrc, "Unable to get wrapped object");
+        } break;
+
+        case action_arg_getMINUS_rsaMINUS_wrappedMINUS_key: {
+          if (args_info.object_type_given == 0) {
+            fprintf(stderr, "Missing argument object-type\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          if (args_info.wrap_id_given == 0) {
+            fprintf(stderr, "Missing argument wrap-id\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          arg[1].w = args_info.wrap_id_arg;
+          yrc = yh_string_to_type(args_info.object_type_arg, &arg[2].t);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse type: ");
+
+          arg[3].w = args_info.object_id_arg;
+
+          yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[4].a);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
+
+          yrc = yh_string_to_algo(args_info.oaep_arg, &arg[5].a);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse OAEP algorithm: ");
+
+          yrc = yh_string_to_algo(args_info.mgf1_arg, &arg[6].a);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse MGF1 algorithm: ");
+
+          arg[7].s = args_info.out_arg;
+          arg[7].len = strlen(args_info.out_arg);
+
+          comrc =
+            yh_com_get_rsa_wrapped_key(&g_ctx, arg, fmt_nofmt,
+                               g_out_fmt == fmt_nofmt ? fmt_binary : g_out_fmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to get wrapped object");
         } break;
 
@@ -2633,6 +2745,82 @@ int main(int argc, char *argv[]) {
           COM_SUCCEED_OR_DIE(comrc, "Unable to put wrapkey");
         } break;
 
+        case action_arg_putMINUS_rsaMINUS_wrapkey: {
+
+          if (args_info.delegated_given == 0) {
+            fprintf(stderr, "Missing delegated capabilities\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          arg[1].w = args_info.object_id_arg;
+
+          arg[2].s = args_info.label_arg;
+          arg[2].len = strlen(args_info.label_arg);
+
+          yrc = yh_string_to_domains(args_info.domains_arg, &arg[3].w);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse domains: ");
+
+          memset(&arg[4].c, 0, sizeof(yh_capabilities));
+          yrc =
+            yh_string_to_capabilities(args_info.capabilities_arg, &arg[4].c);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse capabilities: ");
+
+          memset(&arg[5].c, 0, sizeof(yh_capabilities));
+          yrc = yh_string_to_capabilities(args_info.delegated_arg, &arg[5].c);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse capabilities: ");
+
+          if (get_input_data(args_info.in_arg, &arg[6].x, &arg[6].len,
+                             g_in_fmt == fmt_nofmt ? fmt_PEM : g_in_fmt) ==
+              false) {
+            fprintf(stderr, "Failed to get input data\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          comrc = yh_com_put_rsa_wrapkey(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
+          free(arg[6].x);
+          COM_SUCCEED_OR_DIE(comrc, "Unable to put wrapkey");
+        } break;
+
+        case action_arg_putMINUS_publicMINUS_wrapkey: {
+
+          if (args_info.delegated_given == 0) {
+            fprintf(stderr, "Missing delegated capabilities\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          arg[1].w = args_info.object_id_arg;
+
+          arg[2].s = args_info.label_arg;
+          arg[2].len = strlen(args_info.label_arg);
+
+          yrc = yh_string_to_domains(args_info.domains_arg, &arg[3].w);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse domains: ");
+
+          memset(&arg[4].c, 0, sizeof(yh_capabilities));
+          yrc =
+            yh_string_to_capabilities(args_info.capabilities_arg, &arg[4].c);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse capabilities: ");
+
+          memset(&arg[5].c, 0, sizeof(yh_capabilities));
+          yrc = yh_string_to_capabilities(args_info.delegated_arg, &arg[5].c);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse capabilities: ");
+
+          if (get_input_data(args_info.in_arg, &arg[6].x, &arg[6].len,
+                             g_in_fmt == fmt_nofmt ? fmt_PEM : g_in_fmt) ==
+              false) {
+            fprintf(stderr, "Failed to get input data\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          comrc = yh_com_put_public_wrapkey(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
+          free(arg[6].x);
+          COM_SUCCEED_OR_DIE(comrc, "Unable to put wrapkey");
+        } break;
+
         case action_arg_putMINUS_symmetricMINUS_key: {
           if (args_info.algorithm_given == 0) {
             fprintf(stderr, "Missing argument algorithm\n");
@@ -2686,6 +2874,91 @@ int main(int argc, char *argv[]) {
           comrc = yh_com_put_wrapped(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           free(arg[2].x);
           COM_SUCCEED_OR_DIE(comrc, "Unable to store wrapped object");
+        } break;
+
+        case action_arg_putMINUS_rsaMINUS_wrapped: {
+          if (args_info.wrap_id_given == 0) {
+            fprintf(stderr, "Missing argument wrap-id\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          arg[1].w = args_info.wrap_id_arg;
+
+          yrc = yh_string_to_algo(args_info.oaep_arg, &arg[2].a);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse OAEP algorithm: ");
+
+          yrc = yh_string_to_algo(args_info.mgf1_arg, &arg[3].a);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse MGF1 algorithm: ");
+
+          if (get_input_data(args_info.in_arg, &arg[4].x, &arg[4].len,
+                             g_in_fmt == fmt_nofmt ? fmt_binary : g_in_fmt) ==
+              false) {
+            fprintf(stderr, "Failed to get input data\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          comrc = yh_com_put_rsa_wrapped(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
+          free(arg[4].x);
+          COM_SUCCEED_OR_DIE(comrc, "Unable to store RSA wrapped object");
+        } break;
+
+        case action_arg_putMINUS_rsaMINUS_wrappedMINUS_key: {
+          if (args_info.wrap_id_given == 0) {
+            fprintf(stderr, "Missing argument wrap-id\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          if (args_info.object_type_given == 0) {
+            fprintf(stderr, "Missing argument type\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          if (args_info.algorithm_given == 0) {
+            fprintf(stderr, "Missing argument key-algorithm\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          arg[1].w = args_info.wrap_id_arg;
+
+          yrc = yh_string_to_type(args_info.object_type_arg, &arg[2].t);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse object type: ");
+
+          arg[3].w = args_info.object_id_arg;
+
+          yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[4].a);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse key algorithm: ");
+
+          arg[5].s = args_info.label_arg;
+          arg[5].len = strlen(args_info.label_arg);
+
+          yrc = yh_string_to_domains(args_info.domains_arg, &arg[6].w);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse domains: ");
+
+          yrc = yh_string_to_capabilities(args_info.capabilities_arg, &arg[7].c);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse capabilities: ");
+
+          yrc = yh_string_to_algo(args_info.oaep_arg, &arg[8].a);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse OAEP algorithm: ");
+
+          yrc = yh_string_to_algo(args_info.mgf1_arg, &arg[9].a);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse MGF1 algorithm: ");
+
+          if (get_input_data(args_info.in_arg, &arg[10].x, &arg[10].len,
+                             g_in_fmt == fmt_nofmt ? fmt_binary : g_in_fmt) ==
+              false) {
+            fprintf(stderr, "Failed to get input data\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          comrc = yh_com_put_rsa_wrapped_key(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
+          free(arg[10].x);
+          COM_SUCCEED_OR_DIE(comrc, "Unable to store RSA wrapped object");
         } break;
 
         case action_arg_putMINUS_template: {

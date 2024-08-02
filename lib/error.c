@@ -39,7 +39,7 @@ static const err_t errors[] = {
   ERR(YHR_SESSION_AUTHENTICATION_FAILED, "Unable to authenticate session"),
   ERR(YHR_MAC_MISMATCH, "Unable to verify MAC"),
   ERR(YHR_DEVICE_OK, "No error"),
-  ERR(YHR_DEVICE_INVALID_COMMAND, "Invalid command"),
+  ERR(YHR_DEVICE_INVALID_COMMAND, "Unrecognized command"),
   ERR(YHR_DEVICE_INVALID_DATA, "Malformed command / invalid data"),
   ERR(YHR_DEVICE_INVALID_SESSION, "Invalid session"),
   ERR(YHR_DEVICE_AUTHENTICATION_FAILED,

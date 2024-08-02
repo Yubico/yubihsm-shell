@@ -228,6 +228,12 @@ set (
 )
 
 set (
+        SOURCE_ASYM_WRAP_TEST
+        asym_wrap_test.c
+        common.c
+)
+
+set (
         SOURCE_PKCS11_INTERFACES_TEST
         pkcs11_interfaces_test.c
         common.c
@@ -270,12 +276,10 @@ add_test (
 
 if (NOT ${LIBCRYPTO_VERSION} VERSION_LESS 1.1)
   add_executable (rsa_enc_test ${SOURCE_RSA_ENC_TEST})
-
   target_link_libraries (
           rsa_enc_test
           ${LIBCRYPTO_LDFLAGS}
           "-ldl")
-
   add_test (
           NAME rsa_enc_test
           COMMAND ${CMAKE_CURRENT_BINARY_DIR}/rsa_enc_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
@@ -283,24 +287,29 @@ if (NOT ${LIBCRYPTO_VERSION} VERSION_LESS 1.1)
 
 
   add_executable (pss_sign_test ${SOURCE_RSA_PSS_SIGN_TEST})
-
   target_link_libraries (
           pss_sign_test
           ${LIBCRYPTO_LDFLAGS}
           "-ldl")
-
   add_test (
           NAME pss_sign_test
           COMMAND ${CMAKE_CURRENT_BINARY_DIR}/pss_sign_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
   )
 
+  add_executable (asym_wrap_test ${SOURCE_ASYM_WRAP_TEST})
+  target_link_libraries (
+          asym_wrap_test
+          ${LIBCRYPTO_LDFLAGS}
+          "-ldl")
+  add_test (
+          NAME asym_wrap_test
+          COMMAND ${CMAKE_CURRENT_BINARY_DIR}/asym_wrap_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}
+  )
 
   add_executable (pkcs11_interfaces_test ${SOURCE_PKCS11_INTERFACES_TEST})
-
   target_link_libraries (
           pkcs11_interfaces_test
           "-ldl")
-
   add_test (
           NAME pkcs11_interfaces_test
           COMMAND ${CMAKE_CURRENT_BINARY_DIR}/pkcs11_interfaces_test ${CMAKE_CURRENT_BINARY_DIR}/../yubihsm_pkcs11.${LIBEXT}

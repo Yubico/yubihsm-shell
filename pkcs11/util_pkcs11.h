@@ -123,6 +123,7 @@ bool create_session(yubihsm_pkcs11_slot *slot, CK_FLAGS flags,
 void release_session(yubihsm_pkcs11_context *ctx,
                      yubihsm_pkcs11_session *session);
 
+CK_RV set_object_type(uint8_t *type, uint8_t expected_type);
 CK_RV set_template_attribute(yubihsm_pkcs11_attribute *attribute,
                              CK_BBOOL *value);
 CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
@@ -137,6 +138,11 @@ CK_RV parse_hmac_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
 CK_RV parse_wrap_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
                           yubihsm_pkcs11_object_template *template,
                           yh_algorithm algorithm, bool generate);
+CK_RV parse_rsa_wrappedkey_template(CK_ATTRIBUTE_PTR pTemplate,
+                                    CK_ULONG ulCount,
+                                    yubihsm_pkcs11_object_template *template,
+                                    pkcs11_meta_object *pkcs11meta,
+                                    CK_BYTE *type);
 CK_RV parse_aes_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
                          yubihsm_pkcs11_object_template *template,
                          bool generate);

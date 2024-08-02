@@ -112,6 +112,8 @@ int yh_com_get_object_info(yubihsm_context *ctx, Argument *argv,
                            cmd_format in_fmt, cmd_format fmt);
 int yh_com_get_wrapped(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                        cmd_format fmt);
+int yh_com_get_rsa_wrapped(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt, cmd_format fmt);
+int yh_com_get_rsa_wrapped_key(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt, cmd_format fmt);
 int yh_com_get_device_info(yubihsm_context *ctx, Argument *argv,
                            cmd_format in_fmt, cmd_format fmt);
 int yh_com_get_template(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
@@ -152,8 +154,16 @@ int yh_com_put_hmac(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                     cmd_format fmt);
 int yh_com_put_wrapkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                        cmd_format fmt);
+int yh_com_put_rsa_wrapkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                           cmd_format fmt);
+int yh_com_put_public_wrapkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                           cmd_format fmt);
 int yh_com_put_wrapped(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                        cmd_format fmt);
+int yh_com_put_rsa_wrapped(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                           cmd_format fmt);
+int yh_com_put_rsa_wrapped_key(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                               cmd_format fmt);
 int yh_com_put_template(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                         cmd_format fmt);
 int yh_com_put_otp_aead_key(yubihsm_context *ctx, Argument *argv,

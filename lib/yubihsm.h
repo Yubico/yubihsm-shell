@@ -88,7 +88,7 @@
 /// Length of host challenge for authentication
 #define YH_HOST_CHAL_LEN 8
 /// Maximum length of message buffer
-#define YH_MSG_BUF_SIZE 2048
+#define YH_MSG_BUF_SIZE 4096
 /// Length of authentication keys
 #define YH_KEY_LEN 16
 /// Device vendor ID
@@ -359,6 +359,16 @@ typedef enum {
   ADD_COMMAND(YHC_DECRYPT_CBC, 0x71),
   /// Encrypt data using a Symmetric Key with CBC
   ADD_COMMAND(YHC_ENCRYPT_CBC, 0x72),
+  /// Import public RSA key as a Public Wrap Key
+  ADD_COMMAND(YHC_PUT_PUBLIC_WRAPKEY, 0x73),
+  /// Export (a)symmetric key using a Public Wrap Key
+  ADD_COMMAND(YHC_GET_RSA_WRAPPED_KEY, 0x74),
+  /// Import (a)symmetric key after unwrapping in using and RSA wrap key
+  ADD_COMMAND(YHC_PUT_RSA_WRAPPED_KEY, 0x75),
+  /// Wrap an object using an RSA Wrap Key
+  ADD_COMMAND(YHC_EXPORT_RSA_WRAPPED, 0x76),
+  /// Import an object after unwrapping in using and RSA Wrap Key
+  ADD_COMMAND(YHC_IMPORT_RSA_WRAPPED, 0x77),
   /// The response byte returned from the device if the command resulted in an
   /// error
   YHC_ERROR = 0x7f,
@@ -392,6 +402,9 @@ typedef enum {
   YH_OTP_AEAD_KEY = 0x07,
   /// Symmetric Key is a secret key used for encryption and decryption.
   YH_SYMMETRIC_KEY = 0x08,
+  /// Public Wrap Key is a public key used to wrap Objects during the
+  /// export process
+  YH_PUBLIC_WRAP_KEY = 0x09,
   /// Public Key is the public key of an asymmetric key-pair. The public key
   /// never exists in device and is mostly here for PKCS#11.
   YH_PUBLIC_KEY = 0x83,
@@ -514,6 +527,8 @@ typedef enum {
   YH_ALGO_AES_ECB = 53,
   /// aes-cbc
   YH_ALGO_AES_CBC = 54,
+  /// aes-kwp
+  YH_ALGO_AES_KWP = 55,
 } yh_algorithm;
 
 /**
@@ -623,6 +638,7 @@ static const struct {
   {"delete-hmac-key", 0x2b},
   {"delete-opaque", 0x27},
   {"delete-otp-aead-key", 0x2d},
+  {"delete-public-wrap-key", 0x55},
   {"delete-symmetric-key", 0x31},
   {"delete-template", 0x2c},
   {"delete-wrap-key", 0x2a},
@@ -647,6 +663,7 @@ static const struct {
   {"put-mac-key", 0x14},
   {"put-opaque", 0x01},
   {"put-otp-aead-key", 0x23},
+  {"put-public-wrap-key", 0x54},
   {"put-symmetric-key", 0x2f},
   {"put-template", 0x1b},
   {"put-wrap-key", 0x0e},
@@ -683,6 +700,7 @@ static const struct {
   {"aes256-yubico-otp", YH_ALGO_AES256_YUBICO_OTP},
   {"aes-cbc", YH_ALGO_AES_CBC},
   {"aes-ecb", YH_ALGO_AES_ECB},
+  {"aes-kwp", YH_ALGO_AES_KWP},
   {"ecbp256", YH_ALGO_EC_BP256},
   {"ecbp384", YH_ALGO_EC_BP384},
   {"ecbp512", YH_ALGO_EC_BP512},
@@ -736,6 +754,7 @@ static const struct {
   {"hmac-key", YH_HMAC_KEY},
   {"opaque", YH_OPAQUE},
   {"otp-aead-key", YH_OTP_AEAD_KEY},
+  {"public-wrap-key", YH_PUBLIC_WRAP_KEY},
   {"symmetric-key", YH_SYMMETRIC_KEY},
   {"template", YH_TEMPLATE},
   {"wrap-key", YH_WRAP_KEY},
@@ -1230,6 +1249,24 @@ yh_rc yh_util_get_device_info(yh_connector *connector, uint8_t *major,
                               yh_algorithm *algorithms, size_t *n_algorithms);
 
 /**
+ * Get device version, part number (chip designator) as required ny FIPS
+ *
+ * @param connector Connector to the device
+ * @param part_number Part number (chip designator)
+ * @param part_number_len Size of part_number
+ *
+ * @return #YHR_SUCCESS if successful or of part_number is NULL
+ *         #YHR_DEVICE_INVALID_COMMAND if firmware version does not support the
+ *command
+ *         #YHR_INVALID_PARAMETER if the connector is NULL.
+ *         #YH_INVALID_DEVICE_INVALID_DATA If returned part_number is less than
+ *12 bytes
+ *         #YHR_BUFFER_TOO_SMALL if part_number is smaller than 13 bytes
+ **/
+yh_rc yh_util_get_partnumber(yh_connector *connector, char *part_number,
+                             size_t *part_number_len);
+
+/**
  * List objects accessible from the session
  *
  * @param session Authenticated session to use
@@ -1302,6 +1339,23 @@ yh_rc yh_util_get_object_info(yh_session *session, uint16_t id,
  **/
 yh_rc yh_util_get_public_key(yh_session *session, uint16_t id, uint8_t *data,
                              size_t *data_len, yh_algorithm *algorithm);
+
+/**
+ * Get the value of the public key with the specified Object ID and type
+ *
+ * @param session Authenticated session to use
+ * @param id Object ID of the public key
+ * @param type Object type of the public key
+ * @param data Value of the public key
+ * @param data_len Length of the public key in bytes
+ * @param algorithm Algorithm of the key
+ *
+ * @return #YHR_SUCCESS if successful.
+ *         #YHR_INVALID_PARAMETERS if input parameters are NULL.
+ *         #YHR_BUFFER_TOO_SMALL if the actual key length was bigger than
+ *data_len. See #yh_rc for other possible errors
+ **/
+yh_rc yh_util_get_public_key_ex(yh_session *session, yh_object_type type, uint16_t id, uint8_t *data, size_t *data_len, yh_algorithm *algorithm);
 
 /**
  * Close a session
@@ -1800,9 +1854,30 @@ yh_rc yh_util_delete_object(yh_session *session, uint16_t id,
  *         #YHR_INVALID_PARAMETERS if input parameters are NULL.
  *         See #yh_rc for other possible errors
  **/
+
 yh_rc yh_util_export_wrapped(yh_session *session, uint16_t wrapping_key_id,
                              yh_object_type target_type, uint16_t target_id,
                              uint8_t *out, size_t *out_len);
+
+/**
+ * Export an object under wrap from the device with the option to include the
+ *ED25519 seed
+ *
+ * @param session Authenticated session to use
+ * @param wrapping_key_id Object ID of the Wrap Key to use to wrap the object
+ * @param target_type Type of the object to be exported. See #yh_object_type
+ * @param target_id Object ID of the object to be exported
+ * @param format Curently supported formats: 0=legacy 1=include ED25519 seed
+ * @param out Wrapped data
+ * @param out_len Length of wrapped data
+ *
+ * @return #YHR_SUCCESS if successful.
+ *         #YHR_INVALID_PARAMETERS if input parameters are NULL.
+ *         See #yh_rc for other possible errors
+ **/
+yh_rc yh_util_export_wrapped_ex(yh_session *session, uint16_t wrapping_key_id,
+                                yh_object_type target_type, uint16_t target_id,
+                                uint8_t format, uint8_t *out, size_t *out_len);
 
 /**
  * Import a wrapped object into the device. The object should have been
@@ -1824,6 +1899,131 @@ yh_rc yh_util_import_wrapped(yh_session *session, uint16_t wrapping_key_id,
                              yh_object_type *target_type, uint16_t *target_id);
 
 /**
+ * Export a (a)symmetric key material using an RSA wrap key, meta data or
+ *properties, like domains and capabilities, are not included. Only asymmetric
+ *and symmetric key objects are valid targets.
+ *
+ * @param session Authenticated session to use
+ * @param wrapping_key_id Object ID of the Wrap Key to use to wrap the object
+ * @param target_type Type of the target key object
+ * @param target_id Object ID of the target key object
+ * @param aes Algorithm of the ephemeral AES key. Can be #YH_ALGO_AES128,
+ *#YH_ALGO_AES192 or #YH_ALGO_AES256
+ * @param hash Hash algorithm. One of #YH_ALGO_RSA_OAEP_SHA1,
+ *#YH_ALGO_RSA_OAEP_SHA256, #YH_ALGO_RSA_OAEP_SHA384 or #YH_ALGO_RSA_OAEP_SHA512
+ * @param mgf1 MGF1 algorithm. One of #YH_ALGO_MGF1_SHA1, #YH_ALGO_MGF1_SHA256,
+ *#YH_ALGO_MGF1_SHA384 or #YH_ALGO_MGF1_SHA512
+ * @param label Label for the MGF1 algorithm
+ * @param label_len Label length
+ * @param out Wrapped key object bytes
+ * @param out_len Length of the wrapped key
+ *
+ * @return #YHR_SUCCESS if successful.
+ *         #YHR_INVALID_PARAMETERS if input parameters are NULL or if the
+ *         command is not supported.
+ *         See #yh_rc for other possible errors
+ **/
+yh_rc yh_util_get_rsa_wrapped_key(yh_session *session, uint16_t wrap_key_id,
+                                  yh_object_type target_type,
+                                  uint16_t target_id, yh_algorithm aes,
+                                  yh_algorithm hash, yh_algorithm mgf1,
+                                  const uint8_t *oaep_label,
+                                  size_t oaep_label_len, uint8_t *out,
+                                  size_t *out_len);
+
+/**
+ * Export an object using an RSA wrap key. The wrapped object contain all meta
+ *data and properties, like domains and capabilities
+ *
+ * @param session Authenticated session to use
+ * @param wrapping_key_id Object ID of the Wrap Key to use to wrap the object
+ * @param target_type Type of the target object
+ * @param target_id Object ID of the target object
+ * @param aes Algorithm of the ephemeral AES key. Can be #YH_ALGO_AES128,
+ *#YH_ALGO_AES192 or #YH_ALGO_AES256
+ * @param hash Hash algorithm. One of #YH_ALGO_RSA_OAEP_SHA1,
+ *#YH_ALGO_RSA_OAEP_SHA256, #YH_ALGO_RSA_OAEP_SHA384 or #YH_ALGO_RSA_OAEP_SHA512
+ * @param mgf1 MGF1 algorithm. One of #YH_ALGO_MGF1_SHA1, #YH_ALGO_MGF1_SHA256,
+ *#YH_ALGO_MGF1_SHA384 or #YH_ALGO_MGF1_SHA512
+ * @param label Label for the MGF1 algorithm
+ * @param label_len Label length
+ * @param out Wrapped object bytes
+ * @param out_len Length of the wrapped object
+ *
+ * @return #YHR_SUCCESS if successful.
+ *         #YHR_INVALID_PARAMETERS if input parameters are NULL or if the
+ *         command is not supported.
+ *         See #yh_rc for other possible errors
+ **/
+yh_rc yh_util_export_rsa_wrapped(yh_session *session, uint16_t wrap_key_id,
+                                 yh_object_type target_type, uint16_t target_id,
+                                 yh_algorithm aes, yh_algorithm hash,
+                                 yh_algorithm mgf1, const uint8_t *oaep_label,
+                                 size_t oaep_label_len, uint8_t *out,
+                                 size_t *out_len);
+
+/**
+ * Import an object using an RSA wrap key.
+ *
+ * @param session Authenticated session to use
+ * @param wrapping_key_id Object ID of the Wrap Key to use to unwrap the object
+ * @param hash Hash algorithm. One of #YH_ALGO_RSA_OAEP_SHA1,
+ *#YH_ALGO_RSA_OAEP_SHA256, #YH_ALGO_RSA_OAEP_SHA384 or #YH_ALGO_RSA_OAEP_SHA512
+ * @param mgf1 MGF1 algorithm. One of #YH_ALGO_MGF1_SHA1, #YH_ALGO_MGF1_SHA256,
+ *#YH_ALGO_MGF1_SHA384 or #YH_ALGO_MGF1_SHA512
+ * @param label Label for the MGF1 algorithm
+ * @param label_len Label length
+ * @param in Wrapped object bytes
+ * @param in_len Length of the wrapped object
+ * @param target_type Type of the target object
+ * @param target_id Object ID of the target object
+ *
+ * @return #YHR_SUCCESS if successful.
+ *         #YHR_INVALID_PARAMETERS if input parameters are NULL or if the
+ *         command is not supported.
+ *         See #yh_rc for other possible errors
+ **/
+yh_rc yh_util_import_rsa_wrapped(yh_session *session, uint16_t wrapping_key_id,
+                                 yh_algorithm hash, yh_algorithm mgf1,
+                                 const uint8_t *label, size_t label_len,
+                                 const uint8_t *in, size_t in_len,
+                                 yh_object_type *target_type,
+                                 uint16_t *target_id);
+
+/**
+ * Import an (a)symmetric key using an RSA wrap key.
+ *
+ * @param session Authenticated session to use
+ * @param wrapping_key_id Object ID of the Wrap Key to use to unwrap the object
+ * @param type Type of object to import. One of #YH_SYMMETRIC_KEY or
+ *#YH_ASYMMETRIC_KEY
+ * @param target_id Object ID of object to import
+ * @param algo Key algorithm of object to import
+ * @param label Label of object to import
+ * @param domains Domains of object to import
+ * @param capabilities of object to import
+ * @param hash Hash algorithm. One of #YH_ALGO_RSA_OAEP_SHA1,
+ *#YH_ALGO_RSA_OAEP_SHA256, #YH_ALGO_RSA_OAEP_SHA384 or #YH_ALGO_RSA_OAEP_SHA512
+ * @param mgf1 MGF1 algorithm. One of #YH_ALGO_MGF1_SHA1, #YH_ALGO_MGF1_SHA256,
+ *#YH_ALGO_MGF1_SHA384 or #YH_ALGO_MGF1_SHA512
+ * @param oaep_label Label for the MGF1 algorithm
+ * @param oaep_label_len Label length
+ * @param in Wrapped object bytes
+ * @param in_len Length of the wrapped object
+ *
+ * @return #YHR_SUCCESS if successful.
+ *         #YHR_INVALID_PARAMETERS if input parameters are NULL or if the
+ *         command is not supported.
+ *         See #yh_rc for other possible errors
+ **/
+yh_rc yh_util_put_rsa_wrapped_key(
+  yh_session *session, uint16_t wrapping_key_id, yh_object_type type,
+  uint16_t *target_id, yh_algorithm algo, const char *label, uint16_t domains,
+  const yh_capabilities *capabilities, yh_algorithm hash, yh_algorithm mgf1,
+  const uint8_t *oaep_label, size_t oaep_label_len, const uint8_t *in,
+  size_t in_len);
+
+/**
  * Import a Wrap Key into the device
  *
  * @param session Authenticated session to use
@@ -1835,8 +2035,9 @@ yh_rc yh_util_import_wrapped(yh_session *session, uint16_t wrapping_key_id,
  * @param capabilities Capabilities of the Wrap Key. See
  *#yh_string_to_capabilities()
  * @param algorithm Algorithm of the Wrap Key. Supported algorithms:
- *#YH_ALGO_AES128_CCM_WRAP, #YH_ALGO_AES192_CCM_WRAP and
- *#YH_ALGO_AES256_CCM_WRAP
+ *#YH_ALGO_AES128_CCM_WRAP, #YH_ALGO_AES192_CCM_WRAP,
+ *#YH_ALGO_AES256_CCM_WRAP, #YH_ALGO_RSA_2048, #YH_ALGO_RSA_3072 and
+ * #YH_ALGO_RSA_4096
  * @param delegated_capabilities Delegated capabilities of the Wrap Key. See
  *#yh_string_to_capabilities()
  * @param in the Wrap Key to import
@@ -1845,8 +2046,9 @@ yh_rc yh_util_import_wrapped(yh_session *session, uint16_t wrapping_key_id,
  * @return #YHR_SUCCESS if successful.
  *         #YHR_INVALID_PARAMETERS if input parameters are NULL, <tt>in_len</tt>
  *is not what expected based on the algorithm and if the algorithms is not one
- *of #YH_ALGO_AES128_CCM_WRAP, #YH_ALGO_AES192_CCM_WRAP or
- *#YH_ALGO_AES256_CCM_WRAP.
+ *of #YH_ALGO_AES128_CCM_WRAP, #YH_ALGO_AES192_CCM_WRAP,
+ *#YH_ALGO_AES256_CCM_WRAP or an RSA key algorithm. #YHR_INVALID_PARAMETERS will
+ * also be returned if the firmware version does not support RSA wrap keys.
  *         See #yh_rc for other possible errors
  **/
 yh_rc yh_util_import_wrap_key(yh_session *session, uint16_t *key_id,
@@ -1855,6 +2057,37 @@ yh_rc yh_util_import_wrap_key(yh_session *session, uint16_t *key_id,
                               yh_algorithm algorithm,
                               const yh_capabilities *delegated_capabilities,
                               const uint8_t *in, size_t in_len);
+
+/**
+ * Import a public RSA key as a public wrap Key into the device
+ *
+ * @param session Authenticated session to use
+ * @param key_id Object ID the Wrap Key. 0 if the Object ID should be generated
+ *by the device
+ * @param label Label of the Wrap Key. Maximum length is #YH_OBJ_LABEL_LEN
+ * @param domains Domains where the Wrap Key will be operating within. See
+ *#yh_string_to_domains()
+ * @param capabilities Capabilities of the Wrap Key. See
+ *#yh_string_to_capabilities()
+ * @param algorithm Algorithm of the Public Wrap Key. Supported algorithms:
+ *#YH_ALGO_RSA_2048, #YH_ALGO_RSA_3072 and #YH_ALGO_RSA_4096
+ * @param delegated_capabilities Delegated capabilities of the Wrap Key. See
+ *#yh_string_to_capabilities()
+ * @param in the Public Wrap Key to import in PEM format
+ * @param in_len Length of the Wrap Key to import
+ *
+ * @return #YHR_SUCCESS if successful.
+ *         #YHR_INVALID_PARAMETERS if input parameters are NULL, <tt>in_len</tt>
+ *is not what expected based on the algorithm and if the algorithms is not one
+ *of #YH_ALGO_RSA_2048, #YH_ALGO_RSA_3072 or #YH_ALGO_RSA_4096.
+ *         See #yh_rc for other possible errors
+ **/
+yh_rc yh_util_import_public_wrap_key(yh_session *session, uint16_t *key_id,
+                                  const char *label, uint16_t domains,
+                                  const yh_capabilities *capabilities,
+                                  yh_algorithm algorithm,
+                                  const yh_capabilities *delegated_capabilities,
+                                  const uint8_t *in, size_t in_len);
 
 /**
  * Generate a Wrap Key that can be used for export, import, wrap data and unwrap

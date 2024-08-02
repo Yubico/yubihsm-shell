@@ -462,13 +462,13 @@ static CK_RV C_GetInfo_Ex(CK_INFO_PTR pInfo, CK_VERSION cryptokiVersion) {
   memcpy((char *) pInfo->libraryDescription, YUBIHSM_PKCS11_LIBDESC,
          strlen(YUBIHSM_PKCS11_LIBDESC));
 
-  CK_VERSION libraryVersion = {VERSION_MAJOR, (VERSION_MINOR * 10) + VERSION_PATCH};
+  CK_VERSION libraryVersion = {VERSION_MAJOR,
+                               (VERSION_MINOR * 10) + VERSION_PATCH};
 
   pInfo->libraryVersion = libraryVersion;
 
   return CKR_OK;
 }
-
 
 CK_DEFINE_FUNCTION(CK_RV, C_GetInfo)(CK_INFO_PTR pInfo) {
 
@@ -707,16 +707,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetTokenInfo)
   memcpy((char *) pInfo->model, s, l);
 
   memset(pInfo->serialNumber, ' ', sizeof(pInfo->serialNumber));
-  l = snprintf((char *) pInfo->serialNumber, sizeof(pInfo->serialNumber), "%08u", serial);
+  l = snprintf((char *) pInfo->serialNumber, sizeof(pInfo->serialNumber),
+               "%08u", serial);
   pInfo->serialNumber[l] = ' ';
 
   pInfo->flags = CKF_RNG | CKF_LOGIN_REQUIRED | CKF_USER_PIN_INITIALIZED |
                  CKF_TOKEN_INITIALIZED;
 
   pInfo->ulMaxSessionCount =
-    CK_EFFECTIVELY_INFINITE; // maximum number of sessions that can be opened
-                             // with the token at one time by a single
-                             // application
+    CK_EFFECTIVELY_INFINITE;    // maximum number of sessions that can be opened
+                                // with the token at one time by a single
+                                // application
   pInfo->ulSessionCount =
     CK_UNAVAILABLE_INFORMATION; // number of sessions that this application
                                 // currently has open with the token
@@ -1221,6 +1222,40 @@ c_l_out:
   return rv;
 }
 
+static yh_rc set_wrapkey_capabilities(yubihsm_pkcs11_object_template *template,
+                                      yh_capabilities *capabilities) {
+  yh_rc rc;
+  if (template->wrap == ATTRIBUTE_TRUE) {
+    rc = yh_string_to_capabilities("export-wrapped", capabilities);
+    if (rc != YHR_SUCCESS) {
+      return rc;
+    }
+  }
+
+  if (template->unwrap == ATTRIBUTE_TRUE) {
+    rc = yh_string_to_capabilities("import-wrapped", capabilities);
+    if (rc != YHR_SUCCESS) {
+      return rc;
+    }
+  }
+
+  if (template->encrypt == ATTRIBUTE_TRUE) {
+    rc = yh_string_to_capabilities("wrap-data", capabilities);
+    if (rc != YHR_SUCCESS) {
+      return rc;
+    }
+  }
+
+  if (template->decrypt == ATTRIBUTE_TRUE) {
+    rc = yh_string_to_capabilities("unwrap-data", capabilities);
+    if (rc != YHR_SUCCESS) {
+      return rc;
+    }
+  }
+
+  return YHR_SUCCESS;
+}
+
 CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
 (CK_SESSION_HANDLE hSession, CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
  CK_OBJECT_HANDLE_PTR phObject) {
@@ -1340,23 +1375,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       DBG_INFO("parsed RSA key, algorithm: %d, objlen: %d", template.algorithm,
                template.objlen);
 
-      if (template.sign == ATTRIBUTE_TRUE) {
-        rc = yh_string_to_capabilities("sign-pkcs,sign-pss", &capabilities);
-        if (rc != YHR_SUCCESS) {
-          rv = yrc_to_rv(rc);
-          goto c_co_out;
-        }
-      }
-
-      if (template.decrypt == ATTRIBUTE_TRUE) {
-        rc =
-          yh_string_to_capabilities("decrypt-pkcs,decrypt-oaep", &capabilities);
-        if (rc != YHR_SUCCESS) {
-          rv = yrc_to_rv(rc);
-          goto c_co_out;
-        }
-      }
-
       uint8_t p[512], q[512];
 
       set_component(p, template.obj.rsa.p, template.objlen);
@@ -1365,9 +1383,53 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       BN_free(template.obj.rsa.p);
       BN_free(template.obj.rsa.q);
 
-      rc = yh_util_import_rsa_key(session->slot->device_session, &template.id,
+      if (template.unwrap) {
+        type = YH_WRAP_KEY;
+
+        rc = set_wrapkey_capabilities(&template, &capabilities);
+        if (rc != YHR_SUCCESS) {
+          rv = yrc_to_rv(rc);
+          goto c_co_out;
+        }
+
+        rc = yh_string_to_capabilities("all", &delegated_capabilities);
+        if (rc != YHR_SUCCESS) {
+          rv = yrc_to_rv(rc);
+          goto c_co_out;
+        }
+
+        uint8_t key[1024] = {0};
+        memcpy(key, p, template.objlen);
+        memcpy(key + template.objlen, q, template.objlen);
+
+        rc = yh_util_import_wrap_key(session->slot->device_session, &template.id,
                                   template.label, 0xffff, &capabilities,
-                                  template.algorithm, p, q);
+                                  template.algorithm, &delegated_capabilities,
+                                  key, template.objlen * 2);
+
+      } else {
+
+        if (template.sign == ATTRIBUTE_TRUE) {
+          rc = yh_string_to_capabilities("sign-pkcs,sign-pss", &capabilities);
+          if (rc != YHR_SUCCESS) {
+            rv = yrc_to_rv(rc);
+            goto c_co_out;
+          }
+        }
+
+        if (template.decrypt == ATTRIBUTE_TRUE) {
+          rc = yh_string_to_capabilities("decrypt-pkcs,decrypt-oaep",
+                                         &capabilities);
+          if (rc != YHR_SUCCESS) {
+            rv = yrc_to_rv(rc);
+            goto c_co_out;
+          }
+        }
+
+        rc = yh_util_import_rsa_key(session->slot->device_session, &template.id,
+                                    template.label, 0xffff, &capabilities,
+                                    template.algorithm, p, q);
+      }
       if (rc != YHR_SUCCESS) {
         DBG_ERR("Failed importing RSA key to device: %s", yh_strerror(rc));
         rv = yrc_to_rv(rc);
@@ -1429,10 +1491,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       }
 
       rc = yh_util_import_ed_key(session->slot->device_session, &template.id,
-                                template.label, 0xffff, &capabilities,
-                                template.algorithm,
-                                template.obj.buf);
-      if(rc != YHR_SUCCESS) {
+                                 template.label, 0xffff, &capabilities,
+                                 template.algorithm, template.obj.buf);
+      if (rc != YHR_SUCCESS) {
         DBG_ERR("Failed importing ED key to device");
         rv = yrc_to_rv(rc);
         goto c_co_out;
@@ -1490,7 +1551,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
                key_type.d == CKK_YUBICO_AES192_CCM_WRAP ||
                key_type.d == CKK_YUBICO_AES256_CCM_WRAP) {
       yh_algorithm algo = key_type.d & 0xff;
-      type = YH_WRAP_KEY;
       rv = parse_wrap_template(pTemplate, ulCount, &template, algo, false);
       if (rv != CKR_OK) {
         goto c_co_out;
@@ -1498,36 +1558,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
 
       DBG_INFO("parsed WRAP key, objlen: %d", template.objlen);
 
-      if (template.wrap == ATTRIBUTE_TRUE) {
-        rc = yh_string_to_capabilities("export-wrapped", &capabilities);
-        if (rc != YHR_SUCCESS) {
-          rv = yrc_to_rv(rc);
-          goto c_co_out;
-        }
-      }
-
-      if (template.unwrap == ATTRIBUTE_TRUE) {
-        rc = yh_string_to_capabilities("import-wrapped", &capabilities);
-        if (rc != YHR_SUCCESS) {
-          rv = yrc_to_rv(rc);
-          goto c_co_out;
-        }
-      }
-
-      if (template.encrypt == ATTRIBUTE_TRUE) {
-        rc = yh_string_to_capabilities("wrap-data", &capabilities);
-        if (rc != YHR_SUCCESS) {
-          rv = yrc_to_rv(rc);
-          goto c_co_out;
-        }
-      }
-
-      if (template.decrypt == ATTRIBUTE_TRUE) {
-        rc = yh_string_to_capabilities("unwrap-data", &capabilities);
-        if (rc != YHR_SUCCESS) {
-          rv = yrc_to_rv(rc);
-          goto c_co_out;
-        }
+      rc = set_wrapkey_capabilities(&template, &capabilities);
+      if (rc != YHR_SUCCESS) {
+        rv = yrc_to_rv(rc);
+        goto c_co_out;
       }
 
       rc = yh_string_to_capabilities("all", &delegated_capabilities);
@@ -1536,10 +1570,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
         goto c_co_out;
       }
 
+      type = YH_WRAP_KEY;
       rc = yh_util_import_wrap_key(session->slot->device_session, &template.id,
-                                   template.label, 0xffff, &capabilities, algo,
-                                   &delegated_capabilities, template.obj.buf,
-                                   template.objlen);
+                                template.label, 0xffff, &capabilities, algo,
+                                &delegated_capabilities, template.obj.buf,
+                                template.objlen);
       if (rc != YHR_SUCCESS) {
         DBG_ERR("Failed writing WRAP key to device: %s", yh_strerror(rc));
         rv = yrc_to_rv(rc);
@@ -1665,7 +1700,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       meta_object.target_id = template.id;
     }
   } else if (class.d == CKO_PUBLIC_KEY) {
-    bool pubkey_found = false;
+
     // Read the value of the public key
     for (CK_ULONG i = 0; i < ulCount; i++) {
       switch (pTemplate[i].type) {
@@ -1680,84 +1715,155 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
             goto c_co_out;
           }
           break;
+        case CKA_WRAP:
+          if ((rv = set_template_attribute(&template.wrap,
+                                           pTemplate[i].pValue)) != CKR_OK) {
+            DBG_ERR("CKA_WRAP inconsistent in template");
+            return rv;
+          }
+          break;
+        case CKA_ENCRYPT:
+          if ((rv = set_template_attribute(&template.encrypt,
+                                           pTemplate[i].pValue)) != CKR_OK) {
+            DBG_ERR("CKA_ENCRYPT inconsistent in template");
+            return rv;
+          }
+          break;
       }
     }
 
-    // Get a list of all asym objects in the YubiHSM
-    yh_object_descriptor asym_keys[YH_MAX_ITEMS_COUNT] = {0};
-    size_t asym_keys_len = sizeof(asym_keys);
-    rc = yh_util_list_objects(session->slot->device_session, 0,
-                              YH_ASYMMETRIC_KEY, 0, &capabilities, 0, NULL,
-                              asym_keys, &asym_keys_len);
-    if (rc != YHR_SUCCESS) {
-      DBG_ERR("Failed to get object list");
-      rv = yrc_to_rv(rc);
-      goto c_co_out;
-    }
+    if (template.wrap && key_type.d == CKK_RSA) {
+      switch (template.objlen) {
+        case 256:
+          template.algorithm = YH_ALGO_RSA_2048;
+          break;
+        case 384:
+          template.algorithm = YH_ALGO_RSA_3072;
+          break;
+        case 512:
+          template.algorithm = YH_ALGO_RSA_4096;
+          break;
+        default:
+          DBG_ERR("Unsupported key length");
+          rv = CKR_DATA_INVALID;
+          goto c_co_out;
+      }
 
-    // Check which asym public key matches the one in the request
-    for (size_t i = 0; i < asym_keys_len; i++) {
-      uint8_t pubkey[2048] = {0};
-      size_t pubkey_len = sizeof(pubkey);
-      rc = yh_util_get_public_key(session->slot->device_session,
-                                  asym_keys[i].id, pubkey, &pubkey_len, NULL);
+      if (template.algorithm == 0) {
+        DBG_ERR("Missing CKA_KEY_TYPE in attribute template");
+        rv = CKR_TEMPLATE_INCOMPLETE;
+        goto c_co_out;
+      }
+
+      rc = set_wrapkey_capabilities(&template, &capabilities);
       if (rc != YHR_SUCCESS) {
-        DBG_ERR("Failed to get public key of object 0x%x", asym_keys[i].id);
         rv = yrc_to_rv(rc);
         goto c_co_out;
       }
 
-      if (match_byte_array(pubkey, pubkey_len, template.obj.buf,
-                           template.objlen)) {
-        template.id = asym_keys[i].id;
-        pubkey_found = true;
-
-        // If there's need, update or create meta_object
-        yubihsm_pkcs11_object_desc *asym_key_desc =
-          _get_object_desc(session->slot, asym_keys[i].id, YH_ASYMMETRIC_KEY,
-                           asym_keys[i].sequence);
-        if (asym_key_desc == NULL) {
-          continue;
-        }
-        if (meta_object.cka_id.len > 0 || meta_object.cka_label.len > 0) {
-          yubihsm_pkcs11_object_desc *pMeta_object =
-            find_meta_object_by_target(session->slot, asym_keys[i].id,
-                                       YH_ASYMMETRIC_KEY, asym_keys[i].sequence,
-                                       asym_key_desc->object.domains);
-
-          if (pMeta_object != NULL) { // meta object already exists. Update it.
-            if (meta_object.cka_id.len > 0) {
-              pMeta_object->meta_object.cka_id_pubkey.len =
-                meta_object.cka_id.len;
-              memcpy(pMeta_object->meta_object.cka_id_pubkey.value,
-                     meta_object.cka_id.value, meta_object.cka_id.len);
-            }
-            if (meta_object.cka_label.len > 0) {
-              pMeta_object->meta_object.cka_label_pubkey.len =
-                meta_object.cka_label.len;
-              memcpy(pMeta_object->meta_object.cka_label_pubkey.value,
-                     meta_object.cka_label.value, meta_object.cka_label.len);
-            }
-            rv = write_meta_object(session->slot, &pMeta_object->meta_object,
-                                   &capabilities, asym_key_desc->object.domains,
-                                   true);
-            if (rv != CKR_OK) {
-              goto c_co_out;
-            }
-          } else { // meta object does not exist. Create it
-            meta_object.target_id = asym_keys[i].id;
-            // No need to write this meta object now becase we will do it later
-          }
-        }
-        break;
+      rc = yh_string_to_capabilities("all", &delegated_capabilities);
+      if (rc != YHR_SUCCESS) {
+        rv = yrc_to_rv(rc);
+        goto c_co_out;
       }
-    }
 
-    if (pubkey_found == false) {
-      rv = CKR_ATTRIBUTE_VALUE_INVALID;
-      goto c_co_out;
+      rc =
+        yh_util_import_public_wrap_key(session->slot->device_session, &template.id,
+                                    template.label, 0xffff, &capabilities,
+                                    template.algorithm, &delegated_capabilities,
+                                    template.obj.buf, template.objlen);
+      if (rc != YHR_SUCCESS) {
+        DBG_ERR("Failed writing Public Wrap key to device: %s",
+                yh_strerror(rc));
+        rv = yrc_to_rv(rc);
+        goto c_co_out;
+      }
+      type = YH_PUBLIC_WRAP_KEY;
+
+    } else { // Treat it as asymmetric public key. List all asymmetric keys and
+             // check whether this public key matches any of them. If not,
+             // import operation fails
+
+      bool pubkey_found = false;
+      // Get a list of all asym objects in the YubiHSM
+      yh_object_descriptor asym_keys[YH_MAX_ITEMS_COUNT] = {0};
+      size_t asym_keys_len = sizeof(asym_keys);
+      rc = yh_util_list_objects(session->slot->device_session, 0,
+                                YH_ASYMMETRIC_KEY, 0, &capabilities, 0, NULL,
+                                asym_keys, &asym_keys_len);
+      if (rc != YHR_SUCCESS) {
+        DBG_ERR("Failed to get object list");
+        rv = yrc_to_rv(rc);
+        goto c_co_out;
+      }
+
+      // Check which asym public key matches the one in the request
+      for (size_t i = 0; i < asym_keys_len; i++) {
+        uint8_t pubkey[2048] = {0};
+        size_t pubkey_len = sizeof(pubkey);
+        rc = yh_util_get_public_key(session->slot->device_session,
+                                    asym_keys[i].id, pubkey, &pubkey_len, NULL);
+        if (rc != YHR_SUCCESS) {
+          DBG_ERR("Failed to get public key of object 0x%x", asym_keys[i].id);
+          rv = yrc_to_rv(rc);
+          goto c_co_out;
+        }
+
+        if (match_byte_array(pubkey, pubkey_len, template.obj.buf,
+                             template.objlen)) {
+          template.id = asym_keys[i].id;
+          pubkey_found = true;
+
+          // If there's need, update or create meta_object
+          yubihsm_pkcs11_object_desc *asym_key_desc =
+            _get_object_desc(session->slot, asym_keys[i].id, YH_ASYMMETRIC_KEY,
+                             asym_keys[i].sequence);
+          if (asym_key_desc == NULL) {
+            continue;
+          }
+          if (meta_object.cka_id.len > 0 || meta_object.cka_label.len > 0) {
+            yubihsm_pkcs11_object_desc *pMeta_object =
+              find_meta_object_by_target(session->slot, asym_keys[i].id,
+                                         YH_ASYMMETRIC_KEY,
+                                         asym_keys[i].sequence,
+                                         asym_key_desc->object.domains);
+
+            if (pMeta_object !=
+                NULL) { // meta object already exists. Update it.
+              if (meta_object.cka_id.len > 0) {
+                pMeta_object->meta_object.cka_id_pubkey.len =
+                  meta_object.cka_id.len;
+                memcpy(pMeta_object->meta_object.cka_id_pubkey.value,
+                       meta_object.cka_id.value, meta_object.cka_id.len);
+              }
+              if (meta_object.cka_label.len > 0) {
+                pMeta_object->meta_object.cka_label_pubkey.len =
+                  meta_object.cka_label.len;
+                memcpy(pMeta_object->meta_object.cka_label_pubkey.value,
+                       meta_object.cka_label.value, meta_object.cka_label.len);
+              }
+              rv = write_meta_object(session->slot, &pMeta_object->meta_object,
+                                     &capabilities,
+                                     asym_key_desc->object.domains, true);
+              if (rv != CKR_OK) {
+                goto c_co_out;
+              }
+            } else { // meta object does not exist. Create it
+              meta_object.target_id = asym_keys[i].id;
+              // No need to write this meta object now becase we will do it
+              // later
+            }
+          }
+          break;
+        }
+      }
+
+      if (pubkey_found == false) {
+        rv = CKR_ATTRIBUTE_VALUE_INVALID;
+        goto c_co_out;
+      }
+      type = YH_ASYMMETRIC_KEY;
     }
-    type = YH_ASYMMETRIC_KEY;
   } else {
     rv = CKR_TEMPLATE_INCONSISTENT;
     goto c_co_out;
@@ -1786,7 +1892,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     }
   }
 
-  if (class.d == CKO_PUBLIC_KEY) {
+  if (class.d == CKO_PUBLIC_KEY && type != YH_PUBLIC_WRAP_KEY) {
     *phObject =
       object->sequence << 24 | (object->type | 0x80) << 16 | object->id;
   } else {
@@ -1856,7 +1962,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
       DBG_INFO("No ECDH session key with ID %08lx was found", hObject);
     }
   } else {
-    if (((uint8_t)(hObject >> 16)) == YH_PUBLIC_KEY) {
+    if (((uint8_t) (hObject >> 16)) == YH_PUBLIC_KEY) {
       DBG_INFO("Trying to delete public key, returning success with noop");
       goto c_do_out;
     }
@@ -2220,18 +2326,6 @@ static bool should_include_sessionkeys(bool is_secret_key, bool extractable_set,
   return true;
 }
 
-static CK_RV set_object_type(uint8_t *type, uint8_t expected_type) {
-  if (*type == 0) {
-    *type = expected_type;
-    return CKR_OK;
-  }
-  if (*type != expected_type) {
-    DBG_ERR("Mismatch in attribute values");
-    return CKR_TEMPLATE_INCONSISTENT;
-  }
-  return CKR_OK;
-}
-
 CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
 (CK_SESSION_HANDLE hSession, CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount) {
 
@@ -2286,6 +2380,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
   yh_algorithm algorithm = 0;
   bool unknown = false;
   bool secret_key = false;
+  bool rsa_key = false;
+  bool wrap_key = false;
   bool extractable_set = false;
   size_t template_value_len = 0;
   uint8_t template_id[CKA_ATTRIBUTE_VALUE_SIZE] = {0};
@@ -2303,14 +2399,14 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           break;
 
         case CKA_CLASS: {
-          uint32_t value = *((CK_ULONG_PTR)(pTemplate[i].pValue));
+          uint32_t value = *((CK_ULONG_PTR) (pTemplate[i].pValue));
           uint8_t class_type = 0;
           switch (value) {
             case CKO_CERTIFICATE:
               DBG_INFO("filtering for certificates");
               algorithm =
                 YH_ALGO_OPAQUE_X509_CERTIFICATE; // TODO: handle other certs?
-              type = YH_OPAQUE;
+              class_type = YH_OPAQUE;
               break;
 
             case CKO_DATA:
@@ -2388,10 +2484,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
 
         case CKA_WRAP:
           if (*((CK_BBOOL *) pTemplate[i].pValue) == CK_TRUE) {
-            rv = set_object_type(&type, YH_WRAP_KEY);
-            if (rv != CKR_OK) {
-              goto c_foi_out;
-            }
+            wrap_key = true;
             rc = yh_string_to_capabilities("export-wrapped", &capabilities);
             if (rc != YHR_SUCCESS) {
               rv = yrc_to_rv(rc);
@@ -2402,10 +2495,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
 
         case CKA_UNWRAP:
           if (*((CK_BBOOL *) pTemplate[i].pValue) == CK_TRUE) {
-            rv = set_object_type(&type, YH_WRAP_KEY);
-            if (rv != CKR_OK) {
-              goto c_foi_out;
-            }
+            wrap_key = true;
             rc = yh_string_to_capabilities("import-wrapped", &capabilities);
             if (rc != YHR_SUCCESS) {
               rv = yrc_to_rv(rc);
@@ -2434,7 +2524,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           break;
 
         case CKA_KEY_TYPE: {
-          uint32_t value = *((CK_ULONG_PTR)(pTemplate[i].pValue));
+          uint32_t value = *((CK_ULONG_PTR) (pTemplate[i].pValue));
           uint8_t key_type = 0;
           switch (value) {
             case CKK_YUBICO_AES128_CCM_WRAP:
@@ -2452,6 +2542,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
               key_type = YH_SYMMETRIC_KEY;
               break;
             case CKK_RSA:
+              rsa_key = true;
             case CKK_EC:
               key_type = YH_ASYMMETRIC_KEY;
               break;
@@ -2484,6 +2575,14 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
                    (uint32_t) pTemplate[i].type);
           break;
       }
+    }
+  }
+
+  if(wrap_key && rsa_key) {
+    if (pub) {
+      type = YH_PUBLIC_WRAP_KEY;
+    } else {
+      type = YH_WRAP_KEY;
     }
   }
 
@@ -2529,39 +2628,38 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
             "Value in template not an X509Certificate. Cannot perform search.");
           rv = CKR_ATTRIBUTE_VALUE_INVALID;
           goto c_foi_out;
-        } else {
-          yh_object_descriptor tmp_objects[YH_MAX_ITEMS_COUNT] = {0};
-          size_t tmp_n_objects = sizeof(tmp_objects);
-          rc = yh_util_list_objects(session->slot->device_session, 0, YH_OPAQUE,
-                                    domains, &capabilities,
-                                    YH_ALGO_OPAQUE_X509_CERTIFICATE, label,
-                                    tmp_objects, &tmp_n_objects);
+        }
+        yh_object_descriptor tmp_objects[YH_MAX_ITEMS_COUNT] = {0};
+        size_t tmp_n_objects = sizeof(tmp_objects);
+        rc = yh_util_list_objects(session->slot->device_session, 0, YH_OPAQUE,
+                                  domains, &capabilities,
+                                  YH_ALGO_OPAQUE_X509_CERTIFICATE, label,
+                                  tmp_objects, &tmp_n_objects);
+        if (rc != YHR_SUCCESS) {
+          DBG_ERR("Failed to get object list");
+          rv = yrc_to_rv(rc);
+          goto c_foi_out;
+        }
+
+        for (size_t i = 0; i < tmp_n_objects; i++) {
+          uint8_t cert[2048] = {0};
+          size_t cert_len = sizeof(cert);
+          rc = yh_util_get_opaque(session->slot->device_session,
+                                  tmp_objects[i].id, cert, &cert_len);
           if (rc != YHR_SUCCESS) {
-            DBG_ERR("Failed to get object list");
+            DBG_ERR("Failed to get opaque object 0x%x", tmp_objects[i].id);
             rv = yrc_to_rv(rc);
             goto c_foi_out;
           }
 
-          for (size_t i = 0; i < tmp_n_objects; i++) {
-            uint8_t cert[2048] = {0};
-            size_t cert_len = sizeof(cert);
-            rc = yh_util_get_opaque(session->slot->device_session,
-                                    tmp_objects[i].id, cert, &cert_len);
-            if (rc != YHR_SUCCESS) {
-              DBG_ERR("Failed to get opaque object 0x%x", tmp_objects[i].id);
-              rv = yrc_to_rv(rc);
-              goto c_foi_out;
-            }
-
-            if (match_byte_array(template_value, template_value_len, cert,
-                                 cert_len)) {
-              session->operation.op.find.objects[0].id = tmp_objects[i].id;
-              session->operation.op.find.objects[0].type = tmp_objects[i].type;
-              session->operation.op.find.objects[0].sequence =
-                tmp_objects[i].sequence;
-              found_objects = 1;
-              break;
-            }
+          if (match_byte_array(template_value, template_value_len, cert,
+                               cert_len)) {
+            session->operation.op.find.objects[0].id = tmp_objects[i].id;
+            session->operation.op.find.objects[0].type = tmp_objects[i].type;
+            session->operation.op.find.objects[0].sequence =
+              tmp_objects[i].sequence;
+            found_objects = 1;
+            break;
           }
         }
       } else {
@@ -2705,6 +2803,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjects)
       case YH_ASYMMETRIC_KEY:
       case YH_OPAQUE:
       case YH_WRAP_KEY:
+      case YH_PUBLIC_WRAP_KEY:
       case YH_HMAC_KEY:
       case YH_PUBLIC_KEY:
       case YH_SYMMETRIC_KEY:
@@ -2814,7 +2913,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptInit)
 
   rv = check_decrypt_mechanism(session->slot, pMechanism);
   if (rv != CKR_OK) {
-    DBG_ERR("Encryption mechanism %lu not supported", pMechanism->mechanism);
+    DBG_ERR("Encryption mechanism 0x%lx not supported", pMechanism->mechanism);
     goto c_ei_out;
   }
 
@@ -3135,6 +3234,110 @@ c_ef_out:
   return rv;
 }
 
+typedef struct rsa_pkcs_oaep_params {
+  yh_algorithm mgf_algo;
+  yh_algorithm oaep_algo;
+  uint8_t oaep_label[64];
+  u_int oaep_label_len;
+} rsa_pkcs_oaep_params_t;
+
+static CK_RV parse_rsa_pkcs_oaep_params(CK_RSA_PKCS_OAEP_PARAMS *p,
+                                        rsa_pkcs_oaep_params_t *r) {
+  const EVP_MD *md = NULL;
+  switch (p->mgf) {
+    case CKG_MGF1_SHA1:
+      r->mgf_algo = YH_ALGO_MGF1_SHA1;
+      break;
+    case CKG_MGF1_SHA256:
+      r->mgf_algo = YH_ALGO_MGF1_SHA256;
+      break;
+    case CKG_MGF1_SHA384:
+      r->mgf_algo = YH_ALGO_MGF1_SHA384;
+      break;
+    case CKG_MGF1_SHA512:
+      r->mgf_algo = YH_ALGO_MGF1_SHA512;
+      break;
+    default:
+      DBG_ERR("Invalid mgf parameter (%lx)", p->mgf);
+      return CKR_MECHANISM_PARAM_INVALID;
+  }
+  switch (p->hashAlg) {
+    case CKM_SHA_1:
+      r->oaep_algo = YH_ALGO_RSA_OAEP_SHA1;
+      md = EVP_sha1();
+      break;
+    case CKM_SHA256:
+      r->oaep_algo = YH_ALGO_RSA_OAEP_SHA256;
+      md = EVP_sha256();
+      break;
+    case CKM_SHA384:
+      r->oaep_algo = YH_ALGO_RSA_OAEP_SHA384;
+      md = EVP_sha384();
+      break;
+    case CKM_SHA512:
+      r->oaep_algo = YH_ALGO_RSA_OAEP_SHA512;
+      md = EVP_sha512();
+      break;
+    default:
+      DBG_ERR("Invalid hashAlg parameter (%lx)", p->hashAlg);
+      return CKR_MECHANISM_PARAM_INVALID;
+  }
+  switch (p->source) {
+    case 0:
+      if (p->ulSourceDataLen) {
+        DBG_ERR("Invalid ulSourceDataLen (%lu) parameter for source == 0",
+                p->ulSourceDataLen);
+        return CKR_MECHANISM_PARAM_INVALID;
+      }
+    case CKZ_DATA_SPECIFIED:
+      if (p->ulSourceDataLen && p->pSourceData == NULL) {
+        DBG_ERR(
+          "Invalid pSourceData parameter (NULL) for ulSourceDataLen != 0");
+        return CKR_MECHANISM_PARAM_INVALID;
+      }
+      break;
+    default:
+      DBG_ERR("Invalid source parameter (%lx)", p->source);
+      return CKR_MECHANISM_PARAM_INVALID;
+  }
+  EVP_MD_CTX *mdctx = EVP_MD_CTX_create();
+  if (mdctx == NULL) {
+    DBG_ERR("Failed to digest source");
+    return CKR_FUNCTION_FAILED;
+  }
+  r->oaep_label_len = sizeof(r->oaep_label);
+  EVP_DigestInit_ex(mdctx, md, NULL);
+  EVP_DigestUpdate(mdctx, p->pSourceData, p->ulSourceDataLen);
+  EVP_DigestFinal_ex(mdctx, r->oaep_label, &r->oaep_label_len);
+  EVP_MD_CTX_destroy(mdctx);
+  return CKR_OK;
+}
+
+typedef struct rsa_aes_key_wrap_params {
+  yh_algorithm aes_algo;
+  rsa_pkcs_oaep_params_t oaep_params;
+} rsa_aes_key_wrap_params_t;
+
+static CK_RV parse_rsa_aes_key_wrap_params(CK_RSA_AES_KEY_WRAP_PARAMS *p,
+                                           rsa_aes_key_wrap_params_t *r) {
+
+  switch (p->ulAESKeyBits) {
+    case 128:
+      r->aes_algo = YH_ALGO_AES128;
+      break;
+    case 192:
+      r->aes_algo = YH_ALGO_AES192;
+      break;
+    case 256:
+      r->aes_algo = YH_ALGO_AES256;
+      break;
+    default:
+      DBG_ERR("Invalid ulAESKeyBits parameter");
+      return CKR_MECHANISM_PARAM_INVALID;
+  }
+  return parse_rsa_pkcs_oaep_params(p->pOAEPParams, &r->oaep_params);
+}
+
 CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
 (CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
  CK_OBJECT_HANDLE hKey) {
@@ -3186,7 +3389,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
 
   rv = check_decrypt_mechanism(session->slot, pMechanism);
   if (rv != CKR_OK) {
-    DBG_ERR("Decryption mechanism %lu not supported", pMechanism->mechanism);
+    DBG_ERR("Decryption mechanism 0x%lx not supported", pMechanism->mechanism);
     goto c_di_out;
   }
   session->operation.mechanism.mechanism = pMechanism->mechanism;
@@ -3226,67 +3429,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
         goto c_di_out;
       }
 
-      switch (params->mgf) {
-        case CKG_MGF1_SHA1:
-          session->operation.mechanism.oaep.mgf1Algo = YH_ALGO_MGF1_SHA1;
-          break;
-        case CKG_MGF1_SHA256:
-          session->operation.mechanism.oaep.mgf1Algo = YH_ALGO_MGF1_SHA256;
-          break;
-        case CKG_MGF1_SHA384:
-          session->operation.mechanism.oaep.mgf1Algo = YH_ALGO_MGF1_SHA384;
-          break;
-        case CKG_MGF1_SHA512:
-          session->operation.mechanism.oaep.mgf1Algo = YH_ALGO_MGF1_SHA512;
-          break;
-        default:
-          DBG_ERR("Unknown value in parameter mgf");
-          rv = CKR_MECHANISM_PARAM_INVALID;
-          goto c_di_out;
-      };
-
-      const EVP_MD *md = NULL;
-
-      switch (params->hashAlg) {
-        case CKM_SHA_1:
-          md = EVP_sha1();
-          break;
-        case CKM_SHA256:
-          md = EVP_sha256();
-          break;
-        case CKM_SHA384:
-          md = EVP_sha384();
-          break;
-        case CKM_SHA512:
-          md = EVP_sha512();
-          break;
-        default:
-          DBG_ERR("Unknown value in parameter hashAlg");
-          rv = CKR_MECHANISM_PARAM_INVALID;
-          goto c_di_out;
-      }
-      mdctx = EVP_MD_CTX_create();
-      if (mdctx == NULL) {
-        rv = CKR_HOST_MEMORY;
+      rsa_pkcs_oaep_params_t oaep_params;
+      rv = parse_rsa_pkcs_oaep_params(params, &oaep_params);
+      if (rv != CKR_OK) {
         goto c_di_out;
       }
 
-      if (EVP_DigestInit_ex(mdctx, md, NULL) == 0) {
-        rv = CKR_MECHANISM_PARAM_INVALID;
-        goto c_di_out;
-      }
+      session->operation.mechanism.oaep.mgf1Algo = oaep_params.mgf_algo;
+      session->operation.mechanism.oaep.label_len = oaep_params.oaep_label_len;
+      memcpy(session->operation.mechanism.oaep.label, oaep_params.oaep_label,
+             oaep_params.oaep_label_len);
 
-      if (EVP_DigestUpdate(mdctx, params->pSourceData,
-                           params->ulSourceDataLen) != 1) {
-        rv = CKR_FUNCTION_FAILED;
-        goto c_di_out;
-      }
-      if (EVP_DigestFinal_ex(mdctx, session->operation.mechanism.oaep.label,
-                             &session->operation.mechanism.oaep.label_len) !=
-          1) {
-        rv = CKR_FUNCTION_FAILED;
-        goto c_di_out;
-      }
     } else if (pMechanism->mechanism != CKM_RSA_PKCS) {
       DBG_ERR("Mechanism %lu not supported", pMechanism->mechanism);
       rv = CKR_MECHANISM_INVALID;
@@ -4054,7 +4207,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_SignInit)
 
   rv = check_sign_mechanism(session->slot, pMechanism);
   if (rv != CKR_OK) {
-    DBG_ERR("Signing mechanism %lu not supported", pMechanism->mechanism);
+    DBG_ERR("Signing mechanism 0x%lx not supported", pMechanism->mechanism);
     goto c_si_out;
   }
   session->operation.mechanism.mechanism =
@@ -4483,7 +4636,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_VerifyInit)
 
   rv = check_sign_mechanism(session->slot, pMechanism);
   if (rv != CKR_OK) {
-    DBG_ERR("Verification mechanism %lu not supported", pMechanism->mechanism);
+    DBG_ERR("Verification mechanism 0x%lx not supported", pMechanism->mechanism);
     goto c_vi_out;
   }
   session->operation.mechanism.mechanism =
@@ -5046,36 +5199,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
 
       DBG_INFO("parsed WRAP key, objlen: %d", template.objlen);
 
-      if (template.wrap == ATTRIBUTE_TRUE) {
-        rc = yh_string_to_capabilities("export-wrapped", &capabilities);
-        if (rc != YHR_SUCCESS) {
-          rv = yrc_to_rv(rc);
-          goto c_gk_out;
-        }
-      }
-
-      if (template.unwrap == ATTRIBUTE_TRUE) {
-        rc = yh_string_to_capabilities("import-wrapped", &capabilities);
-        if (rc != YHR_SUCCESS) {
-          rv = yrc_to_rv(rc);
-          goto c_gk_out;
-        }
-      }
-
-      if (template.encrypt == ATTRIBUTE_TRUE) {
-        rc = yh_string_to_capabilities("wrap-data", &capabilities);
-        if (rc != YHR_SUCCESS) {
-          rv = yrc_to_rv(rc);
-          goto c_gk_out;
-        }
-      }
-
-      if (template.decrypt == ATTRIBUTE_TRUE) {
-        rc = yh_string_to_capabilities("unwrap-data", &capabilities);
-        if (rc != YHR_SUCCESS) {
-          rv = yrc_to_rv(rc);
-          goto c_gk_out;
-        }
+      rc = set_wrapkey_capabilities(&template, &capabilities);
+      if (rc != YHR_SUCCESS) {
+        rv = yrc_to_rv(rc);
+        goto c_gk_out;
       }
 
       rc = yh_string_to_capabilities("all", &delegated_capabilities);
@@ -5251,27 +5378,47 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
   // TODO(adma): check more return values
 
   if (yh_is_rsa(template.algorithm)) {
-
-    if (template.sign == ATTRIBUTE_TRUE) {
-      rc = yh_string_to_capabilities("sign-pkcs,sign-pss", &capabilities);
+    if (template.unwrap) { // This is a wrap key
+      rc = set_wrapkey_capabilities(&template, &capabilities);
       if (rc != YHR_SUCCESS) {
         rv = yrc_to_rv(rc);
         goto c_gkp_out;
       }
-    }
 
-    if (template.decrypt == ATTRIBUTE_TRUE) {
+      yh_capabilities delegated_capabilities = {{0}};
+      rc = yh_string_to_capabilities("all", &delegated_capabilities);
+      if (rc != YHR_SUCCESS) {
+        rv = yrc_to_rv(rc);
+        goto c_gkp_out;
+      }
+
       rc =
-        yh_string_to_capabilities("decrypt-pkcs,decrypt-oaep", &capabilities);
-      if (rc != YHR_SUCCESS) {
-        rv = yrc_to_rv(rc);
-        goto c_gkp_out;
-      }
-    }
-
-    rc = yh_util_generate_rsa_key(session->slot->device_session, &template.id,
+        yh_util_generate_wrap_key(session->slot->device_session, &template.id,
                                   template.label, 0xffff, &capabilities,
-                                  template.algorithm);
+                                  template.algorithm, &delegated_capabilities);
+
+    } else {
+      if (template.sign == ATTRIBUTE_TRUE) {
+        rc = yh_string_to_capabilities("sign-pkcs,sign-pss", &capabilities);
+        if (rc != YHR_SUCCESS) {
+          rv = yrc_to_rv(rc);
+          goto c_gkp_out;
+        }
+      }
+
+      if (template.decrypt == ATTRIBUTE_TRUE) {
+        rc =
+          yh_string_to_capabilities("decrypt-pkcs,decrypt-oaep", &capabilities);
+        if (rc != YHR_SUCCESS) {
+          rv = yrc_to_rv(rc);
+          goto c_gkp_out;
+        }
+      }
+
+      rc = yh_util_generate_rsa_key(session->slot->device_session, &template.id,
+                                    template.label, 0xffff, &capabilities,
+                                    template.algorithm);
+    }
     if (rc != YHR_SUCCESS) {
       DBG_ERR("Failed generating RSA key on device: %s", yh_strerror(rc));
       rv = yrc_to_rv(rc);
@@ -5324,8 +5471,14 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
     }
   }
 
-  yubihsm_pkcs11_object_desc *object_desc =
-    _get_object_desc(session->slot, template.id, YH_ASYMMETRIC_KEY, 0xffff);
+  yubihsm_pkcs11_object_desc *object_desc = NULL;
+  if (template.unwrap) {
+    object_desc =
+      _get_object_desc(session->slot, template.id, YH_WRAP_KEY, 0xffff);
+  } else {
+    object_desc =
+      _get_object_desc(session->slot, template.id, YH_ASYMMETRIC_KEY, 0xffff);
+  }
   if (object_desc == NULL) {
     rv = CKR_OBJECT_HANDLE_INVALID;
     goto c_gkp_out;
@@ -5405,9 +5558,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_WrapKey)
 
   // NOTE: pWrappedKey is NULL so we just return the length we need
   if (pWrappedKey == NULL) {
-    *pulWrappedKeyLen =
-      sizeof(yh_object_descriptor) + object->object.len + YH_CCM_WRAP_OVERHEAD;
-    DBG_INFO("Calculated that wrapping will need %lu bytes", *pulWrappedKeyLen);
+    *pulWrappedKeyLen = YH_MSG_BUF_SIZE;
+    //  CKM_YUBICO_AES_CCM_WRAP len = sizeof(yh_object_descriptor) +
+    //  object->object.len + YH_CCM_WRAP_OVERHEAD;
+    DBG_INFO("Wrapping will need maximum of %lu bytes", *pulWrappedKeyLen);
     rv = CKR_OK;
     goto c_wk_out;
   }
@@ -5420,7 +5574,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_WrapKey)
 
   rv = check_wrap_mechanism(session->slot, pMechanism);
   if (rv != CKR_OK) {
-    DBG_ERR("Wrapping mechanism %lu not supported", pMechanism->mechanism);
+    DBG_ERR("Wrapping mechanism 0x%lx not supported", pMechanism->mechanism);
     goto c_wk_out;
   }
 
@@ -5446,26 +5600,66 @@ CK_DEFINE_FUNCTION(CK_RV, C_WrapKey)
     goto c_wk_out;
   }
 
-  uint8_t buf[2048] = {0};
-  size_t len = sizeof(buf);
+  size_t len = *pulWrappedKeyLen;
 
-  yh_rc yrc =
-    yh_util_export_wrapped(session->slot->device_session, key->object.id,
-                           object->object.type, object->object.id, buf, &len);
+  yh_rc yrc = YHR_SUCCESS;
+  if (pMechanism->mechanism == CKM_YUBICO_AES_CCM_WRAP) {
+    if (pMechanism->pParameter &&
+        pMechanism->ulParameterLen != sizeof(CKM_YUBICO_AES_CCM_WRAP_PARAMS)) {
+      DBG_ERR("Wrong mechanism parameter length");
+      rv = CKR_MECHANISM_PARAM_INVALID;
+      goto c_wk_out;
+    }
+
+    CKM_YUBICO_AES_CCM_WRAP_PARAMS *params = pMechanism->pParameter;
+    CK_ULONG format = 0; // None = Do not include seed
+    if (params != NULL) {
+      format = params->format;
+    }
+    yrc =
+      yh_util_export_wrapped_ex(session->slot->device_session, key->object.id,
+                                object->object.type, object->object.id, format,
+                                pWrappedKey, &len);
+  } else { // CKM_RSA_AES_KEY_WRAP or CKM_YUBICO_RSA_WRAP
+    if (pMechanism->pParameter == NULL ||
+        pMechanism->ulParameterLen != sizeof(CK_RSA_AES_KEY_WRAP_PARAMS)) {
+      DBG_ERR("Wrong mechanism parameter length");
+      rv = CKR_MECHANISM_PARAM_INVALID;
+      goto c_wk_out;
+    }
+
+    rsa_aes_key_wrap_params_t params = {0};
+    rv = parse_rsa_aes_key_wrap_params(pMechanism->pParameter, &params);
+    if (rv != CKR_OK) {
+      goto c_wk_out;
+    }
+
+    if (pMechanism->mechanism == CKM_RSA_AES_KEY_WRAP) {
+      yrc = yh_util_get_rsa_wrapped_key(session->slot->device_session,
+                                        key->object.id, object->object.type,
+                                        object->object.id, params.aes_algo,
+                                        params.oaep_params.oaep_algo,
+                                        params.oaep_params.mgf_algo,
+                                        params.oaep_params.oaep_label,
+                                        params.oaep_params.oaep_label_len,
+                                        pWrappedKey, &len);
+    } else { // CKM_YUBICO_RSA_WRAP
+      yrc = yh_util_export_rsa_wrapped(session->slot->device_session,
+                                       key->object.id, object->object.type,
+                                       object->object.id, params.aes_algo,
+                                       params.oaep_params.oaep_algo,
+                                       params.oaep_params.mgf_algo,
+                                       params.oaep_params.oaep_label,
+                                       params.oaep_params.oaep_label_len,
+                                       pWrappedKey, &len);
+    }
+  }
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Wrapping failed: %s", yh_strerror(yrc));
     rv = yrc_to_rv(yrc);
     goto c_wk_out;
   }
 
-  if (len > *pulWrappedKeyLen) {
-    DBG_ERR("buffer too small, needed %lu, got %lu", (unsigned long) len,
-            *pulWrappedKeyLen);
-    rv = CKR_BUFFER_TOO_SMALL;
-    goto c_wk_out;
-  }
-
-  memcpy(pWrappedKey, buf, len);
   *pulWrappedKeyLen = len;
 
   DOUT;
@@ -5484,10 +5678,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_UnwrapKey)
  CK_ULONG ulAttributeCount, CK_OBJECT_HANDLE_PTR phKey) {
 
   DIN;
-
-  // NOTE: since the wrap is opaque we just ignore the template..
-  UNUSED(pTemplate);
-  UNUSED(ulAttributeCount);
 
   if (g_yh_initialized == false) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
@@ -5521,7 +5711,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_UnwrapKey)
 
   rv = check_wrap_mechanism(session->slot, pMechanism);
   if (rv != CKR_OK) {
-    DBG_ERR("Wrapping mechanism %lu not supported", pMechanism->mechanism);
+    DBG_ERR("Wrapping mechanism 0x%lx not supported", pMechanism->mechanism);
     goto c_uk_out;
   }
 
@@ -5542,9 +5732,145 @@ CK_DEFINE_FUNCTION(CK_RV, C_UnwrapKey)
 
   uint16_t target_id = 0;
   yh_object_type target_type = 0;
-  yh_rc yrc = yh_util_import_wrapped(session->slot->device_session,
-                                     key->object.id, pWrappedKey,
-                                     ulWrappedKeyLen, &target_type, &target_id);
+  yh_rc yrc = YHR_SUCCESS;
+  if (pMechanism->mechanism == CKM_YUBICO_AES_CCM_WRAP) {
+    yrc = yh_util_import_wrapped(session->slot->device_session, key->object.id,
+                                 pWrappedKey, ulWrappedKeyLen, &target_type,
+                                 &target_id);
+  } else { // CKM_RSA_AES_KEY_WRAP or CKM_YUBICO_RSA_WRAP
+
+    if (pMechanism->pParameter == NULL ||
+        pMechanism->ulParameterLen != sizeof(CK_RSA_AES_KEY_WRAP_PARAMS)) {
+      DBG_ERR("Wrong mechanism parameter length");
+      rv = CKR_MECHANISM_PARAM_INVALID;
+      goto c_uk_out;
+    }
+
+    rsa_aes_key_wrap_params_t params = {0};
+    rv = parse_rsa_aes_key_wrap_params(pMechanism->pParameter, &params);
+    if (rv != CKR_OK) {
+      goto c_uk_out;
+    }
+
+    if (pMechanism->mechanism == CKM_YUBICO_RSA_WRAP) {
+      yrc =
+        yh_util_import_rsa_wrapped(session->slot->device_session,
+                                   key->object.id, params.oaep_params.oaep_algo,
+                                   params.oaep_params.mgf_algo,
+                                   params.oaep_params.oaep_label,
+                                   params.oaep_params.oaep_label_len,
+                                   pWrappedKey, ulWrappedKeyLen, &target_type,
+                                   &target_id);
+    } else { // CKM_RSA_AES_KEY_WRAP
+
+      pkcs11_meta_object pkcs11meta;
+      yubihsm_pkcs11_object_template object_template = {0};
+      rv = parse_rsa_wrappedkey_template(pTemplate, ulAttributeCount,
+                                         &object_template, &pkcs11meta,
+                                         (CK_BYTE *) &target_type);
+      if (rv != CKR_OK) {
+        DBG_ERR("Failed to parse wrapped key template");
+        goto c_uk_out;
+      }
+
+      yh_capabilities capabilities = {{0}};
+      if (object_template.exportable == ATTRIBUTE_TRUE) {
+        yrc = yh_string_to_capabilities("exportable-under-wrap", &capabilities);
+        if (yrc != YHR_SUCCESS) {
+          rv = yrc_to_rv(yrc);
+          goto c_uk_out;
+        }
+      }
+      if (object_template.sign == ATTRIBUTE_TRUE) {
+        if (yh_is_rsa(object_template.algorithm)) {
+          yrc = yh_string_to_capabilities("sign-pkcs,sign-pss", &capabilities);
+          if (yrc != YHR_SUCCESS) {
+            rv = yrc_to_rv(yrc);
+            goto c_uk_out;
+          }
+        } else if (yh_is_ec(object_template.algorithm)) {
+          yrc = yh_string_to_capabilities("sign-ecdsa", &capabilities);
+          if (yrc != YHR_SUCCESS) {
+            rv = yrc_to_rv(yrc);
+            goto c_uk_out;
+          }
+        } else if (yh_is_ed(object_template.algorithm)) {
+          yrc = yh_string_to_capabilities("sign-eddsa", &capabilities);
+          if (yrc != YHR_SUCCESS) {
+            rv = yrc_to_rv(yrc);
+            goto c_uk_out;
+          }
+        } else {
+          DBG_ERR(
+            "Key type unsupported for unwrap or for signing capabilities");
+          rv = CKR_TEMPLATE_INCONSISTENT;
+          goto c_uk_out;
+        }
+      }
+      if (object_template.decrypt == ATTRIBUTE_TRUE) {
+        if (yh_is_rsa(object_template.algorithm)) {
+          yrc = yh_string_to_capabilities("decrypt-pkcs,decrypt-oaep",
+                                          &capabilities);
+          if (yrc != YHR_SUCCESS) {
+            rv = yrc_to_rv(yrc);
+            goto c_uk_out;
+          }
+        } else if (yh_is_aes(object_template.algorithm)) {
+          if (object_template.decrypt == ATTRIBUTE_TRUE) {
+            yrc = yh_string_to_capabilities("decrypt-ecb,decrypt-cbc",
+                                            &capabilities);
+            if (yrc != YHR_SUCCESS) {
+              rv = CKR_FUNCTION_FAILED;
+              goto c_uk_out;
+            }
+          }
+        } else {
+          DBG_ERR(
+            "Key type unsupported for unwrap or for decryptions capabilities");
+          rv = CKR_TEMPLATE_INCONSISTENT;
+          goto c_uk_out;
+        }
+      }
+      if (object_template.encrypt == ATTRIBUTE_TRUE) {
+        if (!yh_is_aes(object_template.algorithm)) {
+          DBG_ERR(
+            "Key type unsupported for unwrap or for encryption capabilities");
+          rv = CKR_TEMPLATE_INCONSISTENT;
+          goto c_uk_out;
+        }
+        yrc =
+          yh_string_to_capabilities("encrypt-ecb,encrypt-cbc", &capabilities);
+        if (yrc != YHR_SUCCESS) {
+          rv = CKR_FUNCTION_FAILED;
+          goto c_uk_out;
+        }
+      }
+      if (object_template.derive == ATTRIBUTE_TRUE) {
+        if (!yh_is_ec(object_template.algorithm)) {
+          DBG_ERR("Key type unsupported for unwrap or for ECDH derivation "
+                  "capabilities");
+          rv = CKR_TEMPLATE_INCONSISTENT;
+          goto c_uk_out;
+        }
+        yrc = yh_string_to_capabilities("derive-ecdh", &capabilities);
+        if (yrc != YHR_SUCCESS) {
+          rv = yrc_to_rv(yrc);
+          goto c_uk_out;
+        }
+      }
+
+      yrc =
+        yh_util_put_rsa_wrapped_key(session->slot->device_session,
+                                    key->object.id, target_type, &target_id,
+                                    object_template.algorithm,
+                                    object_template.label, 0xffff,
+                                    &capabilities, params.oaep_params.oaep_algo,
+                                    params.oaep_params.mgf_algo,
+                                    params.oaep_params.oaep_label,
+                                    params.oaep_params.oaep_label_len,
+                                    pWrappedKey, ulWrappedKeyLen);
+    }
+  }
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Unwrapping failed: %s", yh_strerror(yrc));
     rv = yrc_to_rv(yrc);

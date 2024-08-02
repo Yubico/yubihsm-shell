@@ -49,7 +49,7 @@
 
 #define SCP_AUTHKEY_ID_LEN 2
 
-#define SCP_MSG_BUF_SIZE 2048
+#define SCP_MSG_BUF_SIZE 4096
 
 // Message
 #pragma pack(push, 1)

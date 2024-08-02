@@ -76,4 +76,15 @@ extern "C" {
 #define CKM_YUBICO_AES_CCM_WRAP                                                \
   (CKM_VENDOR_DEFINED | YUBICO_BASE_VENDOR | YH_WRAP_KEY)
 
+/* CKM_YUBICO_AES_CCM_WRAP_PARAMS provides the parameters to the
+ * CKM_YUBICO_AES_CCM_WRAP mechanism.
+ */
+typedef struct CKM_YUBICO_AES_CCM_WRAP_PARAMS {
+  CK_ULONG format; // 0 = legacy, 1 = ED keys with seed
+} CKM_YUBICO_AES_CCM_WRAP_PARAMS;
+
+typedef CKM_YUBICO_AES_CCM_WRAP_PARAMS CK_PTR CKM_YUBICO_AES_CCM_WRAP_PARAMS_PTR;
+
+#define CKM_YUBICO_RSA_WRAP                                                \
+  (CKM_VENDOR_DEFINED | YUBICO_BASE_VENDOR | YH_PUBLIC_WRAP_KEY)
 #endif

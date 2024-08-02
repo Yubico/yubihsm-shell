@@ -168,12 +168,20 @@ static CK_ULONG encode_length(CK_BYTE_PTR buffer, CK_ULONG length) {
   }
 }
 
-static void add_mech(CK_MECHANISM_TYPE *buf, CK_ULONG_PTR count,
-                     CK_MECHANISM_TYPE item) {
-  for (CK_ULONG i = 0; i < *count; i++) {
+static bool find_mech(CK_MECHANISM_TYPE_PTR buf, CK_ULONG count,
+                      CK_MECHANISM_TYPE item) {
+  for (CK_ULONG i = 0; i < count; i++) {
     if (buf[i] == item) {
-      return;
+      return true;
     }
+  }
+  return false;
+}
+
+static void add_mech(CK_MECHANISM_TYPE_PTR buf, CK_ULONG_PTR count,
+                     CK_MECHANISM_TYPE item) {
+  if (find_mech(buf, *count, item)) {
+    return;
   }
   buf[*count] = item;
   *count = *count + 1;
@@ -204,9 +212,8 @@ CK_RV get_mechanism_list(yubihsm_pkcs11_slot *slot,
     }
   }
 
-  CK_MECHANISM_TYPE buffer[128] = {
-    0}; // NOTE: this is a bit hardcoded, but much more
-  // than what we might add below.
+  // NOTE: this is a bit hardcoded, but much more than what we might add below.
+  CK_MECHANISM_TYPE buffer[128] = {0};
   CK_ULONG items = 0;
 
   for (size_t i = 0; i < slot->n_algorithms; i++) {
@@ -322,6 +329,18 @@ CK_RV get_mechanism_list(yubihsm_pkcs11_slot *slot,
       case YH_ALGO_RSA_OAEP_SHA384:
       case YH_ALGO_RSA_OAEP_SHA512:
         add_mech(buffer, &items, CKM_RSA_PKCS_OAEP);
+        if(find_mech(buffer, items, CKM_AES_KEY_WRAP_KWP)) {
+          add_mech(buffer, &items, CKM_YUBICO_RSA_WRAP);
+          add_mech(buffer, &items, CKM_RSA_AES_KEY_WRAP);
+        }
+        break;
+
+      case YH_ALGO_AES_KWP:
+        add_mech(buffer, &items, CKM_AES_KEY_WRAP_KWP);
+        if(find_mech(buffer, items, CKM_RSA_PKCS_OAEP)) {
+          add_mech(buffer, &items, CKM_YUBICO_RSA_WRAP);
+          add_mech(buffer, &items, CKM_RSA_AES_KEY_WRAP);
+        }
         break;
 
       case YH_ALGO_AES128_CCM_WRAP:
@@ -529,6 +548,14 @@ CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
       pInfo->flags = CKF_HW | CKF_DECRYPT | CKF_ENCRYPT;
       break;
 
+    case CKM_YUBICO_RSA_WRAP:
+    case CKM_RSA_AES_KEY_WRAP:
+      find_minmax_rsa_key_length_in_bits(slot->algorithms, slot->n_algorithms,
+                                         &pInfo->ulMinKeySize,
+                                         &pInfo->ulMaxKeySize);
+      pInfo->flags = CKF_HW | CKF_WRAP | CKF_UNWRAP;
+      break;
+
     case CKM_RSA_PKCS_KEY_PAIR_GEN:
       find_minmax_rsa_key_length_in_bits(slot->algorithms, slot->n_algorithms,
                                          &pInfo->ulMinKeySize,
@@ -626,6 +653,12 @@ CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
       pInfo->ulMaxKeySize = 0; // NOTE(adma): ignored
       pInfo->ulMinKeySize = 0; // NOTE(adma): ignored
       pInfo->flags = CKF_DIGEST;
+      break;
+
+    case CKM_AES_KEY_WRAP_KWP:
+      pInfo->ulMaxKeySize = 256;
+      pInfo->ulMinKeySize = 128;
+      pInfo->flags = CKF_HW;
       break;
 
     case CKM_YUBICO_AES_CCM_WRAP:
@@ -839,9 +872,22 @@ yubihsm_pkcs11_object_desc *get_object_desc(yubihsm_pkcs11_slot *slot,
   return _get_object_desc(slot, id, type, sequence);
 }
 
-static bool check_domains(uint16_t subset_domains, uint16_t domains) {
+static bool check_domains(uint16_t subset_domains, yubihsm_pkcs11_slot *slot) {
+  uint16_t authkey_domains = slot->authkey_domains;
+  if (authkey_domains == 0) {
+    yh_object_descriptor authkey = {0};
+    if (yh_util_get_object_info(slot->device_session,
+                                slot->device_session->authkey_id,
+                                YH_AUTHENTICATION_KEY,
+                                &authkey) != YHR_SUCCESS) {
+      DBG_ERR("Unable to check authentication key domains");
+      return false;
+    }
+    authkey_domains = authkey.domains;
+  }
+
   for (uint16_t i = 0; i < YH_MAX_DOMAINS; i++) {
-    if ((subset_domains & (1 << i)) && !(domains & (1 << i))) {
+    if ((subset_domains & (1 << i)) && !(authkey_domains & (1 << i))) {
       return false;
     }
   }
@@ -853,7 +899,7 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
                         yh_capabilities *target_capabilities,
                         uint16_t target_domains, bool replace) {
 
-  if (!check_domains(target_domains, slot->authkey_domains)) {
+  if (!check_domains(target_domains, slot)) {
     DBG_ERR(
       "Current user's domain access does not match target_object domains.");
     return CKR_FUNCTION_REJECTED;
@@ -1082,9 +1128,8 @@ static void get_capability_attribute(yh_object_descriptor *object,
 
 static CK_RV add_mech_type(CK_BYTE_PTR value, CK_ULONG max, CK_ULONG_PTR length,
                            CK_MECHANISM_TYPE mech) {
-  for (CK_ULONG i = 0; i < *length; i += sizeof(CK_MECHANISM_TYPE)) {
-    if (*(CK_MECHANISM_TYPE_PTR)(value + i) == mech)
-      return CKR_OK;
+  if(find_mech((CK_MECHANISM_TYPE_PTR)value, *length / sizeof(CK_MECHANISM_TYPE), mech)) {
+    return CKR_OK;
   }
   if (*length + sizeof(CK_MECHANISM_TYPE) > max)
     return CKR_BUFFER_TOO_SMALL;
@@ -1371,7 +1416,8 @@ static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_VALUE_LEN:
-      if (object->type == YH_WRAP_KEY || object->type == YH_SYMMETRIC_KEY) {
+      if (object->type == YH_WRAP_KEY || object->type == YH_SYMMETRIC_KEY ||
+          object->type == YH_HMAC_KEY) {
         size_t key_length = 0;
         yh_rc yrc = yh_get_key_bitlength(object->algorithm, &key_length);
         if (yrc != YHR_SUCCESS) {
@@ -1542,6 +1588,8 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
         }
 
         *length = sizeof(CK_KEY_TYPE);
+      } else if (object->type == YH_WRAP_KEY && yh_is_rsa(object->algorithm)) {
+        *((CK_KEY_TYPE *) value) = CKK_RSA;
       } else {
         return CKR_FUNCTION_FAILED;
       }
@@ -1622,11 +1670,18 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       }
       break;
 
+    case CKA_WRAP: // applicable for RSA wrap keys
+      get_capability_attribute(object, "export-wrapped", true, value,
+                               length, NULL);
+      break;
+    case CKA_UNWRAP: // applicable for RSA wrap keys
+      get_capability_attribute(object, "import-wrapped", true, value,
+                               length, NULL);
+      break;
+
     case CKA_SIGN_RECOVER:
     case CKA_VERIFY:
     case CKA_VERIFY_RECOVER:
-    case CKA_WRAP:
-    case CKA_UNWRAP:
     case CKA_WRAP_WITH_TRUSTED:
     case CKA_ALWAYS_AUTHENTICATE:
       *((CK_BBOOL *) value) = CK_FALSE;
@@ -1711,7 +1766,7 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
         p += resplen;
         *length = p - (uint8_t *) value;
       } else if (yh_is_ed(object->algorithm)) {
-        uint8_t resp[2048];
+        uint8_t resp[2048] = {0};
         size_t resplen = sizeof(resp);
 
         yh_rc yrc =
@@ -1750,8 +1805,9 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
         uint8_t resp[2048] = {0};
         size_t resp_len = sizeof(resp);
 
-        yh_rc yrc = yh_util_get_public_key(session->slot->device_session,
-                                           object->id, resp, &resp_len, NULL);
+        yh_rc yrc =
+          yh_util_get_public_key_ex(session->slot->device_session, object->type,
+                                    object->id, resp, &resp_len, NULL);
         if (yrc != YHR_SUCCESS) {
           return yrc_to_rv(yrc);
         }
@@ -1787,7 +1843,7 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
   return CKR_OK;
 }
 
-static CK_RV load_public_key(yh_session *session, uint16_t id, EVP_PKEY **key) {
+static CK_RV load_public_key(yh_session *session, uint16_t id, uint8_t type, EVP_PKEY **key) {
 
   uint8_t data[1024] = {0};
   size_t data_len = sizeof(data) - 1;
@@ -1800,7 +1856,8 @@ static CK_RV load_public_key(yh_session *session, uint16_t id, EVP_PKEY **key) {
   EC_POINT *ec_point = NULL;
   yh_algorithm algo;
 
-  yh_rc yrc = yh_util_get_public_key(session, id, data + 1, &data_len, &algo);
+  yh_rc yrc =
+    yh_util_get_public_key_ex(session, type, id, data + 1, &data_len, &algo);
   if (yrc != YHR_SUCCESS) {
     return yrc_to_rv(yrc);
   }
@@ -2030,6 +2087,9 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
             *((CK_KEY_TYPE *) value) = CKK_VENDOR_DEFINED; // TODO: argh
         }
         *length = sizeof(CK_KEY_TYPE);
+      } else if (object->type == YH_PUBLIC_WRAP_KEY && yh_is_rsa(object->algorithm)) {
+        *((CK_KEY_TYPE *) value) = CKK_RSA;
+        *length = sizeof(CK_KEY_TYPE);
       } else {
         return CKR_FUNCTION_FAILED;
       }
@@ -2129,7 +2189,7 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
         p += resplen;
         *length = p - (uint8_t *) value;
       } else if (yh_is_ed(object->algorithm)) {
-        uint8_t resp[2048];
+        uint8_t resp[2048] = {0};
         size_t resplen = sizeof(resp);
 
         yh_rc yrc =
@@ -2168,8 +2228,9 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
         uint8_t resp[2048] = {0};
         size_t resp_len = sizeof(resp);
 
-        yh_rc yrc = yh_util_get_public_key(session->slot->device_session,
-                                           object->id, resp, &resp_len, NULL);
+        yh_rc yrc =
+          yh_util_get_public_key_ex(session->slot->device_session, object->type,
+                                    object->id, resp, &resp_len, NULL);
         if (yrc != YHR_SUCCESS) {
           return yrc_to_rv(yrc);
         }
@@ -2197,7 +2258,7 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       EVP_PKEY *pkey = NULL;
 
       CK_RV rv =
-        load_public_key(session->slot->device_session, object->id, &pkey);
+        load_public_key(session->slot->device_session, object->id, object->type, &pkey);
       if (rv != CKR_OK) {
         EVP_PKEY_free(pkey);
         return rv;
@@ -2229,6 +2290,14 @@ static CK_RV get_attribute(CK_ATTRIBUTE_TYPE type, yh_object_descriptor *object,
                                   session);
 
     case YH_WRAP_KEY:
+      if(yh_is_rsa(object->algorithm)) {
+        return get_attribute_private_key(type, object, meta_object, value, length,
+                                         session);
+      } else {
+        return get_attribute_secret_key(type, object, meta_object, value, length);
+      }
+      break;
+
     case YH_HMAC_KEY:
     case YH_SYMMETRIC_KEY:
       return get_attribute_secret_key(type, object, meta_object, value, length);
@@ -2237,6 +2306,7 @@ static CK_RV get_attribute(CK_ATTRIBUTE_TYPE type, yh_object_descriptor *object,
       return get_attribute_private_key(type, object, meta_object, value, length,
                                        session);
     case YH_PUBLIC_KEY:
+    case YH_PUBLIC_WRAP_KEY:
       return get_attribute_public_key(type, object, meta_object, value, length,
                                       session);
 
@@ -2339,12 +2409,9 @@ CK_RV check_sign_mechanism(yubihsm_pkcs11_slot *slot,
     return rv;
   }
 
-  for (CK_ULONG i = 0; i < count; i++) {
-    if (pMechanism->mechanism == mechanisms[i]) {
-      return CKR_OK;
-    }
+  if (find_mech(mechanisms, count, pMechanism->mechanism)) {
+    return CKR_OK;
   }
-
   return CKR_MECHANISM_INVALID;
 }
 
@@ -2367,12 +2434,9 @@ CK_RV check_decrypt_mechanism(yubihsm_pkcs11_slot *slot,
     return rv;
   }
 
-  for (CK_ULONG i = 0; i < count; i++) {
-    if (pMechanism->mechanism == mechanisms[i]) {
-      return CKR_OK;
-    }
+  if (find_mech(mechanisms, count, pMechanism->mechanism)) {
+    return CKR_OK;
   }
-
   return CKR_MECHANISM_INVALID;
 }
 
@@ -2397,7 +2461,9 @@ CK_RV check_wrap_mechanism(yubihsm_pkcs11_slot *slot,
   CK_MECHANISM_TYPE mechanisms[128] = {0};
   CK_ULONG count = 128;
 
-  if (pMechanism->mechanism != CKM_YUBICO_AES_CCM_WRAP) {
+  if (pMechanism->mechanism != CKM_YUBICO_AES_CCM_WRAP &&
+      pMechanism->mechanism != CKM_YUBICO_RSA_WRAP &&
+      pMechanism->mechanism != CKM_RSA_AES_KEY_WRAP) {
     return CKR_MECHANISM_INVALID;
   }
 
@@ -2406,12 +2472,9 @@ CK_RV check_wrap_mechanism(yubihsm_pkcs11_slot *slot,
     return rv;
   }
 
-  for (CK_ULONG i = 0; i < count; i++) {
-    if (pMechanism->mechanism == mechanisms[i]) {
-      return CKR_OK;
-    }
+  if (find_mech(mechanisms, count, pMechanism->mechanism)) {
+    return CKR_OK;
   }
-
   return CKR_MECHANISM_INVALID;
 }
 
@@ -3368,7 +3431,7 @@ CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
     unsigned int md_len = sizeof(md_data);
     EVP_PKEY_CTX *ctx = NULL;
 
-    rv = load_public_key(session, op_info->op.verify.key_id, &key);
+    rv = load_public_key(session, op_info->op.verify.key_id, YH_ASYMMETRIC_KEY, &key);
     if (rv != CKR_OK) {
       goto pv_failure;
     }
@@ -3626,7 +3689,7 @@ CK_RV perform_rsa_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
   EVP_PKEY *public_key = NULL;
   EVP_PKEY_CTX *ctx = NULL;
 
-  CK_RV rv = load_public_key(session, op_info->op.encrypt.key_id, &public_key);
+  CK_RV rv = load_public_key(session, op_info->op.encrypt.key_id, YH_ASYMMETRIC_KEY, &public_key);
   if (rv != CKR_OK) {
     DBG_ERR("Failed to load public key");
     goto rsa_enc_cleanup;
@@ -4213,6 +4276,14 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
         }
         break;
 
+      case CKA_ENCRYPT:
+        if ((rv = set_template_attribute(&template->encrypt,
+                                         pTemplate[i].pValue)) != CKR_OK) {
+          DBG_ERR("CKA_ENCRYPT inconsistent in template");
+          return rv;
+        }
+        break;
+
       case CKA_TOKEN:
       case CKA_PRIVATE:
       case CKA_SENSITIVE:
@@ -4225,27 +4296,39 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
         break;
 
       case CKA_WRAP:
+        if ((rv = set_template_attribute(&template->wrap,
+                                         pTemplate[i].pValue)) != CKR_OK) {
+          DBG_ERR("CKA_WRAP inconsistent in template");
+          return rv;
+        }
+        break;
+
+      case CKA_UNWRAP:
+        if ((rv = set_template_attribute(&template->unwrap,
+                                         pTemplate[i].pValue)) != CKR_OK) {
+          DBG_ERR("CKA_UNWRAP inconsistent in template");
+          return rv;
+        }
+        break;
+
       case CKA_DERIVE:
-      case CKA_ENCRYPT:
+        if ((rv = set_template_attribute(&template->derive,
+                                         pTemplate[i].pValue)) != CKR_OK) {
+          DBG_ERR("CKA_DERIVE inconsistent in template");
+          return rv;
+        }
+        break;
+
       case CKA_VERIFY:
       case CKA_VERIFY_RECOVER:
       case CKA_MODIFIABLE:
       case CKA_COPYABLE:
       case CKA_ALWAYS_AUTHENTICATE:
+      case CKA_SIGN_RECOVER:
         if ((rv = check_bool_attribute(pTemplate[i].pValue, false)) != CKR_OK) {
           return rv;
         }
         break;
-
-      case CKA_SIGN_RECOVER:
-      case CKA_UNWRAP: {
-        CK_BBOOL b_val = *(CK_BBOOL *) pTemplate[i].pValue;
-        if (b_val != CK_FALSE) {
-          DBG_ERR("Boolean false check failed for attribute 0x%lx. This will "
-                  "be ignored",
-                  pTemplate[i].type);
-        }
-      } break;
 
       case CKA_MODULUS:
       case CKA_PRIVATE_EXPONENT:
@@ -4905,7 +4988,31 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_WRAP:
+        if ((rv = check_bool_attribute(pPrivateKeyTemplate[i].pValue, false)) !=
+            CKR_OK) {
+          DBG_ERR("Boolean false check failed for attribute CKA_WRAP");
+          return rv;
+        }
+        break;
+
+      case CKA_UNWRAP: // pkcs11-tool sets this on private keys
+        if ((rv = set_template_attribute(&template->unwrap,
+                                         pPrivateKeyTemplate[i].pValue)) !=
+            CKR_OK) {
+          DBG_ERR("CKA_UNWRAP inconsistent in template");
+          return rv;
+        }
+        break;
+
       case CKA_DERIVE:
+        if ((rv = set_template_attribute(&template->derive,
+                                         pPrivateKeyTemplate[i].pValue)) !=
+            CKR_OK) {
+          DBG_ERR("CKA_DERIVE inconsistent in template");
+          return rv;
+        }
+        break;
+
       case CKA_ENCRYPT:
       case CKA_SIGN_RECOVER:
       case CKA_VERIFY:
@@ -4920,7 +5027,6 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         }
         break;
 
-      case CKA_UNWRAP: // pkcs11-tool sets this on private keys
       case CKA_SUBJECT:
         break;
 
@@ -5485,6 +5591,223 @@ CK_RV parse_wrap_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
   }
 }
 
+CK_RV set_object_type(uint8_t *type, uint8_t expected_type) {
+  if (*type == 0) {
+    *type = expected_type;
+    return CKR_OK;
+  }
+  if (*type != expected_type) {
+    DBG_ERR("Mismatch in attribute values");
+    return CKR_TEMPLATE_INCONSISTENT;
+  }
+  return CKR_OK;
+}
+
+CK_RV
+parse_rsa_wrappedkey_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
+                              yubihsm_pkcs11_object_template *template,
+                              pkcs11_meta_object *pkcs11meta, CK_BYTE* type) {
+  CK_RV rv;
+  CK_ULONG ckk_type = 0;
+  uint8_t *ecparams = NULL;
+  uint16_t ecparams_len = 0;
+  for (CK_ULONG i = 0; i < ulCount; i++) {
+    switch (pTemplate[i].type) {
+      case CKA_CLASS: {
+        uint32_t value = *((CK_ULONG_PTR) (pTemplate[i].pValue));
+        switch (value) {
+          case CKO_SECRET_KEY:
+            rv = set_object_type(type, YH_SYMMETRIC_KEY);
+            if (rv != CKR_OK) {
+              return rv;
+            }
+            break;
+          case CKO_PRIVATE_KEY:
+            rv = set_object_type(type, YH_ASYMMETRIC_KEY);
+            if (rv != CKR_OK) {
+              return rv;
+            }
+            break;
+          default:
+            DBG_ERR("Unsupported wrapped key class");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+      } break;
+      case CKA_KEY_TYPE: {
+        ckk_type = *((CK_ULONG_PTR) (pTemplate[i].pValue));
+        switch (ckk_type) {
+          case CKK_RSA:
+          case CKK_EC:
+          case CKK_EC_EDWARDS:
+            rv = set_object_type(type, YH_ASYMMETRIC_KEY);
+            if (rv != CKR_OK) {
+              return rv;
+            }
+            break;
+          case CKK_AES:
+            rv = set_object_type(type, YH_SYMMETRIC_KEY);
+            if (rv != CKR_OK) {
+              return rv;
+            }
+            break;
+          default:
+            DBG_ERR("Unsupported wrapped key type 0x%lx", ckk_type);
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+      } break;
+      case CKA_ID:
+        rv =
+          parse_meta_id_template(template, pkcs11meta, true,
+                                 pTemplate[i].pValue, pTemplate[i].ulValueLen);
+        if (rv != CKR_OK) {
+          return rv;
+        }
+        break;
+
+      case CKA_LABEL:
+        rv = parse_meta_label_template(template, pkcs11meta, true,
+                                       pTemplate[i].pValue,
+                                       pTemplate[i].ulValueLen);
+        if (rv != CKR_OK) {
+          return rv;
+        }
+        break;
+
+      case CKA_MODULUS_BITS:
+        rv = set_object_type(type, YH_ASYMMETRIC_KEY);
+        if (rv != CKR_OK) {
+          return rv;
+        }
+        switch (*((CK_ULONG_PTR) pTemplate[i].pValue)) {
+          case 2048:
+            template->algorithm = YH_ALGO_RSA_2048;
+            break;
+
+          case 3072:
+            template->algorithm = YH_ALGO_RSA_3072;
+            break;
+
+          case 4096:
+            template->algorithm = YH_ALGO_RSA_4096;
+            break;
+
+          default:
+            DBG_ERR("CKA_MODULUS_BITS wrong length in PublicKeyTemplate (%lu)",
+                    *((CK_ULONG_PTR) pTemplate[i].pValue));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        break;
+
+      case CKA_EC_PARAMS:
+        rv = set_object_type(type, YH_ASYMMETRIC_KEY);
+        if (rv != CKR_OK) {
+          return rv;
+        }
+        if (ecparams == NULL) {
+          ecparams = (CK_BYTE_PTR) pTemplate[i].pValue;
+          ecparams_len = pTemplate[i].ulValueLen;
+        } else {
+          DBG_ERR("CKA_PUBLIC_EXPONENT inconsistent in PublicKeyTemplate");
+          return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+
+      case CKA_VALUE_LEN:
+        rv = set_object_type(type, YH_SYMMETRIC_KEY);
+        if (rv != CKR_OK) {
+          return rv;
+        }
+        CK_ULONG keylen = *((CK_ULONG_PTR) pTemplate[i].pValue);
+        switch (keylen) {
+          case 16:
+            template->algorithm = YH_ALGO_AES128;
+            break;
+          case 24:
+            template->algorithm = YH_ALGO_AES192;
+            break;
+          case 32:
+            template->algorithm = YH_ALGO_AES256;
+            break;
+          default:
+            DBG_ERR("Invalid key length %lu", keylen);
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        break;
+
+      case CKA_DECRYPT:
+        if ((rv = set_template_attribute(&template->encrypt,
+                                         pTemplate[i].pValue)) != CKR_OK) {
+          DBG_ERR("CKA_DECRYPT inconsistent in pTemplate");
+          return rv;
+        }
+        break;
+      case CKA_ENCRYPT:
+        if ((rv = set_template_attribute(&template->decrypt,
+                                         pTemplate[i].pValue)) != CKR_OK) {
+          DBG_ERR("CKA_DECRYPT inconsistent in pTemplate");
+          return rv;
+        }
+        break;
+
+      case CKA_SIGN:
+        rv = set_object_type(type, YH_ASYMMETRIC_KEY);
+        if (rv != CKR_OK) {
+          return rv;
+        }
+        if ((rv = set_template_attribute(&template->sign,
+                                         pTemplate[i].pValue)) != CKR_OK) {
+          DBG_ERR("CKA_SIGN inconsistent in pTemplate");
+          return rv;
+        }
+        break;
+
+      case CKA_DERIVE:
+        rv = set_object_type(type, YH_ASYMMETRIC_KEY);
+        if (rv != CKR_OK) {
+          return rv;
+        }
+        if ((rv = set_template_attribute(&template->derive,
+                                         pTemplate[i].pValue)) != CKR_OK) {
+          DBG_ERR("CKA_DERIVE inconsistent in PrivateKeyTemplate");
+          return rv;
+        }
+        break;
+
+      case CKA_EXTRACTABLE:
+        if ((rv = set_template_attribute(&template->exportable,
+                                         pTemplate[i].pValue)) != CKR_OK) {
+          DBG_ERR("CKA_EXTRACTABLE inconsistent in PrivateKeyTemplate");
+          return rv;
+        }
+        break;
+
+      default:
+        DBG_ERR("unknown attribute 0x%lx", pTemplate[i].type);
+        break;
+    }
+  }
+
+  if (ecparams != NULL) {
+    uint16_t key_len;
+    if (ckk_type == CKK_EC) {
+      rv =
+        parse_ecparams(ecparams, ecparams_len, &template->algorithm, &key_len);
+    } else if (ckk_type == CKK_EC_EDWARDS) {
+      rv =
+        parse_edparams(ecparams, ecparams_len, &template->algorithm, &key_len);
+    } else {
+      DBG_ERR("Found EC parameters for non EC keys");
+      return CKR_TEMPLATE_INCONSISTENT;
+    }
+    if (rv != CKR_OK) {
+      DBG_ERR("Failed to parse CKA_ECPARAMS");
+      return rv;
+    }
+  }
+
+  return CKR_OK;
+}
+
 CK_RV parse_aes_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
                          yubihsm_pkcs11_object_template *template,
                          bool generate) {
@@ -5595,7 +5918,6 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
     DBG_INFO("Getting attribute 0x%lx", pTemplate[i].type);
     CK_ULONG len = sizeof(tmp);
     CK_RV attribute_rc;
-
     if (type == ECDH_KEY_TYPE) {
       ecdh_session_key *key = object;
       attribute_rc =

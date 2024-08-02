@@ -43,6 +43,8 @@ option "action" a "Action to perform" values="benchmark",
                                              "get-storage-info",
                                              "get-template",
                                              "get-wrapped",
+                                             "get-rsa-wrapped",
+                                             "get-rsa-wrapped-key",
                                              "get-device-pubkey",
                                              "list-objects",
                                              "put-asymmetric-key",
@@ -54,7 +56,11 @@ option "action" a "Action to perform" values="benchmark",
                                              "put-symmetric-key",
                                              "put-template",
                                              "put-wrap-key",
+                                             "put-rsa-wrapkey",
+                                             "put-public-wrapkey",
                                              "put-wrapped",
+                                             "put-rsa-wrapped",
+                                             "put-rsa-wrapped-key",
                                              "randomize-otp-aead",
                                              "reset",
                                              "set-log-index",
@@ -78,11 +84,14 @@ option "ykhsmauth-reader" r "Only use a matching YubiKey reader name" string opt
 option "delegated" - "Delegated capabilities" string optional default="0"
 option "new-password" - "New authentication password" string optional
 option "algorithm" A "Operation algorithm" string optional default="any"
+option "oaep" - "OAEP algorithm. Used primarily with asymmetric wrap" string optional default="rsa-oaep-sha256"
+option "mgf1" - "MGF1 algorithm. Used primarily with asymmetric wrap" string optional default="mgf1-sha256"
 option "nonce" - "OTP nonce" int optional
 option "iv" - "An initialization vector as a hexadecimal string" string optional
 option "count" - "Number of bytes to request" int optional default="256"
 option "duration" - "Blink duration in seconds" int optional default="10"
 option "wrap-id" - "Wrap key ID" int optional
+option "include-seed" - "Include seed when exporting an ED25519 key under wrap" flag off
 option "template-id" - "Template ID" int optional
 option "attestation-id" - "Attestation ID" int optional
 option "log-index" - "Log index" int optional

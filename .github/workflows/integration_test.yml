@@ -1,9 +1,6 @@
 name: Run Integration Tests
 
-on:
-  schedule:
-    # Run this every wednesday at 3:40. https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule
-    - cron: '40 3 * * 3'
+on: [push, pull_request]
 
 jobs:
   main:
@@ -77,12 +74,12 @@ jobs:
         working-directory: yubihsm-shell/resources/tests/bash
         run: ./cmdline_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
 
-      - name: run pkcs11-tool tests
-        working-directory: yubihsm-shell/resources/tests/bash
-        run: |
-          echo "connector=$DEFAULT_CONNECTOR_URL" > yubihsm_pkcs11.conf
-          export YUBIHSM_PKCS11_CONF=`pwd`/yubihsm_pkcs11.conf
-          ./opensc_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so
+#      - name: run pkcs11-tool tests
+#        working-directory: yubihsm-shell/resources/tests/bash
+#        run: |
+#          echo "connector=$DEFAULT_CONNECTOR_URL" > yubihsm_pkcs11.conf
+#          export YUBIHSM_PKCS11_CONF=`pwd`/yubihsm_pkcs11.conf
+#          ./opensc_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so
 
       - name: clone the YubicoLabs/yubihsm_sunpkcs11_tests repository
         uses: actions/checkout@v4

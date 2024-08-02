@@ -1351,6 +1351,45 @@ yh_rc yh_get_connector_address(yh_connector *connector, char **const address) {
   return YHR_SUCCESS;
 }
 
+yh_rc yh_util_get_partnumber(yh_connector *connector, char *part_number,
+                             size_t *part_number_len) {
+  if (part_number == NULL || part_number_len == NULL) {
+    // Nothing to read
+    return YHR_SUCCESS;
+  }
+
+  if (connector == NULL) {
+    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  uint8_t response[256] = {0};
+  size_t response_len = sizeof(response);
+  yh_cmd response_cmd = 0;
+
+  uint8_t data[1] = {1};
+  yh_rc yrc =
+    yh_send_plain_msg(connector, YHC_GET_DEVICE_INFO, data, sizeof(data),
+                      &response_cmd, response, &response_len);
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("Failed to send GET DEVICE INFO command for page 1: %s",
+            yh_strerror(yrc));
+    *part_number_len = 0;
+    return yrc;
+  }
+
+  if (*part_number_len < (response_len + 1)) {
+    DBG_ERR("Response buffer too small");
+    *part_number_len = 0;
+    return YHR_BUFFER_TOO_SMALL;
+  }
+  memcpy(part_number, response, response_len);
+  part_number[response_len] = 0;
+  *part_number_len = response_len;
+
+  return YHR_SUCCESS;
+}
+
 yh_rc yh_util_get_device_info(yh_connector *connector, uint8_t *major,
                               uint8_t *minor, uint8_t *patch, uint32_t *serial,
                               uint8_t *log_total, uint8_t *log_used,
@@ -1609,22 +1648,28 @@ yh_rc yh_util_get_object_info(yh_session *session, uint16_t id,
   return YHR_SUCCESS;
 }
 
-yh_rc yh_util_get_public_key(yh_session *session, uint16_t id, uint8_t *data,
-                             size_t *data_len, yh_algorithm *algorithm) {
+yh_rc yh_util_get_public_key_ex(yh_session *session, yh_object_type type,
+                                uint16_t id, uint8_t *data, size_t *data_len,
+                                yh_algorithm *algorithm) {
 
   if (session == NULL || data == NULL || data_len == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
 
-  uint8_t cmd[2] = {id >> 8, id & 0xff};
+  if (type == YH_PUBLIC_KEY) {
+    type = YH_ASYMMETRIC_KEY;
+  }
+
+  uint8_t cmd[] = {id >> 8, id & 0xff, type};
   yh_cmd response_cmd = 0;
   uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
 
-  yh_rc yrc = yh_send_secure_msg(session, YHC_GET_PUBLIC_KEY, cmd, sizeof(cmd),
+  yh_rc yrc = yh_send_secure_msg(session, YHC_GET_PUBLIC_KEY, cmd,
+                                 type == YH_ASYMMETRIC_KEY ? sizeof(cmd) - 1
+                                                           : sizeof(cmd),
                                  &response_cmd, response, &response_len);
-
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send GET PUBLIC KEY command: %s", yh_strerror(yrc));
     return yrc;
@@ -1646,6 +1691,12 @@ yh_rc yh_util_get_public_key(yh_session *session, uint16_t id, uint8_t *data,
   memcpy(data, response + 1, *data_len);
 
   return YHR_SUCCESS;
+}
+
+
+yh_rc yh_util_get_public_key(yh_session *session, uint16_t id, uint8_t *data,
+                             size_t *data_len, yh_algorithm *algorithm) {
+  return yh_util_get_public_key_ex(session, YH_ASYMMETRIC_KEY, id, data, data_len, algorithm);
 }
 
 yh_rc yh_util_close_session(yh_session *session) {
@@ -1705,7 +1756,7 @@ yh_rc yh_util_sign_pkcs1v1_5(yh_session *session, uint16_t key_id, bool hashed,
     uint8_t buf[1];
   } data = {0};
 #pragma pack(pop)
-  uint16_t data_len;
+  size_t data_len;
 
   yh_cmd response_cmd = 0;
 
@@ -1756,7 +1807,7 @@ yh_rc yh_util_sign_pss(yh_session *session, uint16_t key_id, const uint8_t *in,
     uint8_t buf[1];
   } data = {0};
 #pragma pack(pop)
-  uint16_t data_len = in_len;
+  size_t data_len = in_len;
 
   yh_cmd response_cmd = 0;
 
@@ -1812,7 +1863,7 @@ yh_rc yh_util_sign_ecdsa(yh_session *session, uint16_t key_id,
     uint8_t buf[1];
   } data = {0};
 #pragma pack(pop)
-  uint16_t data_len = in_len;
+  size_t data_len = in_len;
 
   yh_cmd response_cmd = 0;
 
@@ -1853,7 +1904,7 @@ yh_rc yh_util_sign_eddsa(yh_session *session, uint16_t key_id,
     uint8_t buf[1];
   } data = {0};
 #pragma pack(pop)
-  uint16_t data_len = in_len;
+  size_t data_len = in_len;
 
   yh_cmd response_cmd = 0;
 
@@ -1885,7 +1936,7 @@ yh_rc yh_util_sign_hmac(yh_session *session, uint16_t key_id, const uint8_t *in,
   }
 
   uint8_t data[YH_MSG_BUF_SIZE] = {0};
-  uint16_t data_len = 2;
+  size_t data_len = 2;
 
   yh_cmd response_cmd = 0;
 
@@ -1934,7 +1985,7 @@ static yh_rc import_key(yh_cmd cmd, yh_session *session, uint16_t *key_id,
                         const char *label, uint16_t domains,
                         const yh_capabilities *capabilities,
                         yh_algorithm algorithm, const uint8_t *key,
-                        uint16_t key_len) {
+                        size_t key_len) {
   if (cmd != YHC_PUT_ASYMMETRIC_KEY && cmd != YHC_PUT_SYMMETRIC_KEY) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
@@ -1977,7 +2028,7 @@ static yh_rc import_key(yh_cmd cmd, yh_session *session, uint16_t *key_id,
   }
   memcpy(k.bytes, key, key_len);
 
-  uint16_t len = sizeof(k.key_id) + sizeof(k.domains) + sizeof(k.capabilities) +
+  size_t len = sizeof(k.key_id) + sizeof(k.domains) + sizeof(k.capabilities) +
                  sizeof(k.algo) + sizeof(k.label) + key_len;
   yh_rc yrc = yh_send_secure_msg(session, cmd, k.buf, len, &response_cmd,
                                  response.buf, &response_len);
@@ -2006,7 +2057,7 @@ yh_rc yh_util_import_aes_key(yh_session *session, uint16_t *key_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  uint16_t len;
+  size_t len;
 
   if (algorithm == YH_ALGO_AES128) {
     len = 16;
@@ -2036,7 +2087,7 @@ yh_rc yh_util_import_rsa_key(yh_session *session, uint16_t *key_id,
   }
 
   uint8_t keybuf[256 * 2] = {0};
-  uint16_t component_len;
+  size_t component_len;
 
   if (algorithm == YH_ALGO_RSA_2048) {
     component_len = 128;
@@ -2069,7 +2120,7 @@ yh_rc yh_util_import_ec_key(yh_session *session, uint16_t *key_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  uint16_t component_len;
+  size_t component_len;
   switch (algorithm) {
     case YH_ALGO_EC_P224:
       component_len = 28;
@@ -2107,7 +2158,7 @@ yh_rc yh_util_import_ed_key(yh_session *session, uint16_t *key_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  uint16_t component_len;
+  size_t component_len;
   switch (algorithm) {
     case YH_ALGO_EC_ED25519:
       component_len = 32;
@@ -2153,7 +2204,7 @@ yh_rc yh_util_import_hmac_key(yh_session *session, uint16_t *key_id,
   size_t response_len = sizeof(response);
   yh_cmd response_cmd = 0;
   size_t max_len = 64;
-  int len = sizeof(k) - sizeof(k.key);
+  size_t len = sizeof(k) - sizeof(k.key);
 
   k.key_id = htons(*key_id);
 
@@ -2220,7 +2271,7 @@ static yh_rc generate_key(yh_cmd cmd, yh_session *session, uint16_t *key_id,
     };
     uint8_t buf[1];
   } data = {0};
-  int data_len = sizeof(data);
+  size_t data_len = sizeof(data);
   union {
     struct {
       uint16_t key_id;
@@ -2336,7 +2387,7 @@ yh_rc yh_util_verify_hmac(yh_session *session, uint16_t key_id,
   }
 
   uint8_t cmd_data[YH_MSG_BUF_SIZE] = {0};
-  int cmd_data_len;
+  size_t cmd_data_len;
 
   uint8_t response[3] = {0};
   size_t response_len = sizeof(response);
@@ -2485,7 +2536,7 @@ yh_rc yh_util_decrypt_oaep(yh_session *session, uint16_t key_id,
 #pragma pack(pop)
 
   yh_cmd response_cmd = 0;
-  uint16_t len = 0;
+  size_t len = 0;
 
   data.key_id = htons(key_id);
   len += sizeof(data.key_id);
@@ -2600,6 +2651,12 @@ yh_rc yh_util_delete_object(yh_session *session, uint16_t id,
 yh_rc yh_util_export_wrapped(yh_session *session, uint16_t wrapping_key_id,
                              yh_object_type target_type, uint16_t target_id,
                              uint8_t *out, size_t *out_len) {
+  return yh_util_export_wrapped_ex(session, wrapping_key_id, target_type, target_id, 0, out, out_len);
+}
+
+yh_rc yh_util_export_wrapped_ex(yh_session *session, uint16_t wrapping_key_id,
+                             yh_object_type target_type, uint16_t target_id,
+                             uint8_t format, uint8_t *out, size_t *out_len) {
 
   if (session == NULL || out == NULL || out_len == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
@@ -2612,6 +2669,7 @@ yh_rc yh_util_export_wrapped(yh_session *session, uint16_t wrapping_key_id,
       uint16_t key_id;
       uint8_t type;
       uint16_t tgt_id;
+      uint8_t format;
     };
     uint8_t buf[1];
   } data = {0};
@@ -2622,9 +2680,11 @@ yh_rc yh_util_export_wrapped(yh_session *session, uint16_t wrapping_key_id,
   data.key_id = htons(wrapping_key_id);
   data.type = (uint8_t) target_type;
   data.tgt_id = htons(target_id);
+  data.format = format;
 
   yh_rc yrc = yh_send_secure_msg(session, YHC_EXPORT_WRAPPED, data.buf,
-                                 sizeof(data), &response_cmd, out, out_len);
+                                 format == 0 ? sizeof(data) - 1 : sizeof(data),
+                                 &response_cmd, out, out_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send EXPORT WRAPPED command: %s", yh_strerror(yrc));
     return yrc;
@@ -2657,7 +2717,7 @@ yh_rc yh_util_import_wrapped(yh_session *session, uint16_t wrapping_key_id,
     uint8_t buf[1];
   } data = {0};
 #pragma pack(pop)
-  uint16_t data_len = 2 + in_len;
+  size_t data_len = 2 + in_len;
 
   uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
@@ -2678,6 +2738,237 @@ yh_rc yh_util_import_wrapped(yh_session *session, uint16_t wrapping_key_id,
   *target_id = ntohs(*((uint16_t *) (response + 1)));
 
   return YHR_SUCCESS;
+}
+
+yh_rc yh_util_import_rsa_wrapped(yh_session *session, uint16_t wrapping_key_id,
+                                 yh_algorithm hash, yh_algorithm mgf1,
+                                 const uint8_t *label, size_t label_len,
+                                 const uint8_t *in, size_t in_len,
+                                 yh_object_type *target_type, uint16_t *target_id) {
+
+  if (session == NULL || in == NULL || target_type == NULL ||
+      target_id == NULL) {
+    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  if (in_len + label_len > YH_MSG_BUF_SIZE) {
+    DBG_ERR("Too much data, must be < %d", YH_MSG_BUF_SIZE - 2);
+    return YHR_INVALID_PARAMETERS;
+  }
+
+#pragma pack(push, 1)
+  union {
+    struct {
+      uint16_t wrap_key_id;
+      uint8_t hash;
+      uint8_t mgf1;
+      uint8_t bytes[YH_MSG_BUF_SIZE];
+    };
+    uint8_t buf[1];
+  } data = {
+    {
+      htons(wrapping_key_id),
+      hash,
+      mgf1,
+      { 0 }
+    }
+  };
+#pragma pack(pop)
+  size_t data_len = 4;
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
+  size_t response_len = sizeof(response);
+  yh_cmd response_cmd = 0;
+
+  memcpy(data.bytes, in, in_len);
+  data_len += in_len;
+  memcpy(data.bytes + in_len, label, label_len);
+  data_len += label_len;
+
+  yh_rc yrc =
+    yh_send_secure_msg(session, YHC_IMPORT_RSA_WRAPPED, data.buf, data_len,
+                       &response_cmd, response, &response_len);
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("Failed to send IMPORT RSA WRAPPED command: %s", yh_strerror(yrc));
+    return yrc;
+  }
+
+  *target_type = response[0];
+  *target_id = ntohs(*((uint16_t *) (response + 1)));
+
+  return YHR_SUCCESS;
+}
+
+yh_rc yh_util_put_rsa_wrapped_key(yh_session *session, uint16_t wrapping_key_id,
+                                     yh_object_type type, uint16_t *target_id, yh_algorithm algo, const char *label,
+                                     uint16_t domains, const yh_capabilities *capabilities,
+                                     yh_algorithm hash, yh_algorithm mgf1, const uint8_t *oaep_label, size_t oaep_label_len,
+                                     const uint8_t *in, size_t in_len) {
+
+  if (session == NULL || in == NULL || target_id == NULL || label == NULL || strlen(label) > YH_OBJ_LABEL_LEN) {
+    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  if (in_len + oaep_label_len > YH_MSG_BUF_SIZE) {
+    DBG_ERR("Too much data, must be < %d", YH_MSG_BUF_SIZE - 2);
+    return YHR_INVALID_PARAMETERS;
+  }
+
+#pragma pack(push, 1)
+  union {
+    struct {
+      uint16_t wrap_key_id;
+      uint8_t target_type;
+      uint16_t target_id;
+      uint8_t label[YH_OBJ_LABEL_LEN];
+      uint16_t domains;
+      uint8_t capabilities[YH_CAPABILITIES_LEN];
+      uint8_t algorithm;
+      uint8_t hash;
+      uint8_t mgf1;
+      uint8_t bytes[YH_MSG_BUF_SIZE];
+    };
+    uint8_t buf[1];
+  } data = {
+    {
+      htons(wrapping_key_id),
+      type,
+      htons(*target_id),
+      { 0 }, // label
+      htons(domains),
+      { 0 }, // capabilities
+      algo,
+      hash,
+      mgf1,
+      { 0 }
+    }
+  };
+#pragma pack(pop)
+
+  // 2 bytes wrap key ID +
+  // 1 byte target type +
+  // 2 bytes target ID +
+  // 2 bytes domains +
+  // 1 byte algorithm +
+  // 1 byte hash algorithm +
+  // 1 byte MGF1 algorithm
+  // = 10 bytes
+  size_t data_len = 10 + YH_OBJ_LABEL_LEN + YH_CAPABILITIES_LEN;
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
+  size_t response_len = sizeof(response);
+  yh_cmd response_cmd = 0;
+
+  memcpy(data.label, label, strlen(label));
+  memcpy(data.capabilities, capabilities, YH_CAPABILITIES_LEN);
+  memcpy(data.bytes, in, in_len);
+  data_len += in_len;
+  memcpy(data.bytes + in_len, oaep_label, oaep_label_len);
+  data_len += oaep_label_len;
+
+  yh_rc yrc =
+    yh_send_secure_msg(session, YHC_PUT_RSA_WRAPPED_KEY, data.buf, data_len,
+                       &response_cmd, response, &response_len);
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("Failed to send IMPORT WRAPPED command: %s", yh_strerror(yrc));
+    return yrc;
+  }
+
+  *target_id = ntohs(*((uint16_t *) (response + 1)));
+
+  if (response[0] != type) {
+    DBG_ERR("Imported key type does not match stated key. Removing key.");
+    yh_util_delete_object(session, *target_id, response[0]);
+    *target_id = 0;
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  return YHR_SUCCESS;
+}
+
+static yh_rc
+do_rsa_wrap(yh_cmd cmd,
+                 yh_session *session, uint16_t wrap_key_id,
+                 yh_object_type target_type, uint16_t target_id,
+                 yh_algorithm aes, yh_algorithm hash, yh_algorithm mgf1,
+                 const uint8_t *oaep_label, size_t oaep_label_len,
+                 uint8_t *out, size_t *out_len) {
+
+  if (session == NULL || out == NULL || out_len == NULL ||
+      oaep_label == NULL) {
+    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
+
+#pragma pack(push, 1)
+  union {
+    struct {
+      uint16_t wrap_key_id;
+      uint8_t target_type;
+      uint16_t target_id;
+      uint8_t aes;
+      uint8_t hash;
+      uint8_t mgf1;
+      uint8_t label[64];
+    };
+    uint8_t buf[1];
+  } data = {
+    {
+      htons(wrap_key_id),
+      target_type,
+      htons(target_id),
+      aes,
+      hash,
+      mgf1,
+      { 0 }
+    }
+  };
+#pragma pack(pop)
+
+  yh_cmd response_cmd = 0;
+  size_t len = sizeof(data);
+
+  memcpy(data.label, oaep_label, oaep_label_len);
+  len -= sizeof(data.label);
+  len += oaep_label_len;
+
+  yh_rc yrc = yh_send_secure_msg(session, cmd, data.buf, len,
+                                 &response_cmd, out, out_len);
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("Failed to send 0x%02x command: %s", cmd, yh_strerror(yrc));
+    return yrc;
+  }
+
+  return YHR_SUCCESS;
+}
+
+yh_rc yh_util_get_rsa_wrapped_key(yh_session *session, uint16_t wrap_key_id,
+                                  yh_object_type target_type,
+                                  uint16_t target_id, yh_algorithm aes,
+                                  yh_algorithm hash, yh_algorithm mgf1,
+                                  const uint8_t *oaep_label,
+                                  size_t oaep_label_len, uint8_t *out,
+                                  size_t *out_len) {
+
+  if (target_type != YH_ASYMMETRIC_KEY && target_type != YH_SYMMETRIC_KEY) {
+    DBG_ERR("Only symmetric or asymmetric keys are supported");
+    return YHR_INVALID_PARAMETERS;
+  }
+  return do_rsa_wrap(YHC_GET_RSA_WRAPPED_KEY, session, wrap_key_id, target_type,
+                     target_id, aes, hash, mgf1, oaep_label, oaep_label_len,
+                     out, out_len);
+}
+
+yh_rc yh_util_export_rsa_wrapped(yh_session *session, uint16_t wrap_key_id,
+                                 yh_object_type target_type, uint16_t target_id,
+                                 yh_algorithm aes, yh_algorithm hash,
+                                 yh_algorithm mgf1, const uint8_t *oaep_label,
+                                 size_t oaep_label_len, uint8_t *out,
+                                 size_t *out_len) {
+
+  return do_rsa_wrap(YHC_EXPORT_RSA_WRAPPED, session, wrap_key_id, target_type,
+                     target_id, aes, hash, mgf1, oaep_label, oaep_label_len,
+                     out, out_len);
 }
 
 yh_rc yh_util_import_wrap_key(yh_session *session, uint16_t *key_id,
@@ -2703,11 +2994,10 @@ yh_rc yh_util_import_wrap_key(yh_session *session, uint16_t *key_id,
       uint8_t capabilities[YH_CAPABILITIES_LEN];
       uint8_t algorithm;
       uint8_t delegated_capabilities[YH_CAPABILITIES_LEN];
-      uint8_t key[32];
+      uint8_t key[512];
     };
     uint8_t buf[1];
   } data = {0};
-  uint16_t data_len = sizeof(data);
   union {
     struct {
       uint16_t key_id;
@@ -2718,27 +3008,36 @@ yh_rc yh_util_import_wrap_key(yh_session *session, uint16_t *key_id,
 
   size_t response_len = sizeof(response);
   yh_cmd response_cmd = 0;
-  uint16_t key_len;
+  size_t key_len = 0;
 
   switch (algorithm) {
     case YH_ALGO_AES128_CCM_WRAP:
       key_len = 16;
-      data_len -= 16;
       break;
     case YH_ALGO_AES192_CCM_WRAP:
       key_len = 24;
-      data_len -= 8;
       break;
     case YH_ALGO_AES256_CCM_WRAP:
       key_len = 32;
+      break;
+    case YH_ALGO_RSA_2048:
+      key_len = 256;
+      break;
+    case YH_ALGO_RSA_3072:
+      key_len = 384;
+      break;
+    case YH_ALGO_RSA_4096:
+      key_len = 512;
       break;
     default:
       DBG_ERR("Bad algorithm specified: %x", algorithm);
       return YHR_INVALID_PARAMETERS;
   }
 
+  size_t data_len = sizeof(data) - sizeof(data.key) + key_len;
+
   if (in_len != key_len) {
-    DBG_ERR("Key length not matching, should be %d", key_len);
+    DBG_ERR("Key length not matching, should be %zu", key_len);
     return YHR_INVALID_PARAMETERS;
   }
 
@@ -2762,6 +3061,91 @@ yh_rc yh_util_import_wrap_key(yh_session *session, uint16_t *key_id,
 
   *key_id = ntohs(response.key_id);
   DBG_INFO("Imported Wrap key 0x%04x", *key_id);
+
+  return YHR_SUCCESS;
+}
+
+yh_rc yh_util_import_public_wrap_key(yh_session *session, uint16_t *key_id,
+                                     const char *label, uint16_t domains,
+                                     const yh_capabilities *capabilities,
+                                     yh_algorithm algorithm,
+                                     const yh_capabilities *delegated_capabilities,
+                                     const uint8_t *in, size_t in_len) {
+
+  if (session == NULL || key_id == NULL || label == NULL ||
+      strlen(label) > YH_OBJ_LABEL_LEN || capabilities == NULL ||
+      delegated_capabilities == NULL || in == NULL) {
+    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
+
+#pragma pack(push, 1)
+  union {
+    struct {
+      uint16_t key_id;
+      uint8_t label[YH_OBJ_LABEL_LEN];
+      uint16_t domains;
+      uint8_t capabilities[YH_CAPABILITIES_LEN];
+      uint8_t algorithm;
+      uint8_t delegated_capabilities[YH_CAPABILITIES_LEN];
+      uint8_t key[512];
+    };
+    uint8_t buf[1];
+  } data = {0};
+  union {
+    struct {
+      uint16_t key_id;
+    };
+    uint8_t buf[1];
+  } response = {0};
+#pragma pack(pop)
+
+  size_t response_len = sizeof(response);
+  yh_cmd response_cmd = 0;
+  size_t key_len;
+
+  switch (algorithm) {
+    case YH_ALGO_RSA_2048:
+      key_len = 256;
+      break;
+    case YH_ALGO_RSA_3072:
+      key_len = 384;
+      break;
+    case YH_ALGO_RSA_4096:
+      key_len = 512;
+      break;
+    default:
+      DBG_ERR("Bad algorithm specified: %x", algorithm);
+      return YHR_INVALID_PARAMETERS;
+  }
+
+  size_t data_len = sizeof(data) - sizeof(data.key) + key_len;
+
+  if (in_len != key_len) {
+    DBG_ERR("Key length not matching, should be %zu", key_len);
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  data.key_id = htons(*key_id);
+  memcpy(data.label, label, strlen(label));
+  memset(data.label + strlen(label), 0, YH_OBJ_LABEL_LEN - strlen(label));
+  data.domains = htons(domains);
+  memcpy(data.capabilities, capabilities, YH_CAPABILITIES_LEN);
+  data.algorithm = algorithm;
+  memcpy(data.delegated_capabilities, delegated_capabilities,
+         YH_CAPABILITIES_LEN);
+  memcpy(data.key, in, key_len);
+
+  yh_rc yrc = yh_send_secure_msg(session, YHC_PUT_PUBLIC_WRAPKEY, data.buf, data_len,
+                                 &response_cmd, response.buf, &response_len);
+  insecure_memzero(data.buf, data_len);
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("Failed to send PUT PUBLIC WRAP KEY command: %s", yh_strerror(yrc));
+    return yrc;
+  }
+
+  *key_id = ntohs(response.key_id);
+  DBG_INFO("Imported public wrap key 0x%04x", *key_id);
 
   return YHR_SUCCESS;
 }
@@ -2791,7 +3175,7 @@ yh_rc yh_util_generate_wrap_key(yh_session *session, uint16_t *key_id,
     };
     uint8_t buf[1];
   } data = {0};
-  uint16_t data_len = sizeof(data);
+  size_t data_len = sizeof(data);
   union {
     struct {
       uint16_t key_id;
@@ -2821,7 +3205,7 @@ yh_rc yh_util_generate_wrap_key(yh_session *session, uint16_t *key_id,
     yh_send_secure_msg(session, YHC_GENERATE_WRAP_KEY, data.buf, data_len,
                        &response_cmd, response.buf, &response_len);
   if (yrc != YHR_SUCCESS) {
-    DBG_ERR("Failed to send GENERATE WRAP KEY command: %s", yh_strerror(yrc));
+    DBG_ERR("Failed to generate wrap key: %s", yh_strerror(yrc));
     return yrc;
   }
 
@@ -2982,7 +3366,7 @@ yh_rc yh_util_import_opaque(yh_session *session, uint16_t *object_id,
     };
     uint8_t buf[1];
   } data = {0};
-  uint16_t data_len;
+  size_t data_len;
   union {
     struct {
       uint16_t object_id;
@@ -3047,7 +3431,7 @@ yh_rc yh_util_sign_ssh_certificate(yh_session *session, uint16_t key_id,
     };
     uint8_t buf[1];
   } data = {0};
-  uint16_t data_len;
+  size_t data_len;
 #pragma pack(pop)
 
   yh_cmd response_cmd = 0;
@@ -3126,7 +3510,7 @@ yh_rc yh_util_import_template(yh_session *session, uint16_t *object_id,
     };
     uint8_t buf[1];
   } data = {0};
-  uint16_t data_len;
+  size_t data_len;
   union {
     struct {
       uint16_t object_id;
@@ -3587,7 +3971,7 @@ yh_rc yh_util_import_otp_aead_key(yh_session *session, uint16_t *key_id,
   } response = {0};
 #pragma pack(pop)
 
-  uint16_t data_len = sizeof(data);
+  size_t data_len = sizeof(data);
   size_t response_len = sizeof(response);
   yh_cmd response_cmd = 0;
 
@@ -3655,7 +4039,7 @@ yh_rc yh_util_generate_otp_aead_key(yh_session *session, uint16_t *key_id,
     };
     uint8_t buf[1];
   } data = {0};
-  uint16_t data_len = sizeof(data);
+  size_t data_len = sizeof(data);
   union {
     struct {
       uint16_t key_id;
@@ -3864,7 +4248,7 @@ yh_rc yh_util_wrap_data(yh_session *session, uint16_t key_id, const uint8_t *in,
     uint8_t buf[1];
   } data = {0};
 #pragma pack(pop)
-  uint16_t data_len = in_len + 2;
+  size_t data_len = in_len + 2;
 
   yh_cmd response_cmd = 0;
 
@@ -3905,7 +4289,7 @@ yh_rc yh_util_unwrap_data(yh_session *session, uint16_t key_id,
     uint8_t buf[1];
   } data = {0};
 #pragma pack(pop)
-  uint16_t data_len = in_len + 2;
+  size_t data_len = in_len + 2;
 
   yh_cmd response_cmd = 0;
 
