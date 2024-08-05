@@ -1752,7 +1752,7 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       if (yh_is_ec(object->algorithm)) {
         uint8_t resp[2048] = {0};
         size_t resplen = sizeof(resp);
-        yh_rc yrc = yh_util_get_public_key(session->slot->device_session,
+        yh_rc yrc = yh_util_get_public_key_ex(session->slot->device_session, object->type,
                                            object->id, resp, &resplen, NULL);
         if (yrc != YHR_SUCCESS) {
           return yrc_to_rv(yrc);
@@ -1770,7 +1770,7 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
         size_t resplen = sizeof(resp);
 
         yh_rc yrc =
-          yh_util_get_public_key(session->slot->device_session, object->id, resp, &resplen, NULL);
+          yh_util_get_public_key_ex(session->slot->device_session, object->type, object->id, resp, &resplen, NULL);
         if (yrc != YHR_SUCCESS) {
           return yrc_to_rv(yrc);
         }
@@ -2175,7 +2175,7 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
         uint8_t resp[2048] = {0};
         size_t resplen = sizeof(resp);
 
-        yh_rc yrc = yh_util_get_public_key(session->slot->device_session,
+        yh_rc yrc = yh_util_get_public_key_ex(session->slot->device_session, object->type,
                                            object->id, resp, &resplen, NULL);
         if (yrc != YHR_SUCCESS) {
           return yrc_to_rv(yrc);
@@ -2193,7 +2193,7 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
         size_t resplen = sizeof(resp);
 
         yh_rc yrc =
-          yh_util_get_public_key(session->slot->device_session, object->id, resp, &resplen, NULL);
+          yh_util_get_public_key_ex(session->slot->device_session, object->type, object->id, resp, &resplen, NULL);
         if (yrc != YHR_SUCCESS) {
           return yrc_to_rv(yrc);
         }

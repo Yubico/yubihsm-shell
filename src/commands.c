@@ -3398,7 +3398,7 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
         }
         algo_len--;
         yrc =
-          yh_util_get_public_key(argv[0].e, id, algo_data + 1, &algo_len, NULL);
+          yh_util_get_public_key_ex(argv[0].e, YH_ASYMMETRIC_KEY, id, algo_data + 1, &algo_len, NULL);
         if (yrc != YHR_SUCCESS || algo_len != benchmarks[i].bytes) {
           fprintf(stderr, "Failed to get ECDH pubkey (%zu)\n", algo_len);
           return -1;

@@ -1801,7 +1801,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       for (size_t i = 0; i < asym_keys_len; i++) {
         uint8_t pubkey[2048] = {0};
         size_t pubkey_len = sizeof(pubkey);
-        rc = yh_util_get_public_key(session->slot->device_session,
+        rc = yh_util_get_public_key_ex(session->slot->device_session, asym_keys[i].type,
                                     asym_keys[i].id, pubkey, &pubkey_len, NULL);
         if (rc != YHR_SUCCESS) {
           DBG_ERR("Failed to get public key of object 0x%x", asym_keys[i].id);
