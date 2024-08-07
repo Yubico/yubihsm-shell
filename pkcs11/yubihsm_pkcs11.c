@@ -6380,6 +6380,15 @@ CK_DEFINE_FUNCTION(CK_RV, C_LoginUser)
   }
 
   list_iterate(&session->slot->pkcs11_sessions, login_sessions);
+  populate_cache_with_data_opaques(session->slot);
+
+  yubihsm_pkcs11_object_desc *authkey_desc =
+    _get_object_desc(session->slot, key_id, YH_AUTHENTICATION_KEY, 0xffff);
+  if (authkey_desc == NULL) {
+    DBG_ERR("Failed to read authentication key info.");
+    goto c_l_out;
+  }
+  session->slot->authkey_domains = authkey_desc->object.domains;
 
   DOUT;
 

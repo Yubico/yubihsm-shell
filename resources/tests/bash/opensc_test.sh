@@ -15,8 +15,8 @@ set -e
 echo "******************* Generation Tests ********************* "
 pkcs11-tool --module $MODULE --login --pin 0001password --keypairgen --id 100 --key-type EC:secp384r1
 pkcs11-tool --module $MODULE --login --pin 0001password --keypairgen --id 2 --key-type EC:prime256v1
-pkcs11-tool --module $MODULE --login --pin 0001password --keypairgen --id 4 --key-type rsa:2048
-pkcs11-tool --module $MODULE --login --pin 0001password --keypairgen --id 5 --key-type rsa:3072
+pkcs11-tool --module $MODULE --login --pin 0001password --keypairgen --id 4 --key-type rsa:2048 --usage-sign
+pkcs11-tool --module $MODULE --login --pin 0001password --keypairgen --id 5 --key-type rsa:3072 --usage-sign
 
 echo "******************* Signing Tests ********************* "
 echo "this is test data" > data.txt
