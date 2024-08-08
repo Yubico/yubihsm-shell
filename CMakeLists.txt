@@ -93,7 +93,7 @@ else ()
 endif ()
 
 set (yubihsm_shell_VERSION_MAJOR 2)
-set (yubihsm_shell_VERSION_MINOR 5)
+set (yubihsm_shell_VERSION_MINOR 6)
 set (yubihsm_shell_VERSION_PATCH 0)
 set (VERSION "${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}")
 

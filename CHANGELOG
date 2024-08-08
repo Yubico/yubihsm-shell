@@ -1,15 +1,21 @@
+=== Version 2.6.0
+
+lib: shell: pkcs11: Add support for asymmetric wrap
+pkcs11: Add support for PKCS11 3.0
+build: Always compile with YubiHSM Auth enabled
+
 === Version 2.5.0
 
-PKCS11: Add support for applying KDF after ECDH derivation
-PKCS11: Shell: Fix minor bugs
-Test: Increase test coverage
+pkcs11: Add support for applying KDF after ECDH derivation
+pkcs11: Shell: Fix minor bugs
+test: Increase test coverage
 
 === Version 2.4.2
 
-PKCS11: Add Symmetric key capabilities to searchable criteria
-PKCS11: Add support for CKA_KEY_TYPE when searching for objects
-PKCS11: Add support for CKA_MODIFIABLE and CKA_COPYABLE attributes for AES and Wrap keys
-Test: Increase test coverage
+pkcs11: Add Symmetric key capabilities to searchable criteria
+pkcs11: Add support for CKA_KEY_TYPE when searching for objects
+pkcs11: Add support for CKA_MODIFIABLE and CKA_COPYABLE attributes for AES and Wrap keys
+test: Increase test coverage
 
 === Version 2.4.1
 

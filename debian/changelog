@@ -1,3 +1,11 @@
+yubihsm-shell (2.6.0) unstable; urgency=medium
+
+    * lib: shell: pkcs11: Add support for asymmetric wrap
+    * pkcs11: Add support for PKCS11 3.0
+    * build: Always compile with YubiHSM Auth enabled
+
+ -- Aveen Ismail <aveen.ismail@yubico.com>  Thu, 8 Aug 2024 16:08:45 +0100
+
 yubihsm-shell (2.5.0) unstable; urgency=medium
 
 	* pkcs11: Add support for applying KDF after ECDH derivation
