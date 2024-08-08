@@ -127,9 +127,10 @@ test "$BIN -p password -a delete-object -i $id -t template" "   Delete template"
 rm resp.txt
 rm template.txt
 
-#echo "********************************************************** "
-#echo "                    Wrap Keys"
-#echo "********************************************************** "
+echo "********************************************************** "
+echo "                    Wrap Keys"
+echo "********************************************************** "
+./test_wrapkey.sh "$BIN"
 
 echo "********************************************************** "
 echo "                    List Objects"
