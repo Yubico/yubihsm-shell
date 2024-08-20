@@ -406,7 +406,7 @@ static void create_command_list(CommandList *c) {
                                 "Get an object under RSA wrap", NULL, NULL});
   register_subcommand(*c,
                       (Command){"rsa_wrapped_key", yh_com_get_rsa_wrapped_key,
-                                "e:session,w:wrapkey_id,t:type,w:id,a:aes=aes256,a:hash=rsa-oaep-sha256,mgf1=mgf1-sha256,F:file=-",
+                                "e:session,w:wrapkey_id,t:type,w:id,a:aes=aes256,a:hash=rsa-oaep-sha256,a=mgf1-sha256,F:file=-",
                                 fmt_nofmt, fmt_binary,
                                 "Get a (a)symmetric key under RSA wrap", NULL, NULL});
   register_subcommand(*c, (Command){"deviceinfo", yh_com_get_device_info, NULL,
