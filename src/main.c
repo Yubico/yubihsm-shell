@@ -401,12 +401,12 @@ static void create_command_list(CommandList *c) {
                                 "Get an object under wrap", NULL, NULL});
   register_subcommand(*c,
                       (Command){"rsa_wrapped", yh_com_get_rsa_wrapped,
-                                "e:session,w:wrapkey_id,t:type,w:id,a:aes=aes256,a:hash=rsa-oaep-sha256,mgf1=mgf1-sha256,F:file=-",
+                                "e:session,w:wrapkey_id,t:type,w:id,a:aes=aes256,a:hash=rsa-oaep-sha256,a:mgf1=mgf1-sha256,F:file=-",
                                 fmt_nofmt, fmt_binary,
                                 "Get an object under RSA wrap", NULL, NULL});
   register_subcommand(*c,
                       (Command){"rsa_wrapped_key", yh_com_get_rsa_wrapped_key,
-                                "e:session,w:wrapkey_id,t:type,w:id,a:aes=aes256,a:hash=rsa-oaep-sha256,mgf1=mgf1-sha256,F:file=-",
+                                "e:session,w:wrapkey_id,t:type,w:id,a:aes=aes256,a:hash=rsa-oaep-sha256,a:mgf1=mgf1-sha256,F:file=-",
                                 fmt_nofmt, fmt_binary,
                                 "Get a (a)symmetric key under RSA wrap", NULL, NULL});
   register_subcommand(*c, (Command){"deviceinfo", yh_com_get_device_info, NULL,
@@ -520,11 +520,11 @@ static void create_command_list(CommandList *c) {
                                     fmt_base64, fmt_nofmt,
                                     "Store a wrapped object", NULL, NULL});
   register_subcommand(*c, (Command){"rsa_wrapped", yh_com_put_rsa_wrapped,
-                                    "e:session,w:wrapkey_id,a:hash=rsa-oaep-sha256,mgf1=mgf1-sha256,i:data=-",
+                                    "e:session,w:wrapkey_id,a:hash=rsa-oaep-sha256,a:mgf1=mgf1-sha256,i:data=-",
                                     fmt_binary, fmt_nofmt,
                                     "Store a wrapped object", NULL, NULL});
   register_subcommand(*c, (Command){"rsa_wrapped_key", yh_com_put_rsa_wrapped_key,
-                                    "e:session,w:wrapkey_id,t:type,w:key_id,a:algorithm,s:label,d:domains,c:capabilities,a:hash=rsa-oaep-sha256,mgf1=mgf1-sha256,i:data=-",
+                                    "e:session,w:wrapkey_id,t:type,w:key_id,a:algorithm,s:label,d:domains,c:capabilities,a:hash=rsa-oaep-sha256,a:mgf1=mgf1-sha256,i:data=-",
                                     fmt_binary, fmt_nofmt,
                                     "Store a wrapped object", NULL, NULL});
   register_subcommand(*c, (Command){"template", yh_com_put_template,
