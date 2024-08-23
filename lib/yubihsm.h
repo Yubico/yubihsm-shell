@@ -88,7 +88,7 @@
 /// Length of host challenge for authentication
 #define YH_HOST_CHAL_LEN 8
 /// Maximum length of message buffer
-#define YH_MSG_BUF_SIZE 4096
+#define YH_MSG_BUF_SIZE 3136
 /// Length of authentication keys
 #define YH_KEY_LEN 16
 /// Device vendor ID
