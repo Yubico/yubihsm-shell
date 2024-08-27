@@ -49,7 +49,7 @@
 
 #define SCP_AUTHKEY_ID_LEN 2
 
-#define SCP_MSG_BUF_SIZE 3136
+#define SCP_MSG_BUF_SIZE 3136 // Hard limit on the firmware side
 
 // Message
 #pragma pack(push, 1)
