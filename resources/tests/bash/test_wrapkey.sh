@@ -236,13 +236,13 @@ for k in ${RSA_KEYSIZE[@]}; do
   echo "            RSA$k"
   echo "**********************************"
   echo "=== Generate RSA wrap keys"
-  test_with_resp "$BIN -p password -a generate-wrap-key -i 0 -l wrapkey -c import-wrapped  --delegated all -A rsa$k" "   Generate RSA wrap key"
+  test_with_resp "$BIN -p password -a generate-wrap-key -i 0 -l wrapkey -c import-wrapped  --delegated exportable-under-wrap,sign-ecdsa,encrypt-cbc,decrypt-cbc -A rsa$k" "   Generate RSA wrap key"
   keyid=$(tail -1 resp.txt | awk '{print $4}')
   info=$($BIN -p password -a get-object-info -i $keyid -t wrap-key  2> /dev/null)
   cmp_str_content "$info" "algorithm: rsa$k" "Algorithm"
   cmp_str_content "$info" "origin: generated" "Origin"
   test "$BIN -p password -a get-public-key -i $keyid -t wrap-key --out public_wrapkey.pem" "   Export rsa public wrap key"
-  test "$BIN -p password -a put-public-wrapkey -i $keyid -c export-wrapped --delegated all --in public_wrapkey.pem" "   Import RSA public wrap key"
+  test "$BIN -p password -a put-public-wrapkey -i $keyid -c export-wrapped --delegated exportable-under-wrap,sign-ecdsa,encrypt-cbc,decrypt-cbc --in public_wrapkey.pem" "   Import RSA public wrap key"
   rm public_wrapkey.pem
 
   echo "=== Wrap and unwrap EC object with generated RSA wrap key"
@@ -315,12 +315,12 @@ for k in ${RSA_KEYSIZE[@]}; do
   echo "=== Import RSA wrap keys"
   test "openssl genrsa -out keypair.pem $k" "   Generate RSA key with OpenSSL"
   test "openssl rsa -in keypair.pem -pubout -out key.pub" "   Extract public key from OpenSSL generated keypair"
-  test_with_resp "$BIN -p password -a put-rsa-wrapkey -i 0 -d 1 -c import-wrapped --delegated all --in keypair.pem" "   Import RSA wrap key"
+  test_with_resp "$BIN -p password -a put-rsa-wrapkey -i 0 -d 1 -c import-wrapped --delegated exportable-under-wrap,sign-ecdsa,encrypt-cbc,decrypt-cbc --in keypair.pem" "   Import RSA wrap key"
   import_keyid=$(tail -1 resp.txt | awk '{print $4}')
   info=$($BIN -p password -a get-object-info -i $import_keyid -t wrap-key  2> /dev/null)
   cmp_str_content "$info" "algorithm: rsa$k" "Algorithm"
   cmp_str_content "$info" "origin: imported" "Origin"
-  test "$BIN -p password -a put-public-wrapkey -i $import_keyid -c export-wrapped --delegated all --in key.pub" "   Import RSA public wrap key"
+  test "$BIN -p password -a put-public-wrapkey -i $import_keyid -c export-wrapped --delegated exportable-under-wrap,sign-ecdsa,encrypt-cbc,decrypt-cbc --in key.pub" "   Import RSA public wrap key"
   rm keypair.pem
   rm key.pub
 

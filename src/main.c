@@ -2079,7 +2079,7 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    Argument arg[11];
+    Argument arg[11] = {0};
 
     if (requires_session == true) {
       uint8_t *buf = 0;
