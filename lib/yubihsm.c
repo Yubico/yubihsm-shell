@@ -429,9 +429,16 @@ static yh_rc send_encrypted_msg(Scp_ctx *session, yh_cmd cmd,
     return YHR_INVALID_PARAMETERS;
   }
 
+
+  int max_message_size = SCP_MSG_BUF_SIZE;
+  if(session->parent->fw_version_major < 2 ||
+     (session->parent->fw_version_major == 2 && session->parent->fw_version_minor < 4)) {
+    max_message_size = 2048;
+  }
+
   // Outer command { cmd | cmd_len | sid | encrypted payload | mac }
-  if (3 + 1 + len + SCP_MAC_LEN > SCP_MSG_BUF_SIZE) {
-    DBG_ERR("%s (%u > %u)", yh_strerror(YHR_BUFFER_TOO_SMALL), 3 + 1 + len + SCP_MAC_LEN, SCP_MSG_BUF_SIZE);
+  if (3 + 1 + len + SCP_MAC_LEN > max_message_size) {
+    DBG_ERR("%s (%u > %u)", yh_strerror(YHR_BUFFER_TOO_SMALL), 3 + 1 + len + SCP_MAC_LEN, max_message_size);
     return YHR_BUFFER_TOO_SMALL;
   }
 
@@ -4814,6 +4821,10 @@ yh_rc yh_connect(yh_connector *connector, int timeout) {
   if (rc != YHR_SUCCESS) {
     DBG_ERR("Failed when connecting: %s", yh_strerror(rc));
   }
+
+  yh_util_get_device_info(connector, &connector->fw_version_major,
+                          &connector->fw_version_minor, &connector->fw_version_patch,
+                          NULL, NULL, NULL, NULL, NULL);
 
   return rc;
 }
