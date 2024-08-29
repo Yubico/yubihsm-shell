@@ -2919,6 +2919,12 @@ do_rsa_wrap(yh_cmd cmd,
     return YHR_INVALID_PARAMETERS;
   }
 
+  if (oaep_label_len != 20 && oaep_label_len != 32 && oaep_label_len != 48 &&
+      oaep_label_len != 64) {
+    DBG_ERR("Wrong digest length. %s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
+
 #pragma pack(push, 1)
   union {
     struct {
