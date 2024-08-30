@@ -431,8 +431,9 @@ static yh_rc send_encrypted_msg(Scp_ctx *session, yh_cmd cmd,
 
 
   int max_message_size = SCP_MSG_BUF_SIZE;
-  if(session->parent->fw_version_major < 2 ||
-     (session->parent->fw_version_major == 2 && session->parent->fw_version_minor < 4)) {
+  if (session->parent->device_info.major < 2 ||
+      (session->parent->device_info.major == 2 &&
+       session->parent->device_info.minor < 4)) {
     max_message_size = 2048;
   }
 
@@ -1395,6 +1396,19 @@ yh_rc yh_util_get_partnumber(yh_connector *connector, char *part_number,
   *part_number_len = response_len;
 
   return YHR_SUCCESS;
+}
+
+yh_rc yh_util_get_device_info_ex(yh_connector *connector,
+                                 yh_device_info *device_info) {
+  device_info->n_algorithms = YH_MAX_ALGORITHM_COUNT;
+  return yh_util_get_device_info(connector, &connector->device_info.major,
+                                 &connector->device_info.minor,
+                                 &connector->device_info.patch,
+                                 &connector->device_info.serial,
+                                 &connector->device_info.log_total,
+                                 &connector->device_info.log_used,
+                                 connector->device_info.algorithms,
+                                 &connector->device_info.n_algorithms);
 }
 
 yh_rc yh_util_get_device_info(yh_connector *connector, uint8_t *major,
@@ -4817,16 +4831,17 @@ yh_rc yh_connect(yh_connector *connector, int timeout) {
   }
 
   yh_rc rc = connector->bf->backend_connect(connector, timeout);
+  if (rc != YHR_SUCCESS) {
+    DBG_ERR("Failed when connecting: %s", yh_strerror(rc));
+    return rc;
+  }
 
+  rc = yh_util_get_device_info_ex(connector, &connector->device_info);
   if (rc != YHR_SUCCESS) {
     DBG_ERR("Failed when connecting: %s", yh_strerror(rc));
   }
 
-  yh_util_get_device_info(connector, &connector->fw_version_major,
-                          &connector->fw_version_minor, &connector->fw_version_patch,
-                          NULL, NULL, NULL, NULL, NULL);
-
-  return rc;
+  return YHR_SUCCESS;
 }
 
 yh_rc yh_disconnect(yh_connector *connector) {

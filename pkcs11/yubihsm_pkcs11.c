@@ -687,20 +687,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetTokenInfo)
   memset(pInfo->manufacturerID, ' ', sizeof(pInfo->manufacturerID));
   memcpy((char *) pInfo->manufacturerID, s, l);
 
-  uint8_t major = 0;
-  uint8_t minor = 0;
-  uint8_t patch = 0;
-  uint32_t serial = 0;
-
-  yh_rc yrc = yh_util_get_device_info(slot->connector, &major, &minor, &patch,
-                                      &serial, NULL, NULL, NULL, NULL);
-  if (yrc != YHR_SUCCESS) {
-    DBG_ERR("Unable to get device version and serial number: %s",
-            yh_strerror(yrc));
-    rv = yrc_to_rv(yrc);
-    goto c_gt_out;
-  }
-
   s = "YubiHSM";
   l = strlen(s);
   memset(pInfo->model, ' ', sizeof(pInfo->model));
@@ -708,7 +694,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetTokenInfo)
 
   memset(pInfo->serialNumber, ' ', sizeof(pInfo->serialNumber));
   l = snprintf((char *) pInfo->serialNumber, sizeof(pInfo->serialNumber),
-               "%08u", serial);
+               "%08u", slot->connector->device_info.serial);
   pInfo->serialNumber[l] = ' ';
 
   pInfo->flags = CKF_RNG | CKF_LOGIN_REQUIRED | CKF_USER_PIN_INITIALIZED |
@@ -737,7 +723,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetTokenInfo)
   pInfo->ulTotalPrivateMemory = CK_UNAVAILABLE_INFORMATION;
   pInfo->ulFreePrivateMemory = CK_UNAVAILABLE_INFORMATION;
 
-  CK_VERSION ver = {major, (minor * 10) + patch};
+  CK_VERSION ver = {slot->connector->device_info.major,
+                    (slot->connector->device_info.minor * 10) +
+                      slot->connector->device_info.patch};
 
   pInfo->hardwareVersion = ver;
 

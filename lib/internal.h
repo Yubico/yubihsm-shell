@@ -46,10 +46,7 @@ struct yh_connector {
   char address[32];
   uint32_t port;
   uint32_t pid;
-  uint8_t fw_version_major;
-  uint8_t fw_version_minor;
-  uint8_t fw_version_patch;
-
+  yh_device_info device_info;
 };
 
 #ifndef __WIN32
