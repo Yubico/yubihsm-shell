@@ -313,9 +313,9 @@ yh_rc yh_send_plain_msg(yh_connector *connector, yh_cmd cmd,
   Msg response_msg = {0};
 
   if (data_len > sizeof(msg.st.data)) {
-    DBG_ERR("Tried to transfer oversized data (%zu > %zu)", data_len,
+    DBG_ERR("%s (%zu > %zu)", yh_strerror(YHR_BUFFER_TOO_SMALL), data_len,
             sizeof(msg.st.data));
-    return YHR_INVALID_PARAMETERS;
+    return YHR_BUFFER_TOO_SMALL;
   }
 
   msg.st.cmd = cmd;
@@ -431,7 +431,7 @@ static yh_rc send_encrypted_msg(Scp_ctx *session, yh_cmd cmd,
 
   // Outer command { cmd | cmd_len | sid | encrypted payload | mac }
   if (3 + 1 + len + SCP_MAC_LEN > SCP_MSG_BUF_SIZE) {
-    DBG_ERR("%s: %u", yh_strerror(YHR_BUFFER_TOO_SMALL), 3 + 1 + len + SCP_MAC_LEN);
+    DBG_ERR("%s (%u > %u)", yh_strerror(YHR_BUFFER_TOO_SMALL), 3 + 1 + len + SCP_MAC_LEN, SCP_MSG_BUF_SIZE);
     return YHR_BUFFER_TOO_SMALL;
   }
 
