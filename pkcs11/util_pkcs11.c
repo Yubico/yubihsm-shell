@@ -652,12 +652,6 @@ CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
       pInfo->flags = CKF_DIGEST;
       break;
 
-    case CKM_AES_KEY_WRAP_KWP:
-      pInfo->ulMaxKeySize = 256;
-      pInfo->ulMinKeySize = 128;
-      pInfo->flags = CKF_HW;
-      break;
-
     case CKM_YUBICO_AES_CCM_WRAP:
       pInfo->ulMaxKeySize = 256;
       pInfo->ulMinKeySize = 128;
@@ -691,6 +685,16 @@ CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
                                           &pInfo->ulMinKeySize,
                                           &pInfo->ulMaxKeySize);
       pInfo->flags = CKF_HW | CKF_ENCRYPT | CKF_DECRYPT;
+      break;
+
+    case CKM_AES_KEY_WRAP_KWP:
+      find_minmax_aes_key_length_in_bytes(slot->connector->device_info
+                                            .algorithms,
+                                          slot->connector->device_info
+                                            .n_algorithms,
+                                          &pInfo->ulMinKeySize,
+                                          &pInfo->ulMaxKeySize);
+      pInfo->flags = CKF_HW;
       break;
 
     default:
