@@ -1393,7 +1393,7 @@ yh_rc yh_util_get_partnumber(yh_connector *connector, char *part_number,
   }
   memcpy(part_number, response, response_len);
   part_number[response_len] = 0;
-  *part_number_len = response_len;
+  *part_number_len = response_len + 1;
 
   return YHR_SUCCESS;
 }
