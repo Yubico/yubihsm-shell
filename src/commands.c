@@ -2965,32 +2965,24 @@ int yh_com_get_device_info(yubihsm_context *ctx, Argument *argv,
     return -1;
   }
 
-  uint8_t major = 0;
-  uint8_t minor = 0;
-  uint8_t patch = 0;
-  uint32_t serial = 0;
-  uint8_t log_total = 0;
-  uint8_t log_used = 0;
-  yh_algorithm algorithms[YH_MAX_ALGORITHM_COUNT] = {0};
-  size_t n_algorithms = sizeof(algorithms);
-
-
+  yh_device_info device_info = {0};
   yh_rc yrc =
-    yh_util_get_device_info(ctx->connector, &major, &minor, &patch, &serial,
-                            &log_total, &log_used, algorithms, &n_algorithms);
+    yh_util_get_device_info_ex(ctx->connector, &device_info);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to get device info: %s\n", yh_strerror(yrc));
     return -1;
   }
 
-  fprintf(ctx->out, "Version number:\t\t%hhu.%hhu.%hhu\n", major, minor, patch);
-  fprintf(ctx->out, "Serial number:\t\t%u\n", serial);
-  fprintf(ctx->out, "Log used:\t\t%d/%d\n", log_used, log_total);
+  fprintf(ctx->out, "Version number:\t\t%hhu.%hhu.%hhu\n", device_info.major,
+          device_info.minor, device_info.patch);
+  fprintf(ctx->out, "Serial number:\t\t%u\n", device_info.serial);
+  fprintf(ctx->out, "Log used:\t\t%d/%d\n", device_info.log_used,
+          device_info.log_total);
 
   fprintf(ctx->out, "Supported algorithms:\t");
-  for (size_t i = 0; i < n_algorithms; i++) {
+  for (size_t i = 0; i < device_info.n_algorithms; i++) {
     const char *algo_str;
-    yh_algo_to_string(algorithms[i], &algo_str);
+    yh_algo_to_string(device_info.algorithms[i], &algo_str);
     fprintf(ctx->out, "%s, ", algo_str);
     if ((i + 1) % 3 == 0 && i != 0) {
       fprintf(ctx->out, "\n\t\t\t");

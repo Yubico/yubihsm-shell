@@ -1401,14 +1401,12 @@ yh_rc yh_util_get_partnumber(yh_connector *connector, char *part_number,
 yh_rc yh_util_get_device_info_ex(yh_connector *connector,
                                  yh_device_info *device_info) {
   device_info->n_algorithms = YH_MAX_ALGORITHM_COUNT;
-  return yh_util_get_device_info(connector, &connector->device_info.major,
-                                 &connector->device_info.minor,
-                                 &connector->device_info.patch,
-                                 &connector->device_info.serial,
-                                 &connector->device_info.log_total,
-                                 &connector->device_info.log_used,
-                                 connector->device_info.algorithms,
-                                 &connector->device_info.n_algorithms);
+  return yh_util_get_device_info(connector, &device_info->major,
+                                 &device_info->minor, &device_info->patch,
+                                 &device_info->serial, &device_info->log_total,
+                                 &device_info->log_used,
+                                 device_info->algorithms,
+                                 &device_info->n_algorithms);
 }
 
 yh_rc yh_util_get_device_info(yh_connector *connector, uint8_t *major,
