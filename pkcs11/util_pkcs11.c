@@ -202,22 +202,12 @@ CK_RV get_mechanism_list(yubihsm_pkcs11_slot *slot,
                          CK_MECHANISM_TYPE_PTR pMechanismList,
                          CK_ULONG_PTR count) {
 
-  if (slot->n_algorithms == 0) {
-    slot->n_algorithms = sizeof(slot->algorithms) / sizeof(slot->algorithms[0]);
-    yh_rc yrc =
-      yh_util_get_device_info(slot->connector, NULL, NULL, NULL, NULL, NULL,
-                              NULL, slot->algorithms, &slot->n_algorithms);
-    if (yrc != YHR_SUCCESS) {
-      return yrc_to_rv(yrc);
-    }
-  }
-
   // NOTE: this is a bit hardcoded, but much more than what we might add below.
   CK_MECHANISM_TYPE buffer[128] = {0};
   CK_ULONG items = 0;
 
-  for (size_t i = 0; i < slot->n_algorithms; i++) {
-    switch (slot->algorithms[i]) {
+  for (size_t i = 0; i < slot->connector->device_info.n_algorithms; i++) {
+    switch (slot->connector->device_info.algorithms[i]) {
       case YH_ALGO_RSA_PKCS1_SHA1:
         add_mech(buffer, &items, CKM_RSA_PKCS);
         add_mech(buffer, &items, CKM_SHA1_RSA_PKCS);
@@ -504,17 +494,6 @@ static void find_minmax_aes_key_length_in_bytes(yh_algorithm *algorithms,
 
 CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
                          CK_MECHANISM_INFO_PTR pInfo) {
-
-  if (slot->n_algorithms == 0) {
-    slot->n_algorithms = sizeof(slot->algorithms) / sizeof(slot->algorithms[0]);
-    yh_rc yrc =
-      yh_util_get_device_info(slot->connector, NULL, NULL, NULL, NULL, NULL,
-                              NULL, slot->algorithms, &slot->n_algorithms);
-    if (yrc != YHR_SUCCESS) {
-      return yrc_to_rv(yrc);
-    }
-  }
-
   pInfo->flags = 0;
   switch (type) {
     case CKM_RSA_PKCS:
@@ -524,7 +503,7 @@ CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
     case CKM_SHA256_RSA_PKCS:
     case CKM_SHA384_RSA_PKCS:
     case CKM_SHA512_RSA_PKCS:
-      find_minmax_rsa_key_length_in_bits(slot->algorithms, slot->n_algorithms,
+      find_minmax_rsa_key_length_in_bits(slot->connector->device_info.algorithms, slot->connector->device_info.n_algorithms,
                                          &pInfo->ulMinKeySize,
                                          &pInfo->ulMaxKeySize);
       pInfo->flags |= CKF_HW | CKF_SIGN | CKF_VERIFY;
@@ -535,14 +514,20 @@ CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
     case CKM_SHA256_RSA_PKCS_PSS:
     case CKM_SHA384_RSA_PKCS_PSS:
     case CKM_SHA512_RSA_PKCS_PSS:
-      find_minmax_rsa_key_length_in_bits(slot->algorithms, slot->n_algorithms,
+      find_minmax_rsa_key_length_in_bits(slot->connector->device_info
+                                           .algorithms,
+                                         slot->connector->device_info
+                                           .n_algorithms,
                                          &pInfo->ulMinKeySize,
                                          &pInfo->ulMaxKeySize);
       pInfo->flags = CKF_HW | CKF_SIGN | CKF_VERIFY;
       break;
 
     case CKM_RSA_PKCS_OAEP:
-      find_minmax_rsa_key_length_in_bits(slot->algorithms, slot->n_algorithms,
+      find_minmax_rsa_key_length_in_bits(slot->connector->device_info
+                                           .algorithms,
+                                         slot->connector->device_info
+                                           .n_algorithms,
                                          &pInfo->ulMinKeySize,
                                          &pInfo->ulMaxKeySize);
       pInfo->flags = CKF_HW | CKF_DECRYPT | CKF_ENCRYPT;
@@ -550,21 +535,29 @@ CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
 
     case CKM_YUBICO_RSA_WRAP:
     case CKM_RSA_AES_KEY_WRAP:
-      find_minmax_rsa_key_length_in_bits(slot->algorithms, slot->n_algorithms,
+      find_minmax_rsa_key_length_in_bits(slot->connector->device_info
+                                           .algorithms,
+                                         slot->connector->device_info
+                                           .n_algorithms,
                                          &pInfo->ulMinKeySize,
                                          &pInfo->ulMaxKeySize);
       pInfo->flags = CKF_HW | CKF_WRAP | CKF_UNWRAP;
       break;
 
     case CKM_RSA_PKCS_KEY_PAIR_GEN:
-      find_minmax_rsa_key_length_in_bits(slot->algorithms, slot->n_algorithms,
+      find_minmax_rsa_key_length_in_bits(slot->connector->device_info
+                                           .algorithms,
+                                         slot->connector->device_info
+                                           .n_algorithms,
                                          &pInfo->ulMinKeySize,
                                          &pInfo->ulMaxKeySize);
       pInfo->flags = CKF_HW | CKF_GENERATE_KEY_PAIR;
       break;
 
     case CKM_EC_KEY_PAIR_GEN:
-      find_minmax_ec_key_length_in_bits(slot->algorithms, slot->n_algorithms,
+      find_minmax_ec_key_length_in_bits(slot->connector->device_info.algorithms,
+                                        slot->connector->device_info
+                                          .n_algorithms,
                                         &pInfo->ulMinKeySize,
                                         &pInfo->ulMaxKeySize);
       pInfo->flags = CKF_HW | CKF_GENERATE_KEY_PAIR | CKF_EC_F_P |
@@ -616,7 +609,9 @@ CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
     case CKM_ECDSA_SHA512:
       // should all ecdsa mechanisms have all keylengths? or should they be
       // bounded to length of hash?
-      find_minmax_ec_key_length_in_bits(slot->algorithms, slot->n_algorithms,
+      find_minmax_ec_key_length_in_bits(slot->connector->device_info.algorithms,
+                                        slot->connector->device_info
+                                          .n_algorithms,
                                         &pInfo->ulMinKeySize,
                                         &pInfo->ulMaxKeySize);
       pInfo->flags = CKF_HW | CKF_SIGN | CKF_VERIFY | CKF_EC_F_P |
@@ -624,7 +619,9 @@ CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
       break;
 
     case CKM_ECDH1_DERIVE:
-      find_minmax_ec_key_length_in_bits(slot->algorithms, slot->n_algorithms,
+      find_minmax_ec_key_length_in_bits(slot->connector->device_info.algorithms,
+                                        slot->connector->device_info
+                                          .n_algorithms,
                                         &pInfo->ulMinKeySize,
                                         &pInfo->ulMaxKeySize);
       pInfo->flags = CKF_HW | CKF_DERIVE | CKF_EC_F_P | CKF_EC_NAMEDCURVE |
@@ -655,12 +652,6 @@ CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
       pInfo->flags = CKF_DIGEST;
       break;
 
-    case CKM_AES_KEY_WRAP_KWP:
-      pInfo->ulMaxKeySize = 256;
-      pInfo->ulMinKeySize = 128;
-      pInfo->flags = CKF_HW;
-      break;
-
     case CKM_YUBICO_AES_CCM_WRAP:
       pInfo->ulMaxKeySize = 256;
       pInfo->ulMinKeySize = 128;
@@ -675,7 +666,10 @@ CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
       break;
 
     case CKM_AES_KEY_GEN:
-      find_minmax_aes_key_length_in_bytes(slot->algorithms, slot->n_algorithms,
+      find_minmax_aes_key_length_in_bytes(slot->connector->device_info
+                                            .algorithms,
+                                          slot->connector->device_info
+                                            .n_algorithms,
                                           &pInfo->ulMinKeySize,
                                           &pInfo->ulMaxKeySize);
       pInfo->flags = CKF_HW | CKF_GENERATE;
@@ -684,10 +678,23 @@ CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
     case CKM_AES_ECB:
     case CKM_AES_CBC:
     case CKM_AES_CBC_PAD:
-      find_minmax_aes_key_length_in_bytes(slot->algorithms, slot->n_algorithms,
+      find_minmax_aes_key_length_in_bytes(slot->connector->device_info
+                                            .algorithms,
+                                          slot->connector->device_info
+                                            .n_algorithms,
                                           &pInfo->ulMinKeySize,
                                           &pInfo->ulMaxKeySize);
       pInfo->flags = CKF_HW | CKF_ENCRYPT | CKF_DECRYPT;
+      break;
+
+    case CKM_AES_KEY_WRAP_KWP:
+      find_minmax_aes_key_length_in_bytes(slot->connector->device_info
+                                            .algorithms,
+                                          slot->connector->device_info
+                                            .n_algorithms,
+                                          &pInfo->ulMinKeySize,
+                                          &pInfo->ulMaxKeySize);
+      pInfo->flags = CKF_HW;
       break;
 
     default:

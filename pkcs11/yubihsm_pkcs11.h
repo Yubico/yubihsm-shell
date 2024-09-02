@@ -205,8 +205,6 @@ typedef struct {
   yh_session *device_session;
   List pkcs11_sessions;
   yubihsm_pkcs11_object_desc objects[YH_MAX_ITEMS_COUNT];
-  yh_algorithm algorithms[YH_MAX_ALGORITHM_COUNT];
-  size_t n_algorithms;
   void *mutex;
 } yubihsm_pkcs11_slot;
 

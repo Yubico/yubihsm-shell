@@ -566,6 +566,28 @@ typedef enum {
   YH_CONNECTOR_NOPROXY = 5,
 } yh_connector_option;
 
+/**
+ * Device info struct
+ */
+typedef struct {
+  /// Firmware version major
+  uint8_t major;
+  /// Firmware version minor
+  uint8_t minor;
+  /// Firmware version patch
+  uint8_t patch;
+  /// Device serial number
+  uint32_t serial;
+  /// Total available logs
+  uint8_t log_total;
+  /// Total used logs
+  uint8_t log_used;
+  /// List of algorithms supported by the device
+  yh_algorithm algorithms[YH_MAX_ALGORITHM_COUNT];
+  /// Number of algorithms supported by the device
+  size_t n_algorithms;
+} yh_device_info;
+
 #pragma pack(push, 1)
 /**
  * Logging struct as returned by device
@@ -1220,6 +1242,23 @@ yh_rc yh_finish_create_session_ext(yh_connector *connector, yh_session *session,
 yh_rc yh_authenticate_session(yh_session *session);
 
 // Utility and convenience functions below
+
+/**
+ * Get device info in a struct
+ *
+ * @param connector Connector to the device
+ * @param device_info Device info
+ *
+ * @return #YHR_SUCCESS if successful.
+ *         #YHR_INVALID_PARAMETERS if the connector or device_info is NULL.
+ *         #YHR_BUFFER_TOO_SMALL if n_algorithms is smaller than the number of
+ *actually supported algorithms. See #yh_rc for other possible errors.
+ *
+ * @see <a
+ *href="https://developers.yubico.com/YubiHSM2/Concepts/Algorithms.html">Algorithms</a>
+ **/
+yh_rc yh_util_get_device_info_ex(yh_connector *connector,
+                                 yh_device_info *device_info);
 
 /**
  * Get device version, device serial number, supported algorithms and available
