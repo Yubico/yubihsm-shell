@@ -290,9 +290,9 @@ for k in ${RSA_KEYSIZE[@]}; do
     rm data.enc
 
     echo "=== Wrap and unwrap AES key material with generated RSA wrap key"
-    test "$BIN -p password -a get-rsa-wrapped-key --wrap-id $keyid -i $aeskey -t symmetric-key --oaep rsa-oaep-sha1 --mgf1 mgf1-sha384 --out rsawrapped.key" "   Export wrapped AES key material"
+    test "$BIN -p password -a get-rsa-wrapped-key --wrap-id $keyid -i $aeskey -t symmetric-key --oaep rsa-oaep-sha384 --mgf1 mgf1-sha1 --out rsawrapped.key" "   Export wrapped AES key material"
     test "$BIN -p password -a delete-object -i $aeskey -t symmetric-key" "   Delete AES key"
-    test "$BIN -p password -a put-rsa-wrapped-key --wrap-id $keyid -i $aeskey -t symmetric-key -A aes128 -c exportable-under-wrap,decrypt-cbc,encrypt-cbc --oaep rsa-oaep-sha1 --mgf1 mgf1-sha384 --in rsawrapped.key" "   Import wrapped AES key material"
+    test "$BIN -p password -a put-rsa-wrapped-key --wrap-id $keyid -i $aeskey -t symmetric-key -A aes128 -c exportable-under-wrap,decrypt-cbc,encrypt-cbc --oaep rsa-oaep-sha384 --mgf1 mgf1-sha1 --in rsawrapped.key" "   Import wrapped AES key material"
     info=$($BIN -p password -a get-object-info -i $aeskey -t symmetric-key  2> /dev/null)
     seq_aes=$((seq_aes+1))
     cmp_str_content "$info" "sequence: $seq_aes" "Sequence"
@@ -337,9 +337,9 @@ for k in ${RSA_KEYSIZE[@]}; do
   rm rsawrapped.object
 
   echo "=== Wrap and unwrap EC key material with imported RSA wrap key"
-  test "$BIN -p password -a get-rsa-wrapped-key --wrap-id $import_keyid -i $eckey -t asymmetric-key --oaep rsa-oaep-sha1 --mgf1 mgf1-sha384 --out rsawrapped.key" "   Export wrapped EC key material"
+  test "$BIN -p password -a get-rsa-wrapped-key --wrap-id $import_keyid -i $eckey -t asymmetric-key --oaep rsa-oaep-sha512 --mgf1 mgf1-sha512 --out rsawrapped.key" "   Export wrapped EC key material"
   test "$BIN -p password -a delete-object -i $eckey -t asymmetric-key" "   Delete EC key"
-  test "$BIN -p password -a put-rsa-wrapped-key --wrap-id $import_keyid -i $eckey -t asymmetric-key -A ecp224 -c exportable-under-wrap,sign-ecdsa --oaep rsa-oaep-sha1 --mgf1 mgf1-sha384 --in rsawrapped.key" "   Import wrapped EC key material"
+  test "$BIN -p password -a put-rsa-wrapped-key --wrap-id $import_keyid -i $eckey -t asymmetric-key -A ecp224 -c exportable-under-wrap,sign-ecdsa --oaep rsa-oaep-sha512 --mgf1 mgf1-sha512 --in rsawrapped.key" "   Import wrapped EC key material"
   info=$($BIN -p password -a get-object-info -i $eckey -t asymmetric-key  2> /dev/null)
   seq_ec=$((seq_ec+1))
   cmp_str_content "$info" "sequence: $seq_ec" "Sequence"
