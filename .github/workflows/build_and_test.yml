@@ -344,6 +344,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - environment: "ubuntu:24.04"
+            cc: "clang"
           - environment: "ubuntu:22.04"
             cc: "clang"
           - environment: "fedora:40"
