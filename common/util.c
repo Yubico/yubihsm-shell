@@ -95,8 +95,14 @@ bool read_ed25519_key(uint8_t *in, size_t in_len, uint8_t *out,
   BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
   BIO_push(b64, bio);
 
-  (void) BIO_write(bio, in + 28, in_len - 28 - 25);
-  (void) BIO_flush(bio);
+  if (BIO_write(bio, in + 28, in_len - 28 - 25) <= 0) {
+    BIO_free_all(b64);
+    return false;
+  }
+  if(BIO_flush(bio) != 1) {
+    BIO_free_all(b64);
+    return false;
+  }
   ret = BIO_read(b64, decoded, decoded_len);
 
   BIO_free_all(b64);
@@ -171,7 +177,9 @@ bool read_private_key(uint8_t *buf, size_t len, yh_algorithm *algo,
     return false;
   }
 
-  (void) BIO_write(bio, buf, len);
+  if(BIO_write(bio, buf, len) <= 0) {
+    return false;
+  }
 
   private_key = PEM_read_bio_PrivateKey(bio, NULL, NULL, /*password*/ NULL);
   BIO_free_all(bio);
@@ -376,7 +384,9 @@ bool read_public_key(uint8_t *buf, size_t len, yh_algorithm *algo,
     return false;
   }
 
-  (void) BIO_write(bio, buf, len);
+  if(BIO_write(bio, buf, len) <= 0) {
+    return false;
+  }
 
   EVP_PKEY *pubkey = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
   BIO_free_all(bio);
@@ -643,8 +653,14 @@ bool base64_decode(const char *in, uint8_t *out, size_t *len) {
   BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
   BIO_push(b64, bio);
 
-  (void) BIO_write(bio, in, strlen(in));
-  (void) BIO_flush(bio);
+  if(BIO_write(bio, in, strlen(in)) <= 0) {
+    BIO_free_all(b64);
+    return false;
+  }
+  if(BIO_flush(bio) != 1) {
+    BIO_free_all(b64);
+    return false;
+  }
   ret = BIO_read(b64, out, *len);
 
   BIO_free_all(b64);
@@ -681,9 +697,15 @@ bool write_file(const uint8_t *buf, size_t buf_len, FILE *fp, format_t format) {
     bio = BIO_push(b64, bio);
 
     (void) BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
-    (void) BIO_write(bio, buf, buf_len);
-    (void) BIO_flush(bio);
-    (void) BIO_get_mem_ptr(bio, &bufferPtr);
+    if(BIO_write(bio, buf, buf_len) <= 0) {
+      return false;
+    }
+    if(BIO_flush(bio) != 1) {
+      return false;
+    }
+    if(BIO_get_mem_ptr(bio, &bufferPtr) != 1) {
+      return false;
+    }
     p = (uint8_t *) bufferPtr->data;
     length = bufferPtr->length;
   } else if (format == _hex) {
