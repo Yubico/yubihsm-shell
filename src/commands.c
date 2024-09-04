@@ -3121,7 +3121,7 @@ int yh_com_sign_ssh_certificate(yubihsm_context *ctx, Argument *argv,
   yh_rc yrc = yh_util_sign_ssh_certificate(argv[0].e, argv[1].w, argv[2].w,
                                            argv[3].a, data, argv[4].len,
                                            data + argv[4].len, &response_len);
-  if (yrc != YHR_SUCCESS || response_len <= 0) {
+  if (yrc != YHR_SUCCESS || response_len == 0) {
     fprintf(stderr, "Failed to get certificate signature: %s\n",
             yh_strerror(yrc));
     return -1;
