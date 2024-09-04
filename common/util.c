@@ -69,14 +69,11 @@ bool read_ed25519_key(uint8_t *in, size_t in_len, uint8_t *out,
 
   uint8_t decoded[128];
   size_t decoded_len = sizeof(decoded);
-  if (in_len < (sizeof(PEM_private_header) + sizeof(PEM_private_trailer) -
-                3)) { // -3 to account for null bytes in PEM_private_header and
-                      // PEM_private_trailer
+  if (in_len < (28 + 26)) {
     return false;
   }
-  if (memcmp(in, PEM_private_header, sizeof(PEM_private_header) - 1) != 0 ||
-      memcmp(in + in_len - (sizeof(PEM_private_trailer) - 1),
-             PEM_private_trailer, sizeof(PEM_private_trailer) - 2) != 0) {
+  if (memcmp(in, PEM_private_header, 28) != 0 ||
+      memcmp(in + in_len - 26, PEM_private_trailer, 25) != 0) {
     return false;
   }
 
@@ -96,9 +93,7 @@ bool read_ed25519_key(uint8_t *in, size_t in_len, uint8_t *out,
   BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
   BIO_push(b64, bio);
 
-  if (BIO_write(bio, in + (sizeof(PEM_private_header) - 1),
-                in_len - (sizeof(PEM_private_header) - 1) -
-                  (sizeof(PEM_private_trailer) - 2)) <= 0) {
+  if (BIO_write(bio, in + 28, in_len - 28 - 25) <= 0) {
     BIO_free_all(b64);
     return false;
   }
