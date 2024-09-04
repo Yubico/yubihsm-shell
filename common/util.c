@@ -70,12 +70,12 @@ bool read_ed25519_key(uint8_t *in, size_t in_len, uint8_t *out,
   uint8_t decoded[128];
   size_t decoded_len = sizeof(decoded);
 
-  if (in_len < (28 + 26)) {
+  if (in_len < (sizeof(PEM_private_header) + sizeof(PEM_private_trailer) - 3)) {
     return false;
   }
-
-  if (memcmp(in, PEM_private_header, 28) != 0 ||
-      memcmp(in + in_len - 26, PEM_private_trailer, 25) != 0) {
+  if (memcmp(in, PEM_private_header, sizeof(PEM_private_header) - 1) != 0 ||
+      memcmp(in + in_len - sizeof(PEM_private_header), PEM_private_trailer,
+             sizeof(PEM_private_header) - 2) != 0) {
     return false;
   }
 
