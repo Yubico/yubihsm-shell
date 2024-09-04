@@ -384,7 +384,7 @@ static bool get_challenge(ykhsmauth_state *state, char *label, char *credpasswor
   }
 
   ykhsmauth_rc ykhsmauthrc =
-    ykhsmauth_get_challenge_ex(state, label_parsed, cpw_parsed, cpw_parsed_len, challenge, &challenge_len);
+    ykhsmauth_get_challenge(state, label_parsed, challenge, &challenge_len);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Unable to get challenge: %s\n",
             ykhsmauth_strerror(ykhsmauthrc));
