@@ -1167,7 +1167,13 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
     (void) i2d_PUBKEY_bio(bio, public_key);
 
-    (void) BIO_flush(bio);
+    if (BIO_flush(bio) != 1) {
+      fprintf(stderr, "Unable to flush BIO\n");
+      BIO_free_all(b64);
+      BIO_free_all(bio);
+      error = true;
+      goto getpk_base64_cleanup;
+    }
     (void) BIO_free_all(bio);
   getpk_base64_cleanup:
     if (error) {
@@ -1260,7 +1266,13 @@ int yh_com_get_device_pubkey(yubihsm_context *ctx, Argument *argv,
 
     (void) i2d_PUBKEY_bio(bio, public_key);
 
-    (void) BIO_flush(bio);
+    if (BIO_flush(bio) != 1) {
+      fprintf(stderr, "Unable to flush BIO\n");
+      BIO_free_all(b64);
+      BIO_free_all(bio);
+      error = true;
+      goto getdpk_base64_cleanup;
+    }
     (void) BIO_free_all(bio);
   getdpk_base64_cleanup:
     if (error) {
@@ -2469,6 +2481,7 @@ static bool read_rsa_pubkey(const uint8_t *buf, size_t len,
 
   if(BIO_write(bio, buf, len) <= 0) {
     fprintf(stderr, "%s: Failed to read RSA public key\n", __func__);
+    BIO_free_all(bio);
     return false;
   }
 

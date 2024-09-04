@@ -176,6 +176,7 @@ bool read_private_key(uint8_t *buf, size_t len, yh_algorithm *algo,
   }
 
   if(BIO_write(bio, buf, len) <= 0) {
+    BIO_free_all(bio);
     return false;
   }
 
@@ -696,12 +697,15 @@ bool write_file(const uint8_t *buf, size_t buf_len, FILE *fp, format_t format) {
 
     (void) BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
     if(BIO_write(bio, buf, buf_len) <= 0) {
+      BIO_free_all(bio);
       return false;
     }
     if(BIO_flush(bio) != 1) {
+      BIO_free_all(bio);
       return false;
     }
     if(BIO_get_mem_ptr(bio, &bufferPtr) != 1) {
+      BIO_free_all(bio);
       return false;
     }
     p = (uint8_t *) bufferPtr->data;
