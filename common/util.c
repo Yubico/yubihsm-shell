@@ -384,6 +384,7 @@ bool read_public_key(uint8_t *buf, size_t len, yh_algorithm *algo,
   }
 
   if(BIO_write(bio, buf, len) <= 0) {
+    BIO_free_all(bio);
     return false;
   }
 

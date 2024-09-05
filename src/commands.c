@@ -1158,7 +1158,6 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     BIO *bio = BIO_new_fp(ctx->out, BIO_NOCLOSE);
     if (bio == NULL) {
       fprintf(stderr, "Unable to allocate BIO\n");
-      BIO_free_all(b64);
       error = true;
       goto getpk_base64_cleanup;
     }
@@ -1169,13 +1168,11 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
     if (BIO_flush(bio) != 1) {
       fprintf(stderr, "Unable to flush BIO\n");
-      BIO_free_all(b64);
-      BIO_free_all(bio);
       error = true;
       goto getpk_base64_cleanup;
     }
-    (void) BIO_free_all(bio);
   getpk_base64_cleanup:
+    (void) BIO_free_all(b64);
     if (error) {
       EVP_PKEY_free(public_key);
       return -1;
@@ -1269,7 +1266,6 @@ int yh_com_get_device_pubkey(yubihsm_context *ctx, Argument *argv,
     if (BIO_flush(bio) != 1) {
       fprintf(stderr, "Unable to flush BIO\n");
       BIO_free_all(b64);
-      BIO_free_all(bio);
       error = true;
       goto getdpk_base64_cleanup;
     }
@@ -3113,7 +3109,6 @@ int yh_com_sign_ssh_certificate(yubihsm_context *ctx, Argument *argv,
 
   uint8_t data[YH_MSG_BUF_SIZE + 1024] = {0};
   size_t response_len = sizeof(data);
-  size_t in_len = 4 + 256; // 4 bytes time stamp + 256 bytes signature
 
   if (argv[4].len > YH_MSG_BUF_SIZE) {
     fprintf(stderr, "Failed to sign ssh certificate: %s. Data too long\n",
@@ -3134,7 +3129,7 @@ int yh_com_sign_ssh_certificate(yubihsm_context *ctx, Argument *argv,
   yh_rc yrc = yh_util_sign_ssh_certificate(argv[0].e, argv[1].w, argv[2].w,
                                            argv[3].a, data, argv[4].len,
                                            data + argv[4].len, &response_len);
-  if (yrc != YHR_SUCCESS || response_len == 0) {
+  if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to get certificate signature: %s\n",
             yh_strerror(yrc));
     return -1;
