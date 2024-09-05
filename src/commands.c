@@ -3098,7 +3098,7 @@ int yh_com_sign_ssh_certificate(yubihsm_context *ctx, Argument *argv,
   uint8_t data[YH_MSG_BUF_SIZE + 1024] = {0};
   size_t response_len = sizeof(data);
 
-  if (argv[4].len > YH_MSG_BUF_SIZE) {
+  if (argv[4].len != (4 + 256)) { // 4 bytes timestamp + 256 byte signature
     fprintf(stderr, "Failed to sign ssh certificate: %s\n",
             yh_strerror(YHR_BUFFER_TOO_SMALL));
     return -1;
