@@ -143,6 +143,8 @@ ykhsmauth_rc ykhsmauth_list_readers(ykhsmauth_state *state, char *readers,
                                     size_t *len);
 ykhsmauth_rc ykhsmauth_disconnect(ykhsmauth_state *state);
 
+ykhsmauth_rc ykhsmauth_get_version_ex(ykhsmauth_state *state, uint8_t *major,
+                                      uint8_t *minor, uint8_t *patch);
 ykhsmauth_rc ykhsmauth_get_version(ykhsmauth_state *state, char *version,
                                    size_t len);
 

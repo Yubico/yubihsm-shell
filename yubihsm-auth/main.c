@@ -383,8 +383,25 @@ static bool get_challenge(ykhsmauth_state *state, char *label, char *credpasswor
     return false;
   }
 
-  ykhsmauth_rc ykhsmauthrc =
-    ykhsmauth_get_challenge(state, label_parsed, challenge, &challenge_len);
+  ykhsmauth_rc ykhsmauthrc;
+
+  uint8_t major = 0, minor = 0, patch = 0;
+  ykhsmauthrc = ykhsmauth_get_version_ex(state, &major, &minor, &patch);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
+    fprintf(stderr, "Unable to get YubiKey firmware version: %s\n",
+            ykhsmauth_strerror(ykhsmauthrc));
+    return false;
+  }
+
+  if (major < 5 || (major == 5 && minor < 7) ||
+      (major == 5 && minor == 7 && patch < 1)) {
+    ykhsmauthrc =
+      ykhsmauth_get_challenge(state, label_parsed, challenge, &challenge_len);
+  } else {
+    ykhsmauthrc =
+      ykhsmauth_get_challenge_ex(state, label_parsed, cpw_parsed,
+                                 cpw_parsed_len, challenge, &challenge_len);
+  }
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Unable to get challenge: %s\n",
             ykhsmauth_strerror(ykhsmauthrc));
