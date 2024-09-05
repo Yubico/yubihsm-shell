@@ -4627,8 +4627,9 @@ yh_rc yh_init(void) {
 
 #ifdef STATIC
 static yh_rc load_backend(const char *name,
-                          void **backend __attribute__((unused)),
+                          void **backend,
                           struct backend_functions **bf) {
+  (void)backend;
   if (name == NULL) {
     DBG_ERR("No name given to load_backend");
     return YHR_GENERIC_ERROR;

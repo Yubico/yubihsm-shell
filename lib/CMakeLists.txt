@@ -14,8 +14,11 @@
 # limitations under the License.
 #
 
-include(${CMAKE_SOURCE_DIR}/cmake/openssl.cmake)
-find_libcrypto()
+if(${WIN32_BCRYPT})
+else(${WIN32_BCRYPT})
+  include(${CMAKE_SOURCE_DIR}/cmake/openssl.cmake)
+  find_libcrypto()
+endif(${WIN32_BCRYPT})
 
 if(MSVC)
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
@@ -29,7 +32,6 @@ set (
   ${CMAKE_CURRENT_SOURCE_DIR}/../common/pkcs5.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../common/rand.c
   ${CMAKE_CURRENT_SOURCE_DIR}/../common/ecdh.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/../common/openssl-compat.c
   error.c
   lib_util.c
   yubihsm.c
@@ -39,6 +41,11 @@ if(MSVC)
   set(SOURCE ${SOURCE} ${CMAKE_CURRENT_SOURCE_DIR}/../common/time_win.c)
 endif(MSVC)
 set(STATIC_SOURCE ${SOURCE})
+
+if(NOT ${WIN32_BCRYPT})
+  set(SOURCE ${SOURCE} ${CMAKE_CURRENT_SOURCE_DIR}/../common/openssl-compat.c)
+endif(NOT ${WIN32_BCRYPT})
+set (STATIC_SOURCE ${SOURCE})
 
 if(WIN32)
   set(ADDITIONAL_LIBRARY ws2_32)
@@ -117,6 +124,9 @@ if (ENABLE_STATIC)
   add_library (yubihsm_static STATIC ${STATIC_SOURCE})
   set_target_properties (yubihsm_static PROPERTIES POSITION_INDEPENDENT_CODE on OUTPUT_NAME yubihsm)
   set_target_properties (yubihsm_static PROPERTIES COMPILE_FLAGS "-DSTATIC " )
+  if(MSVC)
+    set_property(TARGET yubihsm_static PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+  endif(MSVC)
   add_coverage (yubihsm_static)
 endif()
 
