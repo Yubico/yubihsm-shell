@@ -296,9 +296,9 @@ ykhsmauth_rc ykhsmauth_list_readers(ykhsmauth_state *state, char *readers,
   return YKHSMAUTHR_SUCCESS;
 }
 
-ykhsmauth_rc ykhsmauth_get_version(ykhsmauth_state *state, char *version,
-                                   size_t len) {
-  if (state == NULL || version == NULL) {
+ykhsmauth_rc ykhsmauth_get_version_ex(ykhsmauth_state *state, uint8_t *major,
+                                      uint8_t *minor, uint8_t *patch) {
+  if (state == NULL || major == NULL || minor == NULL || patch == NULL) {
     return YKHSMAUTHR_INVALID_PARAMS;
   }
 
@@ -307,22 +307,37 @@ ykhsmauth_rc ykhsmauth_get_version(ykhsmauth_state *state, char *version,
   DWORD recv_len = sizeof(data);
   uint16_t sw = 0;
   ykhsmauth_rc res;
-
   if ((res = send_data(state, &apdu, data, &recv_len, &sw)) !=
       YKHSMAUTHR_SUCCESS) {
     return res;
   } else if (sw == SW_SUCCESS && recv_len == 3) {
-    int result = snprintf(version, len, "%d.%d.%d", data[0], data[1], data[2]);
+    *major = data[0];
+    *minor = data[1];
+    *patch = data[2];
+    return YKHSMAUTHR_SUCCESS;
+  } else {
+    return translate_error(sw, NULL);
+  }
+}
+
+ykhsmauth_rc ykhsmauth_get_version(ykhsmauth_state *state, char *version,
+                                   size_t len) {
+  if (version == NULL) {
+    return YKHSMAUTHR_INVALID_PARAMS;
+  }
+
+  uint8_t v[3] = {0};
+  ykhsmauth_rc res = ykhsmauth_get_version_ex(state, &v[0], &v[1], &v[2]);
+  if(res == YKHSMAUTHR_SUCCESS) {
+    int result = snprintf(version, len, "%d.%d.%d", v[0], v[1], v[2]);
     if (result < 0) {
       if (state->verbose) {
         fprintf(stderr, "Version buffer too small\n");
       }
       return YKHSMAUTHR_GENERIC_ERROR;
     }
-    return YKHSMAUTHR_SUCCESS;
-  } else {
-    return translate_error(sw, NULL);
   }
+  return res;
 }
 
 ykhsmauth_rc ykhsmauth_put(ykhsmauth_state *state, const uint8_t *mgmkey,

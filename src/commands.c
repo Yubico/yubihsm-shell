@@ -1857,9 +1857,24 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
   uint8_t host_challenge[YH_EC_P256_PUBKEY_LEN] = {0};
   size_t host_challenge_len = sizeof(host_challenge);
 
-  ykhsmauthrc = ykhsmauth_get_challenge_ex(ctx->state, argv[1].s,
-                                        argv[2].x, argv[2].len, 
-                                        host_challenge, &host_challenge_len);
+  uint8_t major = 0, minor = 0, patch = 0;
+  ykhsmauthrc = ykhsmauth_get_version_ex(ctx->state, &major, &minor, &patch);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
+    fprintf(stderr, "Failed to get YubiKey firmware version: %s\n",
+            ykhsmauth_strerror(ykhsmauthrc));
+    ykhsmauth_disconnect(ctx->state);
+    return -1;
+  }
+
+  if (major > 5 || (major == 5 && minor > 7) ||
+      (major == 5 && minor == 7 && patch >= 1)) {
+    ykhsmauthrc =
+      ykhsmauth_get_challenge_ex(ctx->state, argv[1].s, argv[2].x, argv[2].len,
+                                 host_challenge, &host_challenge_len);
+  } else {
+    ykhsmauthrc = ykhsmauth_get_challenge(ctx->state, argv[1].s, host_challenge,
+                                          &host_challenge_len);
+  }
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Failed to get host challenge from the YubiKey: %s\n",
             ykhsmauth_strerror(ykhsmauthrc));
