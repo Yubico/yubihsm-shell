@@ -2,6 +2,7 @@
 
 lib: shell: pkcs11: Add support for asymmetric wrap
 pkcs11: Add support for PKCS11 3.0
+cmd: Fix opening a session using credentials stored on a YubiKey
 build: Always compile with YubiHSM Auth enabled
 
 === Version 2.5.0

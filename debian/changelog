@@ -2,6 +2,7 @@ yubihsm-shell (2.6.0) unstable; urgency=medium
 
     * lib: shell: pkcs11: Add support for asymmetric wrap
     * pkcs11: Add support for PKCS11 3.0
+    * cmd: Fix opening a session using credentials stored on a YubiKey
     * build: Always compile with YubiHSM Auth enabled
 
  -- Aveen Ismail <aveen.ismail@yubico.com>  Thu, 8 Aug 2024 16:08:45 +0100
