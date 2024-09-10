@@ -1,4 +1,4 @@
-name: Release binaries
+name: CentOS binaries
 # This machine tests building the software on a both 32 and 64 Windows architecture.
 
 on: [push]
@@ -9,10 +9,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [
-          "centos:7",
-          "centos:8",
-        ]
+        include:
+          - environment: "centos:7"
+            cc: "gcc"
+            upload_for_test: "false"
+          - environment: "centos:8"
+            cc: "gcc"
+            upload_for_test: "false"
 
     name: build on ${{ matrix.environment }}
     runs-on: ubuntu-latest
@@ -20,10 +23,23 @@ jobs:
 
     steps:
 
+      - name: Setup OS
+        run: |
+          curl https://vault.centos.org/7.9.2009/os/x86_64/RPM-GPG-KEY-CentOS-7 > centos7.key
+          pwd
+          ls
+          ls /etc/yum.repos.d
+          
+          cat /etc/yum.repos.d/CentOS-Base.repo
+          echo "--------------"
+          cat /etc/yum.repos.d/CentOS-Vault.repo
+
       - name: clone the Yubico/yubihsm-shell repository
-        uses: actions/checkout@v3
-        with:
-          path: yubihsm-shell
+        run: |
+          yum -y install git  
+          git clone https://github.com/Yubico/yubihsm-shell.git
+          pwd
+          ls yubihsm-shell
 
       - name: apply environment specific changes to CMakeLists.txt
         working-directory: yubihsm-shell

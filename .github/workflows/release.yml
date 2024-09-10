@@ -1,7 +1,7 @@
 name: Release binaries
 # This machine tests building the software on a both 32 and 64 Windows architecture.
 
-on: [push]
+on: [pull_request]
 
 jobs:
 
