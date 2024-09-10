@@ -91,7 +91,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest
+          - os: macos-14-large
             arch: amd
           - os: macos-latest-xlarge
             arch: arm
@@ -122,6 +122,8 @@ jobs:
           set -e -o pipefail
           set -x
           
+          uname -a
+                    
           YHSHELL_SRC_DIR="$GITHUB_WORKSPACE/yubihsm-shell-$VERSION"
 
           cd $YHSHELL_SRC_DIR
@@ -229,6 +231,8 @@ jobs:
         run: |
           set -x
 
+          uname -a
+  
           # Create directory containing all output
           OUTPUT=$GITHUB_WORKSPACE/$PLATFORM/yubihsm-shell
           mkdir -p $OUTPUT
@@ -339,6 +343,8 @@ jobs:
         env:
           PLATFORM: ${{ env.PLATFORM }}
         run: |
+          uname -a
+          
           export CMAKE="cmake"
           export INPUT=$GITHUB_WORKSPACE/yubihsm-shell
           export OUTPUT=$GITHUB_WORKSPACE/$PLATFORM/yubihsm-shell
