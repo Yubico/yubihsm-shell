@@ -334,6 +334,7 @@ static void get_wrapped_data(CK_OBJECT_HANDLE wrapping_keyid,
   CK_RSA_PKCS_OAEP_PARAMS oaep_params = {CKM_SHA256, CKG_MGF1_SHA256, 0, NULL, 0};
   CK_RSA_AES_KEY_WRAP_PARAMS params = {256, &oaep_params};
   CK_MECHANISM mech = {0, &params, sizeof(params)};
+  CK_ULONG wrapped_len = *wrapped_obj_len;
 
   if (only_key) {
     mech.mechanism = CKM_RSA_AES_KEY_WRAP;
@@ -341,7 +342,8 @@ static void get_wrapped_data(CK_OBJECT_HANDLE wrapping_keyid,
     mech.mechanism = CKM_YUBICO_RSA_WRAP;
   }
   assert(p11->C_WrapKey(session, &mech, wrapping_keyid, keyid, wrapped_obj,
-                        wrapped_obj_len) == CKR_OK);
+                        &wrapped_len) == CKR_OK);
+  *wrapped_obj_len = wrapped_len;
 }
 
 static CK_OBJECT_HANDLE import_wrapped_data(CK_OBJECT_HANDLE wrapping_keyid,
