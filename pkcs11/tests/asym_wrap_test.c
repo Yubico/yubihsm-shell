@@ -330,7 +330,7 @@ static void get_pub_wrapkey(CK_OBJECT_HANDLE rsa_wrapkeyid, uint8_t *pubkey,
 
 static void get_wrapped_data(CK_OBJECT_HANDLE wrapping_keyid,
                              CK_OBJECT_HANDLE keyid, uint8_t *wrapped_obj,
-                             size_t *wrapped_obj_len, bool only_key) {
+                             CK_ULONG_PTR wrapped_obj_len, bool only_key) {
   CK_RSA_PKCS_OAEP_PARAMS oaep_params = {CKM_SHA256, CKG_MGF1_SHA256, 0, NULL, 0};
   CK_RSA_AES_KEY_WRAP_PARAMS params = {256, &oaep_params};
   CK_MECHANISM mech = {0, &params, sizeof(params)};
@@ -346,7 +346,7 @@ static void get_wrapped_data(CK_OBJECT_HANDLE wrapping_keyid,
 
 static CK_OBJECT_HANDLE import_wrapped_data(CK_OBJECT_HANDLE wrapping_keyid,
                                             uint8_t *wrapped_obj,
-                                            size_t wrapped_obj_len,
+                                            CK_ULONG wrapped_obj_len,
                                             bool only_key, CK_ULONG key_type) {
 
   CK_RSA_PKCS_OAEP_PARAMS oaep_params = {CKM_SHA256, CKG_MGF1_SHA256, 0, NULL, 0};
@@ -523,9 +523,9 @@ static void test_asym_wrapkey(CK_OBJECT_HANDLE_PTR eckey,
   // Wrap EC key material then import it again as an RSA wrapped key
   // C_WrapKey, C_UnwrapKey
   uint8_t wrapped_key[2048] = {0};
-  size_t wrapped_key_len = sizeof(wrapped_key);
+  CK_ULONG wrapped_key_len = sizeof(wrapped_key);
   get_wrapped_data(pub_wrapkey, *eckey, wrapped_key, &wrapped_key_len, true);
-  fprintf(stdout, "Got wrapped EC key material. %zu bytes. OK!\n", wrapped_key_len);
+  fprintf(stdout, "Got wrapped EC key material. %lu bytes. OK!\n", wrapped_key_len);
   imported_eckey =
     import_wrapped_data(wrapkey, wrapped_key, wrapped_key_len, true, CKK_EC);
   fprintf(stdout, "Imported unwrapped EC key material. 0x%06lx. OK!\n",
@@ -538,7 +538,7 @@ static void test_asym_wrapkey(CK_OBJECT_HANDLE_PTR eckey,
   memset(wrapped_key, 0, sizeof(wrapped_key));
   wrapped_key_len = sizeof(wrapped_key);
   get_wrapped_data(pub_wrapkey, *eckey, wrapped_key, &wrapped_key_len, false);
-  fprintf(stdout, "Got wrapped EC key object. %zu bytes. OK!\n", wrapped_key_len);
+  fprintf(stdout, "Got wrapped EC key object. %lu bytes. OK!\n", wrapped_key_len);
   destroy_object(p11, session, *eckey);
   fprintf(stdout, "Removed EC key object. OK!\n");
   *eckey =
@@ -552,7 +552,7 @@ static void test_asym_wrapkey(CK_OBJECT_HANDLE_PTR eckey,
   memset(wrapped_key, 0, sizeof(wrapped_key));
   wrapped_key_len = sizeof(wrapped_key);
   get_wrapped_data(pub_wrapkey, *aeskey, wrapped_key, &wrapped_key_len, true);
-  fprintf(stdout, "Got wrapped AES key material. %zu bytes. OK!\n", wrapped_key_len);
+  fprintf(stdout, "Got wrapped AES key material. %lu bytes. OK!\n", wrapped_key_len);
   imported_aeskey =
     import_wrapped_data(wrapkey, wrapped_key, wrapped_key_len, true, CKK_AES);
   fprintf(stdout, "Imported unwrapped AES key material. 0x%06lx. OK!\n",
@@ -565,7 +565,7 @@ static void test_asym_wrapkey(CK_OBJECT_HANDLE_PTR eckey,
   memset(wrapped_key, 0, sizeof(wrapped_key));
   wrapped_key_len = sizeof(wrapped_key);
   get_wrapped_data(pub_wrapkey, *aeskey, wrapped_key, &wrapped_key_len, false);
-  fprintf(stdout, "Got wrapped AES key object. %zu bytes. OK!\n", wrapped_key_len);
+  fprintf(stdout, "Got wrapped AES key object. %lu bytes. OK!\n", wrapped_key_len);
   destroy_object(p11, session, *aeskey);
   fprintf(stdout, "Removed AES key object. OK!\n");
   *aeskey =
