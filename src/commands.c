@@ -3621,22 +3621,27 @@ int yh_com_benchmark(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
       // clear display from cursor
       fprintf(stderr, "\33[J");
       chars = fprintf(stderr,
-                      "%s%s%s (%u/%d times) total: %ld.%06ld avg: %ld.%06ld "
-                      "min: %ld.%06ld max: %ld.%06ld tps: %.06f",
-                      str1, str2, str3, j + 1, argv[1].w, total.tv_sec,
-                      (long) total.tv_usec, avg.tv_sec, (long) avg.tv_usec,
-                      min.tv_sec, (long) min.tv_usec, max.tv_sec,
-                      (long) max.tv_usec, time_tps(&total, j + 1));
+                      "%s%s%s (%u/%d times) total: %lld.%06ld avg: %lld.%06ld "
+                      "min: %lld.%06ld max: %lld.%06ld tps: %.06f",
+                      str1, str2, str3, j + 1, argv[1].w,
+                      (long long) total.tv_sec, (long) total.tv_usec,
+                      (long long) avg.tv_sec, (long) avg.tv_usec,
+                      (long long) min.tv_sec, (long) min.tv_usec,
+                      (long long) max.tv_sec, (long) max.tv_usec,
+                      time_tps(&total, j + 1));
       fflush(stderr);
 #endif
     }
 #ifdef _WIN32
     fprintf(stderr,
-            "%s%s%s (%d times) total: %ld.%06ld avg: %ld.%06ld "
-            "min: %ld.%06ld max: %ld.%06ld tps: %.06f",
-            str1, str2, str3, argv[1].w, total.tv_sec, (long) total.tv_usec,
-            avg.tv_sec, (long) avg.tv_usec, min.tv_sec, (long) min.tv_usec,
-            max.tv_sec, (long) max.tv_usec, time_tps(&total, argv[1].w));
+            "%s%s%s (%d times) total: %lld.%06ld avg: %lld.%06ld "
+            "min: %lld.%06ld max: %lld.%06ld tps: %.06f",
+            str1, str2, str3, argv[1].w,
+            (long long) total.tv_sec, (long) total.tv_usec,
+            (long long) avg.tv_sec, (long) avg.tv_usec,
+            (long long) min.tv_sec, (long) min.tv_usec,
+            (long long) max.tv_sec, (long) max.tv_usec,
+            time_tps(&total, argv[1].w));
 
 #endif
     fprintf(stderr, "\n");
