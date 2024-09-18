@@ -37,6 +37,17 @@ set (
   yubihsm.c
 )
 
+if (ENABLE_CERT_COMPRESS)
+  set(SOURCE ${SOURCE} ../common/data_compress.c)
+
+  find_library(ZLIB zlib PATHS ${ZLIB_LIB_DIR})
+  include_directories(${ZLIB_INCL_DIR})
+
+  find_package(ZLIB REQUIRED)
+
+  set(ZLIB_LIBS "ZLIB::ZLIB")
+endif()
+
 if(MSVC)
   set(SOURCE ${SOURCE} ${CMAKE_CURRENT_SOURCE_DIR}/../common/time_win.c)
 endif(MSVC)
@@ -160,11 +171,11 @@ add_coverage (yubihsm_http)
 add_definitions (-DVERSION="${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}")
 add_definitions (-DSOVERSION="${yubihsm_shell_VERSION_MAJOR}")
 
-target_link_libraries (yubihsm ${CRYPT_LIBRARY} ${ADDITIONAL_LIBRARY})
+target_link_libraries (yubihsm ${CRYPT_LIBRARY} ${ADDITIONAL_LIBRARY} ${ZLIB_LIBS})
 target_link_libraries (yubihsm_usb ${USB_LIBRARY})
 target_link_libraries (yubihsm_http ${HTTP_LIBRARY})
 if(ENABLE_STATIC)
-  target_link_libraries (yubihsm_static ${CRYPT_LIBRARY} ${ADDITIONAL_LIBRARY} ${HTTP_LIBRARY} ${USB_LIBRARY})
+  target_link_libraries (yubihsm_static ${CRYPT_LIBRARY} ${ADDITIONAL_LIBRARY} ${HTTP_LIBRARY} ${USB_LIBRARY} ${ZLIB_LIBS})
 endif(ENABLE_STATIC)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/yubihsm.pc.in ${CMAKE_CURRENT_BINARY_DIR}/yubihsm.pc @ONLY)
