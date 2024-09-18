@@ -483,11 +483,11 @@ static void create_command_list(CommandList *c) {
                                 fmt_PEM, fmt_nofmt,
                                 "Store an asymmetric authentication key", NULL,
                                 NULL});
-  register_subcommand(*c, (Command){"opaque", yh_com_put_opaque,
-                                    "e:session,w:object_id,s:label,d:domains,c:"
-                                    "capabilities,a:algorithm,i:data=-",
-                                    fmt_binary, fmt_nofmt,
-                                    "Store an opaque object", NULL, NULL});
+  register_subcommand(
+    *c, (Command){"opaque", yh_com_put_opaque,
+                  "e:session,w:object_id,s:label,d:domains,c:"
+                  "capabilities,a:algorithm,b:compress=0,i:data=-",
+                  fmt_binary, fmt_nofmt, "Store an opaque object", NULL, NULL});
   register_subcommand(*c,
                       (Command){"option", yh_com_put_option,
                                 "e:session,o:option,i:data", fmt_hex, fmt_nofmt,
@@ -2646,7 +2646,9 @@ int main(int argc, char *argv[]) {
           yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[5].a);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
 
-          if (get_input_data(args_info.in_arg, &arg[6].x, &arg[6].len,
+          arg[6].b = args_info.compress_given;
+
+          if (get_input_data(args_info.in_arg, &arg[7].x, &arg[7].len,
                              g_in_fmt == fmt_nofmt ? fmt_binary : g_in_fmt) ==
               false) {
             fprintf(stderr, "Failed to get input data\n");
