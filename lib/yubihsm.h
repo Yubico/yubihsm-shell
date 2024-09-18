@@ -529,6 +529,10 @@ typedef enum {
   YH_ALGO_AES_CBC = 54,
   /// aes-kwp
   YH_ALGO_AES_KWP = 55,
+#ifdef USE_CERT_COMPRESS
+  /// Compressed certificate
+  YH_ALGO_OPAQUE_X509_COMPRESSED = 128,
+#endif
 } yh_algorithm;
 
 /**
@@ -748,6 +752,9 @@ static const struct {
   {"mgf1-sha512", YH_ALGO_MGF1_SHA512},
   {"opaque-data", YH_ALGO_OPAQUE_DATA},
   {"opaque-x509-certificate", YH_ALGO_OPAQUE_X509_CERTIFICATE},
+#ifdef USE_CERT_COMPRESS
+  {"opaque-x509-compressed", YH_ALGO_OPAQUE_X509_COMPRESSED},
+#endif
   {"rsa-oaep-sha1", YH_ALGO_RSA_OAEP_SHA1},
   {"rsa-oaep-sha256", YH_ALGO_RSA_OAEP_SHA256},
   {"rsa-oaep-sha384", YH_ALGO_RSA_OAEP_SHA384},

@@ -26,6 +26,13 @@ project (yubihsm-shell)
 
 option(BUILD_ONLY_LIB "Library only build" OFF)
 option(SUPRESS_MSVC_WARNINGS "Suppresses a lot of the warnings when compiling with MSVC" ON)
+option(ENABLE_CERT_COMPRESS "Enable/disable compression of certificate" OFF)
+
+if (ENABLE_CERT_COMPRESS)
+  if(NOT MSVC)
+    add_definitions(-DUSE_CERT_COMPRESS="1")
+  endif()
+endif()
 
 include(${CMAKE_SOURCE_DIR}/cmake/SecurityFlags.cmake)
 
