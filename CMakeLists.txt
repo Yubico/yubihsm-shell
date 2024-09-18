@@ -29,9 +29,7 @@ option(SUPRESS_MSVC_WARNINGS "Suppresses a lot of the warnings when compiling wi
 option(ENABLE_CERT_COMPRESS "Enable/disable compression of certificate" OFF)
 
 if (ENABLE_CERT_COMPRESS)
-  if(NOT MSVC)
-    add_definitions(-DUSE_CERT_COMPRESS="1")
-  endif()
+  add_definitions(-DUSE_CERT_COMPRESS="1")
 endif()
 
 include(${CMAKE_SOURCE_DIR}/cmake/SecurityFlags.cmake)

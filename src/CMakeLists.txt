@@ -27,6 +27,17 @@ set (
   ../common/openssl-compat.c
   )
 
+if (ENABLE_CERT_COMPRESS)
+  set(SOURCE ${SOURCE} ../common/data_compress.c)
+
+  find_library(ZLIB zlib PATHS ${ZLIB_LIB_DIR})
+  include_directories(${ZLIB_INCL_DIR})
+
+  find_package(ZLIB REQUIRED)
+
+  set(ZLIB_LIBS "ZLIB::ZLIB")
+endif()
+
 if(WIN32)
   set(SOURCE ${SOURCE} cmdline.c)
   include(${CMAKE_SOURCE_DIR}/cmake/getopt.cmake)
@@ -36,17 +47,6 @@ else(WIN32)
   find_gengetopt ()
   add_gengetopt_files (cmdline "--conf-parser")
   set(SOURCE ${SOURCE} ${GGO_C})
-
-  if (ENABLE_CERT_COMPRESS)
-    set(SOURCE ${SOURCE} ../common/x509_compress.c)
-
-    find_library(ZLIB zlib PATHS ${ZLIB_LIB_DIR})
-    include_directories(${ZLIB_INCL_DIR})
-
-    find_package(ZLIB REQUIRED)
-
-    set(ZLIB_LIBS "ZLIB::ZLIB")
-  endif()
 endif(WIN32)
 
 include_directories (

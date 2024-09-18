@@ -24,7 +24,7 @@
 #include "../common/insecure_memzero.h"
 #include "../common/parsing.h"
 #ifdef USE_CERT_COMPRESS
-#include "../common/x509_compress.h"
+#include "../common/data_compress.h"
 #endif
 #include "time_win.h"
 
@@ -920,9 +920,16 @@ int yh_com_get_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
       fprintf(stderr, "Failed parsing x509 information.\n");
 #ifdef USE_CERT_COMPRESS
       fprintf(stderr, "Trying to parse it as compressed certificate\n");
-      x509 = uncompress_cert(response, response_len);
-      if(!x509) {
-        fprintf(stderr, "Failed parsing x509 information.\n");
+      uint8_t certdata[4096] = {0};
+      size_t certdata_len = sizeof(certdata);
+      if(uncompress_data(response, response_len, certdata, &certdata_len) != 0) {
+        fprintf(stderr, "Failed to decompress data.\n");
+      } else {
+        const unsigned char *certdata_ptr = certdata;
+        x509 = d2i_X509(NULL, &certdata_ptr, certdata_len);
+        if(!x509) {
+          fprintf(stderr, "Failed parsing x509 information.\n");
+        }
       }
 #endif
     }
@@ -2332,12 +2339,17 @@ int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   }
 
 #ifdef USE_CERT_COMPRESS
-  if (argv[5].a == YH_ALGO_OPAQUE_X509_COMPRESSED) {
-    len = compress_cert(cert, data);
-    if (len == 0) {
+  if (cert && argv[5].a == YH_ALGO_OPAQUE_X509_COMPRESSED) {
+
+    uint8_t compressed_data[YH_MSG_BUF_SIZE] = {0};
+    size_t compressed_data_len = sizeof(compressed_data);
+
+    if (compress_data(data, len, compressed_data, &compressed_data_len) != 0) {
       fprintf(stderr, "Couldn't compress certificate\n");
       return 0;
     }
+    memcpy(data, compressed_data, compressed_data_len);
+    len = compressed_data_len;
   }
 #endif
   X509_free(cert);
