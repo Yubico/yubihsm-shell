@@ -19,16 +19,12 @@
 ** Implements platform specific operations to compress and uncompress X509Cert
 */
 
-#ifndef YUBIHSM_SHELL_X509_COMPRESS_H
-#define YUBIHSM_SHELL_X509_COMPRESS_H
-
-#ifndef _WIN32_BCRYPT
-// Only inlcude this if OpenSSL can be used
+#ifndef YUBIHSM_SHELL_DATA_COMPRESS_H
+#define YUBIHSM_SHELL_DATA_COMPRESS_H
 
 #include "../common/platform-config.h"
 #include <stdlib.h>
 #include <stdint.h>
-#include <openssl/types.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -36,9 +32,11 @@ extern "C" {
 
 #define YH_INTERNAL __attribute__((visibility("hidden")))
 
-int YH_INTERNAL compress_cert(X509 *cert, uint8_t *compressed_data);
-X509* uncompress_cert(uint8_t *data, size_t data_len);
+int YH_INTERNAL compress_data(uint8_t *data, size_t data_len,
+                              uint8_t *compressed_data,
+                              size_t *compressed_data_len);
+int YH_INTERNAL uncompress_data(uint8_t *compressed_data,
+                                size_t compressed_data_len, uint8_t *data,
+                                size_t *data_len);
 
-#endif
-
-#endif // YUBIHSM_SHELL_X509_COMPRESS_H
+#endif // YUBIHSM_SHELL_DATA_COMPRESS_H
