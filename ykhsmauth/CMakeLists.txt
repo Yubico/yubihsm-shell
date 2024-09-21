@@ -39,6 +39,10 @@ target_link_libraries (ykhsmauth ${LIBPCSC_LDFLAGS})
 
 set_target_properties (ykhsmauth PROPERTIES VERSION "${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}" SOVERSION ${yubihsm_shell_VERSION_MAJOR})
 
+if (ENABLE_STATIC_MSVCRT)
+  set_property(TARGET ykhsmauth PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
 # Set install RPATH
 set_target_properties(ykhsmauth PROPERTIES INSTALL_RPATH "${YUBIHSM_INSTALL_LIB_DIR}")
 
@@ -46,6 +50,9 @@ add_library (ykhsmauth_static STATIC ${SOURCE})
 set_target_properties (ykhsmauth_static PROPERTIES POSITION_INDEPENDENT_CODE on OUTPUT_NAME ykhsmauth)
 set_target_properties (ykhsmauth_static PROPERTIES COMPILE_FLAGS "-DSTATIC")
 target_link_libraries (ykhsmauth_static ${LIBPCSC_LDFLAGS})
+if (ENABLE_STATIC_MSVCRT)
+  set_property(TARGET ykhsmauth_static PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ykhsmauth.pc.in ${CMAKE_CURRENT_BINARY_DIR}/ykhsmauth.pc @ONLY)
 if(WIN32)
