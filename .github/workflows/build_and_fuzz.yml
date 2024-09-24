@@ -1,0 +1,75 @@
+name: Build and Fuzz
+
+on:
+  schedule:
+    # Run this every wednesday at 3:50. https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule
+    - cron: '50 3 * * 3'
+
+jobs:
+  fuzz_msan:
+    name: fuzz with MemorySanitizer
+    runs-on: ubuntu-latest
+    container: ghcr.io/yubico/yubihsm-shell/fuzzing-msan:latest
+
+    steps:
+
+      - name: clone the Yubico/yubihsm-shell repository
+        uses: actions/checkout@v3
+        with:
+          path: yubihsm-shell
+
+      - name: do build
+        working-directory: yubihsm-shell
+        run: |
+          cmake                   \
+            -DFUZZING=ON          \
+            -DFUZZING_MSAN=ON     \
+            -DWITHOUT_MANPAGES=ON \
+            -DDISABLE_LTO=ON      \
+            -DENABLE_STATIC=ON    \
+            -B build-msan
+          cmake --build build-msan
+
+      - name: run harness for fuzz_get_attribute_value
+        working-directory: yubihsm-shell
+        run: ./build-msan/pkcs11/fuzz_get_attribute_value -max_total_time=1800
+
+  fuzz_asan:
+    name: fuzz with AddressSanitizer
+    runs-on: ubuntu-latest
+    container: ubuntu:23.04
+
+    steps:
+
+      - name: install dependencies from package management
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt -q -y update
+          apt -q -y install                                                                 \
+            llvm-16 clang-16 lld-16                                                         \
+            build-essential cmake ninja-build pkg-config                                    \
+            libssl-dev libedit-dev libcurl4-openssl-dev libusb-1.0-0-dev libpcsclite-dev gengetopt
+
+      - name: clone the Yubico/yubihsm-shell repository
+        uses: actions/checkout@v3
+        with:
+          path: yubihsm-shell
+
+      - name: do build
+        env:
+          CC: clang-16
+          CXX: clang++-16
+        working-directory: yubihsm-shell
+        run: |
+          cmake                   \
+            -DFUZZING=ON          \
+            -DWITHOUT_MANPAGES=ON \
+            -DDISABLE_LTO=ON      \
+            -DENABLE_STATIC=ON    \
+            -B build-asan
+          cmake --build build-asan
+
+      - name: run harness for fuzz_get_attribute_value
+        working-directory: yubihsm-shell
+        run: ./build-asan/pkcs11/fuzz_get_attribute_value -max_total_time=1800

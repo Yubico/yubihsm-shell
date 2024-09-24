@@ -100,3 +100,40 @@ install(FILES pkcs11f.h DESTINATION "${YUBIHSM_INSTALL_INC_DIR}/pkcs11")
 install(FILES pkcs11y.h DESTINATION "${YUBIHSM_INSTALL_INC_DIR}/pkcs11")
 
 add_subdirectory (tests)
+
+if (FUZZING)
+    include_directories(
+        ../lib/fuzz
+    )
+    add_executable(fuzz_get_attribute_value
+        # harness sources
+        fuzz/fuzz_get_attribute_value.cc
+        ../lib/fuzz/yubihsm_fuzz.cc
+        # pkcs11 sources
+        ../common/hash.c
+        ../common/util.c
+        ../common/parsing.c
+        ../common/openssl-compat.c
+        util_pkcs11.c
+        yubihsm_pkcs11.c
+        list.c
+        debug_p11.c
+        # libyubihsm sources
+        ../aes_cmac/aes.c
+        ../aes_cmac/aes_cmac.c
+        ../common/hash.c
+        ../common/pkcs5.c
+        ../common/rand.c
+        ../common/ecdh.c
+        ../common/openssl-compat.c
+        ../lib/error.c
+        ../lib/lib_util.c
+        ../lib/yubihsm.c
+        # cmdline sources
+        ${GGO_C}
+    )
+    set_target_properties (fuzz_get_attribute_value PROPERTIES COMPILE_FLAGS "-DSTATIC -fsanitize=fuzzer")
+    set_target_properties (fuzz_get_attribute_value PROPERTIES LINK_FLAGS "-fsanitize=fuzzer")
+    target_link_libraries(fuzz_get_attribute_value ${LIBCRYPTO_LDFLAGS})
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-nested-anon-types")
+endif (FUZZING)

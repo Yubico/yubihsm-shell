@@ -94,6 +94,18 @@ else(WIN32)
   set(CRYPT_LIBRARY ${LIBCRYPTO_LDFLAGS})
 
   list(APPEND STATIC_SOURCE yubihsm_libusb.c yubihsm_usb.c yubihsm_curl.c)
+
+  if(FUZZING)
+    add_executable(fuzz_send_plain_msg ${SOURCE} fuzz/fuzz_send_plain_msg.cc fuzz/yubihsm_fuzz.cc)
+    set_target_properties (fuzz_send_plain_msg PROPERTIES COMPILE_FLAGS "-DSTATIC -fsanitize=fuzzer ")
+    set_target_properties (fuzz_send_plain_msg PROPERTIES LINK_FLAGS "-fsanitize=fuzzer ")
+    target_link_libraries (fuzz_send_plain_msg ${LIBCRYPTO_LDFLAGS})
+
+    add_executable(fuzz_send_secure_msg ${SOURCE} fuzz/fuzz_send_secure_msg.cc fuzz/yubihsm_fuzz.cc)
+    set_target_properties (fuzz_send_secure_msg PROPERTIES COMPILE_FLAGS "-DSTATIC -fsanitize=fuzzer ")
+    set_target_properties (fuzz_send_secure_msg PROPERTIES LINK_FLAGS "-fsanitize=fuzzer ")
+    target_link_libraries (fuzz_send_secure_msg ${LIBCRYPTO_LDFLAGS})
+  endif(FUZZING)
 endif(WIN32)
 
 include_directories (

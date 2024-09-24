@@ -1080,23 +1080,34 @@ bool create_session(yubihsm_pkcs11_slot *slot, CK_FLAGS flags,
   return list_append(&slot->pkcs11_sessions, &session);
 }
 
-static void get_label_attribute(yh_object_descriptor *object, bool public,
+static CK_RV get_label_attribute(yh_object_descriptor *object, bool public,
                                 pkcs11_meta_object *meta_object,
                                 CK_VOID_PTR value, CK_ULONG_PTR length) {
   if (meta_object != NULL && !public && meta_object->cka_label.len > 0) {
+    if (*length < meta_object->cka_label.len) {
+      return CKR_HOST_MEMORY;
+    }
     *length = meta_object->cka_label.len;
     memcpy(value, meta_object->cka_label.value, *length);
   } else if (meta_object != NULL && public &&
              meta_object->cka_label_pubkey.len > 0) {
+    if (*length < meta_object->cka_label_pubkey.len) {
+      return CKR_HOST_MEMORY;
+    }
     *length = meta_object->cka_label_pubkey.len;
     memcpy(value, meta_object->cka_label_pubkey.value, *length);
   } else {
-    *length = strlen(object->label);
+    size_t label_len = strlen(object->label);
+    if (*length < label_len) {
+      return CKR_HOST_MEMORY;
+    }
+    *length = label_len;
     memcpy(value, object->label, *length);
     // NOTE(adma): we have seen some weird behvior with different
     // PKCS#11 tools. We decided not to add '\0' for now. This *seems*
     // to be a good solution ...
   }
+  return CKR_OK;
 }
 
 static void get_id_attribute(yh_object_descriptor *object, bool public,
@@ -1281,7 +1292,7 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_LABEL:
-      get_label_attribute(object, false, meta_object, value, length);
+      return get_label_attribute(object, false, meta_object, value, length);
       break;
 
     case CKA_ID:
@@ -1362,7 +1373,7 @@ static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_LABEL:
-      get_label_attribute(object, false, meta_object, value, length);
+      return get_label_attribute(object, false, meta_object, value, length);
       break;
 
       // NOTE(adma): Key Objects attributes
@@ -1579,7 +1590,7 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_LABEL:
-      get_label_attribute(object, false, meta_object, value, length);
+      return get_label_attribute(object, false, meta_object, value, length);
       break;
 
       // NOTE(adma): Key Objects attributes
@@ -2038,7 +2049,7 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_LABEL:
-      get_label_attribute(object, true, meta_object, value, length);
+      return get_label_attribute(object, true, meta_object, value, length);
       break;
 
       // NOTE(adma): Key Objects attributes
@@ -5920,7 +5931,16 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
                         CK_ULONG ulCount, yubihsm_pkcs11_session *session) {
 
   CK_RV rv = CKR_OK;
+//#ifdef FUZZING
+//  /* TODO in fuzzing builds make the data buffers smaller
+//   * there are currently many locations in the code which make assumptions
+//   * that the size of the tmp buffer (and aliases) is large enough
+//   * decreasing the size now artificially will prevent the fuzzer from progressing well
+//   */
+//  CK_BYTE tmp[20] = {0};
+//#else
   CK_BYTE tmp[8192] = {0};
+//#endif
   for (CK_ULONG i = 0; i < ulCount; i++) {
     DBG_INFO("Getting attribute 0x%lx", pTemplate[i].type);
     CK_ULONG len = sizeof(tmp);
@@ -6037,7 +6057,12 @@ bool match_meta_attributes(yubihsm_pkcs11_session *session,
                            uint16_t cka_id_len, uint8_t *cka_label,
                            uint16_t cka_label_len) {
   CK_RV rv = CKR_OK;
+#ifdef FUZZING
+  // in fuzzing builds make the data buffers smaller
+  CK_BYTE tmp[200] = {0};
+#else
   CK_BYTE tmp[8192] = {0};
+#endif
   CK_ULONG len = sizeof(tmp);
 
   if (cka_id_len > 0) {

@@ -44,6 +44,7 @@
 
 #define STATIC_USB_BACKEND "usb"
 #define STATIC_HTTP_BACKEND "http"
+#define STATIC_FUZZ_BACKEND "yhfuzz"
 
 // If any of the values in scp.h are changed
 // they should be mirrored in yubihsm.h
@@ -65,8 +66,13 @@ _Static_assert(SCP_KEY_LEN == YH_KEY_LEN, "Message buffer size mismatch");
 
 #define LIST_SEPARATORS ":,;|"
 
+#ifdef FUZZING
+uint8_t _yh_verbosity = 0;
+FILE *_yh_output = NULL;
+#else
 uint8_t _yh_verbosity YH_INTERNAL = 0;
 FILE *_yh_output YH_INTERNAL = NULL;
+#endif
 
 static yh_rc compute_full_mac_ex(const uint8_t *data, uint16_t data_len,
                                  aes_context *aes_ctx, uint8_t *mac) {
@@ -166,10 +172,13 @@ static yh_rc compute_cryptogram_ex(aes_context *aes_ctx, uint8_t type,
   return YHR_SUCCESS;
 }
 
-static yh_rc compute_cryptogram(const uint8_t *key, uint16_t key_len,
-                                uint8_t type,
-                                const uint8_t context[SCP_CONTEXT_LEN],
-                                uint16_t L, uint8_t *key_out) {
+#ifndef FUZZING
+static
+#endif
+  yh_rc
+  compute_cryptogram(const uint8_t *key, uint16_t key_len, uint8_t type,
+                     const uint8_t context[SCP_CONTEXT_LEN], uint16_t L,
+                     uint8_t *key_out) {
   aes_context aes_ctx = {0};
 
   if (aes_set_key(key, key_len, &aes_ctx)) {
@@ -182,7 +191,11 @@ static yh_rc compute_cryptogram(const uint8_t *key, uint16_t key_len,
   return yrc;
 }
 
-static void increment_ctr(uint8_t *ctr, uint16_t len) {
+#ifndef FUZZING
+static
+#endif
+  void
+  increment_ctr(uint8_t *ctr, uint16_t len) {
 
   while (len > 0) {
     if (++ctr[--len]) {
@@ -439,7 +452,8 @@ static yh_rc send_encrypted_msg(Scp_ctx *session, yh_cmd cmd,
 
   // Outer command { cmd | cmd_len | sid | encrypted payload | mac }
   if (3 + 1 + len + SCP_MAC_LEN > max_message_size) {
-    DBG_ERR("%s (%u > %u)", yh_strerror(YHR_BUFFER_TOO_SMALL), 3 + 1 + len + SCP_MAC_LEN, max_message_size);
+    DBG_ERR("%s (%u > %u)", yh_strerror(YHR_BUFFER_TOO_SMALL),
+            3 + 1 + len + SCP_MAC_LEN, max_message_size);
     return YHR_BUFFER_TOO_SMALL;
   }
 
@@ -1036,7 +1050,8 @@ yh_rc yh_finish_create_session(yh_session *session, const uint8_t *key_senc,
       return yrc;
     }
 
-    // Verify card cryptogram (after sending response, so we clean up the hsm session on failure)
+    // Verify card cryptogram (after sending response, so we clean up the hsm
+    // session on failure)
     if (memcmp(card_cryptogram, computed_cryptogram, SCP_CARD_CRYPTO_LEN)) {
       DBG_ERR("%s", yh_strerror(YHR_CRYPTOGRAM_MISMATCH));
       return YHR_CRYPTOGRAM_MISMATCH;
@@ -1658,7 +1673,7 @@ yh_rc yh_util_get_object_info(yh_session *session, uint16_t id,
              response.delegated_capabilities, YH_CAPABILITIES_LEN);
     }
   } else {
-    DBG_ERR("Wrong response length, expecting %lu or 0, received %lu",
+    DBG_ERR("Wrong response length, expecting %lu, received %lu",
             (unsigned long) sizeof(yh_object_descriptor),
             (unsigned long) response_len);
     return YHR_WRONG_LENGTH;
@@ -4633,13 +4648,22 @@ static yh_rc load_backend(const char *name,
   if (name == NULL) {
     DBG_ERR("No name given to load_backend");
     return YHR_GENERIC_ERROR;
-  } else if (strncmp(name, STATIC_USB_BACKEND, strlen(STATIC_USB_BACKEND)) ==
+  }
+#ifndef FUZZING
+  else if (strncmp(name, STATIC_USB_BACKEND, strlen(STATIC_USB_BACKEND)) ==
              0) {
     *bf = usb_backend_functions();
   } else if (strncmp(name, STATIC_HTTP_BACKEND, strlen(STATIC_HTTP_BACKEND)) ==
              0) {
     *bf = http_backend_functions();
-  } else {
+  }
+#else
+  else if (strncmp(name, STATIC_FUZZ_BACKEND, strlen(STATIC_FUZZ_BACKEND)) ==
+           0) {
+    *bf = fuzz_backend_functions();
+  }
+#endif
+  else {
     DBG_ERR("Failed finding backend named '%s'", name);
     return YHR_GENERIC_ERROR;
   }
@@ -4804,6 +4828,12 @@ yh_rc yh_init_connector(const char *url, yh_connector **connector) {
     DBG_INFO("Loading http backend");
     load_backend(HTTP_LIB, &backend, &bf);
   }
+#ifdef FUZZING
+  else if (strncmp(url, YH_FUZZ_URL_SCHEME, strlen(YH_FUZZ_URL_SCHEME)) == 0) {
+    DBG_INFO("Loading fuzzing backend");
+    load_backend(STATIC_FUZZ_BACKEND, &backend, &bf);
+  }
+#endif
   if (bf == NULL) {
     DBG_ERR("Failed loading the backend");
     return YHR_GENERIC_ERROR;
