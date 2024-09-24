@@ -98,8 +98,7 @@ void populate_attribute_template(CK_ATTRIBUTE_PTR *attribute_array,
     uint8_t ulValueLen = fdp->ConsumeIntegral<uint8_t>();
 
     new_array[i].type = fdp->ConsumeIntegral<CK_ATTRIBUTE_TYPE>();
-    new_array[i].pValue = new uint8_t[ulValueLen]; // TODO populate pValue from
-                                                   // fuzzer generated data?
+    new_array[i].pValue = new uint8_t[ulValueLen];
     new_array[i].ulValueLen = ulValueLen;
   }
 
@@ -126,8 +125,8 @@ void populate_derived_ecdh_key_template(CK_ATTRIBUTE_PTR *attribute_array,
 
   new_array[1].type = CKA_LABEL;
   new_array[1].ulValueLen = label_len;
-  new_array[1].pValue = new uint8_t[label_len]; // TODO populate pValue from
-                                                // fuzzer generated data?
+  new_array[1].pValue = new uint8_t[label_len];
+
   *attribute_array = new_array;
 }
 

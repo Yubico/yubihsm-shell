@@ -451,9 +451,9 @@ static yh_rc send_encrypted_msg(Scp_ctx *session, yh_cmd cmd,
   }
 
   // Outer command { cmd | cmd_len | sid | encrypted payload | mac }
-  if (3 + 1 + len + SCP_MAC_LEN > SCP_MSG_BUF_SIZE) {
-    DBG_ERR("%s: %u", yh_strerror(YHR_BUFFER_TOO_SMALL),
-            3 + 1 + len + SCP_MAC_LEN);
+  if (3 + 1 + len + SCP_MAC_LEN > max_message_size) {
+    DBG_ERR("%s (%u > %u)", yh_strerror(YHR_BUFFER_TOO_SMALL),
+            3 + 1 + len + SCP_MAC_LEN, max_message_size);
     return YHR_BUFFER_TOO_SMALL;
   }
 
