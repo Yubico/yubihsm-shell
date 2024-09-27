@@ -13,9 +13,6 @@ jobs:
           - environment: "centos:7"
             cc: "gcc"
             upload_for_test: "false"
-          - environment: "centos:8"
-            cc: "gcc"
-            upload_for_test: "false"
 
     name: build on ${{ matrix.environment }}
     runs-on: ubuntu-latest
@@ -25,14 +22,17 @@ jobs:
 
       - name: Setup OS
         run: |
-          curl https://vault.centos.org/7.9.2009/os/x86_64/RPM-GPG-KEY-CentOS-7 > centos7.key
-          pwd
-          ls
-          ls /etc/yum.repos.d
+         
+          sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo
+          sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo
+          sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
           
-          cat /etc/yum.repos.d/CentOS-Base.repo
-          echo "--------------"
-          cat /etc/yum.repos.d/CentOS-Vault.repo
+          yum -y update
+          yum -y install epel-release
+          
+          yum -y install gcc gcc-c++ cmake gengetopt openssl openssl-devel libedit-devel libcurl-devel libusbx-devel pcsc-lite-devel help2man chrpath rpm-build redhat-rpm-config
+
+          yum install -y checksec procps-ng jq file which curl
 
       - name: clone the Yubico/yubihsm-shell repository
         run: |
@@ -63,18 +63,18 @@ jobs:
           PLATFORM=$(echo -n "$DOCKER_IMAGE" | sed -E 's/[^a-zA-Z0-9]//g')
           echo "PLATFORM=$PLATFORM" >> $GITHUB_ENV
 
-      - name: install dependencies
-        env:
-          PLATFORM: ${{ env.PLATFORM }}
-        run: |
-          cd yubihsm-shell/resources/release/linux
-          ./install_redhat_dependencies.sh $PLATFORM
-
-          if [ $PLATFORM = "centos7" ]; then
-            # enable the epel repository for centos
-            yum install -y epel-release
-          fi
-          yum install -y checksec procps-ng jq file which curl
+#      - name: install dependencies
+#        env:
+#          PLATFORM: ${{ env.PLATFORM }}
+#        run: |
+#          cd yubihsm-shell/resources/release/linux
+#          ./install_redhat_dependencies.sh $PLATFORM
+#
+#          if [ $PLATFORM = "centos7" ]; then
+#            # enable the epel repository for centos
+#            yum install -y epel-release
+#          fi
+#          yum install -y checksec procps-ng jq file which curl
 
       - name: build release
         working-directory: yubihsm-shell
