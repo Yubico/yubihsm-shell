@@ -34,6 +34,14 @@ jobs:
 
           yum install -y checksec procps-ng jq file which curl
 
+      - name: install OpenSSL
+        run: |
+          OPENSSL_VERSION=3.3.2
+          curl -o openssl.tar.gz https://github.com/openssl/openssl/releases/download/openssl-3.3.2/openssl-3.3.2.tar.gz
+          tar xfz openssl.tar.gz
+          cd openssl
+          ./Configure --prefix=/usr/local/ssl --openssldir=/usr/local/ssl '-Wl,--enable-new-dtags,-rpath,$(LIBRPATH)'
+
       - name: clone the Yubico/yubihsm-shell repository
         run: |
           yum -y install git  
