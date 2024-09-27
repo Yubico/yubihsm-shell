@@ -1,9 +1,9 @@
 name: Build and Fuzz
 
-on:
-  schedule:
-    # Run this every wednesday at 3:50. https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule
-    - cron: '50 3 * * 3'
+on: [push]
+#  schedule:
+#    # Run this every wednesday at 3:50. https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule
+#    - cron: '50 3 * * 3'
 
 jobs:
   fuzz_msan:

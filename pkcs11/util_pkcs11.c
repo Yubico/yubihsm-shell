@@ -6092,6 +6092,7 @@ bool match_meta_attributes(yubihsm_pkcs11_session *session,
   return true;
 }
 
+#ifndef FUZZING
 static void increment_ctr(uint8_t *ctr, size_t len) {
   while (len > 0) {
     if (++ctr[--len]) {
@@ -6099,6 +6100,7 @@ static void increment_ctr(uint8_t *ctr, size_t len) {
     }
   }
 }
+#endif
 
 CK_RV ecdh_with_kdf(ecdh_session_key *shared_secret, uint8_t *fixed_info,
                     size_t fixed_len, CK_ULONG kdf, size_t value_len) {
