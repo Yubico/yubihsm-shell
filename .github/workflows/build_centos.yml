@@ -36,12 +36,9 @@ jobs:
 
       - name: install OpenSSL
         run: |
-          #wget https://github.com/openssl/openssl/releases/download/OpenSSL_1_1_1w/openssl-1.1.1w.tar.gz
-          #tar xfz openssl-1.1.1w.tar.gz
-          #cd openssl-1.1.1w
-          wget https://github.com/openssl/openssl/releases/download/openssl-3.3.2/openssl-3.3.2.tar.gz
-          tar xfz openssl-3.3.2.tar.gz
-          cd openssl-3.3.2
+          wget https://github.com/openssl/openssl/releases/download/OpenSSL_1_1_1w/openssl-1.1.1w.tar.gz
+          tar xfz openssl-1.1.1w.tar.gz
+          cd openssl-1.1.1w
           ./config --prefix=$GITHUB_WORKSPACE/openssl --openssldir=$GITHUB_WORKSPACE/openssl
           make
           make install
