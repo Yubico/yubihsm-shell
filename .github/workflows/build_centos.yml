@@ -30,9 +30,17 @@ jobs:
           yum -y update
           yum -y install epel-release
           
-          yum -y install gcc gcc-c++ cmake gengetopt openssl openssl-devel libedit-devel libcurl-devel libusbx-devel pcsc-lite-devel help2man chrpath rpm-build redhat-rpm-config
-
-          yum -y install checksec procps-ng jq file which curl wget glibc
+          yum -y install gcc gcc-c++ cmake gengetopt openssl openssl-devel libedit-devel libcurl-devel libusbx-devel 
+          yum -y install pcsc-lite-devel help2man chrpath rpm-build redhat-rpm-config
+          yum -y install checksec procps-ng jq file which curl wget git
+          
+          yum -y install bison make
+          git clone https://sourceware.org/git/glibc.git -b glibc-2.25 --depth 1
+          mkdir glibc/build
+          cd glibc/build
+          ./../configure --prefix=/usr
+          make
+          make install
 
       - name: install OpenSSL
         run: |
@@ -42,14 +50,10 @@ jobs:
           ./config --prefix=$GITHUB_WORKSPACE/openssl --openssldir=$GITHUB_WORKSPACE/openssl
           make
           make install
-          ls $GITHUB_WORKSPACE/openssl
 
       - name: clone the Yubico/yubihsm-shell repository
         run: |
-          yum -y install git  
-          git clone https://github.com/Yubico/yubihsm-shell.git
-          pwd
-          ls yubihsm-shell
+          git clone https://github.com/Yubico/yubihsm-shell.git -b 2.6.0
 
       - name: apply environment specific changes to CMakeLists.txt
         working-directory: yubihsm-shell
