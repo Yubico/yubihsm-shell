@@ -32,15 +32,18 @@ jobs:
           
           yum -y install gcc gcc-c++ cmake gengetopt openssl openssl-devel libedit-devel libcurl-devel libusbx-devel pcsc-lite-devel help2man chrpath rpm-build redhat-rpm-config
 
-          yum install -y checksec procps-ng jq file which curl
+          yum -y install checksec procps-ng jq file which curl wget glibc
 
-#      - name: install OpenSSL
-#        run: |
-#          OPENSSL_VERSION=3.3.2
-#          curl -o openssl.tar.gz https://github.com/openssl/openssl/releases/download/openssl-3.3.2/openssl-3.3.2.tar.gz
-#          tar xfz openssl.tar.gz
-#          cd openssl
-#          ./Configure --prefix=/usr/local/ssl --openssldir=/usr/local/ssl '-Wl,--enable-new-dtags,-rpath,$(LIBRPATH)'
+      - name: install OpenSSL
+        run: |
+          wget https://github.com/openssl/openssl/releases/download/OpenSSL_1_1_1w/openssl-1.1.1w.tar.gz
+          tar xfz openssl-1.1.1w.tar.gz
+          cd openssl-1.1.1w
+          #./Configure --prefix=/usr/local/ssl --openssldir=/usr/local/ssl '-Wl,--enable-new-dtags,-rpath,$(LIBRPATH)'
+          ./config --prefix=$GITHUB_WORKSPACE/openssl --openssldir=$GITHUB_WORKSPACE/openssl
+          make
+          make install
+          ls $GITHUB_WORKSPACE/openssl
 
       - name: clone the Yubico/yubihsm-shell repository
         run: |
@@ -95,6 +98,8 @@ jobs:
           export OUTPUT=$GITHUB_WORKSPACE/$PLATFORM/yubihsm-shell
           rm -rf $OUTPUT
           mkdir -p $OUTPUT
+          
+          export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/openssl/lib/pkgconfig
 
           # These 2 lines can be replaced by the command "rpmdev-setuptree", but this command seems to add macros that force check paths that do not exist
           mkdir -p $GITHUB_WORKSPACE/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
