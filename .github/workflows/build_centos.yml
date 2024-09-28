@@ -34,13 +34,13 @@ jobs:
 
           yum install -y checksec procps-ng jq file which curl
 
-      - name: install OpenSSL
-        run: |
-          OPENSSL_VERSION=3.3.2
-          curl -o openssl.tar.gz https://github.com/openssl/openssl/releases/download/openssl-3.3.2/openssl-3.3.2.tar.gz
-          tar xfz openssl.tar.gz
-          cd openssl
-          ./Configure --prefix=/usr/local/ssl --openssldir=/usr/local/ssl '-Wl,--enable-new-dtags,-rpath,$(LIBRPATH)'
+#      - name: install OpenSSL
+#        run: |
+#          OPENSSL_VERSION=3.3.2
+#          curl -o openssl.tar.gz https://github.com/openssl/openssl/releases/download/openssl-3.3.2/openssl-3.3.2.tar.gz
+#          tar xfz openssl.tar.gz
+#          cd openssl
+#          ./Configure --prefix=/usr/local/ssl --openssldir=/usr/local/ssl '-Wl,--enable-new-dtags,-rpath,$(LIBRPATH)'
 
       - name: clone the Yubico/yubihsm-shell repository
         run: |
@@ -60,6 +60,7 @@ jobs:
           sed -i 's/cmake_policy(SET CMP0025 NEW)/#cmake_policy(SET CMP0025 NEW)/' CMakeLists.txt
           sed -i 's/cmake_policy(SET CMP0042 NEW)/#cmake_policy(SET CMP0042 NEW)/' CMakeLists.txt
           sed -i 's/cmake_policy(SET CMP0054 NEW)/#cmake_policy(SET CMP0054 NEW)/' CMakeLists.txt
+          sed -i 's/cmake_policy(SET CMP0091 NEW)/#cmake_policy(SET CMP0091 NEW)/' CMakeLists.txt
           # append the following flags: -Wno-missing-braces -Wno-missing-field-initializers -Wno-implicit-function-declaration
           sed -i 's/-Wall -Wextra -Werror/-Wall -Wextra -Werror -Wno-missing-braces -Wno-missing-field-initializers/' cmake/SecurityFlags.cmake
 
