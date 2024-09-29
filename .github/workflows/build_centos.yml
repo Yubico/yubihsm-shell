@@ -34,13 +34,13 @@ jobs:
           yum -y install pcsc-lite-devel help2man chrpath rpm-build redhat-rpm-config
           yum -y install checksec procps-ng jq file which curl wget git
           
-          yum -y install bison make
-          git clone https://sourceware.org/git/glibc.git -b glibc-2.25 --depth 1
-          mkdir glibc/build
-          cd glibc/build
-          ./../configure --prefix=/usr
-          make
-          make install
+#          yum -y install bison make
+#          git clone https://sourceware.org/git/glibc.git -b glibc-2.25 --depth 1
+#          mkdir glibc/build
+#          cd glibc/build
+#          ./../configure --prefix=/usr
+#          make
+#          make install
 
       - name: install OpenSSL
         run: |
@@ -77,19 +77,6 @@ jobs:
           # Remove everything from DOCKER_IMAGE that is not a letter or a number
           PLATFORM=$(echo -n "$DOCKER_IMAGE" | sed -E 's/[^a-zA-Z0-9]//g')
           echo "PLATFORM=$PLATFORM" >> $GITHUB_ENV
-
-#      - name: install dependencies
-#        env:
-#          PLATFORM: ${{ env.PLATFORM }}
-#        run: |
-#          cd yubihsm-shell/resources/release/linux
-#          ./install_redhat_dependencies.sh $PLATFORM
-#
-#          if [ $PLATFORM = "centos7" ]; then
-#            # enable the epel repository for centos
-#            yum install -y epel-release
-#          fi
-#          yum install -y checksec procps-ng jq file which curl
 
       - name: build release
         working-directory: yubihsm-shell
@@ -129,21 +116,21 @@ jobs:
           rm -rf licenses
           rm -rf ../yubihsm-shell
 
-#      - name: install binaries
-#        working-directory: /github/home/rpmbuild/RPMS/x86_64
-#        run: |
-#          yum install -y ./yubihsm-shell-*.rpm
+      - name: install binaries
+        working-directory: /github/home/rpmbuild/RPMS/x86_64
+        run: |
+          yum install -y ./yubihsm-shell-*.rpm
 
-#      - name: check binaries for hardening
-#        run: |
-#          cs() {
-#            checksec --file=/usr/bin/yubihsm-shell --format=json | jq -r ".[] | .$1"
-#          }
-#          if [ "`cs relro`" != "full" ]; then echo "relro is `cs relro`"; exit 1; fi
-#          if [ "`cs canary`" != "yes" ]; then echo "canary is `cs canary`"; exit 1; fi
-#          if [ "`cs nx`" != "yes" ]; then echo "nx is `cs nx`"; exit 1; fi
-#          if [ "`cs pie`" != "yes" ]; then echo "pie is `cs pie`"; exit 1; fi
-#          if [ "`cs fortify_source`" != "yes" ]; then echo "fortify_source is `cs fortify_source`"; exit 1; fi
+      - name: check binaries for hardening
+        run: |
+          cs() {
+            checksec --file=/usr/bin/yubihsm-shell --format=json | jq -r ".[] | .$1"
+          }
+          if [ "`cs relro`" != "full" ]; then echo "relro is `cs relro`"; exit 1; fi
+          if [ "`cs canary`" != "yes" ]; then echo "canary is `cs canary`"; exit 1; fi
+          if [ "`cs nx`" != "yes" ]; then echo "nx is `cs nx`"; exit 1; fi
+          if [ "`cs pie`" != "yes" ]; then echo "pie is `cs pie`"; exit 1; fi
+          if [ "`cs fortify_source`" != "yes" ]; then echo "fortify_source is `cs fortify_source`"; exit 1; fi
 
 
       - name: upload artifacts
