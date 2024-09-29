@@ -129,10 +129,10 @@ jobs:
           rm -rf licenses
           rm -rf ../yubihsm-shell
 
-      - name: install binaries
-        working-directory: /github/home/rpmbuild/RPMS/x86_64
-        run: |
-          yum install -y ./yubihsm-shell-*.rpm
+#      - name: install binaries
+#        working-directory: /github/home/rpmbuild/RPMS/x86_64
+#        run: |
+#          yum install -y ./yubihsm-shell-*.rpm
 
       - name: check binaries for hardening
         run: |
