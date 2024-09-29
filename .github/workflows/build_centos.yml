@@ -46,7 +46,7 @@ jobs:
       - name: clone the Yubico/yubihsm-shell repository
         run: |
           yum -y install git  
-          git clone https://github.com/Yubico/yubihsm-shell.git
+          git clone https://github.com/Yubico/yubihsm-shell.git -b 2.6.0 --depth 1
 
       - name: apply environment specific changes to CMakeLists.txt
         working-directory: yubihsm-shell
