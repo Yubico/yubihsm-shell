@@ -32,7 +32,7 @@ jobs:
           
           yum -y install gcc gcc-c++ cmake gengetopt openssl openssl-devel libedit-devel libcurl-devel libusbx-devel 
           yum -y install pcsc-lite-devel help2man chrpath rpm-build redhat-rpm-config
-          yum -y install checksec procps-ng jq file which curl wget git
+          yum -y install checksec procps-ng jq file which curl wget git glibc
           
 #          yum -y install bison make
 #          git clone https://sourceware.org/git/glibc.git -b glibc-2.25 --depth 1
