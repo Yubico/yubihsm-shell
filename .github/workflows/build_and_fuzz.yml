@@ -21,6 +21,8 @@ jobs:
       - name: do build
         working-directory: yubihsm-shell
         run: |
+          apt -q -y install libc++-dev
+          
           cmake                   \
             -DFUZZING=ON          \
             -DFUZZING_MSAN=ON     \
