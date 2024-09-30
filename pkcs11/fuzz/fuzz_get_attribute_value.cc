@@ -11,7 +11,7 @@
 #include "yubihsm_fuzz.h"
 
 extern "C" {
-#include "pkcs11.h"
+#include "pkcs11y.h"
 #include "yubihsm_pkcs11.h"
 
 uint8_t *backend_data;
