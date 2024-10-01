@@ -268,7 +268,7 @@ jobs:
           curl -o checksec.sh-2.5.0.tar.gz -L https://github.com/slimm609/checksec.sh/archive/refs/tags/2.5.0.tar.gz
           tar xfz checksec.sh-2.5.0.tar.gz
           cs() {
-            checksec.sh-2.5.0/checksec --file=/usr/bin/yubihsm-shell --format=json | jq -r ".[] | .$1"
+            checksec-2.5.0/checksec --file=/usr/bin/yubihsm-shell --format=json | jq -r ".[] | .$1"
           }
           if [ "`cs relro`" != "full" ]; then echo "relro is `cs relro`"; exit 1; fi
           if [ "`cs canary`" != "yes" ]; then echo "canary is `cs canary`"; exit 1; fi

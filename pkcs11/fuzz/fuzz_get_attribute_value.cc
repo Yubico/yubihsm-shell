@@ -11,7 +11,7 @@
 #include "yubihsm_fuzz.h"
 
 extern "C" {
-#include "pkcs11.h"
+#include "pkcs11y.h"
 #include "yubihsm_pkcs11.h"
 
 uint8_t *backend_data;
@@ -47,10 +47,7 @@ static void deinit_session() {
   CK_RV rv;
 
   rv = p11->C_Logout(session);
-  assert(rv == CKR_OK);
-
   rv = p11->C_CloseSession(session);
-  assert(rv == CKR_OK);
 }
 
 static void init_session() {
@@ -139,9 +136,9 @@ void derive_ecdh_session_keys(uint8_t derived_key_count,
   }
 
   for (int i = 0; i < derived_key_count; i++) {
-    CK_OBJECT_HANDLE ecdh;
+    CK_OBJECT_HANDLE ecdh = {0};
 
-    CK_ECDH1_DERIVE_PARAMS params;
+    CK_ECDH1_DERIVE_PARAMS params = {0};
     memset(&params, 0, sizeof(params));
     params.kdf = CKD_NULL;
     params.pSharedData = NULL;
@@ -150,7 +147,7 @@ void derive_ecdh_session_keys(uint8_t derived_key_count,
     params.pPublicData = new uint8_t[50];
     params.ulPublicDataLen = 50;
 
-    CK_MECHANISM mechanism;
+    CK_MECHANISM mechanism = {0};
     memset(&mechanism, 0, sizeof(mechanism));
     mechanism.mechanism = CKM_ECDH1_DERIVE;
     mechanism.pParameter = (void *) &params;

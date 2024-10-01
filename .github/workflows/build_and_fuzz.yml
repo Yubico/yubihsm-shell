@@ -32,6 +32,8 @@ jobs:
 
       - name: run harness for fuzz_get_attribute_value
         working-directory: yubihsm-shell
+        env:
+          LD_LIBRARY_PATH: /llvm-msan/install-runtimes-msan/lib;/openssl-msan/install/lib
         run: ./build-msan/pkcs11/fuzz_get_attribute_value -max_total_time=1800
 
   fuzz_asan:
