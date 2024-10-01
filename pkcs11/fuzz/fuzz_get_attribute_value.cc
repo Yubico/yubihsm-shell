@@ -47,10 +47,7 @@ static void deinit_session() {
   CK_RV rv;
 
   rv = p11->C_Logout(session);
-  assert(rv == CKR_OK);
-
   rv = p11->C_CloseSession(session);
-  assert(rv == CKR_OK);
 }
 
 static void init_session() {

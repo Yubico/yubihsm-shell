@@ -66,17 +66,15 @@ static int is_session_slot_initialized(int slot) {
 
 static bool compute_mac(Scp_ctx *s, uint8_t *key, Msg *msg, size_t raw_msg_len,
                         int host_order_len, uint8_t *mac) {
-  aes_context aes_ctx;
-  aes_cmac_context_t cmac_ctx;
+  aes_context aes_ctx = {0};
+  aes_cmac_context_t cmac_ctx = {0};
 
 #pragma pack(push, 1)
   struct {
     uint8_t mac_chaining_value[SCP_PRF_LEN];
     Msg msg;
-  } mac_msg;
+  } mac_msg = {0};
 #pragma pack(pop)
-
-  memset(&mac_msg, 0, sizeof(mac_msg));
 
   if (raw_msg_len > sizeof(Msg)) {
     return false;
@@ -95,6 +93,7 @@ static bool compute_mac(Scp_ctx *s, uint8_t *key, Msg *msg, size_t raw_msg_len,
   memset(&aes_ctx, 0, sizeof(aes_ctx));
   aes_set_key(key, SCP_KEY_LEN, &aes_ctx);
   aes_cmac_init(&aes_ctx, &cmac_ctx);
+
   aes_cmac_encrypt(&cmac_ctx, (uint8_t *) &mac_msg, macced_data_len, mac);
 
   aes_cmac_destroy(&cmac_ctx);
@@ -104,8 +103,7 @@ static bool compute_mac(Scp_ctx *s, uint8_t *key, Msg *msg, size_t raw_msg_len,
 }
 
 static void process_msg(Msg *msg, Msg *response) {
-  aes_context aes_ctx;
-  memset(&aes_ctx, 0, sizeof(aes_ctx));
+  aes_context aes_ctx = {0};
 
   msg->st.len = ntohs(msg->st.len);
 
@@ -130,8 +128,9 @@ static void process_msg(Msg *msg, Msg *response) {
         break;
       }
 
-      uint16_t host_challenge_len;
-      host_challenge_len = msg->st.len - SCP_AUTHKEY_ID_LEN;
+      memset(&sessions[session_id], 0, sizeof(Scp_ctx));
+
+      uint16_t host_challenge_len = msg->st.len - SCP_AUTHKEY_ID_LEN;
 
       /* Setting up the session context used later on to calculate the card
        * cryptogram. See also yh_begin_create_session(). The session context
@@ -161,7 +160,7 @@ static void process_msg(Msg *msg, Msg *response) {
        *    L       = SCP_CARD_CRYPTO_LEN * 8
        *    context = the session context
        */
-      uint8_t calculated_card_cryptogram[SCP_PRF_LEN];
+      uint8_t calculated_card_cryptogram[SCP_PRF_LEN] = {0};
       compute_cryptogram(sessions[session_id].s_mac, SCP_KEY_LEN,
                          SCP_CARD_CRYPTOGRAM, session_context,
                          SCP_CARD_CRYPTO_LEN * 8, calculated_card_cryptogram);
@@ -233,12 +232,9 @@ static void process_msg(Msg *msg, Msg *response) {
 
     case YHC_SESSION_MESSAGE: {
       uint8_t encrypted_ctr[AES_BLOCK_SIZE] = {0};
-      Msg inner_msg, inner_response;
+      Msg inner_msg = {0}, inner_response = {0};
       uint8_t mac[SCP_PRF_LEN] = {0};
       uint16_t inner_response_padded_len = {0};
-
-      memset(&inner_msg, 0, sizeof(inner_msg));
-      memset(&inner_response, 0, sizeof(inner_response));
 
       current_session_id = msg->st.data[0];
       if (is_session_slot_initialized(current_session_id) == 0) {
@@ -277,8 +273,6 @@ static void process_msg(Msg *msg, Msg *response) {
        * for that situation, we should cache the session object before
        * processing the YHC_CLOSE_SESSION command.
        */
-      Scp_ctx saved_session;
-      memcpy(&saved_session, s, sizeof(Scp_ctx));
       process_msg(&inner_msg, &inner_response);
 
       // set the response type
@@ -305,7 +299,7 @@ static void process_msg(Msg *msg, Msg *response) {
         break;
       }
 
-      if (compute_mac(&saved_session, saved_session.s_rmac, response,
+      if (compute_mac(s, s->s_rmac, response,
                       3 + response->st.len - SCP_MAC_LEN, 1, mac) == false) {
         response->st.cmd = YHC_ERROR;
         break;
@@ -359,7 +353,7 @@ static void fuzz_backend_set_verbosity(uint8_t verbosity, FILE *output) {
 static yh_rc fuzz_backend_init(uint8_t verbosity, FILE *output) {
   fuzz_backend_set_verbosity(verbosity, output);
 
-  uint8_t keys[2 * SCP_KEY_LEN];
+  uint8_t keys[2 * SCP_KEY_LEN] = {0};
   pkcs5_pbkdf2_hmac((const uint8_t *) FUZZ_BACKEND_PASSWORD,
                     strlen(FUZZ_BACKEND_PASSWORD),
                     (const uint8_t *) YH_DEFAULT_SALT, strlen(YH_DEFAULT_SALT),
