@@ -139,16 +139,15 @@ void derive_ecdh_session_keys(uint8_t derived_key_count,
     CK_OBJECT_HANDLE ecdh = {0};
 
     CK_ECDH1_DERIVE_PARAMS params = {0};
-    memset(&params, 0, sizeof(params));
     params.kdf = CKD_NULL;
     params.pSharedData = NULL;
     params.ulSharedDataLen = 0;
     // TODO populate pPublicData and ulPublicDataLen from fuzzer generated data?
     params.pPublicData = new uint8_t[50];
+    memset(params.pPublicData, 0, 50);
     params.ulPublicDataLen = 50;
 
     CK_MECHANISM mechanism = {0};
-    memset(&mechanism, 0, sizeof(mechanism));
     mechanism.mechanism = CKM_ECDH1_DERIVE;
     mechanism.pParameter = (void *) &params;
     mechanism.ulParameterLen = sizeof(params);
@@ -185,8 +184,7 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t *data, size_t size) {
 
   FuzzedDataProvider *fdp = new FuzzedDataProvider(data, size);
 
-  test_case_t test_case;
-  memset(&test_case, 0, sizeof(test_case_t));
+  test_case_t test_case = {0};
   test_case.attribute_count = fdp->ConsumeIntegral<CK_ULONG>();
   test_case.obj_handle = fdp->ConsumeIntegral<CK_OBJECT_HANDLE>();
   test_case.derived_ecdh_key_count = fdp->ConsumeIntegral<uint8_t>();
@@ -198,8 +196,8 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t *data, size_t size) {
     test_case.attribute_count = 10;
   }
 
-  CK_ATTRIBUTE_PTR attribute_array;
-  CK_ATTRIBUTE_PTR ecdh_attribute_array;
+  CK_ATTRIBUTE_PTR attribute_array = NULL;
+  CK_ATTRIBUTE_PTR ecdh_attribute_array = NULL;
   populate_attribute_template(&attribute_array, test_case.attribute_count, fdp);
   populate_derived_ecdh_key_template(&ecdh_attribute_array, fdp);
 
