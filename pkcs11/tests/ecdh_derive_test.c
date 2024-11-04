@@ -36,14 +36,16 @@ CK_BYTE P256_PARAMS[] = {0x06, 0x08, 0x2a, 0x86, 0x48,
                          0xce, 0x3d, 0x03, 0x01, 0x07};
 CK_BYTE P384_PARAMS[] = {0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x22};
 CK_BYTE P521_PARAMS[] = {0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x23};
+CK_BYTE BP256_PARAMS[] = {0x06, 0x09, 0x2b, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x07};
 
 static CK_FUNCTION_LIST_3_0_PTR p11;
 static CK_SESSION_HANDLE session;
 
-char *CURVES[] = {"secp224r1", "prime256v1", "secp384r1", "secp521r1"};
-CK_BYTE *CURVE_PARAMS[] = {P224_PARAMS, P256_PARAMS, P384_PARAMS, P521_PARAMS};
+char *CURVES[] = {"secp224r1", "prime256v1", "secp384r1", "secp521r1", "brainpoolP256r1"};
+CK_BYTE *CURVE_PARAMS[] = {P224_PARAMS, P256_PARAMS, P384_PARAMS, P521_PARAMS, BP256_PARAMS};
 CK_ULONG CURVE_LENS[] = {sizeof(P224_PARAMS), sizeof(P256_PARAMS),
-                         sizeof(P384_PARAMS), sizeof(P521_PARAMS)};
+                         sizeof(P384_PARAMS), sizeof(P521_PARAMS),
+                         sizeof(BP256_PARAMS)};
 int CURVE_COUNT = sizeof(CURVE_PARAMS) / sizeof(CURVE_PARAMS[0]);
 
 static void success(const char *message) { printf("%s. OK\n", message); }
@@ -56,27 +58,31 @@ static void generate_keypair_yh(CK_BYTE *curve, CK_ULONG curve_len,
   CK_MECHANISM mechanism = {CKM_EC_KEY_PAIR_GEN, NULL_PTR, 0};
 
   CK_BBOOL ck_true = CK_TRUE;
+  CK_BBOOL ck_false = CK_FALSE;
 
   CK_OBJECT_CLASS pubkey_class = CKO_PUBLIC_KEY;
   CK_OBJECT_CLASS privkey_class = CKO_PRIVATE_KEY;
   CK_KEY_TYPE key_type = CKK_EC;
   char *label = "ecdhtest";
 
-  CK_ATTRIBUTE publicKeyTemplate[] = {{CKA_CLASS, &pubkey_class,
-                                       sizeof(pubkey_class)},
-                                      {CKA_VERIFY, &ck_true, sizeof(ck_true)},
-                                      {CKA_KEY_TYPE, &key_type,
-                                       sizeof(key_type)},
+  CK_ATTRIBUTE publicKeyTemplate[] = {
+                                      {CKA_CLASS, &pubkey_class, sizeof(pubkey_class)},
+                                      {CKA_TOKEN, &ck_false, sizeof(ck_false)},
                                       {CKA_LABEL, label, strlen(label)},
-                                      {CKA_EC_PARAMS, curve, curve_len}};
+                                      {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+                                      {CKA_EC_PARAMS, curve, curve_len},
+                                      {CKA_VERIFY, &ck_true, sizeof(ck_true)}
+                                    };
 
-  CK_ATTRIBUTE privateKeyTemplate[] = {{CKA_CLASS, &privkey_class,
-                                        sizeof(privkey_class)},
+  CK_ATTRIBUTE privateKeyTemplate[] = {
+                                       {CKA_CLASS, &privkey_class, sizeof(privkey_class)},
+                                       {CKA_TOKEN, &ck_true, sizeof(ck_true)},
                                        {CKA_LABEL, label, strlen(label)},
-                                       {CKA_DERIVE, &ck_true, sizeof(ck_true)}};
+                                       {CKA_DERIVE, &ck_true, sizeof(ck_true)}
+                                      };
 
-  if ((p11->C_GenerateKeyPair(session, &mechanism, publicKeyTemplate, 5,
-                              privateKeyTemplate, 3, publicKeyPtr,
+  if ((p11->C_GenerateKeyPair(session, &mechanism, publicKeyTemplate, 6,
+                              privateKeyTemplate, 4, publicKeyPtr,
                               privateKeyPtr)) != CKR_OK) {
     fail("Failed to generate EC key pair on YubiHSM");
     exit(EXIT_FAILURE);
