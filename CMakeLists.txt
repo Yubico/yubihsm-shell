@@ -26,6 +26,7 @@ project (yubihsm-shell)
 
 option(BUILD_ONLY_LIB "Library only build" OFF)
 option(SUPRESS_MSVC_WARNINGS "Suppresses a lot of the warnings when compiling with MSVC" ON)
+option(ENABLE_STATIC "Compiles libyubihsm as a static library (in addtion to the dynamic library)" OFF)
 
 include(${CMAKE_SOURCE_DIR}/cmake/Fuzzing.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/SecurityFlags.cmake)
