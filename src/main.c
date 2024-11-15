@@ -1599,8 +1599,7 @@ static int validate_arg(yubihsm_context *ctx, char type, const char *value,
       if (type == 'b') {
         parsed->b = (uint8_t) num;
       } else if (type == 'e') {
-        if (num >= sizeof(ctx->sessions) / sizeof(ctx->sessions[0]) ||
-            !probe_session(ctx, num)) {
+        if (num >= sizeof(ctx->sessions) / sizeof(ctx->sessions[0]) || ctx->sessions[num] == NULL) {
           return -1;
         }
         parsed->e = ctx->sessions[num];
