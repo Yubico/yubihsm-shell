@@ -1604,13 +1604,12 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
         } else {
           *((CK_KEY_TYPE *) value) = CKK_EC;
         }
-
-        *length = sizeof(CK_KEY_TYPE);
       } else if (object->type == YH_WRAP_KEY && yh_is_rsa(object->algorithm)) {
         *((CK_KEY_TYPE *) value) = CKK_RSA;
       } else {
         return CKR_FUNCTION_FAILED;
       }
+      *length = sizeof(CK_KEY_TYPE);
       break;
 
     case CKA_ID:
@@ -2081,8 +2080,6 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
           default:
             *((CK_KEY_TYPE *) value) = CKK_VENDOR_DEFINED; // TODO: argh
         }
-
-        *length = sizeof(CK_KEY_TYPE);
       } else if (object->type == YH_HMAC_KEY) {
         switch (object->algorithm) {
           case YH_ALGO_HMAC_SHA1:
@@ -2104,13 +2101,12 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
           default:
             *((CK_KEY_TYPE *) value) = CKK_VENDOR_DEFINED; // TODO: argh
         }
-        *length = sizeof(CK_KEY_TYPE);
       } else if (object->type == YH_PUBLIC_WRAP_KEY && yh_is_rsa(object->algorithm)) {
         *((CK_KEY_TYPE *) value) = CKK_RSA;
-        *length = sizeof(CK_KEY_TYPE);
       } else {
         return CKR_FUNCTION_FAILED;
       }
+      *length = sizeof(CK_KEY_TYPE);
       break;
 
     case CKA_ID:
