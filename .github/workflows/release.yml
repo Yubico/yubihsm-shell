@@ -143,13 +143,10 @@ jobs:
       fail-fast: false
       matrix:
         environment: [
+            "ubuntu:24.10",
             "ubuntu:24.04",
-            "ubuntu:23.10",
             "ubuntu:22.04",
             "ubuntu:20.04",
-#            "ubuntu:18.04",
-#            "ubuntu:16.04",
-#            "ubuntu:14.04",
             "debian:12",
             "debian:11",
         ]
@@ -211,10 +208,18 @@ jobs:
 
       - name: apply environment specific changes to CMakeLists.txt
         working-directory: yubihsm-shell
-        if: ${{ matrix.environment == 'ubuntu:24.04' }}
+        env:
+          DOCKER_IMAGE: ${{ matrix.environment }}
         run: |
-          # ubuntu 24.04 comes with _FORTIFY_SOURCE already set
-          sed -i 's/add_definitions (-D_FORTIFY_SOURCE=2)/add_definitions (-D_FORTIFY_SOURCE=3)/' cmake/SecurityFlags.cmake
+          if [ "$DOCKER_IMAGE" = "ubuntu:24.04" ] || [ "$DOCKER_IMAGE" = "ubuntu:24.10" ]; then
+            # ubuntu 24.04 and above come with _FORTIFY_SOURCE already set
+            sed -i 's/add_definitions (-D_FORTIFY_SOURCE=2)/add_definitions (-D_FORTIFY_SOURCE=3)/' cmake/SecurityFlags.cmake
+          fi
+          
+          if [ "$DOCKER_IMAGE" = "ubuntu:24.10" ]; then
+            # Set PCSC flags
+            sed -i 's/#SET(CMAKE_C_FLAGS/SET(CMAKE_C_FLAGS/' ykhsmauth/CMakeLists.txt
+          fi
 
       - name: extract platform name
         env:
@@ -288,8 +293,8 @@ jobs:
       fail-fast: false
       matrix:
         environment: [
-            "fedora:39",
             "fedora:40",
+            "fedora:41",
         ]
 
     name: build on ${{ matrix.environment }}
@@ -316,6 +321,13 @@ jobs:
           sed -i 's/cmake_policy(SET CMP0054 NEW)/#cmake_policy(SET CMP0054 NEW)/' CMakeLists.txt
           # append the following flags: -Wno-missing-braces -Wno-missing-field-initializers -Wno-implicit-function-declaration
           sed -i 's/-Wall -Wextra -Werror/-Wall -Wextra -Werror -Wno-missing-braces -Wno-missing-field-initializers/' cmake/SecurityFlags.cmake
+
+      - name: apply environment specific changes to ykhsmauth/CMakeLists.txt
+        working-directory: yubihsm-shell
+        if: ${{ matrix.environment == 'fedora:41' }}
+        run: |
+          # Set PCSC flags
+          sed -i 's/#SET(CMAKE_C_FLAGS/SET(CMAKE_C_FLAGS/' ykhsmauth/CMakeLists.txt
 
       - name: extract platform name
         env:

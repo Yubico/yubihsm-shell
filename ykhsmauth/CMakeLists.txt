@@ -24,9 +24,8 @@ if(WIN32)
     set(SOURCE ${SOURCE} ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
 endif(WIN32)
 
-include_directories (
-  ${LIBPCSC_INCLUDEDIR}
-)
+include_directories (${LIBPCSC_INCLUDEDIR})
+#SET(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} ${LIBPCSC_CFLAGS}")
 
 add_library (ykhsmauth SHARED ${SOURCE})
 
