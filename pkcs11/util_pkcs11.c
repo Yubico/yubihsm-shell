@@ -4885,7 +4885,6 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         }
         break;
 
-      case CKA_TOKEN:
       case CKA_EXTRACTABLE:
       case CKA_DESTROYABLE:
         if ((rv = check_bool_attribute(pPublicKeyTemplate[i].pValue, true)) !=
@@ -4914,6 +4913,7 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         }
         break;
 
+      case CKA_TOKEN:
       case CKA_WRAP:   // pkcs11-tool sets this on public keys
       case CKA_UNWRAP: // pkcs11-tool sets this on public keys
       case CKA_VERIFY:
@@ -5115,7 +5115,7 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
           ecparams = (CK_BYTE_PTR) pPublicKeyTemplate[i].pValue;
           ecparams_len = pPublicKeyTemplate[i].ulValueLen;
         } else {
-          DBG_ERR("CKA_PUBLIC_EXPONENT inconsistent in PublicKeyTemplate");
+          DBG_ERR("CKA_EC_PARAMS inconsistent in PublicKeyTemplate");
           return CKR_TEMPLATE_INCONSISTENT;
         }
         break;
@@ -5129,7 +5129,6 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         }
         break;
 
-      case CKA_TOKEN:
       case CKA_EXTRACTABLE:
       case CKA_DESTROYABLE:
         if ((rv = check_bool_attribute(pPublicKeyTemplate[i].pValue, true)) !=
@@ -5160,6 +5159,7 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         }
         break;
 
+      case CKA_TOKEN:
       case CKA_VERIFY:
       case CKA_DERIVE: // pkcs11-tool sets this on public keys
         break;
@@ -5273,14 +5273,14 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
   }
 
   if (ecparams == NULL) {
-    DBG_ERR("CKA_ECPARAMS not set");
+    DBG_ERR("CKA_EC_PARAMS not set");
     return CKR_TEMPLATE_INCOMPLETE;
   }
 
   uint16_t key_len;
   rv = parse_ecparams(ecparams, ecparams_len, &template->algorithm, &key_len);
   if (rv != CKR_OK) {
-    DBG_ERR("Failed to parse CKA_ECPARAMS");
+    DBG_ERR("Failed to parse CKA_EC_PARAMS");
     return rv;
   }
 
@@ -5481,14 +5481,14 @@ CK_RV parse_ed_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
   }
 
   if (ecparams == NULL) {
-    DBG_ERR("CKA_ECPARAMS not set");
+    DBG_ERR("CKA_EC_PARAMS not set");
     return CKR_TEMPLATE_INCOMPLETE;
   }
 
   uint16_t key_len;
   rv = parse_edparams(ecparams, ecparams_len, &template->algorithm, &key_len);
   if (rv != CKR_OK) {
-    DBG_ERR("Failed to parse CKA_ECPARAMS");
+    DBG_ERR("Failed to parse CKA_EC_PARAMS");
     return rv;
   }
 
@@ -5721,7 +5721,7 @@ parse_rsa_wrappedkey_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
           ecparams = (CK_BYTE_PTR) pTemplate[i].pValue;
           ecparams_len = pTemplate[i].ulValueLen;
         } else {
-          DBG_ERR("CKA_PUBLIC_EXPONENT inconsistent in PublicKeyTemplate");
+          DBG_ERR("CKA_EC_PARAMS inconsistent in PublicKeyTemplate");
           return CKR_TEMPLATE_INCONSISTENT;
         }
         break;
@@ -5814,7 +5814,7 @@ parse_rsa_wrappedkey_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
       return CKR_TEMPLATE_INCONSISTENT;
     }
     if (rv != CKR_OK) {
-      DBG_ERR("Failed to parse CKA_ECPARAMS");
+      DBG_ERR("Failed to parse CKA_EC_PARAMS");
       return rv;
     }
   }

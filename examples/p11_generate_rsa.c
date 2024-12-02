@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
     {CKA_VERIFY, &ck_true, sizeof(ck_true)},
     {CKA_WRAP, &ck_true, sizeof(ck_true)},
     {CKA_UNWRAP, &ck_false, sizeof(ck_false)},
-    {CKA_TOKEN, &ck_true, sizeof(ck_true)},
+    {CKA_TOKEN, &ck_false, sizeof(ck_false)},
     {CKA_PRIVATE, &ck_false, sizeof(ck_false)},
     {CKA_EXTRACTABLE, &ck_true, sizeof(ck_true)},
     {CKA_MODIFIABLE, &ck_false, sizeof(ck_false)},
