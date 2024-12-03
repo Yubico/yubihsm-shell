@@ -80,10 +80,15 @@ endif()
 
 target_link_libraries(
   yubihsm_pkcs11
-  yubihsm
   ${LIBCRYPTO_LDFLAGS}
   ${GETOPT_LIBS}
-  )
+)
+
+if(ENABLE_STATIC)
+  target_link_libraries(yubihsm_pkcs11 yubihsm_static)
+else()
+  target_link_libraries(yubihsm_pkcs11 yubihsm)
+endif()
 
 if(WIN32)
   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc @ONLY)
