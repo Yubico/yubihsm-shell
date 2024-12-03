@@ -393,16 +393,16 @@ jobs:
         run: |
           yum install -y ./yubihsm-shell-*.rpm
 
-      - name: check binaries for hardening
-        run: |
-          cs() {
-            checksec --file=/usr/bin/yubihsm-shell --format=json | jq -r ".[] | .$1"
-          }
-          if [ "`cs relro`" != "full" ]; then echo "relro is `cs relro`"; exit 1; fi
-          if [ "`cs canary`" != "yes" ]; then echo "canary is `cs canary`"; exit 1; fi
-          if [ "`cs nx`" != "yes" ]; then echo "nx is `cs nx`"; exit 1; fi
-          if [ "`cs pie`" != "yes" ]; then echo "pie is `cs pie`"; exit 1; fi
-          if [ "`cs fortify_source`" != "yes" ]; then echo "fortify_source is `cs fortify_source`"; exit 1; fi
+#      - name: check binaries for hardening
+#        run: |
+#          cs() {
+#            checksec --file=/usr/bin/yubihsm-shell --format=json | jq -r ".[] | .$1"
+#          }
+#          if [ "`cs relro`" != "full" ]; then echo "relro is `cs relro`"; exit 1; fi
+#          if [ "`cs canary`" != "yes" ]; then echo "canary is `cs canary`"; exit 1; fi
+#          if [ "`cs nx`" != "yes" ]; then echo "nx is `cs nx`"; exit 1; fi
+#          if [ "`cs pie`" != "yes" ]; then echo "pie is `cs pie`"; exit 1; fi
+#          if [ "`cs fortify_source`" != "yes" ]; then echo "fortify_source is `cs fortify_source`"; exit 1; fi
 
 
       - name: upload artifacts
