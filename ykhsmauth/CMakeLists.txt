@@ -28,6 +28,9 @@ include_directories (
   ${LIBPCSC_INCLUDEDIR}
 )
 
+# Uncomment this for Ubuntu 24.10 and higher and Fedora 41 and higher
+#SET(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} ${LIBPCSC_CFLAGS}")
+
 add_library (ykhsmauth SHARED ${SOURCE})
 
 #add_definitions (-DVERSION="${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}")
