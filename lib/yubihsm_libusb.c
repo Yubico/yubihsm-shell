@@ -153,15 +153,20 @@ int usb_write(yh_backend *state, unsigned char *buf, long unsigned len) {
   /* TODO: does this need to loop and transmit several times? */
   int ret =
     libusb_bulk_transfer(state->handle, 0x01, buf, len, &transferred, 0);
-  DBG_INFO("Write of %lu %d, err %d", len, transferred, ret);
-  if (ret != 0 || transferred != (int) len) {
+  DBG_INFO("Write of %lu %d, ret %d", len, transferred, ret);
+  if (ret != 0) {
+    DBG_ERR("Failed usb_write with ret: %d (%s)", ret, libusb_strerror(ret));
+    return 0;
+  } else if (transferred != (int) len) {
     DBG_ERR("Transferred did not match len of write %d-%lu", transferred, len);
     return 0;
   }
   if (len % 64 == 0) {
+    transferred = 0;
     /* this writes the ZLP */
     ret = libusb_bulk_transfer(state->handle, 0x01, buf, 0, &transferred, 0);
     if (ret != 0) {
+      DBG_ERR("Failed usb_write ZLP with ret: %d (%s)", ret, libusb_strerror(ret));
       return 0;
     }
   }
@@ -182,7 +187,7 @@ int usb_read(yh_backend *state, unsigned char *buf, unsigned long *len) {
   /* TODO: does this need to loop for all data?*/
   ret = libusb_bulk_transfer(state->handle, 0x81, buf, *len, &transferred, 0);
   if (ret != 0) {
-    DBG_ERR("Failed usb_read with ret: %d", ret);
+    DBG_ERR("Failed usb_read with ret: %d (%s)", ret, libusb_strerror(ret));
     return 0;
   }
   DBG_INFO("Read, transfer %d", transferred);
