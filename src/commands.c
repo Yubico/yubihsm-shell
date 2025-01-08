@@ -3098,9 +3098,16 @@ int yh_com_sign_ssh_certificate(yubihsm_context *ctx, Argument *argv,
   uint8_t data[YH_MSG_BUF_SIZE + 1024] = {0};
   size_t response_len = sizeof(data);
 
-  if (argv[4].len != (4 + 256)) { // 4 bytes timestamp + 256 byte signature
-    fprintf(stderr, "Failed to sign ssh certificate: %s\n",
+  if (argv[4].len > YH_MSG_BUF_SIZE) {
+    fprintf(stderr, "Failed to sign ssh certificate: %s. Data too long\n",
             yh_strerror(YHR_BUFFER_TOO_SMALL));
+    return -1;
+  }
+
+  const size_t certdata_offset = 4 + 256; // 4 bytes timestamp + 256 byte signature
+  if(argv[4].len < certdata_offset) {
+    fprintf(stderr, "Failed to sign ssh certificate: %s. Data too short.\n",
+            yh_strerror(YHR_WRONG_LENGTH));
     return -1;
   }
 
@@ -3129,14 +3136,16 @@ int yh_com_sign_ssh_certificate(yubihsm_context *ctx, Argument *argv,
   }
   bio = BIO_push(b64, bio);
 
+  int cert_len = argv[4].len - certdata_offset + response_len;
   BUF_MEM *bufferPtr = 0;
 
-  (void) BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
-  (void) BIO_write(bio, data + 4 + 256,
-                   argv[4].len + response_len - 4 -
-                     256); // TODO(adma): FIXME, unmagify
-  (void) BIO_flush(bio);
-  (void) BIO_get_mem_ptr(bio, &bufferPtr);
+  BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
+  if (BIO_write(bio, data + certdata_offset, cert_len) != cert_len) {
+        fprintf(stderr, "Failed to write SSH certificate.\n");
+        return -1;
+  }
+  BIO_flush(bio);
+  BIO_get_mem_ptr(bio, &bufferPtr);
 
   const char *ssh_cert_str =
     "ssh-rsa-cert-v01@openssh.com "; // TODO(adma): ECDSA
