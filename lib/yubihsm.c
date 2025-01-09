@@ -2750,26 +2750,33 @@ yh_rc yh_util_import_wrapped(yh_session *session, uint16_t wrapping_key_id,
     };
     uint8_t buf[1];
   } data = {0};
+  union {
+    struct {
+      uint8_t key_type;
+      uint16_t key_id;
+    };
+    uint8_t buf[1];
+  } response = {0};
 #pragma pack(pop)
-  size_t data_len = 2 + in_len;
-
-  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
   yh_cmd response_cmd = 0;
+
+  size_t data_len = 2 + in_len;
 
   data.key_id = htons(wrapping_key_id);
   memcpy(data.bytes, in, in_len);
 
   yh_rc yrc =
     yh_send_secure_msg(session, YHC_IMPORT_WRAPPED, data.buf, data_len,
-                       &response_cmd, response, &response_len);
+                       &response_cmd, response.buf, &response_len);
+  insecure_memzero(data.buf, data_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send IMPORT WRAPPED command: %s", yh_strerror(yrc));
     return yrc;
   }
 
-  *target_type = response[0];
-  *target_id = ntohs(*((uint16_t *) (response + 1)));
+  *target_type = response.key_type;
+  *target_id = ntohs(response.key_id);
 
   return YHR_SUCCESS;
 }
@@ -2808,11 +2815,18 @@ yh_rc yh_util_import_rsa_wrapped(yh_session *session, uint16_t wrapping_key_id,
       { 0 }
     }
   };
+  union {
+    struct {
+      uint8_t key_type;
+      uint16_t key_id;
+    };
+    uint8_t buf[1];
+  } response = {0};
 #pragma pack(pop)
-  size_t data_len = 4;
-  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
   yh_cmd response_cmd = 0;
+
+  size_t data_len = 4;
 
   memcpy(data.bytes, in, in_len);
   data_len += in_len;
@@ -2821,14 +2835,15 @@ yh_rc yh_util_import_rsa_wrapped(yh_session *session, uint16_t wrapping_key_id,
 
   yh_rc yrc =
     yh_send_secure_msg(session, YHC_IMPORT_RSA_WRAPPED, data.buf, data_len,
-                       &response_cmd, response, &response_len);
+                       &response_cmd, response.buf, &response_len);
+  insecure_memzero(data.buf, data_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send IMPORT RSA WRAPPED command: %s", yh_strerror(yrc));
     return yrc;
   }
 
-  *target_type = response[0];
-  *target_id = ntohs(*((uint16_t *) (response + 1)));
+  *target_type = response.key_type;
+  *target_id = ntohs(response.key_id);
 
   return YHR_SUCCESS;
 }
@@ -2878,6 +2893,13 @@ yh_rc yh_util_put_rsa_wrapped_key(yh_session *session, uint16_t wrapping_key_id,
       { 0 }
     }
   };
+  union {
+    struct {
+      uint8_t key_type;
+      uint16_t key_id;
+    };
+    uint8_t buf[1];
+  } response = {0};
 #pragma pack(pop)
 
   // 2 bytes wrap key ID +
@@ -2889,7 +2911,6 @@ yh_rc yh_util_put_rsa_wrapped_key(yh_session *session, uint16_t wrapping_key_id,
   // 1 byte MGF1 algorithm
   // = 10 bytes
   size_t data_len = 10 + YH_OBJ_LABEL_LEN + YH_CAPABILITIES_LEN;
-  uint8_t response[YH_MSG_BUF_SIZE] = {0};
   size_t response_len = sizeof(response);
   yh_cmd response_cmd = 0;
 
@@ -2902,17 +2923,18 @@ yh_rc yh_util_put_rsa_wrapped_key(yh_session *session, uint16_t wrapping_key_id,
 
   yh_rc yrc =
     yh_send_secure_msg(session, YHC_PUT_RSA_WRAPPED_KEY, data.buf, data_len,
-                       &response_cmd, response, &response_len);
+                       &response_cmd, response.buf, &response_len);
+  insecure_memzero(data.buf, data_len);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send IMPORT WRAPPED command: %s", yh_strerror(yrc));
     return yrc;
   }
 
-  *target_id = ntohs(*((uint16_t *) (response + 1)));
+  *target_id = ntohs(response.key_id);
 
-  if (response[0] != type) {
+  if (response.key_type != type) {
     DBG_ERR("Imported key type does not match stated key. Removing key.");
-    yh_util_delete_object(session, *target_id, response[0]);
+    yh_util_delete_object(session, *target_id, response.key_type);
     *target_id = 0;
     return YHR_INVALID_PARAMETERS;
   }
