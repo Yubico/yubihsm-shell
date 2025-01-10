@@ -155,7 +155,7 @@ jobs:
 
       - name: upload artifacts for the test job
         if: ${{ matrix.upload_for_test == 'true' }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: "${{ env.ARTIFACT_NAME }}"
           path: yubihsm-shell.tar.gz
@@ -186,7 +186,7 @@ jobs:
     steps:
 
       - name: clone the Yubico/yubihsm-shell repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           path: yubihsm-shell
 
@@ -288,7 +288,7 @@ jobs:
 
       - name: upload artifacts for the test job
         if: ${{ matrix.upload_for_test == 'true' }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: "${{ env.ARTIFACT_NAME }}"
           path: yubihsm-shell.tar.gz
@@ -385,7 +385,7 @@ jobs:
           echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_${CC}" >> $GITHUB_ENV
 
       - name: download artifacts from the build job
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: "${{ env.ARTIFACT_NAME }}"
 
@@ -417,7 +417,7 @@ jobs:
           echo "DEFAULT_CONNECTOR_URL=$DEFAULT_CONNECTOR_URL" >> $GITHUB_ENV
 
       - name: clone the YubicoLabs/pkcs11test repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: YubicoLabs/pkcs11test
           path: pkcs11test
@@ -450,7 +450,7 @@ jobs:
           fi
 
       - name: clone the YubicoLabs/python-pkcs11tester repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: YubicoLabs/python-pkcs11tester
           path: python-pkcs11tester
