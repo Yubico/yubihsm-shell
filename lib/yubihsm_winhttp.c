@@ -297,9 +297,9 @@ static yh_rc backend_send_msg(yh_backend *backend, Msg *msg, Msg *response,
 
 static yh_rc backend_option(yh_backend *connection, yh_connector_option opt,
                             const void *val) {
-  (void) connection;
-  (void) opt;
-  (void) val;
+  UNUSED(connection);
+  UNUSED(opt);
+  UNUSED(val);
 
   DBG_ERR("Backend options not (yet?) supported with winhttp");
   return YHR_CONNECTOR_ERROR;

@@ -273,7 +273,7 @@ int yh_com_connect(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     }
     yrc = yh_connect(ctx->connector, 0);
     if (yrc == YHR_SUCCESS) {
-      (void) yh_com_keepalive_on(NULL, NULL, fmt_nofmt, fmt_nofmt);
+      yh_com_keepalive_on(NULL, NULL, fmt_nofmt, fmt_nofmt);
       return 0;
     }
     fprintf(stderr, "Failed connecting '%s': %s\n", ctx->connector_list[i],
@@ -1158,18 +1158,21 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     BIO *bio = BIO_new_fp(ctx->out, BIO_NOCLOSE);
     if (bio == NULL) {
       fprintf(stderr, "Unable to allocate BIO\n");
-      BIO_free_all(b64);
       error = true;
       goto getpk_base64_cleanup;
     }
 
     bio = BIO_push(b64, bio);
 
-    (void) i2d_PUBKEY_bio(bio, public_key);
+    i2d_PUBKEY_bio(bio, public_key);
 
-    (void) BIO_flush(bio);
-    (void) BIO_free_all(bio);
+    if (BIO_flush(bio) != 1) {
+      fprintf(stderr, "Unable to flush BIO\n");
+      error = true;
+      goto getpk_base64_cleanup;
+    }
   getpk_base64_cleanup:
+    BIO_free_all(b64);
     if (error) {
       EVP_PKEY_free(public_key);
       return -1;
@@ -1258,10 +1261,15 @@ int yh_com_get_device_pubkey(yubihsm_context *ctx, Argument *argv,
 
     bio = BIO_push(b64, bio);
 
-    (void) i2d_PUBKEY_bio(bio, public_key);
+    i2d_PUBKEY_bio(bio, public_key);
 
-    (void) BIO_flush(bio);
-    (void) BIO_free_all(bio);
+    if (BIO_flush(bio) != 1) {
+      fprintf(stderr, "Unable to flush BIO\n");
+      BIO_free_all(b64);
+      error = true;
+      goto getdpk_base64_cleanup;
+    }
+    BIO_free_all(bio);
   getdpk_base64_cleanup:
     if (error) {
       EVP_PKEY_free(public_key);
@@ -2467,7 +2475,11 @@ static bool read_rsa_pubkey(const uint8_t *buf, size_t len,
   if ((bio = BIO_new(BIO_s_mem())) == NULL)
     return false;
 
-  (void) BIO_write(bio, buf, len);
+  if(BIO_write(bio, buf, len) <= 0) {
+    fprintf(stderr, "%s: Failed to read RSA public key\n", __func__);
+    BIO_free_all(bio);
+    return false;
+  }
 
   RSA *rsa = NULL;
   EVP_PKEY *pubkey = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
@@ -3136,15 +3148,21 @@ int yh_com_sign_ssh_certificate(yubihsm_context *ctx, Argument *argv,
   }
   bio = BIO_push(b64, bio);
 
+  int ret = 0;
   int cert_len = argv[4].len - certdata_offset + response_len;
   BUF_MEM *bufferPtr = 0;
 
   BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
   if (BIO_write(bio, data + certdata_offset, cert_len) != cert_len) {
-        fprintf(stderr, "Failed to write SSH certificate.\n");
-        return -1;
+    fprintf(stderr, "Failed to write SSH certificate.\n");
+    ret = -1;
+    goto clean_bio;
   }
-  BIO_flush(bio);
+  if (BIO_flush(bio) != 1) {
+    fprintf(stderr, "Failed to sign SSH certificate.\n");
+    ret = -1;
+    goto clean_bio;
+  }
   BIO_get_mem_ptr(bio, &bufferPtr);
 
   const char *ssh_cert_str =
@@ -3154,24 +3172,27 @@ int yh_com_sign_ssh_certificate(yubihsm_context *ctx, Argument *argv,
         strlen(ssh_cert_str) ||
       ferror(ctx->out)) {
     fprintf(stderr, "Unable to write data to file\n");
-    return -1;
+    ret = -1;
+    goto clean_bio;
   }
 
   if (fwrite(bufferPtr->data, 1, bufferPtr->length, ctx->out) !=
         bufferPtr->length ||
       ferror(ctx->out)) {
     fprintf(stderr, "Unable to write data to file\n");
-    return -1;
+    ret = -1;
+    goto clean_bio;
   }
 
   if (fwrite("\n", 1, 1, ctx->out) != 1 || ferror(ctx->out)) {
     fprintf(stderr, "Unable to write data to file\n");
-    return -1;
+    ret = -1;
   }
 
-  (void) BIO_free_all(bio); // TODO: fix this leak.
+clean_bio:
+  BIO_free_all(bio);
 
-  return 0;
+  return ret;
 }
 
 static void time_elapsed(struct timeval *after, struct timeval *before,
