@@ -3813,7 +3813,7 @@ void verify_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info) {
 
 void decrypt_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info) {
 
-  (void) op_info;
+  UNUSED(op_info);
 }
 
 void digest_mechanism_cleanup(yubihsm_pkcs11_op_info *op_info) {

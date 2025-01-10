@@ -273,7 +273,7 @@ int yh_com_connect(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     }
     yrc = yh_connect(ctx->connector, 0);
     if (yrc == YHR_SUCCESS) {
-      (void) yh_com_keepalive_on(NULL, NULL, fmt_nofmt, fmt_nofmt);
+      yh_com_keepalive_on(NULL, NULL, fmt_nofmt, fmt_nofmt);
       return 0;
     }
     fprintf(stderr, "Failed connecting '%s': %s\n", ctx->connector_list[i],
@@ -1164,7 +1164,7 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
     bio = BIO_push(b64, bio);
 
-    (void) i2d_PUBKEY_bio(bio, public_key);
+    i2d_PUBKEY_bio(bio, public_key);
 
     if (BIO_flush(bio) != 1) {
       fprintf(stderr, "Unable to flush BIO\n");
@@ -1172,7 +1172,7 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
       goto getpk_base64_cleanup;
     }
   getpk_base64_cleanup:
-    (void) BIO_free_all(b64);
+    BIO_free_all(b64);
     if (error) {
       EVP_PKEY_free(public_key);
       return -1;
@@ -1261,7 +1261,7 @@ int yh_com_get_device_pubkey(yubihsm_context *ctx, Argument *argv,
 
     bio = BIO_push(b64, bio);
 
-    (void) i2d_PUBKEY_bio(bio, public_key);
+    i2d_PUBKEY_bio(bio, public_key);
 
     if (BIO_flush(bio) != 1) {
       fprintf(stderr, "Unable to flush BIO\n");
@@ -1269,7 +1269,7 @@ int yh_com_get_device_pubkey(yubihsm_context *ctx, Argument *argv,
       error = true;
       goto getdpk_base64_cleanup;
     }
-    (void) BIO_free_all(bio);
+    BIO_free_all(bio);
   getdpk_base64_cleanup:
     if (error) {
       EVP_PKEY_free(public_key);
@@ -3190,7 +3190,7 @@ int yh_com_sign_ssh_certificate(yubihsm_context *ctx, Argument *argv,
   }
 
 clean_bio:
-  (void) BIO_free_all(bio);
+  BIO_free_all(bio);
 
   return ret;
 }

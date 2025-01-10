@@ -28,6 +28,8 @@
 #include "yubihsm_usb.h"
 #include "debug_lib.h"
 
+#define UNUSED(x) (void) (x)
+
 #ifndef STATIC
 uint8_t YH_INTERNAL _yh_verbosity;
 FILE YH_INTERNAL *_yh_output;
@@ -51,7 +53,7 @@ static yh_rc backend_connect(yh_connector *connector, int timeout) {
   yh_rc ret = YHR_CONNECTOR_ERROR;
   yh_backend *backend = NULL;
 
-  (void) timeout;
+  UNUSED(timeout);
 
   if (parse_usb_url(connector->api_url, &serial) == false) {
     DBG_ERR("Failed to parse URL: '%s'", connector->api_url);
@@ -82,7 +84,7 @@ static yh_rc backend_send_msg(yh_backend *connection, Msg *msg, Msg *response,
   yh_rc ret = YHR_GENERIC_ERROR;
   unsigned long read_len = 0;
 
-  (void) identifier;
+  UNUSED(identifier);
 
   for (int i = 0; i <= 1; i++) {
     if (ret != YHR_GENERIC_ERROR) {
@@ -131,9 +133,9 @@ static void backend_cleanup(void) { DBG_INFO("backend_cleanup"); }
 
 static yh_rc backend_option(yh_backend *connection, yh_connector_option opt,
                             const void *val) {
-  (void) connection;
-  (void) opt;
-  (void) val;
+  UNUSED(connection);
+  UNUSED(opt);
+  UNUSED(val);
 
   DBG_ERR("Backend options not (yet?) supported for USB");
   return YHR_CONNECTOR_ERROR;

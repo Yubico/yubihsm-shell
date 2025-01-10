@@ -280,7 +280,7 @@ int main(void) {
   bio = BIO_push(b64, bio);
 
   fprintf(stdout, "ssh-rsa-cert-v01@openssh.com ");
-  (void) BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
+  BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
   assert(BIO_write(bio, ssh_req + 4 + 256,
                    ssh_req_len + ssh_cert_len - 4 - 256) > 0);
   assert(BIO_flush(bio) == 1);

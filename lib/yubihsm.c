@@ -74,6 +74,8 @@ uint8_t _yh_verbosity YH_INTERNAL = 0;
 FILE *_yh_output YH_INTERNAL = NULL;
 #endif
 
+#define UNUSED(x) (void) (x);
+
 static yh_rc compute_full_mac_ex(const uint8_t *data, uint16_t data_len,
                                  aes_context *aes_ctx, uint8_t *mac) {
 
@@ -4666,7 +4668,7 @@ yh_rc yh_init(void) {
 static yh_rc load_backend(const char *name,
                           void **backend,
                           struct backend_functions **bf) {
-  (void)backend;
+  UNUSED(backend);
   if (name == NULL) {
     DBG_ERR("No name given to load_backend");
     return YHR_GENERIC_ERROR;

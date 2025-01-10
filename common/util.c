@@ -440,7 +440,7 @@ bool read_public_key(uint8_t *buf, size_t len, yh_algorithm *algo,
     return false;
   }
 
-  (void) i2o_ECPublicKey(ec, &bytes);
+  i2o_ECPublicKey(ec, &bytes);
   EC_KEY_free(ec);
 
   *bytes_len = data_len;
