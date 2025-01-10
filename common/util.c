@@ -696,7 +696,7 @@ bool write_file(const uint8_t *buf, size_t buf_len, FILE *fp, format_t format) {
     }
     bio = BIO_push(b64, bio);
 
-    (void) BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
+    BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
     if(BIO_write(bio, buf, buf_len) <= 0) {
       BIO_free_all(bio);
       return false;
@@ -705,10 +705,8 @@ bool write_file(const uint8_t *buf, size_t buf_len, FILE *fp, format_t format) {
       BIO_free_all(bio);
       return false;
     }
-    if(BIO_get_mem_ptr(bio, &bufferPtr) != 1) {
-      BIO_free_all(bio);
-      return false;
-    }
+    BIO_get_mem_ptr(bio, &bufferPtr);
+
     p = (uint8_t *) bufferPtr->data;
     length = bufferPtr->length;
   } else if (format == _hex) {
