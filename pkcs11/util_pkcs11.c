@@ -42,6 +42,7 @@
 #include "debug_p11.h"
 #include "../common/openssl-compat.h"
 #include "../common/insecure_memzero.h"
+#include "../common/data_compress.h"
 
 #define UNUSED(x) (void) (x)
 #define ASN1_OCTET_STRING 0x04
@@ -1313,13 +1314,38 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
       break;
 
     case CKA_VALUE: {
-      size_t len = *length;
+      uint8_t data[4096] = {0};
+      size_t data_len = sizeof(data);
       yh_rc yrc = yh_util_get_opaque(session->slot->device_session, object->id,
-                                     value, &len);
+                                     data, &data_len);
       if (yrc != YHR_SUCCESS) {
         return yrc_to_rv(yrc);
       }
-      *length = len;
+
+#ifndef USE_CERT_COMPRESS
+      memcpy(value, data, data_len);
+      *length = data_len;
+#else
+      if(object->algorithm != YH_ALGO_OPAQUE_X509_CERTIFICATE) {
+        memcpy(value, data, data_len);
+        *length = data_len;
+      } else {
+        const unsigned char *ptr = data;
+        X509 *x509 = d2i_X509(NULL, &ptr, data_len);
+        if (!x509) {
+          DBG_INFO("Store object not X509Certificate. Trying to decompress data");
+          uint8_t certdata[4096] = {0};
+          size_t certdata_len = sizeof(certdata);
+          if(uncompress_data(data, data_len, certdata, &certdata_len) == 0) {
+            memcpy(value, certdata, certdata_len);
+            *length = certdata_len;
+          }
+        } else {
+          memcpy(value, data, data_len);
+          *length = data_len;
+        }
+      }
+#endif
     } break;
 
     case CKA_CERTIFICATE_TYPE:

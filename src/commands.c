@@ -2342,7 +2342,7 @@ int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   }
 
   yh_rc yrc =
-    yh_util_import_opaque_ex(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
+    yh_util_import_opaque_compressed(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
                              &argv[4].c, argv[5].a, argv[6].b, data, len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to store opaque object: %s\n", yh_strerror(yrc));

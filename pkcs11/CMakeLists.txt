@@ -23,6 +23,7 @@ set(
   ../common/util.c
   ../common/parsing.c
   ../common/openssl-compat.c
+  ../common/data_compress.c
   util_pkcs11.c
   yubihsm_pkcs11.c
   list.c

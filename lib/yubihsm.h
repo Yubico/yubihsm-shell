@@ -2242,11 +2242,11 @@ yh_rc yh_util_get_opaque(yh_session *session, uint16_t object_id, uint8_t *out,
  *<tt>in_len</tt> is too big.
  *         See #yh_rc for other possible errors
  **/
-yh_rc yh_util_import_opaque_ex(yh_session *session, uint16_t *object_id,
-                               const char *label, uint16_t domains,
-                               const yh_capabilities *capabilities,
-                               yh_algorithm algorithm, bool compress,
-                               const uint8_t *in, size_t in_len);
+yh_rc yh_util_import_opaque_compressed(yh_session *session, uint16_t *object_id,
+                                       const char *label, uint16_t domains,
+                                       const yh_capabilities *capabilities,
+                                       yh_algorithm algorithm, bool compress,
+                                       const uint8_t *in, size_t in_len);
 
 /**
  * Import an #YH_OPAQUE object into the device

@@ -32,6 +32,7 @@
 #include "../common/insecure_memzero.h"
 #include "../common/parsing.h"
 #include "../common/util.h"
+#include "../common/data_compress.h"
 
 #ifdef __WIN32
 #include <winsock.h>
@@ -2640,8 +2641,25 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
             goto c_foi_out;
           }
 
+          bool cert_found = false;
           if (match_byte_array(template_value, template_value_len, cert,
                                cert_len)) {
+            cert_found = true;
+#ifdef USE_CERT_COMPRESS
+          } else {
+            // Could be compressed certificate. Trying to decompress
+            DBG_INFO("Trying to decompress opaque data");
+            uint8_t decomp[4096] = {0};
+            size_t decomp_len = sizeof(decomp);
+            if (uncompress_data(cert, cert_len, decomp, &decomp_len) == 0) {
+              if (match_byte_array(template_value, template_value_len, decomp,
+                                   decomp_len)) {
+                cert_found = true;
+              }
+            }
+#endif
+          }
+          if (cert_found) {
             session->operation.op.find.objects[0].id = tmp_objects[i].id;
             session->operation.op.find.objects[0].type = tmp_objects[i].type;
             session->operation.op.find.objects[0].sequence =
