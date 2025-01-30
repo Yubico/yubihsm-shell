@@ -1322,29 +1322,13 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
         return yrc_to_rv(yrc);
       }
 
-#ifndef USE_CERT_COMPRESS
+#ifdef USE_CERT_COMPRESS
+      if(uncompress_data(data, data_len, value, length) != 0) {
+        return YHR_DEVICE_INVALID_DATA;
+      }
+#else
       memcpy(value, data, data_len);
       *length = data_len;
-#else
-      if(object->algorithm != YH_ALGO_OPAQUE_X509_CERTIFICATE) {
-        memcpy(value, data, data_len);
-        *length = data_len;
-      } else {
-        const unsigned char *ptr = data;
-        X509 *x509 = d2i_X509(NULL, &ptr, data_len);
-        if (!x509) {
-          DBG_INFO("Store object not X509Certificate. Trying to decompress data");
-          uint8_t certdata[4096] = {0};
-          size_t certdata_len = sizeof(certdata);
-          if(uncompress_data(data, data_len, certdata, &certdata_len) == 0) {
-            memcpy(value, certdata, certdata_len);
-            *length = certdata_len;
-          }
-        } else {
-          memcpy(value, data, data_len);
-          *length = data_len;
-        }
-      }
 #endif
     } break;
 

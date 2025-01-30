@@ -18,8 +18,22 @@
 
 #include <stdio.h>
 #include <zlib.h>
+#include <string.h>
+
+const char COMPRESSED_DATA_PREFIX[4] = "YHC1";
+
+int is_compressed_data(uint8_t *data, size_t data_len) {
+  if (data_len < sizeof(COMPRESSED_DATA_PREFIX)) {
+    return 0;
+  }
+  return memcmp(data, COMPRESSED_DATA_PREFIX, sizeof(COMPRESSED_DATA_PREFIX)) ==
+         0;
+}
 
 int compress_data(uint8_t* data, size_t data_len, uint8_t *compressed_data, size_t *compressed_data_len) {
+
+  memcpy(compressed_data, COMPRESSED_DATA_PREFIX, sizeof(COMPRESSED_DATA_PREFIX));
+  uint8_t *ptr = compressed_data + sizeof(COMPRESSED_DATA_PREFIX);
 
   z_stream zs;
   zs.zalloc = Z_NULL;
@@ -27,8 +41,8 @@ int compress_data(uint8_t* data, size_t data_len, uint8_t *compressed_data, size
   zs.opaque = Z_NULL;
   zs.avail_in = (uInt)data_len;
   zs.next_in = (Bytef *)data;
-  zs.avail_out = (uInt) *compressed_data_len;
-  zs.next_out = (Bytef *)compressed_data;
+  zs.avail_out = (uInt) (*compressed_data_len - sizeof(COMPRESSED_DATA_PREFIX));
+  zs.next_out = (Bytef *)ptr;
 
   if(deflateInit2(&zs, Z_DEFAULT_COMPRESSION, Z_DEFLATED, MAX_WBITS | 16, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
     fprintf(stderr, "Failed to compress data\n");
@@ -43,19 +57,25 @@ int compress_data(uint8_t* data, size_t data_len, uint8_t *compressed_data, size
     return -1;
   }
 
-  *compressed_data_len = zs.total_out;
+  *compressed_data_len = zs.total_out + sizeof(COMPRESSED_DATA_PREFIX);
   return 0;
 }
 
 
 int uncompress_data(uint8_t *compressed_data, size_t compressed_data_len, uint8_t *data, size_t *data_len) {
-  uint8_t *dataptr = compressed_data;
+  if(!is_compressed_data(compressed_data, compressed_data_len)) {
+    memcpy(data, compressed_data, compressed_data_len);
+    return 0;
+  }
+
+
+  uint8_t *dataptr = compressed_data + sizeof(COMPRESSED_DATA_PREFIX);
 
   z_stream zs;
   zs.zalloc = Z_NULL;
   zs.zfree = Z_NULL;
   zs.opaque = Z_NULL;
-  zs.avail_in = (uInt) compressed_data_len;
+  zs.avail_in = (uInt) compressed_data_len - sizeof(COMPRESSED_DATA_PREFIX);
   zs.next_in = (Bytef *) dataptr;
   zs.avail_out = (uInt) *data_len;
   zs.next_out = (Bytef *) data;

@@ -914,25 +914,25 @@ int yh_com_get_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   }
 
   if (fmt == fmt_PEM) {
-    const unsigned char *ptr = response;
-    X509 *x509 = d2i_X509(NULL, &ptr, response_len);
-    if (!x509) {
-      fprintf(stderr, "Failed parsing x509 information. Possibly compressed certificate\n");
+    X509 *x509 = NULL;
 #ifdef USE_CERT_COMPRESS
-      fprintf(stdout, "Trying to parse it as compressed certificate\n");
+    if (is_compressed_data(response, response_len)) {
       uint8_t certdata[4096] = {0};
       size_t certdata_len = sizeof(certdata);
-      if(uncompress_data(response, response_len, certdata, &certdata_len) != 0) {
+      if (uncompress_data(response, response_len, certdata, &certdata_len) !=
+          0) {
         fprintf(stderr, "Failed to decompress data.\n");
       } else {
         const unsigned char *certdata_ptr = certdata;
         x509 = d2i_X509(NULL, &certdata_ptr, certdata_len);
-        if(!x509) {
-          fprintf(stderr, "Failed parsing x509 information.\n");
-        }
       }
+    } else {
 #endif
+      const unsigned char *ptr = response;
+      x509 = d2i_X509(NULL, &ptr, response_len);
+#ifdef USE_CERT_COMPRESS
     }
+#endif
 
     if (x509) {
       if (PEM_write_X509(ctx->out, x509) == 1) {

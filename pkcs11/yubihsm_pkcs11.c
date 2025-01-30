@@ -2642,23 +2642,28 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           }
 
           bool cert_found = false;
-          if (match_byte_array(template_value, template_value_len, cert,
-                               cert_len)) {
-            cert_found = true;
 #ifdef USE_CERT_COMPRESS
-          } else {
-            // Could be compressed certificate. Trying to decompress
-            DBG_INFO("Trying to decompress opaque data");
-            uint8_t decomp[4096] = {0};
-            size_t decomp_len = sizeof(decomp);
-            if (uncompress_data(cert, cert_len, decomp, &decomp_len) == 0) {
-              if (match_byte_array(template_value, template_value_len, decomp,
-                                   decomp_len)) {
+          if (is_compressed_data(cert, cert_len)) {
+            uint8_t certdata[4096] = {0};
+            size_t certdata_len = sizeof(certdata);
+            if (uncompress_data(cert, cert_len, certdata, &certdata_len) != 0) {
+              DBG_ERR("Failed to decompress data");
+            } else {
+              if (match_byte_array(template_value, template_value_len, certdata,
+                                   certdata_len)) {
                 cert_found = true;
               }
             }
+          } else {
 #endif
+            if (match_byte_array(template_value, template_value_len, cert,
+                                 cert_len)) {
+              cert_found = true;
+            }
+#ifdef USE_CERT_COMPRESS
           }
+#endif
+
           if (cert_found) {
             session->operation.op.find.objects[0].id = tmp_objects[i].id;
             session->operation.op.find.objects[0].type = tmp_objects[i].type;

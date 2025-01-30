@@ -32,6 +32,8 @@ extern "C" {
 
 #define YH_INTERNAL __attribute__((visibility("hidden")))
 
+
+int YH_INTERNAL is_compressed_data(uint8_t *data, size_t data_len);
 int YH_INTERNAL compress_data(uint8_t *data, size_t data_len,
                               uint8_t *compressed_data,
                               size_t *compressed_data_len);
