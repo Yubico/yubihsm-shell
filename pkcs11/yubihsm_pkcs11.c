@@ -1680,9 +1680,25 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
                                template.label, 0xffff, &capabilities, algo,
                                template.obj.buf, template.objlen);
     if (rc != YHR_SUCCESS) {
-      DBG_ERR("Failed writing Opaque object to device: %s", yh_strerror(rc));
-      rv = yrc_to_rv(rc);
-      goto c_co_out;
+      if (rc == YHR_BUFFER_TOO_SMALL) {
+        DBG_ERR("Failed writing Opaque object to device due to buffer size. "
+                "Trying to compress data");
+        rc =
+          yh_util_import_opaque_compressed(session->slot->device_session,
+                                           &template.id, template.label, 0xffff,
+                                           &capabilities, algo, true,
+                                           template.obj.buf, template.objlen);
+        if (rc != YHR_SUCCESS) {
+          DBG_ERR("Failed writing Opaque object to device: %s",
+                  yh_strerror(rc));
+          rv = yrc_to_rv(rc);
+          goto c_co_out;
+        }
+      } else {
+        DBG_ERR("Failed writing Opaque object to device: %s", yh_strerror(rc));
+        rv = yrc_to_rv(rc);
+        goto c_co_out;
+      }
     }
     if (algo == YH_ALGO_OPAQUE_X509_CERTIFICATE &&
         (meta_object.cka_id.len > 0 || meta_object.cka_label.len > 0)) {
