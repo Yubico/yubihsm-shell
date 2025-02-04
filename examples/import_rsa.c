@@ -154,24 +154,12 @@ int main(void) {
   EVP_PKEY *key = EVP_PKEY_new();
   assert(EVP_PKEY_assign_RSA(key, rsa) == 1);
   EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(key, NULL);
-#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
-  EVP_MD *evp_md = EVP_MD_meth_dup(EVP_sha256());
-  EVP_MD *evp_mgf1md = EVP_MD_meth_dup(EVP_sha256());
-#endif
   assert(ctx != NULL);
   assert(EVP_PKEY_verify_init(ctx) == 1);
-#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
-  assert(EVP_PKEY_CTX_set_signature_md(ctx, evp_md) == 1);
-#else
   assert(EVP_PKEY_CTX_set_signature_md(ctx, EVP_sha256()) == 1);
-#endif
   assert(EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PSS_PADDING) == 1);
   assert(EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, 32) == 1);
-#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
-  assert(EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, evp_mgf1md) == 1);
-#else
   assert(EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, EVP_sha256()) == 1);
-#endif
 
   if (EVP_PKEY_verify(ctx, signature, signature_len, hashed_data,
                       hashed_data_len) == 1) {
@@ -179,10 +167,6 @@ int main(void) {
   } else {
     printf("Unable to verify signature\n");
   }
-#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
-  EVP_MD_meth_free(evp_md);
-  EVP_MD_meth_free(evp_mgf1md);
-#endif
   EVP_PKEY_CTX_free(ctx);
   EVP_PKEY_free(key);
 
