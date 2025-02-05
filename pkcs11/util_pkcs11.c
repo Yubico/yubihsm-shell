@@ -709,7 +709,7 @@ CK_RV get_mechanism_info(yubihsm_pkcs11_slot *slot, CK_MECHANISM_TYPE type,
 #define PKCS11_LABEL_TAG 2
 #define PKCS11_PUBKEY_ID_TAG 3
 #define PKCS11_PUBKEY_LABEL_TAG 4
-const char META_OBJECT_VERSION[4] = "MDB1";
+const char META_OBJECT_VERSION[5] = "MDB1";
 
 static uint16_t write_meta_item(uint8_t *target_value, uint8_t tag,
                                 cka_meta_item *meta_item) {
@@ -763,11 +763,11 @@ static CK_RV read_meta_object(yubihsm_pkcs11_slot *slot, uint16_t opaque_id,
   }
 
   uint8_t *p = opaque_value;
-  if (memcmp(p, META_OBJECT_VERSION, sizeof(META_OBJECT_VERSION)) != 0) {
+  if (memcmp(p, META_OBJECT_VERSION, strlen(META_OBJECT_VERSION)) != 0) {
     DBG_ERR("Meta object value has unexpected version");
     return CKR_DATA_INVALID;
   }
-  p += sizeof(META_OBJECT_VERSION);
+  p += strlen(META_OBJECT_VERSION);
 
   meta_object->target_type = *p++;
 
@@ -931,8 +931,8 @@ CK_RV write_meta_object(yubihsm_pkcs11_slot *slot,
   uint8_t opaque_value[YH_MSG_BUF_SIZE] = {0};
   uint8_t *p = opaque_value;
 
-  memcpy(p, META_OBJECT_VERSION, sizeof(META_OBJECT_VERSION));
-  p += sizeof(META_OBJECT_VERSION);
+  memcpy(p, META_OBJECT_VERSION, strlen(META_OBJECT_VERSION));
+  p += strlen(META_OBJECT_VERSION);
 
   *p++ = meta_object->target_type;
 

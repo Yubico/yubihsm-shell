@@ -67,12 +67,12 @@ static void test_capabilities1(void) {
     const char *string;
     yh_capabilities capabilities;
   } tests[] = {
-    {"get-opaque", {"\x00\x00\x00\x00\x00\x00\x00\x01"}},
+    {"get-opaque", {{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}}},
     {"sign-hmac:verify-hmac|exportable-under-wrap,",
-     {"\x00\x00\x00\x00\x00\xc1\x00\x00"}},
-    {",,unwrap-data|:wrap-data,,,", {"\x00\x00\x00\x60\x00\x00\x00\x00"}},
-    {"0x7fffffffffffffff", {"\x7f\xff\xff\xff\xff\xff\xff\xff"}},
-    {"0xffffffffffffffff", {"\xff\xff\xff\xff\xff\xff\xff\xff"}},
+     {{0x00, 0x00, 0x00, 0x00, 0x00, 0xc1, 0x00, 0x00}}},
+    {",,unwrap-data|:wrap-data,,,", {{0x00, 0x00, 0x00, 0x60, 0x00, 0x00, 0x00, 0x00}}},
+    {"0x7fffffffffffffff", {{0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}}},
+    {"0xffffffffffffffff", {{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}}},
   };
 
   for (size_t i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
