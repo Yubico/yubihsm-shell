@@ -59,6 +59,10 @@ set_property(SOURCE ${GGO_C} APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-unused-
 endif()
 
 add_library(yubihsm_pkcs11 SHARED ${SOURCE})
+if (FUZZING AND ENABLE_STATIC)
+    target_sources(yubihsm_pkcs11 PUBLIC ${PROJECT_SOURCE_DIR}/lib/fuzz/yubihsm_fuzz.cc)
+    set_target_properties (yubihsm_pkcs11 PROPERTIES COMPILE_FLAGS "-DSTATIC ")
+endif()
 add_coverage (yubihsm_pkcs11)
 
 # Remove "lib" form the built target
