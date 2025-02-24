@@ -39,7 +39,7 @@ jobs:
   fuzz_asan:
     name: fuzz with AddressSanitizer
     runs-on: ubuntu-latest
-    container: ubuntu:23.04
+    container: ubuntu:24.04
 
     steps:
 
