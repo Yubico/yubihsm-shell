@@ -310,7 +310,7 @@ static void create_command_list(CommandList *c) {
                   "Decrypt data using an AES symmetric key in ECB mode", NULL,
                   NULL});
   *c = register_command(*c, (Command){"derive", yh_com_noop, NULL, fmt_nofmt,
-                                      fmt_nofmt, "Drive data", NULL, NULL});
+                                      fmt_nofmt, "Derive data", NULL, NULL});
   register_subcommand(*c, (Command){"ecdh", yh_com_derive_ecdh,
                                     "e:session,w:key_id,i:pubkey=-", fmt_PEM,
                                     fmt_hex, "Perform a ECDH key exchange",
