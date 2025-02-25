@@ -13,14 +13,14 @@ MODULE=$1
 set -e
 
 echo "******************* Generation Tests ********************* "
-pkcs11-tool --module $MODULE --login --pin 0001password --keypairgen --id 100 --key-type EC:secp384r1
+pkcs11-tool --module $MODULE --login --pin 0001password --keypairgen --id 1 --key-type EC:secp384r1
 pkcs11-tool --module $MODULE --login --pin 0001password --keypairgen --id 2 --key-type EC:prime256v1
 pkcs11-tool --module $MODULE --login --pin 0001password --keypairgen --id 4 --key-type rsa:2048 --usage-sign
 pkcs11-tool --module $MODULE --login --pin 0001password --keypairgen --id 5 --key-type rsa:3072 --usage-sign
 
 echo "******************* Signing Tests ********************* "
 echo "this is test data" > data.txt
-pkcs11-tool --module $MODULE --sign --pin 0001password --id 100 -m ECDSA-SHA1 --signature-format openssl -i data.txt -o data.sig
+pkcs11-tool --module $MODULE --sign --pin 0001password --id 1 -m ECDSA-SHA1 --signature-format openssl -i data.txt -o data.sig
 pkcs11-tool --module $MODULE --sign --pin 0001password --id 2 -m ECDSA-SHA1 --signature-format openssl -i data.txt -o data.sig
 pkcs11-tool --module $MODULE --sign --pin 0001password --id 4 -m SHA512-RSA-PKCS -i data.txt -o data.sig
 pkcs11-tool --module $MODULE --sign --pin 0001password --id 5 -m SHA512-RSA-PKCS -i data.txt -o data.sig
