@@ -1363,7 +1363,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       DBG_INFO("parsed RSA key, algorithm: %d, objlen: %d", template.algorithm,
                template.objlen);
 
-      uint8_t p[512], q[512];
+      uint8_t p[512] = {0}, q[512] = {0};
 
       set_component(p, template.obj.rsa.p, template.objlen);
       set_component(q, template.obj.rsa.q, template.objlen);
@@ -1448,7 +1448,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
         }
       }
 
-      uint8_t d[128];
+      uint8_t d[128] = {0};
       set_component(d, template.obj.ec.d, template.objlen);
 
       BN_free(template.obj.ec.d);
