@@ -37,10 +37,15 @@ echo "this is test data" > data.txt
 ### because it will not look for a key by label/alias. However, specifying an object to delete by its label/alias seems
 ### to work just fine.
 
-EC_CURVES=("secp224r1" "secp256r1" "secp384r1" "secp256k1" "brainpoolP256r1" "brainpoolP384r1" "brainpoolP512r1")
-#EC_CURVES=("secp224r1" "secp256r1" "secp384r1" "secp521r1" "secp256k1" "brainpoolP256r1" "brainpoolP384r1" "brainpoolP512r1")
+#EC_CURVES=("secp224r1" "secp256r1" "secp384r1" "secp256k1" "brainpoolP256r1" "brainpoolP384r1" "brainpoolP512r1")
+EC_CURVES=("secp224r1" "secp256r1" "secp384r1" "secp521r1" "secp256k1" "brainpoolP256r1" "brainpoolP384r1" "brainpoolP512r1")
 
 for curve in "${EC_CURVES[@]}"; do
+
+  echo "**********************************"
+  echo "            $curve"
+  echo "**********************************"
+
 #  # Generate key
   test "pkcs11-tool --module $MODULE --login --pin 0001password --keypairgen --id 1 --key-type EC:$curve" "   Generate EC key with curve $curve"
   test "pkcs11-tool --module $MODULE --login --pin 0001password --read-object --id 1 --type pubkey --output-file pubkey.der" "   Get public key of generated key"
@@ -93,6 +98,11 @@ test "openssl dgst -sha384 -binary -out data.sha384 data.txt" "   Hash data with
 test "openssl dgst -sha512 -binary -out data.sha512 data.txt" "   Hash data with SHA512 and OpenSSL"
 
 for len in "${RSA_LENGTHS[@]}"; do
+
+  echo "**********************************"
+  echo "            RSA$len"
+  echo "**********************************"
+
   # Generate key
   test "pkcs11-tool --module $MODULE --login --pin 0001password --keypairgen --id 1 --key-type rsa:$len --usage-sign --usage-decrypt" "   Generate RSA$len key"
   test "pkcs11-tool --module $MODULE --login --pin 0001password --read-object --id 1 --type pubkey --output-file pubkey.der" "   Get public key of generated key"
