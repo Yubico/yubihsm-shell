@@ -535,7 +535,7 @@ int main(int argc, char *argv[]) {
 
   ykhsmauthrc = ykhsmauth_connect(state, args_info.reader_arg);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
-    fprintf(stderr, "Unable to connect: %s\n", ykhsmauth_strerror(ykhsmauthrc));
+    fprintf(stderr, "Unable to connect: %s.\nMaybe yubihsm-auth is not supported or disabled on your YubiKey?\n", ykhsmauth_strerror(ykhsmauthrc));
     goto main_exit;
   }
 
