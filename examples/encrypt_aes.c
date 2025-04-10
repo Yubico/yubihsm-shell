@@ -25,7 +25,7 @@
 
 const char *key_label = "label";
 const uint8_t password[] = "password";
-const uint8_t plaintext[16] = "single block msg";
+const uint8_t plaintext[16] = "singleblock msg";
 
 int main(void) {
   yh_connector *connector = NULL;
