@@ -3225,14 +3225,7 @@ CK_RV apply_sign_mechanism_finalize(yubihsm_pkcs11_op_info *op_info) {
   }
 
   if (is_ECDSA_sign_mechanism(op_info->mechanism.mechanism)) {
-    if (op_info->buffer_length < op_info->op.sign.sig_len / 2) {
-      uint16_t padding =
-        (op_info->op.sign.sig_len / 2) - op_info->buffer_length;
-      memmove(op_info->buffer + padding, op_info->buffer,
-              op_info->buffer_length);
-      memset(op_info->buffer, 0, padding);
-      op_info->buffer_length += padding;
-    } else if (op_info->buffer_length > op_info->op.sign.sig_len / 2) {
+    if (op_info->buffer_length > op_info->op.sign.sig_len / 2) {
       op_info->buffer_length = op_info->op.sign.sig_len / 2;
     }
   }
