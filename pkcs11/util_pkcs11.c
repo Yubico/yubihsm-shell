@@ -2656,6 +2656,7 @@ CK_RV apply_encrypt_mechanism_init(yubihsm_pkcs11_session *session,
   }
 
   session->operation.op.encrypt.oaep_label = NULL;
+  session->operation.op.encrypt.oaep_label_len = 0;
   session->operation.op.encrypt.oaep_md = NULL;
   session->operation.op.encrypt.mgf1_md = NULL;
   session->operation.op.encrypt.key_len = 0;
@@ -2720,24 +2721,23 @@ CK_RV apply_encrypt_mechanism_init(yubihsm_pkcs11_session *session,
              params->hashAlg, params->mgf, params->source, params->pSourceData,
              params->ulSourceDataLen);
 
-    const EVP_MD *md = NULL;
     switch (params->hashAlg) {
       case CKM_SHA_1:
-        md = EVP_sha1();
+        session->operation.op.encrypt.oaep_md = EVP_sha1();
         break;
       case CKM_SHA256:
-        md = EVP_sha256();
+        session->operation.op.encrypt.oaep_md = EVP_sha256();
         break;
       case CKM_SHA384:
-        md = EVP_sha384();
+        session->operation.op.encrypt.oaep_md = EVP_sha384();
         break;
       case CKM_SHA512:
-        md = EVP_sha512();
+        session->operation.op.encrypt.oaep_md = EVP_sha512();
         break;
       default:
-        md = NULL;
+        session->operation.op.encrypt.oaep_md = NULL;
+        break;
     }
-    session->operation.op.encrypt.oaep_md = md;
 
     switch (params->mgf) {
       case CKG_MGF1_SHA1:
@@ -2754,6 +2754,7 @@ CK_RV apply_encrypt_mechanism_init(yubihsm_pkcs11_session *session,
         break;
       default:
         session->operation.op.encrypt.mgf1_md = NULL;
+        break;
     }
 
     if (params->source == CKZ_DATA_SPECIFIED && params->pSourceData) {
@@ -2767,9 +2768,6 @@ CK_RV apply_encrypt_mechanism_init(yubihsm_pkcs11_session *session,
       memcpy(session->operation.op.encrypt.oaep_label, params->pSourceData,
              params->ulSourceDataLen);
       session->operation.op.encrypt.oaep_label_len = params->ulSourceDataLen;
-    } else {
-      session->operation.op.encrypt.oaep_label = NULL;
-      session->operation.op.encrypt.oaep_label_len = 0;
     }
   } else if (pMechanism->mechanism == CKM_AES_ECB) {
     if (object->object.type != YH_SYMMETRIC_KEY ||
@@ -3726,34 +3724,21 @@ CK_RV perform_rsa_encrypt(yh_session *session, yubihsm_pkcs11_op_info *op_info,
     }
   }
 
-  if (op_info->op.encrypt.oaep_md != NULL &&
-      op_info->op.encrypt.mgf1_md != NULL &&
-      op_info->op.encrypt.oaep_label != NULL) {
-#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
-    if (EVP_PKEY_CTX_set_rsa_oaep_md(ctx, EVP_MD_meth_dup(
-                                            op_info->op.encrypt.oaep_md)) >=
-        0) {
-#else
-    if (EVP_PKEY_CTX_set_rsa_oaep_md(ctx, op_info->op.encrypt.oaep_md) >= 0) {
-#endif
+  if (op_info->op.encrypt.oaep_md != NULL) {
+    if (EVP_PKEY_CTX_set_rsa_oaep_md(ctx, op_info->op.encrypt.oaep_md) <= 0) {
       rv = CKR_FUNCTION_FAILED;
       goto rsa_enc_cleanup;
     }
-#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
-    if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, EVP_MD_meth_dup(
-                                            op_info->op.encrypt.mgf1_md)) >=
-        0) {
-#else
-    if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, op_info->op.encrypt.mgf1_md) >= 0) {
-
-#endif
+  }
+  if (op_info->op.encrypt.mgf1_md != NULL) {
+    if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, op_info->op.encrypt.mgf1_md) <= 0) {
       rv = CKR_FUNCTION_FAILED;
       goto rsa_enc_cleanup;
     }
-
+  }
+  if (op_info->op.encrypt.oaep_label != NULL) {
     if (EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, op_info->op.encrypt.oaep_label,
-                                         op_info->op.encrypt.oaep_label_len) >=
-        0) {
+                                         op_info->op.encrypt.oaep_label_len) <= 0) {
       rv = CKR_FUNCTION_FAILED;
       goto rsa_enc_cleanup;
     }
