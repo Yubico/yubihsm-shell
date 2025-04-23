@@ -91,9 +91,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14-large
+          - os: macos-latest-large
             arch: amd
-          - os: macos-latest-xlarge
+          - os: macos-latest
             arch: arm
     env:
       VERSION: 2.6.0
