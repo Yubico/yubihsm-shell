@@ -31,7 +31,7 @@ set -e
 echo "this is test data" > data.txt
 
 ### Note about pkcs11-tool and object id:
-### When generating/importing private keys, and ID has to be specified otherwise, practically a random key will be used
+### When generating/importing private keys, an ID has to be specified otherwise, practically a random key will be used
 ### when, for example, signing. This is because pkcs11-tool, unless a specific ID is set in the command line, it will use
 ### the first private key it finds to perform the operation. Setting/using a key's label/alias will not have an effect
 ### because it will not look for a key by label/alias. However, specifying an object to delete by its label/alias seems
