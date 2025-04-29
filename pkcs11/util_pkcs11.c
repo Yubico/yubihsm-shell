@@ -3430,7 +3430,7 @@ CK_RV perform_verify(yh_session *session, yubihsm_pkcs11_op_info *op_info,
     return CKR_OK;
   } else {
     CK_RV rv;
-    EVP_PKEY *key = EVP_PKEY_new();
+    EVP_PKEY *key = NULL;
     uint8_t md_data[EVP_MAX_MD_SIZE] = {0};
     uint8_t *md = md_data;
     unsigned int md_len = sizeof(md_data);
