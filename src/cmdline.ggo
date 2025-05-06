@@ -29,6 +29,7 @@ option "action" a "Action to perform" values="benchmark",
                                              "encrypt-aescbc",
                                              "encrypt-aesecb",
                                              "generate-asymmetric-key",
+                                             "generate-csr",
                                              "generate-hmac-key",
                                              "generate-otp-aead-key",
                                              "generate-wrap-key",
@@ -117,3 +118,7 @@ option "verbose" v "Print more information" int optional default="0"
 option "pre-connect" P "Connect immediately in interactive mode" flag off
 
 option "device-pubkey" - "List of device public keys allowed for asymmetric authentication" string optional multiple
+option "subject" S "The subject to use for certificate requests" string optional
+text   "
+       The subject must be written as:
+       /CN=host.example.com/OU=test/O=example.com/\n"

@@ -60,6 +60,12 @@ static format_t fmt_to_fmt(cmd_format fmt) {
   }
 }
 
+// local function prototypes
+static char *string_parser(char *str_orig, char delimiter, char *str_found);
+X509_NAME *parse_name(const char *orig_name);
+EVP_PKEY *get_public_key(yh_session *session, uint16_t key_id);
+ASN1_BIT_STRING *calculate_self_signature(yh_session *session, uint16_t key_id, X509_REQ *csr);
+
 // NOTE(adma): Extract log entries
 // argc = 1
 // arg 0: e:session
@@ -825,6 +831,370 @@ int yh_com_generate_asymmetric(yubihsm_context *ctx, Argument *argv,
   fprintf(stderr, "Generated Asymmetric key 0x%04x\n", argv[1].w);
 
   return 0;
+}
+
+// borrowed from yubico-piv-tool common/util.c
+static char *string_parser(char *str_orig, char delimiter, char *str_found) {
+  char escape_char = '\\';
+  int f = 0;
+  char *p = str_orig;
+  while (*p == delimiter) {
+    p++;
+  }
+  for (; *p; p++) {
+    if (*p != delimiter) {
+      str_found[f++] = *p;
+    } else if (*p == delimiter) {
+      if ((*(p - 1) == escape_char &&
+           *(p - 2) == escape_char)) { // The escape_char before the delimiter is escaped => the delimiter is still in effect
+        str_found[f - 1] = '\0';
+        return ++p;
+      } else if (*(p - 1) == escape_char && *(p - 2) != escape_char) { // the delimiter is escaped
+        str_found[f - 1] = delimiter;
+      } else { // nothing is escaped
+        str_found[f] = '\0';
+        return ++p;
+      }
+    }
+  }
+  str_found[f] = '\0';
+  return NULL;
+}
+
+// borrowed from yubico-piv-tool common/util.c
+X509_NAME *parse_name(const char *orig_name) {
+  char name[1025] = {0};
+  char part[1025] = {0};
+  X509_NAME *parsed = NULL;
+  char *ptr = name;
+
+  if(strlen(orig_name) > 1024) {
+    fprintf(stderr, "Name is too long!\n");
+    return NULL;
+  }
+  strncpy(name, orig_name, sizeof(name));
+  name[sizeof(name) - 1] = 0;
+
+  if(*name != '/' || name[strlen(name)-1] != '/') {
+    fprintf(stderr, "Name does not start or end with '/'!\n");
+    return NULL;
+  }
+  parsed = X509_NAME_new();
+  if(!parsed) {
+    fprintf(stderr, "Failed to allocate memory\n");
+    return NULL;
+  }
+  while((ptr = string_parser(ptr, '/', part))) {
+    char *key;
+    char *value;
+    char *equals = strchr(part, '=');
+    if(!equals) {
+      fprintf(stderr, "The part '%s' doesn't seem to contain a =.\n", part);
+      goto parse_err;
+    }
+    *equals++ = '\0';
+    value = equals;
+    key = part;
+
+    if(!key) {
+      fprintf(stderr, "Malformed name (%s)\n", part);
+      goto parse_err;
+    }
+    if(!value) {
+      fprintf(stderr, "Malformed name (%s)\n", part);
+      goto parse_err;
+    }
+    if(!X509_NAME_add_entry_by_txt(parsed, key, MBSTRING_UTF8, (unsigned char*)value, -1, -1, 0)) {
+      fprintf(stderr, "Failed adding %s=%s to name.\n", key, value);
+      goto parse_err;
+    }
+  }
+  return parsed;
+parse_err:
+  X509_NAME_free(parsed);
+  return NULL;
+}
+
+// retrieve pubkey from YubiHSM2 and convert to EVP_PKEY
+EVP_PKEY *get_public_key(yh_session *session, uint16_t key_id) {
+  uint8_t response[YH_MSG_BUF_SIZE] = {0}; // max size: 3136 on 2.4.0
+  size_t response_len = sizeof(response);
+  yh_algorithm algo = 0;
+  yh_rc yrc = yh_util_get_public_key_ex(session, YH_ASYMMETRIC_KEY, key_id, response, &response_len, &algo);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to get public key: %s\n", yh_strerror(yrc));
+    return NULL;
+  }
+
+  EVP_PKEY *public_key = NULL;
+  public_key = EVP_PKEY_new();
+  if (public_key == NULL) {
+    fprintf(stderr, "Failed to create public key\n");
+    return NULL;
+  }
+
+  if (yh_is_rsa(algo)) {
+    RSA *rsa = RSA_new();
+    if (rsa == NULL) {
+      fprintf(stderr, "Failed to create RSA key\n");
+      return NULL;
+    }
+    BIGNUM *e = BN_new();
+    BIGNUM *n = BN_bin2bn(response, response_len, NULL);
+    BN_set_word(e, 0x010001);
+    if (RSA_set0_key(rsa, n, e, NULL) != 1) {
+      fprintf(stderr, "Failed to set RSA key\n");
+      RSA_free(rsa);
+      return NULL;
+    }
+    if (EVP_PKEY_set1_RSA(public_key, rsa) != 1) {
+      fprintf(stderr, "Failed to set RSA key\n");
+      RSA_free(rsa);
+      return NULL;
+    }
+    RSA_free(rsa);
+    } else if (yh_is_ec(algo)) {
+      EC_KEY *eckey = NULL;
+      EC_GROUP *group = NULL;
+      EC_POINT *point = NULL;
+
+      int nid = algo2nid(algo);
+      eckey = EC_KEY_new_by_curve_name(nid);
+      if (!eckey) {
+          fprintf(stderr, "EC_KEY_new_by_curve_name failed\n");
+          goto csr_ec_cleanup;
+      }
+      group = (EC_GROUP *)EC_KEY_get0_group(eckey);
+
+      point = EC_POINT_new(group);
+      if (!point) {
+        fprintf(stderr, "EC_POINT_new failed\n");
+        goto csr_ec_cleanup;
+      }
+
+      BIGNUM *x = BN_bin2bn(response, response_len/2, NULL);
+      BIGNUM *y = BN_bin2bn(response + response_len/2, response_len/2, NULL);
+      if (!x || !y) {
+        fprintf(stderr, "BN_bin2bn failed\n");
+        goto csr_ec_cleanup;
+      }
+
+      if (EC_POINT_set_affine_coordinates_GFp(group, point, x, y, NULL) != 1) {
+        fprintf(stderr, "EC_POINT_set_affine_coordinates_GFp failed\n");
+        goto csr_ec_cleanup;
+      }
+
+      BN_free(x);
+      BN_free(y);
+
+      if (EC_KEY_set_public_key(eckey, point) != 1) {
+        fprintf(stderr, "EC_KEY_set_public_key failed\n");
+        goto csr_ec_cleanup;
+      }
+
+      // safety check: make sure that the public key is valid
+      if (EC_KEY_check_key(eckey) != 1) {
+        fprintf(stderr, "EC_KEY_check_key failed (invalid public key)\n");
+        goto csr_ec_cleanup;
+      }
+
+      if (EVP_PKEY_assign_EC_KEY(public_key, eckey) != 1) {
+        fprintf(stderr, "EVP_PKEY_assign_EC_KEY failed\n");
+        goto csr_ec_cleanup;
+      }
+      eckey = NULL; // public_key owns it now
+
+csr_ec_cleanup:
+      if (point) EC_POINT_free(point);
+      if (eckey) EC_KEY_free(eckey); // only if not owned by public_key
+      // caller must EVP_PKEY_free(public_key);
+    } else if (yh_is_ed(algo)) {
+      // ed25519 requires OpenSSL 1.1.1 or newer
+      EVP_PKEY_free(public_key);
+      fprintf(stderr, "ed25519 pubkey size: %zu\n", response_len);
+      public_key = EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL, response, response_len);
+      if (!public_key) {
+        fprintf( stderr, "EVP_PKEY_new_raw_public_key failed");
+        return NULL;
+      }
+    } else {
+        fprintf( stderr, "key must be of type RSA, EC, or ED25519");
+    }
+    return public_key;
+}
+
+ASN1_BIT_STRING *calculate_self_signature(yh_session *session, uint16_t key_id, X509_REQ *csr) {
+    // data to be signed
+    uint8_t *tbs = NULL;
+    int tbs_len = i2d_re_X509_REQ_tbs(csr, &tbs);
+    if (tbs_len <= 0)
+        fprintf( stderr, "i2d_re_X509_REQ_tbs() failed\n");
+
+    // calculate tbs hash
+    uint8_t hashed_data[32]; // using SHA256
+    unsigned int hashed_data_len;
+    EVP_MD_CTX *mdctx = EVP_MD_CTX_create();
+    if (mdctx == NULL)
+      return NULL;
+    if (!EVP_DigestInit_ex(mdctx, EVP_sha256(), NULL))
+      return NULL;
+    if (!EVP_DigestUpdate(mdctx, tbs, tbs_len))
+      return NULL;
+    if (!EVP_DigestFinal_ex(mdctx, hashed_data, &hashed_data_len))
+      return NULL;
+    EVP_MD_CTX_destroy(mdctx);
+
+    uint8_t signatureBytes[512]; // current max signature size (RSA4096)
+    size_t signature_len = sizeof(signatureBytes);;
+    EVP_PKEY *pubkey = X509_REQ_get0_pubkey(csr); // not to be freed
+    yh_rc yrc = 0;
+    if (EVP_PKEY_is_a(pubkey, "RSA")) {
+        yrc = yh_util_sign_pkcs1v1_5(session, key_id, true, hashed_data, hashed_data_len, signatureBytes, &signature_len);
+    } else if (EVP_PKEY_is_a(pubkey, "EC")) {
+        yrc = yh_util_sign_ecdsa(session, key_id, hashed_data, hashed_data_len, signatureBytes, &signature_len);
+    } else if (EVP_PKEY_is_a(pubkey, "ED25519")) { // Requires OpenSSL 1.1.1
+        yrc = yh_util_sign_eddsa(session, key_id, hashed_data, hashed_data_len, signatureBytes, &signature_len);
+    } else {
+        fprintf( stderr, "key algo must be RSA, EC, or ED");
+    }
+    if (yrc != YHR_SUCCESS) {
+        fprintf(stderr, "Failed to sign CSR: %s\n", yh_strerror(yrc));
+        return NULL;
+    }
+
+    // Prepare the signature
+    ASN1_BIT_STRING *signature = ASN1_BIT_STRING_new();
+    ASN1_BIT_STRING_set(signature, signatureBytes, signature_len);
+    // When OpenSSL writes an ASN1_BIT_STRING into DER, it encodes the number of bits left in the first octet
+    // CSR signatures are byte-alligned: so first fix this to indicate 0 bits left
+    signature->flags &= ~(ASN1_STRING_FLAG_BITS_LEFT | 0x07); // clear
+    signature->flags |= ASN1_STRING_FLAG_BITS_LEFT; // no unused bits
+    return signature;
+}
+
+// TODO(jodi): end move
+
+// NOTE: Generate a Certificate Signing Request
+// argc = 3
+// arg 0: e:session
+// arg 1: w:key_id
+// arg 2: s:subject
+int yh_com_generate_csr(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                      cmd_format fmt) {
+
+  UNUSED(in_fmt);
+
+  EVP_PKEY *public_key = NULL;
+  X509_ALGOR *alg = NULL;
+  X509_REQ *csr = NULL;
+  int ret = -1;
+
+  if ((csr = X509_REQ_new()) == NULL) {
+    fprintf(stderr, "Failed to generate CSR\n");
+    return -1;
+  }
+  if (!X509_REQ_set_version(csr, X509_REQ_VERSION_1)) {
+    fprintf(stderr, "Failed to generate CSR\n");
+    ret = -1;
+    goto csr_cleanup;
+  }
+  public_key = get_public_key(argv[0].e, argv[1].w);
+  if(!public_key) {
+    fprintf(stderr, "Failed to retrieve public key\n");
+    ret = -1;
+    goto csr_cleanup;
+  }
+  if (!X509_REQ_set_pubkey(csr, public_key)) {
+    fprintf(stderr, "Failed to generate CSR\n");
+    ret = -1;
+    goto csr_cleanup;
+  }
+  X509_NAME *name = parse_name(argv[2].s);
+  if(!name) {
+    fprintf(stderr, "Failed to parse subject name\n");
+    ret = -1;
+    goto csr_cleanup;
+  }
+  if(!X509_REQ_set_subject_name(csr, name)) {
+    fprintf(stderr, "Failed to generate CSR\n");
+    ret = -1;
+    goto csr_cleanup;
+  }
+
+  ASN1_BIT_STRING *signature = calculate_self_signature(argv[0].e, argv[1].w, csr);
+  if(!signature) {
+    fprintf(stderr, "Failed to generate CSR signature\n");
+    ret = -1;
+    goto csr_cleanup;
+  }
+  X509_REQ_set0_signature(csr, signature);
+
+  // Prepare signature algorithm
+  alg = X509_ALGOR_new();
+  if (EVP_PKEY_is_a(public_key, "RSA")) {
+    if (!X509_ALGOR_set0(alg, OBJ_nid2obj(NID_sha256WithRSAEncryption), V_ASN1_NULL, NULL)) {
+      fprintf(stderr, "Failed to generate CSR signature\n");
+      ret = -1;
+      goto csr_cleanup;
+    }
+  } else if (EVP_PKEY_is_a(public_key, "EC")) {
+    if (!X509_ALGOR_set0(alg, OBJ_nid2obj(NID_ecdsa_with_SHA256), V_ASN1_NULL, NULL)) {
+      fprintf(stderr, "Failed to generate CSR signature\n");
+      ret = -1;
+      goto csr_cleanup;
+    }
+  } else if (EVP_PKEY_is_a(public_key, "ED25519")) { // Requires OpenSSL 1.1.1
+    if (!X509_ALGOR_set0(alg, OBJ_nid2obj(NID_ED25519), V_ASN1_NULL, NULL)) {
+      fprintf(stderr, "Failed to generate CSR signature\n");
+      ret = -1;
+      goto csr_cleanup;
+    }
+  } else {
+    fprintf(stderr, "key algo must be RSA, EC, or ED\n");
+    ret = -1;
+    goto csr_cleanup;
+  }
+  if (!X509_REQ_set1_signature_algo(csr, alg)) {
+    fprintf(stderr, "Error adding signature algorithm to request\n");
+    ret = -1;
+    goto csr_cleanup;
+  }
+
+  /* safety check: verify signature on the request */
+  EVP_PKEY *pkey = NULL;
+  if (!(pkey = X509_REQ_get0_pubkey (csr))) {
+    fprintf( stderr, "Error getting public key from request\n");
+    ret = -1;
+    goto csr_cleanup;
+  }
+  if (X509_REQ_verify (csr, pkey) != 1) {
+    fprintf( stderr, "Error verifying signature on certificate request\n");
+    ret = -1;
+    //goto csr_cleanup; // TODO(jodi)
+  }
+
+  if (fmt == fmt_base64 || fmt == fmt_PEM) {
+    if (PEM_write_X509_REQ(ctx->out, csr) != 1) {
+      fprintf(stderr, "Failed to write CSR in PEM format\n");
+      ret = -1;
+      goto csr_cleanup;
+    }
+  } else if (fmt == fmt_binary) {
+    i2d_X509_REQ_fp(ctx->out, csr);
+  } else {
+    fprintf(stderr, "unsupported CSR output format\n");
+    ret = -1;
+    goto csr_cleanup;
+  }
+  fprintf(stderr, "Generated CSR for key 0x%04x\n", argv[1].w);
+  ret = 0;
+
+csr_cleanup:
+  if (public_key != NULL) EVP_PKEY_free(public_key);
+  if (alg != NULL) X509_ALGOR_free(alg);
+  if (csr != NULL) X509_REQ_free(csr);
+
+  return ret;
 }
 
 // NOTE: Generate HMAC key
