@@ -1072,8 +1072,6 @@ ASN1_BIT_STRING *calculate_self_signature(yh_session *session, uint16_t key_id, 
     return signature;
 }
 
-// TODO(jodi): end move
-
 // NOTE: Generate a Certificate Signing Request
 // argc = 3
 // arg 0: e:session
@@ -1170,7 +1168,7 @@ int yh_com_generate_csr(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   if (X509_REQ_verify (csr, pkey) != 1) {
     fprintf( stderr, "Error verifying signature on certificate request\n");
     ret = -1;
-    //goto csr_cleanup; // TODO(jodi)
+    goto csr_cleanup;
   }
 
   if (fmt == fmt_base64 || fmt == fmt_PEM) {
