@@ -350,6 +350,10 @@ static void create_command_list(CommandList *c) {
                                     "capabilities,a:algorithm",
                                     fmt_nofmt, fmt_nofmt,
                                     "Generate an asymmetric key", NULL, NULL});
+  register_subcommand(*c, (Command){"csr", yh_com_generate_csr,
+                                    "e:session,w:key_id,s:subject,F:file=-",
+                                    fmt_nofmt, fmt_PEM,
+                                    "Generate a certificate signing request", NULL, NULL});
   register_subcommand(*c, (Command){"hmackey", yh_com_generate_hmac,
                                     "e:session,w:key_id,s:label,d:domains,c:"
                                     "capabilities,a:algorithm",
@@ -2245,6 +2249,26 @@ int main(int argc, char *argv[]) {
 
           comrc = yh_com_generate_asymmetric(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to generate asymmetric key");
+        } break;
+
+        case action_arg_generateMINUS_csr: {
+          if (args_info.object_id_given == 0) {
+            fprintf(stderr, "Missing argument object ID\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+          if (args_info.subject_given == 0) {
+            fprintf(stderr, "Missing argument subject\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+          arg[1].w = args_info.object_id_arg;
+          arg[2].s = args_info.subject_arg; // TODO can we use this for subject?
+          arg[2].len = strlen(args_info.subject_arg);
+          arg[3].s = args_info.out_arg;
+          arg[3].len = strlen(args_info.out_arg);
+          comrc = yh_com_generate_csr(&g_ctx, arg, fmt_nofmt, g_out_fmt == fmt_nofmt ? fmt_PEM : g_out_fmt);
+          COM_SUCCEED_OR_DIE(comrc, "Unable to generate certificate request");
         } break;
 
         case action_arg_generateMINUS_hmacMINUS_key: {

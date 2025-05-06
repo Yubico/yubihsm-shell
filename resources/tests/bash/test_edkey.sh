@@ -67,6 +67,11 @@ if [[ $(cat data.ed1.sig) != $(cat data.ed2.sig) ]]; then
 fi
 echo "   Matching signature in stdout and file ... OK"
 
+# Generating CSR
+echo "Generating CSR:"
+test "$BIN -p password -a generate-csr -i 100 -S /CN=test/ --out csr.pem" "   Generate CSR with yubihsm-shell"
+test "openssl req -in csr.pem -verify" "   Check CSR with openssl"
+
 # Delete
 echo "Clean up:"
 test "$BIN -p password -a delete-object -i 100 -t asymmetric-key" "   Delete key"
