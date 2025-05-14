@@ -172,6 +172,30 @@ for k in ${RSA_KEYSIZE[@]}; do
   test "$BIN -p password -a delete-object -i $import_keyid -t asymmetric-key" "   Delete imported key"
 done
 
+echo "****************************************************"
+echo "            Compress X509 Certificate"
+echo "****************************************************"
+
+openssl req -x509 -newkey rsa:4096 -out too_large_cert.pem -sha256 -days 3650 -nodes -subj '/C=01/ST=01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567/L=01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567/O=0123456789012345678901234567890123456789012345678901234567890123/OU=0123456789012345678901234567890123456789012345678901234567890123/CN=0123456789012345678901234567890123456789012345678901234567890123/CN=0123456789012345678901234567890123456789012345678901234567890123' > /dev/null 2>&1
+set +e
+resp=$($BIN -p password -a put-opaque -i 100 -l too_large_cert -A opaque-x509-certificate --in too_large_cert.pem --informat PEM 2>&1)
+ret=$?
+if [ $ret -ne 0 ]; then
+  if [[ $resp == *"Failed to store opaque object: Not enough space to store data"* ]]; then
+    test "$BIN -p password -a put-opaque -i 100 -l too_large_cert -A opaque-x509-compressed --in too_large_cert.pem --informat PEM" "   Import compressed X509 certificate"
+  else
+    echo "$BIN -p password -a put-opaque -i 100 -l too_large_cert -A opaque-x509-certificate --in too_large_cert.pem --informat PEM"
+    echo $resp
+  fi
+else
+  echo "   Import too large certificate raw... OK!"
+fi
+set -e
+
+test "$BIN -p password -a get-opaque -i 100 --outformat=PEM --out too_large_cert_out.pem" "   Read the large certificate from device"
+test "cmp too_large_cert.pem too_large_cert_out.pem" "   Compare read certificate with the one imported"
+test "$BIN -p password -a delete-object -i 100 -t opaque" "   Delete certificate"
+
 cd ..
 rm -rf yubihsm-shell_test_dir
 

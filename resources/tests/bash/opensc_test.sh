@@ -37,7 +37,6 @@ echo "this is test data" > data.txt
 ### because it will not look for a key by label/alias. However, specifying an object to delete by its label/alias seems
 ### to work just fine.
 
-#EC_CURVES=("secp224r1" "secp256r1" "secp384r1" "secp256k1" "brainpoolP256r1" "brainpoolP384r1" "brainpoolP512r1")
 EC_CURVES=("secp224r1" "secp256r1" "secp384r1" "secp521r1" "secp256k1" "brainpoolP256r1" "brainpoolP384r1" "brainpoolP512r1")
 
 for curve in "${EC_CURVES[@]}"; do
@@ -210,5 +209,14 @@ done
 
 rm data.sha1 data.sha256 data.sha384 data.sha512 data.sig data.txt
 rm keypair.pem pubkey.der pubkey_imported.der
+
+echo "****************************************************"
+echo "            Compress X509 Certificate"
+echo "****************************************************"
+openssl req -x509 -newkey rsa:4096 -out too_large_cert.der -outform DER -sha256 -days 3650 -nodes -subj '/C=01/ST=01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567/L=01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567/O=0123456789012345678901234567890123456789012345678901234567890123/OU=0123456789012345678901234567890123456789012345678901234567890123' > /dev/null 2>&1
+test "pkcs11-tool --module $MODULE --login --pin 0001password --write-object too_large_cert.der --id 6464 --type cert" "   Import large X509 certificate"
+test "pkcs11-tool --module $MODULE --login --pin 0001password --read-object --id 6464 --type cert --output-file too_large_cert_out.der" "   Get imported certificate"
+test "cmp too_large_cert.der too_large_cert_out.der" "   Compare read certificate with the one imported"
+test "pkcs11-tool --module $MODULE --login --pin 0001password --delete-object --id 6464 --type cert" "   Delete certificate"
 
 set +e

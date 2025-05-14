@@ -32,6 +32,10 @@
 #include "../common/insecure_memzero.h"
 #include "../common/parsing.h"
 #include "../common/util.h"
+#ifdef ENABLE_CERT_COMPRESS
+#include "../common/data_compress.h"
+#include <zlib.h>
+#endif
 
 #ifdef __WIN32
 #include <winsock.h>
@@ -1678,12 +1682,37 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     rc = yh_util_import_opaque(session->slot->device_session, &template.id,
                                template.label, 0xffff, &capabilities, algo,
                                template.obj.buf, template.objlen);
+
+#ifdef ENABLE_CERT_COMPRESS
+    if (algo == YH_ALGO_OPAQUE_X509_CERTIFICATE && rc == YHR_BUFFER_TOO_SMALL) {
+      DBG_INFO("Buffer too small, attempting to compress the certificate");
+
+      uint8_t compressed_data[YH_MSG_BUF_SIZE] = {0};
+      size_t compressed_data_len = sizeof(compressed_data);
+
+      if (compress_data(template.obj.buf, template.objlen, compressed_data,
+                        &compressed_data_len) != 0) {
+        DBG_INFO("Failed to compress certificate\n");
+        rv = yrc_to_rv(rc);
+        goto c_co_out;
+      }
+
+      // Retry importing the compressed certificate
+      rc = yh_util_import_opaque(session->slot->device_session, &template.id,
+                                 template.label, 0xffff, &capabilities,
+                                 YH_ALGO_OPAQUE_X509_COMPRESSED,
+                                 compressed_data, compressed_data_len);
+      algo = YH_ALGO_OPAQUE_X509_COMPRESSED;
+    }
+#endif
+
     if (rc != YHR_SUCCESS) {
       DBG_ERR("Failed writing Opaque object to device: %s", yh_strerror(rc));
       rv = yrc_to_rv(rc);
       goto c_co_out;
     }
-    if (algo == YH_ALGO_OPAQUE_X509_CERTIFICATE &&
+    if ((algo == YH_ALGO_OPAQUE_X509_CERTIFICATE ||
+         algo == YH_ALGO_OPAQUE_X509_COMPRESSED) &&
         (meta_object.cka_id.len > 0 || meta_object.cka_label.len > 0)) {
       meta_object.target_id = template.id;
     }
@@ -2620,9 +2649,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
         yh_object_descriptor tmp_objects[YH_MAX_ITEMS_COUNT] = {0};
         size_t tmp_n_objects = sizeof(tmp_objects);
         rc = yh_util_list_objects(session->slot->device_session, 0, YH_OPAQUE,
-                                  domains, &capabilities,
-                                  YH_ALGO_OPAQUE_X509_CERTIFICATE, label,
-                                  tmp_objects, &tmp_n_objects);
+                                  domains, &capabilities, 0, label, tmp_objects,
+                                  &tmp_n_objects);
         if (rc != YHR_SUCCESS) {
           DBG_ERR("Failed to get object list");
           rv = yrc_to_rv(rc);
@@ -2630,13 +2658,15 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
         }
 
         for (size_t i = 0; i < tmp_n_objects; i++) {
-          uint8_t cert[2048] = {0};
+          if (tmp_objects[i].algorithm == YH_ALGO_OPAQUE_DATA) {
+            continue;
+          }
+          uint8_t cert[4096] = {0};
           size_t cert_len = sizeof(cert);
-          rc = yh_util_get_opaque(session->slot->device_session,
-                                  tmp_objects[i].id, cert, &cert_len);
-          if (rc != YHR_SUCCESS) {
+          rv =
+            get_opaque_value(session->slot, &tmp_objects[i], cert, &cert_len);
+          if (rv != CKR_OK) {
             DBG_ERR("Failed to get opaque object 0x%x", tmp_objects[i].id);
-            rv = yrc_to_rv(rc);
             goto c_foi_out;
           }
 
@@ -2663,6 +2693,24 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           rv = yrc_to_rv(rc);
           goto c_foi_out;
         }
+#ifdef ENABLE_CERT_COMPRESS
+        if (type == YH_OPAQUE && algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
+          yh_object_descriptor *compressed =
+            tmp_objects + (tmp_n_objects * sizeof(yh_object_descriptor));
+          size_t n_compressed =
+            YH_MAX_ITEMS_COUNT + MAX_ECDH_SESSION_KEYS - tmp_n_objects;
+          rc = yh_util_list_objects(session->slot->device_session, 0, type,
+                                    domains, &capabilities,
+                                    YH_ALGO_OPAQUE_X509_COMPRESSED, label,
+                                    compressed, &n_compressed);
+          if (rc != YHR_SUCCESS) {
+            DBG_ERR("Failed to get compressed certificates from device");
+            rv = yrc_to_rv(rc);
+            goto c_foi_out;
+          }
+          tmp_n_objects += n_compressed;
+        }
+#endif
         for (size_t i = 0; i < tmp_n_objects; i++) {
           yubihsm_pkcs11_object_desc *object_desc =
             _get_object_desc(session->slot, tmp_objects[i].id,

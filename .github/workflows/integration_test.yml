@@ -27,7 +27,8 @@ jobs:
                             opensc                \
                             file                  \
                             curl                  \
-                            jq
+                            jq                    \
+                            zlib1g-dev
 
       - name: clone the Yubico/yubihsm-shell repository
         uses: actions/checkout@v4

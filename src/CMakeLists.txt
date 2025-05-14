@@ -27,6 +27,12 @@ set (
   ../common/openssl-compat.c
   )
 
+if (ENABLE_CERT_COMPRESS)
+  set(SOURCE ${SOURCE} ../common/data_compress.c)
+  include(${CMAKE_SOURCE_DIR}/cmake/zlib.cmake)
+  find_zlib()
+endif()
+
 if(WIN32)
   set(SOURCE ${SOURCE} cmdline.c)
   include(${CMAKE_SOURCE_DIR}/cmake/getopt.cmake)
@@ -69,6 +75,7 @@ if (ENABLE_STATIC AND NOT FUZZING)
     ${LIBCRYPTO_LDFLAGS}
     ${LIBEDIT_LDFLAGS}
     ${GETOPT_LIBS}
+    ${ZLIB_LIBS}
     yubihsm_static
     ${YKHSMAUTH_LIB_STATIC})
   add_coverage (yubihsm-shell_static)
@@ -79,6 +86,7 @@ target_link_libraries (
   ${LIBCRYPTO_LDFLAGS}
   ${LIBEDIT_LDFLAGS}
   ${GETOPT_LIBS}
+  ${ZLIB_LIBS}
   yubihsm
   ${YKHSMAUTH_LIB})
 
