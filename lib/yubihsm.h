@@ -536,6 +536,12 @@ typedef enum {
   YH_ALGO_AES_CBC = 54,
   /// aes-kwp
   YH_ALGO_AES_KWP = 55,
+
+#ifdef ENABLE_CERT_COMPRESS
+  /// Compressed certificate
+  YH_ALGO_OPAQUE_X509_COMPRESSED = 0x7f,
+#endif
+
 } yh_algorithm;
 
 /**

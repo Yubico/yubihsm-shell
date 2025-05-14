@@ -42,6 +42,9 @@
 #include "debug_p11.h"
 #include "../common/openssl-compat.h"
 #include "../common/insecure_memzero.h"
+#ifdef ENABLE_CERT_COMPRESS
+#include "../common/data_compress.h"
+#endif
 
 #define UNUSED(x) (void) (x)
 #define ASN1_OCTET_STRING 0x04
@@ -1266,7 +1269,8 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
   }
   switch (type) {
     case CKA_CLASS:
-      if (object->algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
+      if (object->algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE ||
+          object->algorithm == YH_ALGO_OPAQUE_X509_COMPRESSED) {
         *((CK_OBJECT_CLASS *) value) = CKO_CERTIFICATE;
       } else {
         *((CK_OBJECT_CLASS *) value) = CKO_DATA;
@@ -1314,16 +1318,16 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
 
     case CKA_VALUE: {
       size_t len = *length;
-      yh_rc yrc = yh_util_get_opaque(session->slot->device_session, object->id,
-                                     value, &len);
-      if (yrc != YHR_SUCCESS) {
-        return yrc_to_rv(yrc);
+      CK_RV rv = get_opaque_value(session->slot, object, value, &len);
+      if (rv != CKR_OK) {
+        return rv;
       }
       *length = len;
     } break;
 
     case CKA_CERTIFICATE_TYPE:
-      if (object->algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
+      if (object->algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE ||
+          object->algorithm == YH_ALGO_OPAQUE_X509_COMPRESSED) {
         *((CK_CERTIFICATE_TYPE *) value) = CKC_X_509;
         *length = sizeof(CK_CERTIFICATE_TYPE);
       } else {
@@ -6136,5 +6140,36 @@ CK_RV ecdh_with_kdf(ecdh_session_key *shared_secret, uint8_t *fixed_info,
     return CKR_MECHANISM_PARAM_INVALID;
   }
 
+  return CKR_OK;
+}
+
+CK_RV get_opaque_value(yubihsm_pkcs11_slot *slot, yh_object_descriptor *object,
+                       uint8_t *value, size_t *value_len) {
+  yh_rc yrc;
+  if (object->algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE ||
+      object->algorithm == YH_ALGO_OPAQUE_DATA) {
+    yrc =
+      yh_util_get_opaque(slot->device_session, object->id, value, value_len);
+    if (yrc != YHR_SUCCESS) {
+      return yrc_to_rv(yrc);
+    }
+#ifdef ENABLE_CERT_COMPRESS
+  } else if (object->algorithm == YH_ALGO_OPAQUE_X509_COMPRESSED) {
+    uint8_t compressed_cert[2048] = {0};
+    size_t compressed_cert_len = sizeof(compressed_cert);
+    yrc = yh_util_get_opaque(slot->device_session, object->id, compressed_cert,
+                             &compressed_cert_len);
+    if (yrc != YHR_SUCCESS) {
+      return yrc_to_rv(yrc);
+    }
+    if (uncompress_data(compressed_cert, compressed_cert_len, value,
+                        value_len) != 0) {
+      DBG_ERR("Failed to get decompress certificate object 0x%x", object->id);
+      return CKR_DATA_INVALID;
+    }
+#endif
+  } else {
+    return CKR_DATA_INVALID;
+  }
   return CKR_OK;
 }

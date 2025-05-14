@@ -23,6 +23,9 @@
 #include "yubihsm-shell.h"
 #include "../common/insecure_memzero.h"
 #include "../common/parsing.h"
+#ifdef ENABLE_CERT_COMPRESS
+#include "../common/data_compress.h"
+#endif
 #include "time_win.h"
 
 #include "hash.h"
@@ -914,8 +917,25 @@ int yh_com_get_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     const unsigned char *ptr = response;
     X509 *x509 = d2i_X509(NULL, &ptr, response_len);
     if (!x509) {
-      fprintf(stderr, "Failed parsing x509 information\n");
-    } else {
+#ifdef ENABLE_CERT_COMPRESS
+      uint8_t certdata[4096] = {0};
+      size_t certdata_len = sizeof(certdata);
+      if (uncompress_data(response, response_len, certdata, &certdata_len) !=
+          0) {
+        fprintf(stderr, "Failed parsing x509 information. Trying to decompress "
+                        "data failed too\n");
+      } else {
+        ptr = certdata;
+        x509 = d2i_X509(NULL, &ptr, certdata_len);
+        if (!x509) {
+#endif
+          fprintf(stderr, "Failed parsing x509 information\n");
+#ifdef ENABLE_CERT_COMPRESS
+        }
+      }
+#endif
+    }
+    if (x509) {
       if (PEM_write_X509(ctx->out, x509) == 1) {
         ret = 0;
       } else {
@@ -2284,6 +2304,7 @@ int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(fmt);
   unsigned char buf[YH_MSG_BUF_SIZE], *data = argv[6].x;
   size_t len = argv[6].len;
+  X509 *cert = NULL;
 
   if (in_fmt == fmt_PEM) {
     // Decode X.509 Certificate regardless of algorithm in case fmt_PEM is
@@ -2293,7 +2314,7 @@ int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
       fprintf(stderr, "Couldn't wrap PEM-encoded certificate data\n");
       return 0;
     }
-    X509 *cert = PEM_read_bio_X509(bio, NULL, NULL, NULL);
+    cert = PEM_read_bio_X509(bio, NULL, NULL, NULL);
     if (!cert) {
       fprintf(stderr, "Couldn't parse PEM-encoded certificate\n");
       BIO_free(bio);
@@ -2310,21 +2331,59 @@ int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     i2d_X509(cert, &data);
     data = buf;
     X509_free(cert);
-  } else if (argv[5].a == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
+  } else if (argv[5].a == YH_ALGO_OPAQUE_X509_CERTIFICATE
+#ifdef ENABLE_CERT_COMPRESS
+             || argv[5].a == YH_ALGO_OPAQUE_X509_COMPRESSED
+#endif
+  ) {
     // Enforce valid X.509 certificate
     const unsigned char *p = data;
-    X509 *cert = d2i_X509(NULL, &p, len);
+    cert = d2i_X509(NULL, &p, len);
     if (!cert) {
       fprintf(stderr, "Couldn't parse DER-encoded certificate\n");
       return 0;
     }
-    X509_free(cert);
   }
 
-  yh_rc yrc = yh_util_import_opaque(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
-                                    &argv[4].c, argv[5].a, data, len);
+  yh_rc yrc;
+#ifdef ENABLE_CERT_COMPRESS
+  if (argv[5].a == YH_ALGO_OPAQUE_X509_COMPRESSED) {
+
+    uint8_t compressed_data[YH_MSG_BUF_SIZE] = {0};
+    size_t compressed_data_len = sizeof(compressed_data);
+
+    if (compress_data(data, len, compressed_data, &compressed_data_len) != 0) {
+      fprintf(stderr, "Couldn't compress certificate\n");
+      return 0;
+    }
+
+    yrc = yh_util_import_opaque(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
+                                &argv[4].c, argv[5].a, compressed_data,
+                                compressed_data_len);
+    len = compressed_data_len;
+  } else {
+#endif
+    yrc = yh_util_import_opaque(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
+                                &argv[4].c, argv[5].a, data, len);
+#ifdef ENABLE_CERT_COMPRESS
+  }
+#endif
+  X509_free(cert);
+
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to store opaque object: %s\n", yh_strerror(yrc));
+#ifdef ENABLE_CERT_COMPRESS
+    if (yrc == YHR_BUFFER_TOO_SMALL &&
+        argv[5].a == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
+      fprintf(stderr, "Try compressing the certificate by using the "
+                      "'opaque-x509-compressed' algorithm instead\n");
+    } else if (yrc == YHR_DEVICE_ALGORITHM_DISABLED &&
+               argv[5].a == YH_ALGO_OPAQUE_X509_COMPRESSED) {
+      fprintf(stderr, "Newer YubiHSM2s do not recognize compressed "
+                      "certificates. Try storing it as a regular certificate "
+                      "with the 'opaque-x509-certificate' algorithm instead\n");
+    }
+#endif
     return -1;
   }
 

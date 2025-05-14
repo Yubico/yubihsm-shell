@@ -13,7 +13,7 @@ jobs:
         run: |
           set -x
           sudo apt -q update
-          sudo apt install libpcsclite-dev gengetopt help2man libedit-dev libcurl4-openssl-dev libssl-dev libusb-1.0-0-dev
+          sudo apt install libpcsclite-dev gengetopt help2man libedit-dev libcurl4-openssl-dev libssl-dev libusb-1.0-0-dev zlib1g-dev
       - name: Create tar.gz
         run: |
           set -x
@@ -133,3 +133,56 @@ jobs:
           yubihsm-shell.exe --help | findstr "Usage: yubihsm-shell [OPTION]"
           pkcs11-tool.exe --module $PKCS11_MODULE --show-info *> .\outputFile.txt
           type .\outputFile.txt | findstr "YubiHSM"
+
+  build_without_zlib:
+    name: Build and Test on Windows where zlib is not installed
+    needs: source
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2019
+            arch: x86
+            arch_cmake: Win32
+          - os: windows-2019
+            arch: x64
+            arch_cmake: x64
+          - os: windows-2022
+            arch: x86
+            arch_cmake: Win32
+          - os: windows-2022
+            arch: x64
+            arch_cmake: x64
+
+    steps:
+      - name: Download source from source job
+        uses: actions/download-artifact@v4
+        with:
+          name: yubihsm-shell-src
+
+      - name: Extract source
+        run: |
+          Set-PSDebug -Trace 1
+          tar xf yubihsm-shell-.tar.gz
+
+      - name: install prerequisites
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          Set-PSDebug -Trace 1
+          vcpkg update
+          vcpkg install openssl:$env:ARCH-windows
+
+      - name: build
+        env:
+          ARCH_CMAKE: ${{ matrix.arch_cmake }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          Set-PSDebug -Trace 1
+          $env:OPENSSL_ROOT_DIR ="C:\vcpkg\packages\openssl_$env:ARCH-windows"
+
+          cd yubihsm-shell-
+          mkdir build; cd build
+          cmake -A $env:ARCH_CMAKE -DVERBOSE_CMAKE=ON -DENABLE_CERT_COMPRESS=OFF -DBUILD_ONLY_LIB=ON -DENABLE_STATIC=ON ..
+          cmake --build .
