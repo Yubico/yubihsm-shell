@@ -41,6 +41,9 @@
 
 #include "../common/insecure_memzero.h"
 #include "../ykhsmauth/ykhsmauth.h"
+#ifdef ENABLE_CERT_COMPRESS
+#include "../common/data_compress.h"
+#endif
 
 #define STATIC_USB_BACKEND "usb"
 #define STATIC_HTTP_BACKEND "http"
@@ -3402,6 +3405,20 @@ yh_rc yh_util_get_opaque(yh_session *session, uint16_t object_id, uint8_t *out,
     return yrc;
   }
 
+#ifdef ENABLE_CERT_COMPRESS
+  if (*out_len > 2 && out[0] == 0x1f && out[1] == 0x8b) {
+    uint8_t uncompressed_data[4096] = {0};
+    size_t uncompressed_data_len = sizeof(uncompressed_data);
+    if (uncompress_data(out, *out_len, uncompressed_data,
+                        &uncompressed_data_len) != 0) {
+      DBG_INFO("Failed decompress data. Probably not compressed data");
+    } else {
+      memcpy(out, uncompressed_data, uncompressed_data_len);
+      *out_len = uncompressed_data_len;
+    }
+  }
+#endif
+
   return YHR_SUCCESS;
 }
 
@@ -3458,9 +3475,22 @@ yh_rc yh_util_import_opaque(yh_session *session, uint16_t *object_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  data_len = in_len + sizeof(data) - sizeof(data.bytes);
-  memcpy(data.bytes, in, in_len);
-
+  if (algorithm == YH_ALGO_OPAQUE_X509_COMPRESSED) {
+#ifndef ENABLE_CERT_COMPRESS
+    DBG_ERR("Certificate compression is not supported");
+    return YHR_INVALID_PARAMETERS;
+#else
+    size_t compressed_len = in_len + sizeof(data) - sizeof(data.bytes);
+    if (compress_data(in, in_len, data.bytes, &compressed_len) != 0) {
+      DBG_ERR("Failed to compress certificate");
+      return YHR_GENERIC_ERROR;
+    }
+    data_len = compressed_len + sizeof(data) - sizeof(data.bytes);
+#endif
+  } else {
+    data_len = in_len + sizeof(data) - sizeof(data.bytes);
+    memcpy(data.bytes, in, in_len);
+  }
   yh_rc yrc = yh_send_secure_msg(session, YHC_PUT_OPAQUE, data.buf, data_len,
                                  &response_cmd, response.buf, &response_len);
   insecure_memzero(data.buf, data_len);
