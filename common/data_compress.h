@@ -35,7 +35,7 @@ extern "C" {
 #define YH_INTERNAL
 #endif
 
-int YH_INTERNAL compress_data(uint8_t *data, size_t data_len,
+int YH_INTERNAL compress_data(const uint8_t *data, size_t data_len,
                               uint8_t *compressed_data,
                               size_t *compressed_data_len);
 int YH_INTERNAL uncompress_data(uint8_t *compressed_data,

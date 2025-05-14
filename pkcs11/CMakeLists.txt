@@ -29,12 +29,6 @@ set(
   debug_p11.c
   )
 
-if (ENABLE_CERT_COMPRESS)
-    set(SOURCE ${SOURCE} ../common/data_compress.c)
-    include(${CMAKE_SOURCE_DIR}/cmake/zlib.cmake)
-    find_zlib()
-endif()
-
 if(WIN32)
   set(SOURCE ${SOURCE} cmdline.c ../common/time_win.c ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
   include(${CMAKE_SOURCE_DIR}/cmake/getopt.cmake)
@@ -92,7 +86,6 @@ target_link_libraries(
   yubihsm_pkcs11
   ${LIBCRYPTO_LDFLAGS}
   ${GETOPT_LIBS}
-  ${ZLIB_LIBS}
 )
 
 if(ENABLE_STATIC)

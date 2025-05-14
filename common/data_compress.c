@@ -19,7 +19,7 @@
 #include <stdio.h>
 #include <zlib.h>
 
-int compress_data(uint8_t* data, size_t data_len, uint8_t *compressed_data, size_t *compressed_data_len) {
+int compress_data(const uint8_t* data, size_t data_len, uint8_t *compressed_data, size_t *compressed_data_len) {
 
   z_stream zs;
   zs.zalloc = Z_NULL;
