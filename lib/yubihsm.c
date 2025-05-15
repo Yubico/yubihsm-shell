@@ -330,7 +330,14 @@ yh_rc yh_send_plain_msg(yh_connector *connector, yh_cmd cmd,
   Msg msg = {0};
   Msg response_msg = {0};
 
-  if (data_len > sizeof(msg.st.data)) {
+  size_t max_message_size = SCP_MSG_BUF_SIZE;
+  if ( connector->device_info.major < 2 ||
+      (connector->device_info.major == 2 &&
+       connector->device_info.minor < 4)) {
+    max_message_size = 2048;
+  }
+
+  if (data_len > max_message_size) {
     DBG_ERR("%s (%zu > %zu)", yh_strerror(YHR_BUFFER_TOO_SMALL), data_len,
             sizeof(msg.st.data));
     return YHR_BUFFER_TOO_SMALL;
