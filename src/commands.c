@@ -2310,7 +2310,8 @@ int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     i2d_X509(cert, &data);
     data = buf;
     X509_free(cert);
-  } else if (argv[5].a == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
+  } else if (argv[5].a == YH_ALGO_OPAQUE_X509_CERTIFICATE ||
+             argv[5].a == YH_ALGO_OPAQUE_X509_COMPRESSED) {
     // Enforce valid X.509 certificate
     const unsigned char *p = data;
     X509 *cert = d2i_X509(NULL, &p, len);
@@ -2325,6 +2326,20 @@ int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                                     &argv[4].c, argv[5].a, data, len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to store opaque object: %s\n", yh_strerror(yrc));
+#ifdef ENABLE_CERT_COMPRESS
+    if (yrc == YHR_BUFFER_TOO_SMALL &&
+        argv[5].a == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
+      fprintf(stderr,
+              "Try compressing the certificate by using the "
+              "'opaque-x509-compressed' algorithm instead. Beware that "
+              "compressed certificates cannot be used for attestation\n");
+    } else if (yrc == YHR_DEVICE_ALGORITHM_DISABLED &&
+               argv[5].a == YH_ALGO_OPAQUE_X509_COMPRESSED) {
+      fprintf(stderr, "Newer YubiHSM2s do not recognize compressed "
+                      "certificates. Try storing it as a regular certificate "
+                      "with the 'opaque-x509-certificate' algorithm instead\n");
+    }
+#endif
     return -1;
   }
 

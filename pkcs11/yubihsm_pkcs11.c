@@ -1678,12 +1678,21 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     rc = yh_util_import_opaque(session->slot->device_session, &template.id,
                                template.label, 0xffff, &capabilities, algo,
                                template.obj.buf, template.objlen);
+#ifdef ENABLE_CERT_COMPRESS
+    if(rc == YHR_BUFFER_TOO_SMALL) {
+        algo = YH_ALGO_OPAQUE_X509_COMPRESSED;
+        rc = yh_util_import_opaque(session->slot->device_session, &template.id,
+                                   template.label, 0xffff, &capabilities, algo,
+                                   template.obj.buf, template.objlen);
+    }
+#endif
     if (rc != YHR_SUCCESS) {
       DBG_ERR("Failed writing Opaque object to device: %s", yh_strerror(rc));
       rv = yrc_to_rv(rc);
       goto c_co_out;
     }
-    if (algo == YH_ALGO_OPAQUE_X509_CERTIFICATE &&
+    if ((algo == YH_ALGO_OPAQUE_X509_CERTIFICATE ||
+         algo == YH_ALGO_OPAQUE_X509_COMPRESSED) &&
         (meta_object.cka_id.len > 0 || meta_object.cka_label.len > 0)) {
       meta_object.target_id = template.id;
     }
@@ -2628,9 +2637,22 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           rv = yrc_to_rv(rc);
           goto c_foi_out;
         }
-
+#ifdef ENABLE_CERT_COMPRESS
+        yh_object_descriptor *compressed = tmp_objects + tmp_n_objects;
+        size_t n_compressed = YH_MAX_ITEMS_COUNT - tmp_n_objects;
+        rc = yh_util_list_objects(session->slot->device_session, 0, YH_OPAQUE,
+                                  domains, &capabilities,
+                                  YH_ALGO_OPAQUE_X509_COMPRESSED, label,
+                                  compressed, &n_compressed);
+        if (rc != YHR_SUCCESS) {
+          DBG_ERR("Failed to get compressed certificates from device");
+          rv = yrc_to_rv(rc);
+          goto c_foi_out;
+        }
+        tmp_n_objects += n_compressed;
+#endif
         for (size_t i = 0; i < tmp_n_objects; i++) {
-          uint8_t cert[2048] = {0};
+          uint8_t cert[4096] = {0};
           size_t cert_len = sizeof(cert);
           rc = yh_util_get_opaque(session->slot->device_session,
                                   tmp_objects[i].id, cert, &cert_len);
@@ -2663,6 +2685,25 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           rv = yrc_to_rv(rc);
           goto c_foi_out;
         }
+
+#ifdef ENABLE_CERT_COMPRESS
+        if (type == YH_OPAQUE && algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
+          yh_object_descriptor *compressed = tmp_objects + tmp_n_objects;
+          size_t n_compressed =
+            YH_MAX_ITEMS_COUNT + MAX_ECDH_SESSION_KEYS - tmp_n_objects;
+          rc = yh_util_list_objects(session->slot->device_session, 0, type,
+                                    domains, &capabilities,
+                                    YH_ALGO_OPAQUE_X509_COMPRESSED, label,
+                                    compressed, &n_compressed);
+          if (rc != YHR_SUCCESS) {
+            DBG_ERR("Failed to get compressed certificates from device");
+            rv = yrc_to_rv(rc);
+            goto c_foi_out;
+          }
+          tmp_n_objects += n_compressed;
+        }
+#endif
+
         for (size_t i = 0; i < tmp_n_objects; i++) {
           yubihsm_pkcs11_object_desc *object_desc =
             _get_object_desc(session->slot, tmp_objects[i].id,
