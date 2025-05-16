@@ -1266,8 +1266,7 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
   }
   switch (type) {
     case CKA_CLASS:
-      if (object->algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE ||
-          object->algorithm == YH_ALGO_OPAQUE_X509_COMPRESSED) {
+      if (object->algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
         *((CK_OBJECT_CLASS *) value) = CKO_CERTIFICATE;
       } else {
         *((CK_OBJECT_CLASS *) value) = CKO_DATA;
@@ -1324,8 +1323,7 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
     } break;
 
     case CKA_CERTIFICATE_TYPE:
-      if (object->algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE ||
-          object->algorithm == YH_ALGO_OPAQUE_X509_COMPRESSED) {
+      if (object->algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
         *((CK_CERTIFICATE_TYPE *) value) = CKC_X_509;
         *length = sizeof(CK_CERTIFICATE_TYPE);
       } else {

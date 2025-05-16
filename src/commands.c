@@ -60,6 +60,26 @@ static format_t fmt_to_fmt(cmd_format fmt) {
   }
 }
 
+static yh_algorithm get_object_algorithm(yh_session *session, uint16_t id,
+                                           yh_algorithm algorithm) {
+  if (algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
+    uint8_t cert_data[YH_MSG_BUF_SIZE] = {0};
+    size_t cert_data_len = sizeof(cert_data);
+    yh_rc yrc = yh_util_get_opaque(session, id, cert_data, &cert_data_len);
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr,
+              "Failed to get certificate data. Object algorithm might not "
+              "be accurate: %s\n",
+              yh_strerror(yrc));
+      return algorithm;
+    }
+    if (cert_data_len > 2 && cert_data[0] == 0x1f && cert_data[1] == 0x8b) {
+      return YH_ALGO_OPAQUE_X509_COMPRESSED;
+    }
+  }
+  return algorithm;
+}
+
 // NOTE(adma): Extract log entries
 // argc = 1
 // arg 0: e:session
@@ -900,11 +920,12 @@ int yh_com_get_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(ctx);
   UNUSED(in_fmt);
 
-  uint8_t response[YH_MSG_BUF_SIZE] = {0};
+  uint8_t response[4096] = {0};
   size_t response_len = sizeof(response);
   int ret = -1;
 
-  yh_rc yrc = yh_util_get_opaque(argv[0].e, argv[1].w, response, &response_len);
+  yh_rc yrc =
+    yh_util_get_opaque_ex(argv[0].e, argv[1].w, response, &response_len, true);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to get opaque object: %s\n", yh_strerror(yrc));
     return -1;
@@ -1310,7 +1331,9 @@ int yh_com_get_object_info(yubihsm_context *ctx, Argument *argv,
   size_t label_len = strlen(label);
   yh_type_to_string(object.type, &type);
   if (object.algorithm) {
-    yh_algo_to_string(object.algorithm, &algorithm);
+    yh_algo_to_string(get_object_algorithm(argv[0].e, object.id,
+                                           object.algorithm),
+                      &algorithm);
     extra_algo = ", algorithm: ";
   }
   yh_domains_to_string(object.domains, domains, 255);
@@ -1640,9 +1663,14 @@ int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     label_arg = argv[6].s;
   }
 
+  yh_algorithm filter_algo = argv[5].a;
+  if (filter_algo == YH_ALGO_OPAQUE_X509_COMPRESSED) {
+    filter_algo = YH_ALGO_OPAQUE_X509_CERTIFICATE;
+  }
+
   yh_rc yrc =
     yh_util_list_objects(argv[0].e, argv[1].w, argv[2].b, argv[3].w, &argv[4].c,
-                         argv[5].a, label_arg, objects, &num_objects);
+                         filter_algo, label_arg, objects, &num_objects);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to list objects: %s\n", yh_strerror(yrc));
     return -1;
@@ -1650,7 +1678,8 @@ int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
   qsort(objects, num_objects, sizeof(yh_object_descriptor), compare_objects);
 
-  fprintf(ctx->out, "Found %zu object(s)\n", num_objects);
+  size_t found_objects = num_objects;
+
   for (size_t i = 0; i < num_objects; i++) {
     yrc = yh_util_get_object_info(argv[0].e, objects[i].id, objects[i].type,
                                   &objects[i]);
@@ -1658,14 +1687,30 @@ int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
       fprintf(stderr, "Failed to get object info: %s\n", yh_strerror(yrc));
       return -1;
     }
+
+    yh_algorithm object_algo =
+      get_object_algorithm(argv[0].e, objects[i].id, objects[i].algorithm);
+    if (argv[5].a == YH_ALGO_OPAQUE_X509_COMPRESSED &&
+        object_algo != YH_ALGO_OPAQUE_X509_COMPRESSED) {
+      found_objects--;
+      continue;
+    }
+    if (argv[5].a == YH_ALGO_OPAQUE_X509_CERTIFICATE &&
+        object_algo != YH_ALGO_OPAQUE_X509_CERTIFICATE) {
+      found_objects--;
+      continue;
+    }
+
     const char *type = "";
     yh_type_to_string(objects[i].type, &type);
     const char *algo = "";
-    yh_algo_to_string(objects[i].algorithm, &algo);
+    yh_algo_to_string(object_algo, &algo);
     fprintf(ctx->out,
             "id: 0x%04x, type: %s, algo: %s, sequence: %hhu, label: %s\n",
             objects[i].id, type, algo, objects[i].sequence, objects[i].label);
   }
+  fprintf(ctx->out, "Found %zu object(s)\n", found_objects);
+
   return 0;
 }
 
@@ -2322,8 +2367,16 @@ int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     X509_free(cert);
   }
 
-  yh_rc yrc = yh_util_import_opaque(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
-                                    &argv[4].c, argv[5].a, data, len);
+  yh_rc yrc =
+    yh_util_import_opaque_ex(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
+                             &argv[4].c,
+                             argv[5].a == YH_ALGO_OPAQUE_X509_COMPRESSED
+                               ? YH_ALGO_OPAQUE_X509_CERTIFICATE
+                               : argv[5].a,
+                             data, len,
+                             argv[5].a == YH_ALGO_OPAQUE_X509_COMPRESSED
+                               ? COMPRESS
+                               : NO_COMPRESS);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to store opaque object: %s\n", yh_strerror(yrc));
 #ifdef ENABLE_CERT_COMPRESS
@@ -2333,11 +2386,6 @@ int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
               "Try compressing the certificate by using the "
               "'opaque-x509-compressed' algorithm instead. Beware that "
               "compressed certificates cannot be used for attestation\n");
-    } else if (yrc == YHR_DEVICE_ALGORITHM_DISABLED &&
-               argv[5].a == YH_ALGO_OPAQUE_X509_COMPRESSED) {
-      fprintf(stderr, "Newer YubiHSM2s do not recognize compressed "
-                      "certificates. Try storing it as a regular certificate "
-                      "with the 'opaque-x509-certificate' algorithm instead\n");
     }
 #endif
     return -1;
@@ -3858,6 +3906,8 @@ int yh_com_sign_attestation_certificate(yubihsm_context *ctx, Argument *argv,
                                                    argv[2].w, data, &data_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to attest asymmetric key: %s\n", yh_strerror(yrc));
+    fprintf(stderr, "Beware that compressed X509Certificates cannot be used as "
+                    "template for attestation certificate\n");
     return -1;
   }
 

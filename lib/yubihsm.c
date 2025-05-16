@@ -3420,20 +3420,6 @@ yh_rc yh_util_get_opaque(yh_session *session, uint16_t object_id, uint8_t *out,
     return yrc;
   }
 
-#ifdef ENABLE_CERT_COMPRESS
-  if (*out_len > 2 && out[0] == 0x1f && out[1] == 0x8b) {
-    uint8_t uncompressed_data[4096] = {0};
-    size_t uncompressed_data_len = sizeof(uncompressed_data);
-    if (uncompress_data(out, *out_len, uncompressed_data,
-                        &uncompressed_data_len) != 0) {
-      DBG_INFO("Failed decompress data. Probably not compressed data");
-    } else {
-      memcpy(out, uncompressed_data, uncompressed_data_len);
-      *out_len = uncompressed_data_len;
-    }
-  }
-#endif
-
   return YHR_SUCCESS;
 }
 
@@ -3490,22 +3476,9 @@ yh_rc yh_util_import_opaque(yh_session *session, uint16_t *object_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  if (algorithm == YH_ALGO_OPAQUE_X509_COMPRESSED) {
-#ifndef ENABLE_CERT_COMPRESS
-    DBG_ERR("Certificate compression is not supported");
-    return YHR_INVALID_PARAMETERS;
-#else
-    size_t compressed_len = in_len + sizeof(data) - sizeof(data.bytes);
-    if (compress_data(in, in_len, data.bytes, &compressed_len) != 0) {
-      DBG_ERR("Failed to compress certificate");
-      return YHR_GENERIC_ERROR;
-    }
-    data_len = compressed_len + sizeof(data) - sizeof(data.bytes);
-#endif
-  } else {
-    data_len = in_len + sizeof(data) - sizeof(data.bytes);
-    memcpy(data.bytes, in, in_len);
-  }
+  data_len = in_len + sizeof(data) - sizeof(data.bytes);
+  memcpy(data.bytes, in, in_len);
+
   yh_rc yrc = yh_send_secure_msg(session, YHC_PUT_OPAQUE, data.buf, data_len,
                                  &response_cmd, response.buf, &response_len);
   insecure_memzero(data.buf, data_len);
@@ -3516,6 +3489,87 @@ yh_rc yh_util_import_opaque(yh_session *session, uint16_t *object_id,
 
   *object_id = ntohs(response.object_id);
   DBG_INFO("Stored Opaque Object 0x%04x", *object_id);
+
+  return YHR_SUCCESS;
+}
+
+yh_rc yh_util_get_opaque_ex(yh_session *session, uint16_t object_id,
+                            uint8_t *out, size_t *out_len,
+                            bool try_decompress) {
+
+  yh_rc yrc = yh_util_get_opaque(session, object_id, out, out_len);
+  if (yrc != YHR_SUCCESS) {
+    return yrc;
+  }
+
+#ifdef ENABLE_CERT_COMPRESS
+  if (try_decompress && *out_len > 2 && out[0] == 0x1f && out[1] == 0x8b) {
+    uint8_t uncompressed_data[4096] = {0};
+    size_t uncompressed_data_len = sizeof(uncompressed_data);
+    if (uncompress_data(out, *out_len, uncompressed_data,
+                        &uncompressed_data_len) != 0) {
+      DBG_INFO("Failed decompress data. Probably not compressed data");
+    } else {
+      memcpy(out, uncompressed_data, uncompressed_data_len);
+      *out_len = uncompressed_data_len;
+    }
+  }
+#endif
+
+  return YHR_SUCCESS;
+}
+
+yh_rc yh_util_import_opaque_ex(yh_session *session, uint16_t *object_id,
+                               const char *label, uint16_t domains,
+                               const yh_capabilities *capabilities,
+                               yh_algorithm algorithm, const uint8_t *in,
+                               size_t in_len, yh_compress_option compress) {
+
+  if (in == NULL) {
+    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  if (algorithm == YH_ALGO_OPAQUE_DATA) {
+    return yh_util_import_opaque(session, object_id, label, domains,
+                                 capabilities, algorithm, in, in_len);
+  }
+
+  switch (compress) {
+    case COMPRESS_IF_TOO_BIG: {
+      yh_rc yrc = yh_util_import_opaque(session, object_id, label, domains,
+                                        capabilities, algorithm, in, in_len);
+#ifdef ENABLE_CERT_COMPRESS
+      if (yrc != YHR_BUFFER_TOO_SMALL) {
+        return yrc;
+      }
+#else
+      return yrc;
+#endif
+    }
+    case COMPRESS: {
+#ifndef ENABLE_CERT_COMPRESS
+      DBG_ERR("Certificate compression is not supported");
+      return YHR_INVALID_PARAMETERS;
+#else
+      uint8_t compressed_data[YH_MSG_BUF_SIZE] = {0};
+      size_t compressed_data_len = sizeof(compressed_data);
+      if (compress_data(in, in_len, compressed_data, &compressed_data_len) !=
+          0) {
+        DBG_ERR("Failed to compress certificate");
+        return YHR_GENERIC_ERROR;
+      }
+      return yh_util_import_opaque(session, object_id, label, domains,
+                                   capabilities, algorithm, compressed_data,
+                                   compressed_data_len);
+#endif
+    } break;
+    case NO_COMPRESS:
+    default:
+      return yh_util_import_opaque(session, object_id, label, domains,
+                                   capabilities, algorithm, in, in_len);
+      break;
+  }
 
   return YHR_SUCCESS;
 }

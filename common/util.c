@@ -549,9 +549,7 @@ bool algo2type(yh_algorithm algorithm, yh_object_type *type) {
 
     case YH_ALGO_OPAQUE_DATA:
     case YH_ALGO_OPAQUE_X509_CERTIFICATE:
-#ifdef ENABLE_CERT_COMPRESS
     case YH_ALGO_OPAQUE_X509_COMPRESSED:
-#endif
       *type = YH_OPAQUE;
       break;
 
