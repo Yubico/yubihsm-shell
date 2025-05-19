@@ -3510,6 +3510,7 @@ yh_rc yh_util_get_opaque_ex(yh_session *session, uint16_t object_id,
                         &uncompressed_data_len) != 0) {
       DBG_INFO("Failed decompress data. Probably not compressed data");
     } else {
+      DBG_INFO("Successfully decompressed stored data");
       memcpy(out, uncompressed_data, uncompressed_data_len);
       *out_len = uncompressed_data_len;
     }

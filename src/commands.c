@@ -71,7 +71,7 @@ static yh_algorithm get_object_algorithm(yh_session *session, uint16_t id,
               "Failed to get certificate data. Object algorithm might not "
               "be accurate: %s\n",
               yh_strerror(yrc));
-      return algorithm;
+      return 0;
     }
     if (cert_data_len > 2 && cert_data[0] == 0x1f && cert_data[1] == 0x8b) {
       return YH_ALGO_OPAQUE_X509_COMPRESSED;
@@ -1663,14 +1663,9 @@ int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     label_arg = argv[6].s;
   }
 
-  yh_algorithm filter_algo = argv[5].a;
-  if (filter_algo == YH_ALGO_OPAQUE_X509_COMPRESSED) {
-    filter_algo = YH_ALGO_OPAQUE_X509_CERTIFICATE;
-  }
-
   yh_rc yrc =
     yh_util_list_objects(argv[0].e, argv[1].w, argv[2].b, argv[3].w, &argv[4].c,
-                         filter_algo, label_arg, objects, &num_objects);
+                         argv[5].a, label_arg, objects, &num_objects);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to list objects: %s\n", yh_strerror(yrc));
     return -1;
@@ -1678,8 +1673,7 @@ int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
   qsort(objects, num_objects, sizeof(yh_object_descriptor), compare_objects);
 
-  size_t found_objects = num_objects;
-
+  fprintf(ctx->out, "Found %zu object(s)\n", num_objects);
   for (size_t i = 0; i < num_objects; i++) {
     yrc = yh_util_get_object_info(argv[0].e, objects[i].id, objects[i].type,
                                   &objects[i]);
@@ -1687,30 +1681,14 @@ int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
       fprintf(stderr, "Failed to get object info: %s\n", yh_strerror(yrc));
       return -1;
     }
-
-    yh_algorithm object_algo =
-      get_object_algorithm(argv[0].e, objects[i].id, objects[i].algorithm);
-    if (argv[5].a == YH_ALGO_OPAQUE_X509_COMPRESSED &&
-        object_algo != YH_ALGO_OPAQUE_X509_COMPRESSED) {
-      found_objects--;
-      continue;
-    }
-    if (argv[5].a == YH_ALGO_OPAQUE_X509_CERTIFICATE &&
-        object_algo != YH_ALGO_OPAQUE_X509_CERTIFICATE) {
-      found_objects--;
-      continue;
-    }
-
     const char *type = "";
     yh_type_to_string(objects[i].type, &type);
     const char *algo = "";
-    yh_algo_to_string(object_algo, &algo);
+    yh_algo_to_string(objects[i].algorithm, &algo);
     fprintf(ctx->out,
             "id: 0x%04x, type: %s, algo: %s, sequence: %hhu, label: %s\n",
             objects[i].id, type, algo, objects[i].sequence, objects[i].label);
   }
-  fprintf(ctx->out, "Found %zu object(s)\n", found_objects);
-
   return 0;
 }
 
@@ -3898,7 +3876,7 @@ int yh_com_sign_attestation_certificate(yubihsm_context *ctx, Argument *argv,
                                         cmd_format in_fmt, cmd_format fmt) {
   UNUSED(in_fmt);
 
-  uint8_t data[2048] = {0};
+  uint8_t data[YH_MSG_BUF_SIZE] = {0};
   size_t data_len = sizeof(data);
   int ret = -1;
 
@@ -3906,8 +3884,23 @@ int yh_com_sign_attestation_certificate(yubihsm_context *ctx, Argument *argv,
                                                    argv[2].w, data, &data_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to attest asymmetric key: %s\n", yh_strerror(yrc));
-    fprintf(stderr, "Beware that compressed X509Certificates cannot be used as "
-                    "template for attestation certificate\n");
+
+    yh_algorithm template_algo =
+      get_object_algorithm(argv[0].e, argv[1].w,
+                           YH_ALGO_OPAQUE_X509_CERTIFICATE);
+    if (template_algo == 0) {
+      fprintf(stderr, "Failed to retrieve template certificate: %s\n",
+              yh_strerror(yrc));
+      fprintf(stderr,
+              "Certificate could be compressed. Beware that compressed "
+              "X509Certificates cannot be used as template for attestation\n");
+    } else if (template_algo == YH_ALGO_OPAQUE_X509_COMPRESSED) {
+      fprintf(stderr,
+              "Stored X509Certificated used as template is a compressed "
+              "certificate. Compressed X509Certificates cannot be used as "
+              "template for attestation. Try to re-import it without "
+              "compression by using the 'opaque-x509-certificate' algorithm\n");
+    }
     return -1;
   }
 
