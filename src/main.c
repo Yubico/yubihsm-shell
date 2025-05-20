@@ -450,7 +450,7 @@ static void create_command_list(CommandList *c) {
                                     "List the open session", NULL, NULL});
   register_subcommand(*c, (Command){"objects", yh_com_list_objects,
                                     "e:session,w:id=0,t:type=any,d:domains=0,c:"
-                                    "capabilities=0,a:algorithm=any,s:label=",
+                                    "capabilities=0,a:algorithm=any,b:detect-compressed=0,s:label=",
                                     fmt_nofmt, fmt_nofmt,
                                     "List objects according to filter", NULL,
                                     NULL});
@@ -2562,8 +2562,10 @@ int main(int argc, char *argv[]) {
           yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[5].a);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
 
-          arg[6].s = args_info.label_arg;
-          arg[6].len = strlen(args_info.label_arg);
+          arg[6].b = args_info.detect_compressed_given;
+
+          arg[7].s = args_info.label_arg;
+          arg[7].len = strlen(args_info.label_arg);
 
           comrc = yh_com_list_objects(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to list objects");

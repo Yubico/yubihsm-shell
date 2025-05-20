@@ -1646,7 +1646,8 @@ static int compare_objects(const void *p1, const void *p2) {
 // arg 3: w:domains
 // arg 4: u:capabilities
 // arg 5: a:algorithm
-// arg 6: s:label
+// arg 6: b:detect-compressed
+// arg 7: s:label
 int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                         cmd_format fmt) {
   yh_object_descriptor objects[YH_MAX_ITEMS_COUNT] = {0};
@@ -1657,15 +1658,20 @@ int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  if (argv[6].len == 0) {
+  if (argv[7].len == 0) {
     label_arg = NULL;
   } else {
-    label_arg = argv[6].s;
+    label_arg = argv[7].s;
+  }
+
+  yh_algorithm filter_aglo = argv[5].a;
+  if(filter_aglo == YH_ALGO_OPAQUE_X509_COMPRESSED) {
+    filter_aglo = YH_ALGO_OPAQUE_X509_CERTIFICATE;
   }
 
   yh_rc yrc =
     yh_util_list_objects(argv[0].e, argv[1].w, argv[2].b, argv[3].w, &argv[4].c,
-                         argv[5].a, label_arg, objects, &num_objects);
+                         filter_aglo, label_arg, objects, &num_objects);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to list objects: %s\n", yh_strerror(yrc));
     return -1;
@@ -1673,7 +1679,7 @@ int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
   qsort(objects, num_objects, sizeof(yh_object_descriptor), compare_objects);
 
-  fprintf(ctx->out, "Found %zu object(s)\n", num_objects);
+  size_t n_objects = num_objects;
   for (size_t i = 0; i < num_objects; i++) {
     yrc = yh_util_get_object_info(argv[0].e, objects[i].id, objects[i].type,
                                   &objects[i]);
@@ -1681,14 +1687,25 @@ int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
       fprintf(stderr, "Failed to get object info: %s\n", yh_strerror(yrc));
       return -1;
     }
+
+    yh_algorithm object_algo = objects[i].algorithm;
+    if(argv[5].a == YH_ALGO_OPAQUE_X509_COMPRESSED || argv[6].b) {
+      object_algo = get_object_algorithm(argv[0].e, objects[i].id, object_algo);
+      if(argv[5].a == YH_ALGO_OPAQUE_X509_COMPRESSED && object_algo != YH_ALGO_OPAQUE_X509_COMPRESSED) {
+        n_objects--;
+        continue;
+      }
+    }
+
     const char *type = "";
     yh_type_to_string(objects[i].type, &type);
     const char *algo = "";
-    yh_algo_to_string(objects[i].algorithm, &algo);
+    yh_algo_to_string(object_algo, &algo);
     fprintf(ctx->out,
             "id: 0x%04x, type: %s, algo: %s, sequence: %hhu, label: %s\n",
             objects[i].id, type, algo, objects[i].sequence, objects[i].label);
   }
+  fprintf(ctx->out, "Found %zu object(s)\n", n_objects);
   return 0;
 }
 
