@@ -294,6 +294,21 @@ static yh_rc translate_device_error(uint8_t device_error) {
   return YHR_GENERIC_ERROR;
 }
 
+static yh_rc check_buffer_len(yh_connector *connector, size_t msg_len) {
+  size_t max_message_size = SCP_MSG_BUF_SIZE;
+  if (connector->device_info.major < 2 ||
+      (connector->device_info.major == 2 && connector->device_info.minor < 4)) {
+    max_message_size = 2048;
+  }
+
+  if (msg_len > max_message_size) {
+    DBG_ERR("%s (%zu > %zu)", yh_strerror(YHR_BUFFER_TOO_SMALL), msg_len,
+            max_message_size);
+    return YHR_BUFFER_TOO_SMALL;
+  }
+  return YHR_SUCCESS;
+}
+
 static yh_rc send_msg(yh_connector *connector, Msg *msg, Msg *response,
                       const char *identifier) {
 
@@ -301,20 +316,6 @@ static yh_rc send_msg(yh_connector *connector, Msg *msg, Msg *response,
     DBG_ERR("No backend loaded");
     return YHR_INVALID_PARAMETERS;
   }
-
-  size_t max_message_size = SCP_MSG_BUF_SIZE;
-  if ( connector->device_info.major < 2 ||
-      (connector->device_info.major == 2 &&
-       connector->device_info.minor < 4)) {
-    max_message_size = 2048;
-  }
-  uint16_t msg_len = ntohs(msg->st.len) + 3;
-  if (msg_len > max_message_size) {
-    DBG_ERR("%s (%hu > %zu)", yh_strerror(YHR_BUFFER_TOO_SMALL), msg_len,
-            sizeof(msg->st.data));
-    return YHR_BUFFER_TOO_SMALL;
-  }
-
   DBG_NET(msg, dump_msg);
   yh_rc yrc = connector->bf->backend_send_msg(connector->connection, msg,
                                               response, identifier);
@@ -341,13 +342,18 @@ yh_rc yh_send_plain_msg(yh_connector *connector, yh_cmd cmd,
   Msg msg = {0};
   Msg response_msg = {0};
 
+  yh_rc yrc = check_buffer_len(connector, data_len + 3);
+  if (yrc != YHR_SUCCESS) {
+    return yrc;
+  }
+
   msg.st.cmd = cmd;
   msg.st.len = htons(data_len);
   if (data_len > 0) {
     memcpy(msg.st.data, data, data_len);
   }
 
-  yh_rc yrc = send_msg(connector, &msg, &response_msg, NULL);
+  yrc = send_msg(connector, &msg, &response_msg, NULL);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("send_msg %s", yh_strerror(yrc));
     return yrc;
@@ -377,6 +383,11 @@ static yh_rc send_authenticated_msg(Scp_ctx *session, Msg *msg, Msg *resp,
   uint16_t len = ntohs(msg->st.len);
   uint16_t raw_len = len + 3;
 
+  yh_rc yrc = check_buffer_len(session->parent, raw_len + SCP_MAC_LEN);
+  if (yrc != YHR_SUCCESS) {
+    return yrc;
+  }
+
   msg->st.len = htons(len + SCP_MAC_LEN);
 
   uint8_t mac_buf[SCP_PRF_LEN + sizeof(Msg)] = {0};
@@ -384,8 +395,8 @@ static yh_rc send_authenticated_msg(Scp_ctx *session, Msg *msg, Msg *resp,
   memcpy(mac_buf, session->mac_chaining_value, SCP_PRF_LEN);
   memcpy(mac_buf + SCP_PRF_LEN, msg->raw, raw_len);
 
-  yh_rc yrc = compute_full_mac(mac_buf, SCP_PRF_LEN + raw_len, session->s_mac,
-                               SCP_KEY_LEN, session->mac_chaining_value);
+  yrc = compute_full_mac(mac_buf, SCP_PRF_LEN + raw_len, session->s_mac,
+                         SCP_KEY_LEN, session->mac_chaining_value);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("compute_full_mac %s", yh_strerror(yrc));
     return yrc;
@@ -452,18 +463,10 @@ static yh_rc send_encrypted_msg(Scp_ctx *session, yh_cmd cmd,
     return YHR_INVALID_PARAMETERS;
   }
 
-  int max_message_size = SCP_MSG_BUF_SIZE;
-  if (session->parent->device_info.major < 2 ||
-      (session->parent->device_info.major == 2 &&
-       session->parent->device_info.minor < 4)) {
-    max_message_size = 2048;
-  }
-
   // Outer command { cmd | cmd_len | sid | encrypted payload | mac }
-  if (3 + 1 + len + SCP_MAC_LEN > max_message_size) {
-    DBG_ERR("%s (%u > %u)", yh_strerror(YHR_BUFFER_TOO_SMALL),
-            3 + 1 + len + SCP_MAC_LEN, max_message_size);
-    return YHR_BUFFER_TOO_SMALL;
+  yh_rc yrc = check_buffer_len(session->parent, 3 + 1 + len + SCP_MAC_LEN);
+  if (yrc != YHR_SUCCESS) {
+    return yrc;
   }
 
   Msg msg = {0}, enc_msg = {0};
@@ -487,7 +490,6 @@ static yh_rc send_encrypted_msg(Scp_ctx *session, yh_cmd cmd,
     return YHR_GENERIC_ERROR;
   }
 
-  yh_rc yrc = YHR_SUCCESS;
   uint8_t encrypted_ctr[AES_BLOCK_SIZE];
   if (aes_encrypt(session->ctr, encrypted_ctr, &aes_ctx)) {
     DBG_ERR("aes_encrypt %s", yh_strerror(YHR_GENERIC_ERROR));
@@ -901,6 +903,12 @@ yh_rc yh_begin_create_session(yh_connector *connector, uint16_t authkey_id,
 
   Msg msg = {0};
   Msg response_msg = {0};
+
+  yrc =
+    check_buffer_len(connector, SCP_AUTHKEY_ID_LEN + *host_challenge_len + 3);
+  if (yrc != YHR_SUCCESS) {
+    goto bcse_failure;
+  }
 
   // Send CREATE SESSION command
   msg.st.cmd = YHC_CREATE_SESSION;
