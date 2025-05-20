@@ -452,6 +452,20 @@ static yh_rc send_encrypted_msg(Scp_ctx *session, yh_cmd cmd,
     return YHR_INVALID_PARAMETERS;
   }
 
+  int max_message_size = SCP_MSG_BUF_SIZE;
+  if (session->parent->device_info.major < 2 ||
+      (session->parent->device_info.major == 2 &&
+       session->parent->device_info.minor < 4)) {
+    max_message_size = 2048;
+  }
+
+  // Outer command { cmd | cmd_len | sid | encrypted payload | mac }
+  if (3 + 1 + len + SCP_MAC_LEN > max_message_size) {
+    DBG_ERR("%s (%u > %u)", yh_strerror(YHR_BUFFER_TOO_SMALL),
+            3 + 1 + len + SCP_MAC_LEN, max_message_size);
+    return YHR_BUFFER_TOO_SMALL;
+  }
+
   Msg msg = {0}, enc_msg = {0};
 
   msg.st.cmd = cmd;
