@@ -301,6 +301,20 @@ static yh_rc send_msg(yh_connector *connector, Msg *msg, Msg *response,
     DBG_ERR("No backend loaded");
     return YHR_INVALID_PARAMETERS;
   }
+
+  size_t max_message_size = SCP_MSG_BUF_SIZE;
+  if ( connector->device_info.major < 2 ||
+      (connector->device_info.major == 2 &&
+       connector->device_info.minor < 4)) {
+    max_message_size = 2048;
+  }
+  uint16_t msg_len = ntohs(msg->st.len) + 3;
+  if (msg_len > max_message_size) {
+    DBG_ERR("%s (%hu > %zu)", yh_strerror(YHR_BUFFER_TOO_SMALL), msg_len,
+            sizeof(msg->st.data));
+    return YHR_BUFFER_TOO_SMALL;
+  }
+
   DBG_NET(msg, dump_msg);
   yh_rc yrc = connector->bf->backend_send_msg(connector->connection, msg,
                                               response, identifier);
@@ -326,12 +340,6 @@ yh_rc yh_send_plain_msg(yh_connector *connector, yh_cmd cmd,
 
   Msg msg = {0};
   Msg response_msg = {0};
-
-  if (data_len > sizeof(msg.st.data)) {
-    DBG_ERR("%s (%zu > %zu)", yh_strerror(YHR_BUFFER_TOO_SMALL), data_len,
-            sizeof(msg.st.data));
-    return YHR_BUFFER_TOO_SMALL;
-  }
 
   msg.st.cmd = cmd;
   msg.st.len = htons(data_len);
@@ -442,21 +450,6 @@ static yh_rc send_encrypted_msg(Scp_ctx *session, yh_cmd cmd,
   // Padded payload { cmd | cmd_len | data | padding 1-16 bytes }
   if (aes_add_padding(NULL, 0, &len)) {
     return YHR_INVALID_PARAMETERS;
-  }
-
-
-  int max_message_size = SCP_MSG_BUF_SIZE;
-  if (session->parent->device_info.major < 2 ||
-      (session->parent->device_info.major == 2 &&
-       session->parent->device_info.minor < 4)) {
-    max_message_size = 2048;
-  }
-
-  // Outer command { cmd | cmd_len | sid | encrypted payload | mac }
-  if (3 + 1 + len + SCP_MAC_LEN > max_message_size) {
-    DBG_ERR("%s (%u > %u)", yh_strerror(YHR_BUFFER_TOO_SMALL),
-            3 + 1 + len + SCP_MAC_LEN, max_message_size);
-    return YHR_BUFFER_TOO_SMALL;
   }
 
   Msg msg = {0}, enc_msg = {0};
