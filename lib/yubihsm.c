@@ -41,9 +41,7 @@
 
 #include "../common/insecure_memzero.h"
 #include "../ykhsmauth/ykhsmauth.h"
-#ifdef ENABLE_CERT_COMPRESS
-#include "../common/data_compress.h"
-#endif
+#include "data_compress.h"
 
 #define STATIC_USB_BACKEND "usb"
 #define STATIC_HTTP_BACKEND "http"
@@ -3507,9 +3505,9 @@ yh_rc yh_util_get_opaque_ex(yh_session *session, uint16_t object_id,
 
 #ifdef ENABLE_CERT_COMPRESS
   if (try_decompress) {
-    uint8_t uncompressed_data[4096] = {0};
+    uint8_t uncompressed_data[8192] = {0};
     size_t uncompressed_data_len = sizeof(uncompressed_data);
-    if (uncompress_data(out, *out_len, uncompressed_data,
+    if (decompress_data(out, *out_len, uncompressed_data,
                         &uncompressed_data_len) != 0) {
       DBG_INFO("Failed decompress data. Probably not compressed data");
     } else {
@@ -3527,16 +3525,16 @@ yh_rc yh_util_import_opaque_ex(yh_session *session, uint16_t *object_id,
                                const char *label, uint16_t domains,
                                const yh_capabilities *capabilities,
                                yh_algorithm algorithm, const uint8_t *in,
-                               size_t in_len, yh_compress_option compress) {
+                               size_t in_len, yh_compress_option compress,
+                               size_t *import_len) {
 
   if (in == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
   }
 
-  if (algorithm == YH_ALGO_OPAQUE_DATA) {
-    return yh_util_import_opaque(session, object_id, label, domains,
-                                 capabilities, algorithm, in, in_len);
+  if (import_len != NULL) {
+    *import_len = in_len;
   }
 
   switch (compress) {
@@ -3553,15 +3551,18 @@ yh_rc yh_util_import_opaque_ex(yh_session *session, uint16_t *object_id,
     }
     case COMPRESS: {
 #ifndef ENABLE_CERT_COMPRESS
-      DBG_ERR("Certificate compression is not supported");
+      DBG_ERR("Data compression is not supported");
       return YHR_INVALID_PARAMETERS;
 #else
       uint8_t compressed_data[YH_MSG_BUF_SIZE] = {0};
       size_t compressed_data_len = sizeof(compressed_data);
       if (compress_data(in, in_len, compressed_data, &compressed_data_len) !=
           0) {
-        DBG_ERR("Failed to compress certificate");
+        DBG_ERR("Failed to compress data");
         return YHR_GENERIC_ERROR;
+      }
+      if (import_len != NULL) {
+        *import_len = compressed_data_len;
       }
       return yh_util_import_opaque(session, object_id, label, domains,
                                    capabilities, algorithm, compressed_data,

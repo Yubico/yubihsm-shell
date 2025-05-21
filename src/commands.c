@@ -61,21 +61,35 @@ static format_t fmt_to_fmt(cmd_format fmt) {
 }
 
 static bool is_compressed(yh_session *session, uint16_t id,
-                          yh_algorithm algorithm) {
-  if (algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
-    uint8_t cert_data[YH_MSG_BUF_SIZE] = {0};
-    size_t cert_data_len = sizeof(cert_data);
+                          yh_object_type type) {
+  if (type == YH_OPAQUE) {
+#ifdef ENABLE_CERT_COMPRESS
+    uint8_t raw_data[8192] = {0};
+    size_t raw_data_len = sizeof(raw_data);
     size_t stored_len = 0;
-    yh_rc yrc = yh_util_get_opaque_ex(session, id, cert_data, &cert_data_len,
+    yh_rc yrc = yh_util_get_opaque_ex(session, id, raw_data, &raw_data_len,
                                       &stored_len, true);
     if (yrc != YHR_SUCCESS) {
       fprintf(stderr,
-              "Failed to get certificate data. Object compression status might "
+              "Failed to get opaque data. Object compression status might "
               "not be accurate: %s\n",
               yh_strerror(yrc));
-    } else if (stored_len != cert_data_len) {
+    } else if (raw_data_len > stored_len) {
       return true;
     }
+#else
+    uint8_t data[YH_MSG_BUF_SIZE] = {0};
+    size_t data_len = sizeof(data);
+    yh_rc yrc = yh_util_get_opaque(session, id, data, &data_len);
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr,
+              "Failed to get opaque data. Object compression status might "
+              "not be accurate: %s\n",
+              yh_strerror(yrc));
+    } else if (data_len > 2 && data[0] == 0x1f && data[1] == 0x8b) {
+      return true;
+    }
+#endif
   }
   return false;
 }
@@ -913,20 +927,21 @@ int yh_com_generate_wrap(yubihsm_context *ctx, Argument *argv,
 // argc = 2
 // arg 0: e:session,
 // arg 1: w:object_id
-// arg 2: F:file
+// arg 2: b:uncompressed
+// arg 3: F:file
 int yh_com_get_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                       cmd_format fmt) {
 
   UNUSED(ctx);
   UNUSED(in_fmt);
 
-  uint8_t response[4096] = {0};
+  uint8_t response[8192] = {0};
   size_t response_len = sizeof(response);
   size_t stored_len = 0;
   int ret = -1;
 
   yh_rc yrc = yh_util_get_opaque_ex(argv[0].e, argv[1].w, response,
-                                    &response_len, &stored_len, true);
+                                    &response_len, &stored_len, argv[2].b);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to get opaque object: %s\n", yh_strerror(yrc));
     return -1;
@@ -1337,7 +1352,7 @@ int yh_com_get_object_info(yubihsm_context *ctx, Argument *argv,
   yh_type_to_string(object.type, &type);
   if (object.algorithm) {
     yh_algo_to_string(object.algorithm, &algorithm);
-    if (is_compressed(argv[0].e, object.id, object.algorithm)) {
+    if (is_compressed(argv[0].e, object.id, object.type)) {
       compressed_str = "_compressed";
     }
     extra_algo = ", algorithm: ";
@@ -1688,14 +1703,12 @@ int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
       fprintf(stderr, "Failed to get object info: %s\n", yh_strerror(yrc));
       return -1;
     }
-
     const char *type = "";
     yh_type_to_string(objects[i].type, &type);
     const char *algo = "";
     yh_algo_to_string(objects[i].algorithm, &algo);
     const char *compressed = "";
-    if (argv[6].b &&
-        is_compressed(argv[0].e, objects[i].id, objects[i].algorithm)) {
+    if (argv[6].b && is_compressed(argv[0].e, objects[i].id, objects[i].type)) {
       compressed = "_compressed";
     }
 
@@ -2360,24 +2373,34 @@ int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     X509_free(cert);
   }
 
-  yh_rc yrc = yh_util_import_opaque_ex(argv[0].e, &argv[1].w, argv[2].s,
-                                       argv[3].w, &argv[4].c, argv[5].a, data,
-                                       len, argv[6].a ? COMPRESS : NO_COMPRESS);
+#ifdef ENABLE_CERT_COMPRESS
+  if (argv[6].a && argv[5].a != YH_ALGO_OPAQUE_X509_CERTIFICATE) {
+    fprintf(stderr, "Compression is only supported for X.509 certificates\n");
+    return -1;
+  }
+#endif
+
+  size_t import_len = 0;
+  yh_rc yrc =
+    yh_util_import_opaque_ex(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
+                             &argv[4].c, argv[5].a, data, len,
+                             argv[6].a ? COMPRESS : NO_COMPRESS, &import_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to store opaque object: %s\n", yh_strerror(yrc));
 #ifdef ENABLE_CERT_COMPRESS
-    if (yrc == YHR_BUFFER_TOO_SMALL &&
+    if (yrc == YHR_BUFFER_TOO_SMALL && !argv[6].a &&
         argv[5].a == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
       fprintf(stderr,
               "Try compressing the certificate by using the "
-              "'opaque-x509-compressed' algorithm instead. Beware that "
+              "'with-compression' flag. Beware that "
               "compressed certificates cannot be used for attestation\n");
     }
 #endif
     return -1;
   }
 
-  fprintf(stderr, "Stored %zu bytes to Opaque object 0x%04x\n", len, argv[1].w);
+  fprintf(stderr, "Stored %zu bytes to Opaque object 0x%04x\n", import_len,
+          argv[1].w);
 
   return 0;
 }
@@ -3893,12 +3916,21 @@ int yh_com_sign_attestation_certificate(yubihsm_context *ctx, Argument *argv,
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to attest asymmetric key: %s\n", yh_strerror(yrc));
 
-    if (is_compressed(argv[0].e, argv[1].w, YH_ALGO_OPAQUE_X509_CERTIFICATE)) {
+    yh_object_descriptor desc = {0};
+    yrc = yh_util_get_object_info(argv[0].e, argv[1].w, YH_OPAQUE, &desc);
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr, "Failed to get object info: %s\n", yh_strerror(yrc));
+      return -1;
+    }
+    if (desc.algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
+      fprintf(stderr, "Certificate template is not stored as a certificate\n");
+    }
+    if (is_compressed(argv[0].e, argv[1].w, YH_OPAQUE)) {
       fprintf(stderr,
-              "Stored X509Certificated used as template is a compressed "
-              "certificate. Compressed X509Certificates cannot be used as "
+              "Stored X509 certificated used as template is a compressed "
+              "certificate. Compressed X509 certificates cannot be used as "
               "template for attestation. Try to re-import it without "
-              "compression by using the 'opaque-x509-certificate' algorithm\n");
+              "compression\n");
     }
     return -1;
   }

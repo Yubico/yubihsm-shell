@@ -577,12 +577,12 @@ typedef enum {
  * Options for the compressing certificates
  */
 typedef enum {
-  /// Compress an X509 certificate before importing it
-  COMPRESS = 1,
-  /// Do not compress an X509 certificate before importing it
-  NO_COMPRESS = 2,
-  /// Compress an X509 certificate if it's too big
-  COMPRESS_IF_TOO_BIG = 3,
+  /// Do not compress data before importing it
+  NO_COMPRESS = 1,
+  /// Compress data if it's too big
+  COMPRESS_IF_TOO_BIG = 2,
+  /// Compress data before importing it
+  COMPRESS = 3,
 } yh_compress_option;
 
 /**
@@ -2295,6 +2295,7 @@ yh_rc yh_util_get_opaque_ex(yh_session *session, uint16_t object_id,
  * @param in the Opaque object to import
  * @param in_len Length of the Opaque object to import
  * @param compress Compression option for X509 certificates
+ * @param import_len Number of bytes imported
  *
  * @return #YHR_SUCCESS if successful.
  *         #YHR_INVALID_PARAMETERS if input parameters are NULL or
@@ -2305,7 +2306,8 @@ yh_rc yh_util_import_opaque_ex(yh_session *session, uint16_t *object_id,
                                const char *label, uint16_t domains,
                                const yh_capabilities *capabilities,
                                yh_algorithm algorithm, const uint8_t *in,
-                               size_t in_len, yh_compress_option compress);
+                               size_t in_len, yh_compress_option compress,
+                               size_t *import_len);
 
 /**
  * Sign an SSH Certificate request. The function produces a signature that can

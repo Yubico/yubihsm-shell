@@ -38,7 +38,7 @@ set (
 )
 
 if (ENABLE_CERT_COMPRESS)
-  set(SOURCE ${SOURCE} ${CMAKE_CURRENT_SOURCE_DIR}/../common/data_compress.c)
+  set(SOURCE ${SOURCE} data_compress.c)
   include(${CMAKE_SOURCE_DIR}/cmake/zlib.cmake)
   find_zlib()
 endif()

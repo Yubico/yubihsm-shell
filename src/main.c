@@ -373,7 +373,7 @@ static void create_command_list(CommandList *c) {
   *c = register_command(*c, (Command){"get", yh_com_noop, NULL, fmt_nofmt,
                                       fmt_nofmt, "Retrieve data", NULL, NULL});
   register_subcommand(*c, (Command){"opaque", yh_com_get_opaque,
-                                    "e:session,w:object_id,F:file=-", fmt_nofmt,
+                                    "e:session,w:object_id,b:uncompressed=0,F:file=-", fmt_nofmt,
                                     fmt_binary, "Get an opaque object", NULL,
                                     NULL});
   register_subcommand(*c, (Command){"option", yh_com_get_option,
@@ -2368,7 +2368,7 @@ int main(int argc, char *argv[]) {
 
         case action_arg_getMINUS_opaque: {
           arg[1].w = args_info.object_id_arg;
-
+          arg[2].b = !args_info.with_compression_given;
           comrc =
             yh_com_get_opaque(&g_ctx, arg, fmt_nofmt,
                               g_out_fmt == fmt_nofmt ? fmt_binary : g_out_fmt);
@@ -2562,7 +2562,7 @@ int main(int argc, char *argv[]) {
           yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[5].a);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
 
-          arg[6].b = args_info.detect_compressed_given;
+          arg[6].b = args_info.with_compression_given;
 
           arg[7].s = args_info.label_arg;
           arg[7].len = strlen(args_info.label_arg);
@@ -2647,7 +2647,7 @@ int main(int argc, char *argv[]) {
           yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[5].a);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
 
-          arg[6].b = args_info.compress_given;
+          arg[6].b = args_info.with_compression_given;
 
           if (get_input_data(args_info.in_arg, &arg[7].x, &arg[7].len,
                              g_in_fmt == fmt_nofmt ? fmt_binary : g_in_fmt) ==
