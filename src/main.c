@@ -2647,7 +2647,9 @@ int main(int argc, char *argv[]) {
           yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[5].a);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
 
-          if (get_input_data(args_info.in_arg, &arg[6].x, &arg[6].len,
+          arg[6].b = args_info.compress_given;
+
+          if (get_input_data(args_info.in_arg, &arg[7].x, &arg[7].len,
                              g_in_fmt == fmt_nofmt ? fmt_binary : g_in_fmt) ==
               false) {
             fprintf(stderr, "Failed to get input data\n");

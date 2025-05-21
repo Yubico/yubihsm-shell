@@ -3494,16 +3494,19 @@ yh_rc yh_util_import_opaque(yh_session *session, uint16_t *object_id,
 }
 
 yh_rc yh_util_get_opaque_ex(yh_session *session, uint16_t object_id,
-                            uint8_t *out, size_t *out_len,
+                            uint8_t *out, size_t *out_len, size_t *stored_len,
                             bool try_decompress) {
 
   yh_rc yrc = yh_util_get_opaque(session, object_id, out, out_len);
   if (yrc != YHR_SUCCESS) {
     return yrc;
   }
+  if (stored_len != NULL) {
+    *stored_len = *out_len;
+  }
 
 #ifdef ENABLE_CERT_COMPRESS
-  if (try_decompress && *out_len > 2 && out[0] == 0x1f && out[1] == 0x8b) {
+  if (try_decompress) {
     uint8_t uncompressed_data[4096] = {0};
     size_t uncompressed_data_len = sizeof(uncompressed_data);
     if (uncompress_data(out, *out_len, uncompressed_data,

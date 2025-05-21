@@ -2634,7 +2634,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
           uint8_t cert[4096] = {0};
           size_t cert_len = sizeof(cert);
           rc = yh_util_get_opaque_ex(session->slot->device_session,
-                                     tmp_objects[i].id, cert, &cert_len, true);
+                                     tmp_objects[i].id, cert, &cert_len, NULL,
+                                     true);
           if (rc != YHR_SUCCESS) {
             DBG_ERR("Failed to get opaque object 0x%x", tmp_objects[i].id);
             rv = yrc_to_rv(rc);

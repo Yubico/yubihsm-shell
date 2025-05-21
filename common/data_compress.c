@@ -68,9 +68,8 @@ int uncompress_data(uint8_t *compressed_data, size_t compressed_data_len, uint8_
   int res = inflate(&zs, Z_FINISH);
   if (res != Z_STREAM_END) {
     if (res == Z_BUF_ERROR) {
-      fprintf(stderr, "Failed to decompress data. Allocated buffer is too small\n");
-    } else {
-      fprintf(stderr, "Failed to decompress data\n");
+      fprintf(stderr,
+              "Failed to decompress data. Allocated buffer is too small\n");
     }
     return -1;
   }

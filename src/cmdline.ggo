@@ -97,6 +97,7 @@ option "attestation-id" - "Attestation ID" int optional
 option "log-index" - "Log index" int optional
 option "opt-name" - "Device option name" string optional
 option "opt-value" - "Device option value" string optional
+option "compress" - "Compress a X509Certificate before importing it into the device" flag off
 option "detect-compressed" - "Detect compressed X509Certificates when listing objects" flag off
 
 option "in" - "Input data (filename)" string optional default="-"

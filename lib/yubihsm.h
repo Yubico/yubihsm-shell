@@ -536,9 +536,6 @@ typedef enum {
   YH_ALGO_AES_CBC = 54,
   /// aes-kwp
   YH_ALGO_AES_KWP = 55,
-
-  /// Compressed certificate
-  YH_ALGO_OPAQUE_X509_COMPRESSED = 0x7f,
 } yh_algorithm;
 
 /**
@@ -770,7 +767,6 @@ static const struct {
   {"mgf1-sha512", YH_ALGO_MGF1_SHA512},
   {"opaque-data", YH_ALGO_OPAQUE_DATA},
   {"opaque-x509-certificate", YH_ALGO_OPAQUE_X509_CERTIFICATE},
-  {"opaque-x509-compressed", YH_ALGO_OPAQUE_X509_COMPRESSED},
   {"rsa-oaep-sha1", YH_ALGO_RSA_OAEP_SHA1},
   {"rsa-oaep-sha256", YH_ALGO_RSA_OAEP_SHA256},
   {"rsa-oaep-sha384", YH_ALGO_RSA_OAEP_SHA384},
@@ -2271,6 +2267,8 @@ yh_rc yh_util_import_opaque(yh_session *session, uint16_t *object_id,
  * @param object_id Object ID of the Opaque object
  * @param out the retrieved Opaque object
  * @param out_len Length of the retrieved Opaque object
+ * @param stored_len Length of the stored opaque object (compressed objects have
+ *stored_len shorter than out_len)
  * @param compress Try decompressing the object data before returning it
  *
  * @return #YHR_SUCCESS if successful.
@@ -2278,7 +2276,8 @@ yh_rc yh_util_import_opaque(yh_session *session, uint16_t *object_id,
  *         See #yh_rc for other possible errors
  **/
 yh_rc yh_util_get_opaque_ex(yh_session *session, uint16_t object_id,
-                            uint8_t *out, size_t *out_len, bool try_decompress);
+                            uint8_t *out, size_t *out_len, size_t *stored_len,
+                            bool try_decompress);
 
 /**
  * Import an #YH_OPAQUE object into the device with an option to compress the
