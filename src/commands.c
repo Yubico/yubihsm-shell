@@ -76,7 +76,7 @@ static bool is_compressed(yh_session *session, uint16_t id,
       return false;
     }
 #ifdef ENABLE_CERT_COMPRESS
-    if (out_len > stored_len) {
+    if (out_len != stored_len) {
       return true;
     }
 #else
