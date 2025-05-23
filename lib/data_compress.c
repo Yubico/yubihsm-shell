@@ -36,8 +36,8 @@ int compress_data(const uint8_t *data, size_t data_len,
   int res = deflateInit2(&zs, Z_DEFAULT_COMPRESSION, Z_DEFLATED, MAX_WBITS | 16,
                          8, Z_DEFAULT_STRATEGY);
   if (res != Z_OK) {
-    DBG_ERR("Failed to compress data. ZLIB error code: %d (%s)", res,
-            zError(res));
+    DBG_ERR("Failed to initialize data compression. ZLIB error code: %d (%s)",
+            res, zError(res));
     return -1;
   }
 
@@ -50,7 +50,7 @@ int compress_data(const uint8_t *data, size_t data_len,
 
   res = deflateEnd(&zs);
   if (res != Z_OK) {
-    DBG_ERR("Failed to compress data. ZLIB error code: %d (%s)", res,
+    DBG_ERR("Failed to finish data compression. ZLIB error code: %d (%s)", res,
             zError(res));
     return -1;
   }
