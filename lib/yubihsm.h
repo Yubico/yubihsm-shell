@@ -574,7 +574,7 @@ typedef enum {
 } yh_connector_option;
 
 /**
- * Options for the compressing certificates
+ * Options for data compression
  */
 typedef enum {
   /// Do not compress data before importing it
