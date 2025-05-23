@@ -1314,8 +1314,8 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
 
     case CKA_VALUE: {
       size_t len = *length;
-      yh_rc yrc = yh_util_get_opaque(session->slot->device_session, object->id,
-                                     value, &len);
+      yh_rc yrc = yh_util_get_opaque_ex(session->slot->device_session,
+                                        object->id, value, &len, NULL, true);
       if (yrc != YHR_SUCCESS) {
         return yrc_to_rv(yrc);
       }
