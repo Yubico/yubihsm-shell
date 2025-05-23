@@ -41,6 +41,7 @@
 
 #include "../common/insecure_memzero.h"
 #include "../ykhsmauth/ykhsmauth.h"
+#include "data_compress.h"
 
 #define STATIC_USB_BACKEND "usb"
 #define STATIC_HTTP_BACKEND "http"
@@ -3488,6 +3489,82 @@ yh_rc yh_util_import_opaque(yh_session *session, uint16_t *object_id,
   DBG_INFO("Stored Opaque Object 0x%04x", *object_id);
 
   return YHR_SUCCESS;
+}
+
+yh_rc yh_util_get_opaque_ex(yh_session *session, uint16_t object_id,
+                            uint8_t *out, size_t *out_len, size_t *stored_len,
+                            bool try_decompress) {
+
+  yh_rc yrc = yh_util_get_opaque(session, object_id, out, out_len);
+  if (yrc != YHR_SUCCESS) {
+    return yrc;
+  }
+  if (stored_len != NULL) {
+    *stored_len = *out_len;
+  }
+
+#ifdef ENABLE_CERT_COMPRESS
+  if (try_decompress) {
+    uint8_t uncompressed_data[16384] = {0};
+    size_t uncompressed_data_len = sizeof(uncompressed_data);
+    if (decompress_data(out, *out_len, uncompressed_data,
+                        &uncompressed_data_len) != 0) {
+      DBG_INFO("Failed decompress data. Probably not compressed data");
+    } else {
+      DBG_INFO("Successfully decompressed stored data. Stored data length %zu. "
+               "Decompressed data length %zu",
+               *out_len, uncompressed_data_len);
+      memcpy(out, uncompressed_data, uncompressed_data_len);
+      *out_len = uncompressed_data_len;
+    }
+  }
+#endif
+
+  return YHR_SUCCESS;
+}
+
+yh_rc yh_util_import_opaque_ex(yh_session *session, uint16_t *object_id,
+                               const char *label, uint16_t domains,
+                               const yh_capabilities *capabilities,
+                               yh_algorithm algorithm, const uint8_t *in,
+                               size_t in_len, yh_compress_option compress,
+                               size_t *import_len) {
+
+  if (in == NULL) {
+    DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
+    return YHR_INVALID_PARAMETERS;
+  }
+
+  if (compress == COMPRESS_IF_TOO_BIG || compress == NO_COMPRESS) {
+    yh_rc yrc = yh_util_import_opaque(session, object_id, label, domains,
+                                      capabilities, algorithm, in, in_len);
+    if (yrc == YHR_SUCCESS) {
+      if (import_len != NULL) {
+        *import_len = in_len;
+      }
+      return yrc;
+    } else if (compress == NO_COMPRESS || (compress == COMPRESS_IF_TOO_BIG &&
+                                           yrc != YHR_BUFFER_TOO_SMALL)) {
+      return yrc;
+    }
+  }
+
+#ifndef ENABLE_CERT_COMPRESS
+  DBG_ERR("Data compression is not supported");
+  return YHR_INVALID_PARAMETERS;
+#else
+  uint8_t compressed_data[YH_MSG_BUF_SIZE] = {0};
+  size_t compressed_data_len = sizeof(compressed_data);
+  if (compress_data(in, in_len, compressed_data, &compressed_data_len) != 0) {
+    DBG_ERR("Failed to compress data");
+    return YHR_GENERIC_ERROR;
+  }
+  if (import_len != NULL) {
+    *import_len = compressed_data_len;
+  }
+  return yh_util_import_opaque(session, object_id, label, domains, capabilities,
+                               algorithm, compressed_data, compressed_data_len);
+#endif
 }
 
 yh_rc yh_util_sign_ssh_certificate(yh_session *session, uint16_t key_id,

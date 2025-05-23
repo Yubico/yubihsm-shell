@@ -1675,9 +1675,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       }
     }
 
-    rc = yh_util_import_opaque(session->slot->device_session, &template.id,
-                               template.label, 0xffff, &capabilities, algo,
-                               template.obj.buf, template.objlen);
+    rc = yh_util_import_opaque_ex(session->slot->device_session, &template.id,
+                                  template.label, 0xffff, &capabilities, algo,
+                                  template.obj.buf, template.objlen,
+                                  algo == YH_ALGO_OPAQUE_X509_CERTIFICATE
+                                    ? COMPRESS_IF_TOO_BIG
+                                    : NO_COMPRESS,
+                                  NULL);
     if (rc != YHR_SUCCESS) {
       DBG_ERR("Failed writing Opaque object to device: %s", yh_strerror(rc));
       rv = yrc_to_rv(rc);
@@ -2630,10 +2634,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
         }
 
         for (size_t i = 0; i < tmp_n_objects; i++) {
-          uint8_t cert[2048] = {0};
+          uint8_t cert[16384] = {0};
           size_t cert_len = sizeof(cert);
-          rc = yh_util_get_opaque(session->slot->device_session,
-                                  tmp_objects[i].id, cert, &cert_len);
+          rc = yh_util_get_opaque_ex(session->slot->device_session,
+                                     tmp_objects[i].id, cert, &cert_len, NULL,
+                                     true);
           if (rc != YHR_SUCCESS) {
             DBG_ERR("Failed to get opaque object 0x%x", tmp_objects[i].id);
             rv = yrc_to_rv(rc);

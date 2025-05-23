@@ -60,7 +60,8 @@ elif [ "$PLATFORM" == "centos8" ]; then
                     libcurl-devel        \
                     libusbx-devel        \
                     openssl-devel        \
-                    pcsc-lite-devel
+                    pcsc-lite-devel      \
+                    zlib-devel
 
   export CMAKE="cmake3"
 
@@ -78,7 +79,8 @@ elif [ "${PLATFORM:0:6}" == "fedora" ]; then
                  rpmdevtools      \
                  pcsc-lite-devel  \
                  libusb1-devel    \
-                 help2man
+                 help2man         \
+                 zlib-devel
 
   export CMAKE="cmake"
 fi

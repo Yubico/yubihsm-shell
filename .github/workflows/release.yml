@@ -17,7 +17,7 @@ jobs:
         run: |
           set -x
           sudo apt -q update
-          sudo apt install libpcsclite-dev gengetopt help2man libedit-dev libcurl4-openssl-dev libssl-dev libusb-1.0-0-dev
+          sudo apt install libpcsclite-dev gengetopt help2man libedit-dev libcurl4-openssl-dev libssl-dev libusb-1.0-0-dev zlib1g-dev
       - name: Create tar.gz
         run: |
           set -x
@@ -112,7 +112,7 @@ jobs:
       - name: Install dependecies
         run: |
           brew update
-          brew install cmake pkg-config gengetopt help2man
+          brew install cmake pkg-config gengetopt help2man zlib
           brew reinstall openssl@3
 
       - name: Build and make MSI installer
@@ -185,7 +185,8 @@ jobs:
                                   libpcsclite-dev      \
                                   file                 \
                                   curl                 \
-                                  jq
+                                  jq                   \
+                                  zlib1g-dev 
 
       - name: clone the Yubico/yubihsm-shell repository
         uses: actions/checkout@v4

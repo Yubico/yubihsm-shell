@@ -1,6 +1,6 @@
 if($args.length -lt 2)
 {
-    echo "Usage: ./make_installer.ps1 <Win32|x64> <VCPKG_PATH>"
+    echo "Usage: ./make_release_binaries.ps1 <Win32|x64> <VCPKG_PATH>"
     echo ""
     echo "This is a script to build an MSI installer for yubihsm"
     echo ""
@@ -33,12 +33,18 @@ cd $VCPKG_PATH
 .\vcpkg.exe update
 .\vcpkg.exe install openssl:$ARCH-windows
 .\vcpkg.exe install getopt:$ARCH-windows
+.\vcpkg.exe install zlib:$env:ARCH-windows
 
 $env:OPENSSL_ROOT_DIR ="$VCPKG_PATH/packages/openssl_$ARCH-windows"
 
 # Build binaries
 mkdir $BUILD_DIR; cd $BUILD_DIR
-cmake -S $SOURCE_DIR -A "$CMAKE_ARCH" -DGETOPT_LIB_DIR="$VCPKG_PATH/packages/getopt-win32_$ARCH-windows/lib" -DGETOPT_INCLUDE_DIR="$VCPKG_PATH/packages/getopt-win32_$ARCH-windows/include" -DCMAKE_INSTALL_PREFIX="$RELEASE_DIR"
+cmake -S $SOURCE_DIR -A "$CMAKE_ARCH" -DCMAKE_INSTALL_PREFIX="$RELEASE_DIR" `
+            -DGETOPT_LIB_DIR="$VCPKG_PATH\packages\getopt-win32_$ARCH-windows\lib" `
+            -DGETOPT_INCLUDE_DIR="$VCPKG_PATH\packages\getopt-win32_$ARCH-windows\include" `
+            -DZLIB_LIB_DIR="$VCPKG_PATH/packages/zlib_$ARCH-windows/lib" `
+            -DZLIB_INCLUDE_DIR="$VCPKG_PATH/packages/zlib_$ARCH-windows/include"
+
 cmake --build . --config Release --target install
 
 # Copy openssl and getopt libraries
@@ -53,6 +59,7 @@ else
     cp $VCPKG_PATH/packages/openssl_x64-windows/bin/libcrypto-3-x64.dll .
     cp $VCPKG_PATH/packages/getopt-win32_x64-windows/bin/getopt.dll .
 }
+cp $VCPKG_PATH/packages/zlib_$ARCH-windows/bin/zlib1.dll .
 
 # Create missing directories
 Remove-Item -Path $LICENSES_DIR -Force -Recurse -ErrorAction SilentlyContinue
@@ -67,6 +74,14 @@ cp $license $LICENSES_DIR\openssl.txt
 
 $license=(Get-ChildItem -Path $VCPKG_PATH\buildtrees\getopt-win32\src\ -Filter LICENSE -Recurse -ErrorAction SilentlyContinue -Force | %{$_.FullName})
 cp $license $LICENSES_DIR\getopt.txt
+
+$license=(Get-ChildItem -Path $VCPKG_PATH\buildtrees\zlib\src\ -Filter LICENSE -Recurse -ErrorAction SilentlyContinue -Force | %{$_.FullName})
+cp $license $LICENSES_DIR\zlib.txt
+
+# Copy header files
+cp -r $VCPKG_PATH\packages\openssl_$ARCH-windows\include\openssl $RELEASE_DIR/include/
+cp -r $VCPKG_PATH\packages\zlib_$ARCH-windows\include\zlib.h $RELEASE_DIR/include/
+
 
 #cd $WIN_DIR
 #Compress-Archive -LiteralPath "$WIN_DIR/yubihsm-shell-$ARCH" -DestinationPath "$WIN_DIR/yubihsm-shell-$ARCH.zip"
