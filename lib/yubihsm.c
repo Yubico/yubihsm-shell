@@ -3505,7 +3505,7 @@ yh_rc yh_util_get_opaque_ex(yh_session *session, uint16_t object_id,
 
 #ifdef ENABLE_CERT_COMPRESS
   if (try_decompress) {
-    uint8_t uncompressed_data[8192] = {0};
+    uint8_t uncompressed_data[16384] = {0};
     size_t uncompressed_data_len = sizeof(uncompressed_data);
     if (decompress_data(out, *out_len, uncompressed_data,
                         &uncompressed_data_len) != 0) {
@@ -3533,50 +3533,36 @@ yh_rc yh_util_import_opaque_ex(yh_session *session, uint16_t *object_id,
     return YHR_INVALID_PARAMETERS;
   }
 
-  if (import_len != NULL) {
-    *import_len = in_len;
-  }
-
-  switch (compress) {
-    case COMPRESS_IF_TOO_BIG: {
-      yh_rc yrc = yh_util_import_opaque(session, object_id, label, domains,
-                                        capabilities, algorithm, in, in_len);
-#ifdef ENABLE_CERT_COMPRESS
-      if (yrc != YHR_BUFFER_TOO_SMALL) {
-        return yrc;
-      }
-#else
-      return yrc;
-#endif
-    }
-    case COMPRESS: {
-#ifndef ENABLE_CERT_COMPRESS
-      DBG_ERR("Data compression is not supported");
-      return YHR_INVALID_PARAMETERS;
-#else
-      uint8_t compressed_data[YH_MSG_BUF_SIZE] = {0};
-      size_t compressed_data_len = sizeof(compressed_data);
-      if (compress_data(in, in_len, compressed_data, &compressed_data_len) !=
-          0) {
-        DBG_ERR("Failed to compress data");
-        return YHR_GENERIC_ERROR;
-      }
+  if (compress == COMPRESS_IF_TOO_BIG || compress == NO_COMPRESS) {
+    yh_rc yrc = yh_util_import_opaque(session, object_id, label, domains,
+                                      capabilities, algorithm, in, in_len);
+    if (yrc == YHR_SUCCESS) {
       if (import_len != NULL) {
-        *import_len = compressed_data_len;
+        *import_len = in_len;
       }
-      return yh_util_import_opaque(session, object_id, label, domains,
-                                   capabilities, algorithm, compressed_data,
-                                   compressed_data_len);
-#endif
-    } break;
-    case NO_COMPRESS:
-    default:
-      return yh_util_import_opaque(session, object_id, label, domains,
-                                   capabilities, algorithm, in, in_len);
-      break;
+      return yrc;
+    } else if (compress == NO_COMPRESS || (compress == COMPRESS_IF_TOO_BIG &&
+                                           yrc != YHR_BUFFER_TOO_SMALL)) {
+      return yrc;
+    }
   }
 
-  return YHR_SUCCESS;
+#ifndef ENABLE_CERT_COMPRESS
+  DBG_ERR("Data compression is not supported");
+  return YHR_INVALID_PARAMETERS;
+#else
+  uint8_t compressed_data[YH_MSG_BUF_SIZE] = {0};
+  size_t compressed_data_len = sizeof(compressed_data);
+  if (compress_data(in, in_len, compressed_data, &compressed_data_len) != 0) {
+    DBG_ERR("Failed to compress data");
+    return YHR_GENERIC_ERROR;
+  }
+  if (import_len != NULL) {
+    *import_len = compressed_data_len;
+  }
+  return yh_util_import_opaque(session, object_id, label, domains, capabilities,
+                               algorithm, compressed_data, compressed_data_len);
+#endif
 }
 
 yh_rc yh_util_sign_ssh_certificate(yh_session *session, uint16_t key_id,

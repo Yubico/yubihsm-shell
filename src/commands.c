@@ -63,30 +63,24 @@ static format_t fmt_to_fmt(cmd_format fmt) {
 static bool is_compressed(yh_session *session, uint16_t id,
                           yh_object_type type) {
   if (type == YH_OPAQUE) {
-#ifdef ENABLE_CERT_COMPRESS
-    uint8_t raw_data[8192] = {0};
-    size_t raw_data_len = sizeof(raw_data);
+    uint8_t out[16384] = {0};
+    size_t out_len = sizeof(out);
     size_t stored_len = 0;
-    yh_rc yrc = yh_util_get_opaque_ex(session, id, raw_data, &raw_data_len,
-                                      &stored_len, true);
+    yh_rc yrc =
+      yh_util_get_opaque_ex(session, id, out, &out_len, &stored_len, true);
     if (yrc != YHR_SUCCESS) {
       fprintf(stderr,
               "Failed to get opaque data. Object compression status might "
               "not be accurate: %s\n",
               yh_strerror(yrc));
-    } else if (raw_data_len > stored_len) {
+      return false;
+    }
+#ifdef ENABLE_CERT_COMPRESS
+    if (out_len > stored_len) {
       return true;
     }
 #else
-    uint8_t data[YH_MSG_BUF_SIZE] = {0};
-    size_t data_len = sizeof(data);
-    yh_rc yrc = yh_util_get_opaque(session, id, data, &data_len);
-    if (yrc != YHR_SUCCESS) {
-      fprintf(stderr,
-              "Failed to get opaque data. Object compression status might "
-              "not be accurate: %s\n",
-              yh_strerror(yrc));
-    } else if (data_len > 2 && data[0] == 0x1f && data[1] == 0x8b) {
+    if (out_len > 2 && out[0] == 0x1f && out[1] == 0x8b) {
       return true;
     }
 #endif
@@ -935,7 +929,7 @@ int yh_com_get_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(ctx);
   UNUSED(in_fmt);
 
-  uint8_t response[8192] = {0};
+  uint8_t response[16384] = {0};
   size_t response_len = sizeof(response);
   size_t stored_len = 0;
   int ret = -1;
