@@ -3916,10 +3916,9 @@ int yh_com_sign_attestation_certificate(yubihsm_context *ctx, Argument *argv,
       fprintf(stderr, "Failed to get object info: %s\n", yh_strerror(yrc));
       return -1;
     }
-    if (desc.algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
+    if (desc.algorithm != YH_ALGO_OPAQUE_X509_CERTIFICATE) {
       fprintf(stderr, "Certificate template is not stored as a certificate\n");
-    }
-    if (is_compressed(argv[0].e, argv[1].w, YH_OPAQUE)) {
+    } else if (is_compressed(argv[0].e, argv[1].w, YH_OPAQUE)) {
       fprintf(stderr,
               "Stored X509 certificated used as template is a compressed "
               "certificate. Compressed X509 certificates cannot be used as "
