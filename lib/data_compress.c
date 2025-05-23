@@ -36,19 +36,22 @@ int compress_data(const uint8_t *data, size_t data_len,
   int res = deflateInit2(&zs, Z_DEFAULT_COMPRESSION, Z_DEFLATED, MAX_WBITS | 16,
                          8, Z_DEFAULT_STRATEGY);
   if (res != Z_OK) {
-    DBG_ERR("Failed to compress data. ZLIB error code: %d", res);
+    DBG_ERR("Failed to compress data. ZLIB error code: %d (%s)", res,
+            zError(res));
     return -1;
   }
 
   res = deflate(&zs, Z_FINISH);
   if (res != Z_STREAM_END) {
-    DBG_ERR("Failed to compress data. ZLIB error code: %d", res);
+    DBG_ERR("Failed to compress data. ZLIB error code: %d (%s)", res,
+            zError(res));
     return -1;
   }
 
   res = deflateEnd(&zs);
   if (res != Z_OK) {
-    DBG_ERR("Failed to compress data. ZLIB error code: %d", res);
+    DBG_ERR("Failed to compress data. ZLIB error code: %d (%s)", res,
+            zError(res));
     return -1;
   }
 
@@ -71,24 +74,22 @@ int decompress_data(uint8_t *compressed_data, size_t compressed_data_len,
 
   int res = inflateInit2(&zs, MAX_WBITS | 16);
   if (res != Z_OK) {
-    DBG_ERR("Failed to initialize data decompression. ZLIB error code: %d",
-            res);
+    DBG_ERR("Failed to initialize data decompression. ZLIB error code: %d (%s)",
+            res, zError(res));
     return -1;
   }
 
   res = inflate(&zs, Z_FINISH);
   if (res != Z_STREAM_END) {
-    if (res == Z_BUF_ERROR) {
-      DBG_ERR("Failed to decompress data. Allocated buffer is too small");
-    } else {
-      DBG_ERR("Failed to decompress data. ZLIB error code: %d", res);
-    }
+    DBG_ERR("Failed to decompress data. ZLIB error code: %d (%s)", res,
+            zError(res));
     return -1;
   }
 
   res = inflateEnd(&zs);
   if (res != Z_OK) {
-    DBG_ERR("Failed to finish data decompression. ZLIB error code: %d", res);
+    DBG_ERR("Failed to finish data decompression. ZLIB error code: %d (%s)",
+            res, zError(res));
     return -1;
   }
   *data_len = zs.total_out;
