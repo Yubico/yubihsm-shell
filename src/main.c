@@ -450,7 +450,7 @@ static void create_command_list(CommandList *c) {
                                     "List the open session", NULL, NULL});
   register_subcommand(*c, (Command){"objects", yh_com_list_objects,
                                     "e:session,w:id=0,t:type=any,d:domains=0,c:"
-                                    "capabilities=0,a:algorithm=any,b:detect-compressed=0,s:label=",
+                                    "capabilities=0,a:algorithm=any,b:with-compression=0,s:label=",
                                     fmt_nofmt, fmt_nofmt,
                                     "List objects according to filter", NULL,
                                     NULL});
@@ -485,7 +485,7 @@ static void create_command_list(CommandList *c) {
                                 NULL});
   register_subcommand(*c, (Command){"opaque", yh_com_put_opaque,
                                     "e:session,w:object_id,s:label,d:domains,c:"
-                                    "capabilities,a:algorithm,b:compress,i:data=-",
+                                    "capabilities,a:algorithm,b:with-compression,i:data=-",
                                     fmt_binary, fmt_nofmt,
                                     "Store an opaque object", NULL, NULL});
   register_subcommand(*c,
@@ -2561,7 +2561,7 @@ int main(int argc, char *argv[]) {
           yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[5].a);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
 
-          arg[6].b = args_info.detect_compressed_given;
+          arg[6].b = args_info.with_compression_given;
 
           arg[7].s = args_info.label_arg;
           arg[7].len = strlen(args_info.label_arg);
@@ -2646,7 +2646,7 @@ int main(int argc, char *argv[]) {
           yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[5].a);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
 
-          arg[6].b = args_info.compress_given;
+          arg[6].b = args_info.with_compression_given;
 
           if (get_input_data(args_info.in_arg, &arg[7].x, &arg[7].len,
                              g_in_fmt == fmt_nofmt ? fmt_binary : g_in_fmt) ==

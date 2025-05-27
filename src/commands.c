@@ -1664,7 +1664,7 @@ static int compare_objects(const void *p1, const void *p2) {
 // arg 3: w:domains
 // arg 4: u:capabilities
 // arg 5: a:algorithm
-// arg 6: b:detect-compressed
+// arg 6: b:with-compression
 // arg 7: s:label
 int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                         cmd_format fmt) {
@@ -2324,7 +2324,7 @@ int yh_com_put_authentication_asym(yubihsm_context *ctx, Argument *argv,
 // arg 3: w:domains
 // arg 4: c:capabilities
 // arg 5: a:algorithm
-// arg 6: b:compress
+// arg 6: b:with-compression
 // arg 7: i:datafile
 int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                       cmd_format fmt) {
