@@ -5915,7 +5915,7 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
 //   */
 //  CK_BYTE tmp[20] = {0};
 //#else
-  CK_BYTE tmp[8192] = {0};
+  CK_BYTE tmp[16384] = {0};
 //#endif
   for (CK_ULONG i = 0; i < ulCount; i++) {
     DBG_INFO("Getting attribute 0x%lx", pTemplate[i].type);
