@@ -61,8 +61,8 @@ static format_t fmt_to_fmt(cmd_format fmt) {
 }
 
 static bool is_compressed(yh_session *session, uint16_t id,
-                          yh_object_type type) {
-  if (type == YH_OPAQUE) {
+                          yh_algorithm algorithm) {
+  if (algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
     uint8_t out[16384] = {0};
     size_t out_len = sizeof(out);
     size_t stored_len = 0;
@@ -1349,7 +1349,7 @@ int yh_com_get_object_info(yubihsm_context *ctx, Argument *argv,
   yh_type_to_string(object.type, &type);
   if (object.algorithm) {
     yh_algo_to_string(object.algorithm, &algorithm);
-    if (is_compressed(argv[0].e, object.id, object.type)) {
+    if (is_compressed(argv[0].e, object.id, object.algorithm)) {
       compressed_str = "_compressed";
     }
     extra_algo = ", algorithm: ";
@@ -1705,7 +1705,8 @@ int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     const char *algo = "";
     yh_algo_to_string(objects[i].algorithm, &algo);
     const char *compressed = "";
-    if (argv[6].b && is_compressed(argv[0].e, objects[i].id, objects[i].type)) {
+    if (argv[6].b &&
+        is_compressed(argv[0].e, objects[i].id, objects[i].algorithm)) {
       compressed = "_compressed";
     }
 
@@ -3921,7 +3922,8 @@ int yh_com_sign_attestation_certificate(yubihsm_context *ctx, Argument *argv,
     }
     if (desc.algorithm != YH_ALGO_OPAQUE_X509_CERTIFICATE) {
       fprintf(stderr, "Certificate template is not stored as a certificate\n");
-    } else if (is_compressed(argv[0].e, argv[1].w, YH_OPAQUE)) {
+    } else if (is_compressed(argv[0].e, argv[1].w,
+                             YH_ALGO_OPAQUE_X509_CERTIFICATE)) {
       fprintf(stderr,
               "Stored X509 certificated used as template is a compressed "
               "certificate. Compressed X509 certificates cannot be used as "
