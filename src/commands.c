@@ -60,6 +60,34 @@ static format_t fmt_to_fmt(cmd_format fmt) {
   }
 }
 
+static bool is_compressed(yh_session *session, uint16_t id,
+                          yh_algorithm algorithm) {
+  if (algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
+    uint8_t out[16384] = {0};
+    size_t out_len = sizeof(out);
+    size_t stored_len = 0;
+    yh_rc yrc =
+      yh_util_get_opaque_ex(session, id, out, &out_len, &stored_len, true);
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr,
+              "Failed to get opaque data. Object compression status might "
+              "not be accurate: %s\n",
+              yh_strerror(yrc));
+      return false;
+    }
+#ifdef ENABLE_CERT_COMPRESS
+    if (out_len != stored_len) {
+      return true;
+    }
+#else
+    if (out_len > 2 && out[0] == 0x1f && out[1] == 0x8b) {
+      return true;
+    }
+#endif
+  }
+  return false;
+}
+
 // NOTE(adma): Extract log entries
 // argc = 1
 // arg 0: e:session
@@ -900,14 +928,23 @@ int yh_com_get_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(ctx);
   UNUSED(in_fmt);
 
-  uint8_t response[YH_MSG_BUF_SIZE] = {0};
+  yh_object_descriptor desc = {0};
+  uint8_t response[16384] = {0};
   size_t response_len = sizeof(response);
+  size_t stored_len = 0;
   int ret = -1;
 
-  yh_rc yrc = yh_util_get_opaque(argv[0].e, argv[1].w, response, &response_len);
+  yh_util_get_object_info(argv[0].e, argv[1].w, YH_OPAQUE, &desc);
+  yh_rc yrc =
+    yh_util_get_opaque_ex(argv[0].e, argv[1].w, response, &response_len,
+                          &stored_len,
+                          desc.algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to get opaque object: %s\n", yh_strerror(yrc));
     return -1;
+  }
+  if (stored_len != response_len) {
+    fprintf(stderr, "Successfully read compressed data\n");
   }
 
   if (fmt == fmt_PEM) {
@@ -1305,12 +1342,16 @@ int yh_com_get_object_info(yubihsm_context *ctx, Argument *argv,
   size_t n_cap = sizeof(yh_capability) / sizeof(yh_capability[0]);
   const char *type = 0;
   const char *algorithm = "";
+  const char *compressed_str = "";
   const char *extra_algo = "";
   char *label = object.label;
   size_t label_len = strlen(label);
   yh_type_to_string(object.type, &type);
   if (object.algorithm) {
     yh_algo_to_string(object.algorithm, &algorithm);
+    if (is_compressed(argv[0].e, object.id, object.algorithm)) {
+      compressed_str = "_compressed";
+    }
     extra_algo = ", algorithm: ";
   }
   yh_domains_to_string(object.domains, domains, 255);
@@ -1322,10 +1363,10 @@ int yh_com_get_object_info(yubihsm_context *ctx, Argument *argv,
   }
 
   fprintf(ctx->out,
-          "id: 0x%04x, type: %s%s%s, label: \"%s\", length: %d, "
+          "id: 0x%04x, type: %s%s%s%s, label: \"%s\", length: %d, "
           "domains: %s, sequence: %hhu, origin: ",
-          object.id, type, extra_algo, algorithm, label, object.len, domains,
-          object.sequence);
+          object.id, type, extra_algo, algorithm, compressed_str, label,
+          object.len, domains, object.sequence);
 
   if (object.origin & YH_ORIGIN_GENERATED) {
     fprintf(ctx->out, "generated");
@@ -1623,7 +1664,8 @@ static int compare_objects(const void *p1, const void *p2) {
 // arg 3: w:domains
 // arg 4: u:capabilities
 // arg 5: a:algorithm
-// arg 6: s:label
+// arg 6: b:with-compression
+// arg 7: s:label
 int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                         cmd_format fmt) {
   yh_object_descriptor objects[YH_MAX_ITEMS_COUNT] = {0};
@@ -1634,10 +1676,10 @@ int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
-  if (argv[6].len == 0) {
+  if (argv[7].len == 0) {
     label_arg = NULL;
   } else {
-    label_arg = argv[6].s;
+    label_arg = argv[7].s;
   }
 
   yh_rc yrc =
@@ -1662,9 +1704,16 @@ int yh_com_list_objects(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     yh_type_to_string(objects[i].type, &type);
     const char *algo = "";
     yh_algo_to_string(objects[i].algorithm, &algo);
+    const char *compressed = "";
+    if (argv[6].b &&
+        is_compressed(argv[0].e, objects[i].id, objects[i].algorithm)) {
+      compressed = "_compressed";
+    }
+
     fprintf(ctx->out,
-            "id: 0x%04x, type: %s, algo: %s, sequence: %hhu, label: %s\n",
-            objects[i].id, type, algo, objects[i].sequence, objects[i].label);
+            "id: 0x%04x, type: %s, algo: %s%s, sequence: %hhu, label: %s\n",
+            objects[i].id, type, algo, compressed, objects[i].sequence,
+            objects[i].label);
   }
   return 0;
 }
@@ -2276,14 +2325,15 @@ int yh_com_put_authentication_asym(yubihsm_context *ctx, Argument *argv,
 // arg 3: w:domains
 // arg 4: c:capabilities
 // arg 5: a:algorithm
-// arg 6: i:datafile
+// arg 6: b:with-compression
+// arg 7: i:datafile
 int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                       cmd_format fmt) {
 
   UNUSED(ctx);
   UNUSED(fmt);
-  unsigned char buf[YH_MSG_BUF_SIZE], *data = argv[6].x;
-  size_t len = argv[6].len;
+  unsigned char buf[YH_MSG_BUF_SIZE], *data = argv[7].x;
+  size_t len = argv[7].len;
 
   if (in_fmt == fmt_PEM) {
     // Decode X.509 Certificate regardless of algorithm in case fmt_PEM is
@@ -2321,14 +2371,34 @@ int yh_com_put_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     X509_free(cert);
   }
 
-  yh_rc yrc = yh_util_import_opaque(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
-                                    &argv[4].c, argv[5].a, data, len);
+#ifdef ENABLE_CERT_COMPRESS
+  if (argv[6].a && argv[5].a != YH_ALGO_OPAQUE_X509_CERTIFICATE) {
+    fprintf(stderr, "Compression is only supported for X.509 certificates\n");
+    return -1;
+  }
+#endif
+
+  size_t import_len = 0;
+  yh_rc yrc =
+    yh_util_import_opaque_ex(argv[0].e, &argv[1].w, argv[2].s, argv[3].w,
+                             &argv[4].c, argv[5].a, data, len,
+                             argv[6].a ? COMPRESS : NO_COMPRESS, &import_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to store opaque object: %s\n", yh_strerror(yrc));
+#ifdef ENABLE_CERT_COMPRESS
+    if (yrc == YHR_BUFFER_TOO_SMALL && !argv[6].a &&
+        argv[5].a == YH_ALGO_OPAQUE_X509_CERTIFICATE) {
+      fprintf(stderr,
+              "Try compressing the certificate by using the "
+              "'with-compression' flag. Beware that "
+              "compressed certificates cannot be used for attestation\n");
+    }
+#endif
     return -1;
   }
 
-  fprintf(stderr, "Stored %zu bytes to Opaque object 0x%04x\n", len, argv[1].w);
+  fprintf(stderr, "Stored %zu bytes to Opaque object 0x%04x\n", import_len,
+          argv[1].w);
 
   return 0;
 }
@@ -3835,7 +3905,7 @@ int yh_com_sign_attestation_certificate(yubihsm_context *ctx, Argument *argv,
                                         cmd_format in_fmt, cmd_format fmt) {
   UNUSED(in_fmt);
 
-  uint8_t data[2048] = {0};
+  uint8_t data[YH_MSG_BUF_SIZE] = {0};
   size_t data_len = sizeof(data);
   int ret = -1;
 
@@ -3843,6 +3913,23 @@ int yh_com_sign_attestation_certificate(yubihsm_context *ctx, Argument *argv,
                                                    argv[2].w, data, &data_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to attest asymmetric key: %s\n", yh_strerror(yrc));
+
+    yh_object_descriptor desc = {0};
+    yrc = yh_util_get_object_info(argv[0].e, argv[1].w, YH_OPAQUE, &desc);
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr, "Failed to get object info: %s\n", yh_strerror(yrc));
+      return -1;
+    }
+    if (desc.algorithm != YH_ALGO_OPAQUE_X509_CERTIFICATE) {
+      fprintf(stderr, "Certificate template is not stored as a certificate\n");
+    } else if (is_compressed(argv[0].e, argv[1].w,
+                             YH_ALGO_OPAQUE_X509_CERTIFICATE)) {
+      fprintf(stderr,
+              "Stored X509 certificated used as template is a compressed "
+              "certificate. Compressed X509 certificates cannot be used as "
+              "template for attestation. Try to re-import it without "
+              "compression\n");
+    }
     return -1;
   }
 

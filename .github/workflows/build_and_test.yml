@@ -68,7 +68,8 @@ jobs:
                             libssl-dev            \
                             file                  \
                             curl                  \
-                            jq
+                            jq                    \
+                            zlib1g-dev
 
           if [ "$CC" = "clang" ]; then
             apt install -q -y clang llvm lld
@@ -369,12 +370,12 @@ jobs:
         if: ${{ matrix.environment == 'ubuntu:22.04' }}
         run: |
           apt update
-          apt install -q -y build-essential cmake python3 python3-pip python3-setuptools curl libedit2 libpcsclite1 libengine-pkcs11-openssl opensc swig openjdk-11-jdk-headless libssl3
+          apt install -q -y build-essential cmake python3 python3-pip python3-setuptools curl libedit2 libpcsclite1 libengine-pkcs11-openssl opensc swig openjdk-11-jdk-headless libssl3 zlib1g-dev
 
       - name: install dependencies from package management (rpm based)
         if: ${{ matrix.environment == 'fedora:40' }}
         run: |
-          yum install -y gcc gcc-c++ cmake python3-devel python3-pip python3-setuptools curl libedit gengetopt openssl libcurl pcsc-lite swig java-11-openjdk-headless which
+          yum install -y gcc gcc-c++ cmake python3-devel python3-pip python3-setuptools curl libedit gengetopt openssl libcurl pcsc-lite swig java-11-openjdk-headless which zlib-devel
 
       - name: prepare name for download-artifact action
         env:

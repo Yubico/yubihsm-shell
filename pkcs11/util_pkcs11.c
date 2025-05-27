@@ -1314,8 +1314,10 @@ static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
 
     case CKA_VALUE: {
       size_t len = *length;
-      yh_rc yrc = yh_util_get_opaque(session->slot->device_session, object->id,
-                                     value, &len);
+      yh_rc yrc = yh_util_get_opaque_ex(session->slot->device_session,
+                                        object->id, value, &len, NULL,
+                                        object->algorithm ==
+                                          YH_ALGO_OPAQUE_X509_CERTIFICATE);
       if (yrc != YHR_SUCCESS) {
         return yrc_to_rv(yrc);
       }
@@ -5913,7 +5915,7 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
 //   */
 //  CK_BYTE tmp[20] = {0};
 //#else
-  CK_BYTE tmp[8192] = {0};
+  CK_BYTE tmp[16384] = {0};
 //#endif
   for (CK_ULONG i = 0; i < ulCount; i++) {
     DBG_INFO("Getting attribute 0x%lx", pTemplate[i].type);
