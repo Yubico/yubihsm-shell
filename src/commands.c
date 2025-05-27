@@ -921,21 +921,24 @@ int yh_com_generate_wrap(yubihsm_context *ctx, Argument *argv,
 // argc = 2
 // arg 0: e:session,
 // arg 1: w:object_id
-// arg 2: b:uncompressed
-// arg 3: F:file
+// arg 2: F:file
 int yh_com_get_opaque(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                       cmd_format fmt) {
 
   UNUSED(ctx);
   UNUSED(in_fmt);
 
+  yh_object_descriptor desc = {0};
   uint8_t response[16384] = {0};
   size_t response_len = sizeof(response);
   size_t stored_len = 0;
   int ret = -1;
 
-  yh_rc yrc = yh_util_get_opaque_ex(argv[0].e, argv[1].w, response,
-                                    &response_len, &stored_len, argv[2].b);
+  yh_util_get_object_info(argv[0].e, argv[1].w, YH_OPAQUE, &desc);
+  yh_rc yrc =
+    yh_util_get_opaque_ex(argv[0].e, argv[1].w, response, &response_len,
+                          &stored_len,
+                          desc.algorithm == YH_ALGO_OPAQUE_X509_CERTIFICATE);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to get opaque object: %s\n", yh_strerror(yrc));
     return -1;
