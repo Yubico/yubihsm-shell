@@ -3503,8 +3503,8 @@ yh_rc yh_util_get_opaque_ex(yh_session *session, uint16_t object_id,
     *stored_len = *out_len;
   }
 
-#ifdef ENABLE_CERT_COMPRESS
   if (try_decompress) {
+#ifdef ENABLE_CERT_COMPRES
     uint8_t uncompressed_data[16384] = {0};
     size_t uncompressed_data_len = sizeof(uncompressed_data);
     if (decompress_data(out, *out_len, uncompressed_data,
@@ -3517,9 +3517,10 @@ yh_rc yh_util_get_opaque_ex(yh_session *session, uint16_t object_id,
       memcpy(out, uncompressed_data, uncompressed_data_len);
       *out_len = uncompressed_data_len;
     }
-  }
+#else
+    DBG_INFO("Compression is not supported. Will not try to decompress");
 #endif
-
+  }
   return YHR_SUCCESS;
 }
 
