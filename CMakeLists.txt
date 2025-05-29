@@ -205,6 +205,8 @@ if(NOT BUILD_ONLY_LIB)
 
   if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     pkg_search_module (LIBPCSC REQUIRED libpcsclite)
+    string (REPLACE ";" " " MY_LIBPCSC_CFLAGS "${LIBPCSC_CFLAGS}")
+    string (APPEND CMAKE_C_FLAGS " ${MY_LIBPCSC_CFLAGS}")
   elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
     set (LIBPCSC_LDFLAGS "winscard.lib")
   elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
