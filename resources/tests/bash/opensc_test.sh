@@ -37,7 +37,16 @@ echo "this is test data" > data.txt
 ### because it will not look for a key by label/alias. However, specifying an object to delete by its label/alias seems
 ### to work just fine.
 
-EC_CURVES=("secp224r1" "secp256r1" "secp384r1" "secp521r1" "secp256k1" "brainpoolP256r1" "brainpoolP384r1" "brainpoolP512r1")
+EC_CURVES=("secp224r1" "secp256r1" "secp384r1" "secp521r1" "secp256k1")
+
+set +e
+cat /etc/os-release | grep 'Fedora'
+is_fedora=$?
+set -e
+
+if [ $is_fedora -ne 0 ]; then
+  EC_CURVES=(${EC_CURVES[@]} "brainpoolP256r1" "brainpoolP384r1" "brainpoolP512r1")
+fi
 
 for curve in "${EC_CURVES[@]}"; do
 

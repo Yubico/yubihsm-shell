@@ -184,7 +184,7 @@ if [ $ret -ne 0 ]; then
   if [[ $resp == *"Failed to store opaque object: Not enough space to store data"* ]]; then
     test "$BIN -p password -a put-opaque -i 100 -l too_large_cert -A opaque-x509-certificate --with-compression --in too_large_cert.pem --informat PEM" "   Import compressed X509 certificate"
   else
-#    echo "$BIN -p password -a put-opaque -i 100 -l too_large_cert -A opaque-x509-certificate --in too_large_cert.pem --informat PEM"
+    echo "$BIN -p password -a put-opaque -i 100 -l too_large_cert -A opaque-x509-certificate --in too_large_cert.pem --informat PEM"
     echo $resp
   fi
 else

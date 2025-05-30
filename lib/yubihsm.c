@@ -3504,7 +3504,7 @@ yh_rc yh_util_get_opaque_ex(yh_session *session, uint16_t object_id,
   }
 
   if (try_decompress) {
-#ifdef ENABLE_CERT_COMPRES
+#ifdef ENABLE_CERT_COMPRESS
     uint8_t uncompressed_data[16384] = {0};
     size_t uncompressed_data_len = sizeof(uncompressed_data);
     if (decompress_data(out, *out_len, uncompressed_data,
