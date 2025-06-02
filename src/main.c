@@ -485,7 +485,7 @@ static void create_command_list(CommandList *c) {
                                 NULL});
   register_subcommand(*c, (Command){"opaque", yh_com_put_opaque,
                                     "e:session,w:object_id,s:label,d:domains,c:"
-                                    "capabilities,a:algorithm,b:with-compression,i:data=-",
+                                    "capabilities,a:algorithm,b:with-compression=0,i:data=-",
                                     fmt_binary, fmt_nofmt,
                                     "Store an opaque object", NULL, NULL});
   register_subcommand(*c,

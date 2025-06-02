@@ -7,40 +7,90 @@ on:
 
 jobs:
   main:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - environment: "ubuntu:24.04"
+          - environment: "fedora:42"
+
     name: integeration test
     runs-on: ubuntu-latest
+    container: ${{ matrix.environment }}
 
     steps:
-      - name: install dependencies from package management
-        run: |
-          sudo apt update
-          sudo apt install -q -y build-essential  \
-                            cmake pkg-config      \
-                            gengetopt             \
-                            help2man              \
-                            libcurl4-openssl-dev  \
-                            libedit-dev           \
-                            libpcsclite-dev       \
-                            libusb-1.0-0-dev      \
-                            libssl-dev            \
-                            openjdk-11-jdk-headless \
-                            opensc                \
-                            file                  \
-                            curl                  \
-                            jq                    \
-                            zlib1g-dev
-
       - name: clone the Yubico/yubihsm-shell repository
         uses: actions/checkout@v4
         with:
           path: yubihsm-shell
 
-      - name: do build
+      - name: Make Debian based build
+        env:
+          DEBIAN_FRONTEND: noninteractive
         working-directory: yubihsm-shell
+        if: ${{ matrix.environment == 'ubuntu:24.04' }}
         run: |
+          apt update
+          apt install -q -y build-essential  \
+                       cmake pkg-config      \
+                       gengetopt             \
+                       help2man              \
+                       libcurl4-openssl-dev  \
+                       libedit-dev           \
+                       libpcsclite-dev       \
+                       libusb-1.0-0-dev      \
+                       libssl-dev            \
+                       openjdk-11-jdk-headless \
+                       opensc                \
+                       file                  \
+                       curl                  \
+                       jq                    \
+                       zlib1g-dev
+
+          # ubuntu 24.10 comes with _FORTIFY_SOURCE already set
+          #sed -i 's/add_definitions (-D_FORTIFY_SOURCE=2)/add_definitions (-D_FORTIFY_SOURCE=3)/' cmake/SecurityFlags.cmake
+          
           mkdir build
           cd build
           cmake -DRELEASE_BUILD=1 -DWITHOUT_YKYH=1 ..
+          cmake --build .
+
+      - name: Make Redhat based build
+        working-directory: yubihsm-shell
+        if: ${{ matrix.environment == 'fedora:42' }}
+        run: |
+          yum -y update
+          dnf -y install binutils         \
+                  gcc              \
+                  gcc-c++          \
+                  chrpath          \
+                  cmake            \
+                  gengetopt        \
+                  openssl-devel    \
+                  libedit-devel    \
+                  libcurl-devel    \
+                  rpmdevtools      \
+                  pcsc-lite-devel  \
+                  libusb1-devel    \
+                  help2man         \
+                  zlib-devel       \
+                  java-21-openjdk             \
+                  opensc           \
+                  jq \
+                  openssl \
+                   crypto-policies-scripts
+          
+          # Allows usage of SHA1
+          update-crypto-policies --set LEGACY
+          
+          # Set PCSC flags
+          sed -i 's/#SET(CMAKE_C_FLAGS/SET(CMAKE_C_FLAGS/' ykhsmauth/CMakeLists.txt
+          # Remove SHA-1 tests from the test suite
+          #sed -i 's/openssl dgst -sha1 -verify/#openssl dgst -sha1 -verify/' src/tests/tests.sh
+          
+          mkdir build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release ..
           cmake --build .
 
       - name: prepare ghostunnel
@@ -92,7 +142,14 @@ jobs:
           path: yubihsm_sunpkcs11_tests
 
       - name: run sun pkcs11 tests
+        #env:
+          #DOCKER_IMAGE: ${{ matrix.environment }}
+        if: ${{ matrix.environment == 'ubuntu:24.04' }}
         run: |
+          #if [ "$DOCKER_IMAGE" = "fedora:42" ]; then
+            #export JAVA_HOME="/__t/CodeQL/2.21.3/x64/codeql/tools/linux64/java"
+          #fi
+          # Set the YUBIHSM_PKCS11_MODULE environment variable to the path of the yubihsm_pkcs11.so file
           export YUBIHSM_PKCS11_MODULE="$GITHUB_WORKSPACE/yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so"
           cd yubihsm_sunpkcs11_tests
           echo "connector=$DEFAULT_CONNECTOR_URL" > yubihsm_pkcs11.conf
