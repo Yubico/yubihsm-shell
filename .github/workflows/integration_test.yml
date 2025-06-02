@@ -1,10 +1,9 @@
 name: Run Integration Tests
 
-#on:
-#  schedule:
-#    # Run this every wednesday at 3:40. https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule
-#    - cron: '40 3 * * 3'
-on: [push]
+on:
+  schedule:
+    # Run this every wednesday at 3:40. https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule
+    - cron: '40 3 * * 3'
 
 jobs:
   main:
@@ -47,9 +46,9 @@ jobs:
                        curl                  \
                        jq                    \
                        zlib1g-dev
-          
+
           # ubuntu 24.10 comes with _FORTIFY_SOURCE already set
-          sed -i 's/add_definitions (-D_FORTIFY_SOURCE=2)/add_definitions (-D_FORTIFY_SOURCE=3)/' cmake/SecurityFlags.cmake
+          #sed -i 's/add_definitions (-D_FORTIFY_SOURCE=2)/add_definitions (-D_FORTIFY_SOURCE=3)/' cmake/SecurityFlags.cmake
           
           mkdir build
           cd build
@@ -81,12 +80,13 @@ jobs:
                   openssl \
                    crypto-policies-scripts
           
-          java -version
+          # Allows usage of SHA1
+          update-crypto-policies --set LEGACY
           
           # Set PCSC flags
           sed -i 's/#SET(CMAKE_C_FLAGS/SET(CMAKE_C_FLAGS/' ykhsmauth/CMakeLists.txt
           # Remove SHA-1 tests from the test suite
-          sed -i 's/openssl dgst -sha1 -verify/#openssl dgst -sha1 -verify/' src/tests/tests.sh
+          #sed -i 's/openssl dgst -sha1 -verify/#openssl dgst -sha1 -verify/' src/tests/tests.sh
           
           mkdir build
           cd build
@@ -126,14 +126,7 @@ jobs:
 
       - name: run yubihsm-shell tests
         working-directory: yubihsm-shell/resources/tests/bash
-        env:
-          DOCKER_IMAGE: ${{ matrix.environment }}
-        run: |
-          if [ "$DOCKER_IMAGE" = "fedora:42" ]; then
-            update-crypto-policies --show
-            update-crypto-policies --set LEGACY
-          fi
-          ./cmdline_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
+        run: ./cmdline_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
 
       - name: run pkcs11-tool tests
         working-directory: yubihsm-shell/resources/tests/bash
