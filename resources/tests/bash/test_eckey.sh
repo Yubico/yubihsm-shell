@@ -142,11 +142,16 @@ for i in "${!EC_ALGOS[@]}"; do
   test "$BIN -p password -a delete-object -i $import_key -t opaque" "   Delete template cert"
   test "rm selfsigned_cert.pem" "   Cleaning up"
 
-  echo "Derive ECDH:"
+  echo "=== Derive ECDH:"
   test "openssl ec -in $curve-keypair.pem -pubout -out $curve-pubkey.pem" "   Get imported key public key with OpenSSL"
   test "$BIN -p password -a derive-ecdh -i $genkey --in $curve-pubkey.pem --outformat binary --out $algo-ecdh-shell.key" "   Derive ECDH using yubihsm-shell"
   test "openssl pkeyutl -derive -inkey $curve-keypair.pem -peerkey $algo-gen.pubkey -out $algo-ecdh-openssl.key" "   Derive ECDH using OpenSSL"
   test "cmp $algo-ecdh-openssl.key $algo-ecdh-shell.key" "   Compare ECDH value from yubihsm-shell and OpenSSL"
+
+  echo "=== Make PKCS10 Certificate Signing Request:"
+  test "$BIN -p password -a generate-csr -i $genkey -S /CN=test/ --out csr.pem" "   Generate CSR with yubihsm-shell"
+  test "openssl req -in csr.pem -verify" "   Verify CSR with openssl"
+  test "rm csr.pem" "   Clean up"
 
   echo "=== Clean up:"
   test "$BIN -p password -a delete-object -i $genkey -t asymmetric-key" "   Delete generated key"

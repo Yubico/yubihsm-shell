@@ -90,6 +90,8 @@ int yh_com_generate_symmetric(yubihsm_context *ctx, Argument *argv,
                               cmd_format in_fmt, cmd_format fmt);
 int yh_com_generate_asymmetric(yubihsm_context *ctx, Argument *argv,
                                cmd_format in_fmt, cmd_format fmt);
+int yh_com_generate_csr(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                        cmd_format fmt);
 int yh_com_generate_hmac(yubihsm_context *ctx, Argument *argv,
                          cmd_format in_fmt, cmd_format fmt);
 int yh_com_generate_wrap(yubihsm_context *ctx, Argument *argv,
