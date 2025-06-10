@@ -62,7 +62,7 @@ bool YH_INTERNAL base64_decode(const char *in, uint8_t *out, size_t *len);
 
 bool YH_INTERNAL split_hmac_key(yh_algorithm algorithm, uint8_t *in,
                                 size_t in_len, uint8_t *out, size_t *out_len);
-EVP_PKEY YH_INTERNAL *get_pubkey_evp(uint8_t *pubkey, size_t pubkey_len,
-                         yh_algorithm pubkey_algo);
+bool YH_INTERNAL get_pubkey_evp(uint8_t *pubkey, size_t pubkey_len,
+                         yh_algorithm pubkey_algo, EVP_PKEY **key);
 
 #endif

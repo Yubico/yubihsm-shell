@@ -1082,7 +1082,10 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   }
 
   if (yh_is_rsa(algo) || (yh_is_ec(algo))) {
-    public_key = get_pubkey_evp(response, response_len, algo);
+    if (!get_pubkey_evp(response, response_len, algo, &public_key)) {
+      fprintf(stderr, "Failed to encode public key\n");
+      return -1;
+    }
   } else {
     // NOTE(adma): ED25519, there is (was) no support for this in
     // OpenSSL, so we manually export them
@@ -4192,7 +4195,7 @@ int yh_com_change_authentication_key_asym(yubihsm_context *ctx, Argument *argv,
 int yh_com_generate_csr(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                         cmd_format fmt) {
 
-#if !(OPENSSL_VERSION_NUMBER > 0x10100000L)
+#if !(OPENSSL_VERSION_NUMBER >= 0x10100000L)
   fprintf(stderr,
           "Generating CSR is only supported with OpenSSL 3.0 or higher\n");
   return -1;
@@ -4215,8 +4218,7 @@ int yh_com_generate_csr(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     return -1;
   }
 
-  public_key = get_pubkey_evp(response, response_len, algorithm);
-  if (public_key == NULL) {
+  if (!get_pubkey_evp(response, response_len, algorithm, &public_key)) {
     fprintf(stderr, "Failed to encode public key\n");
     return -1;
   }

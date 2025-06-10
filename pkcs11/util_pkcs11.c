@@ -1862,30 +1862,123 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
   return CKR_OK;
 }
 
-static CK_RV load_public_key(yh_session *session, uint16_t id, uint8_t type,
-                             EVP_PKEY **key) {
+static CK_RV load_public_key(yh_session *session, uint16_t id, uint8_t type, EVP_PKEY **key) {
 
   uint8_t data[1024] = {0};
-  size_t data_len = sizeof(data);
+  size_t data_len = sizeof(data) - 1;
+
+  RSA *rsa = NULL;
+  BIGNUM *e = NULL;
+  BIGNUM *n = NULL;
+  EC_KEY *ec_key = NULL;
+  EC_GROUP *ec_group = NULL;
+  EC_POINT *ec_point = NULL;
   yh_algorithm algo;
 
   yh_rc yrc =
-    yh_util_get_public_key_ex(session, type, id, data, &data_len, &algo);
+    yh_util_get_public_key_ex(session, type, id, data + 1, &data_len, &algo);
   if (yrc != YHR_SUCCESS) {
     return yrc_to_rv(yrc);
   }
 
-  if (!yh_is_rsa(algo) && !yh_is_ec(algo) && !yh_is_ed(algo)) {
-    DBG_ERR("Unsupported key algorithm");
-    return CKR_FUNCTION_FAILED;
-  }
+  if (yh_is_rsa(algo)) {
+    rsa = RSA_new();
+    e = BN_new();
+    if (rsa == NULL || e == NULL) {
+      goto l_p_k_failure;
+    }
 
-  *key = get_pubkey_evp(data + 1, data_len, algo);
-  if (*key == NULL) {
-    return CKR_FUNCTION_FAILED;
+    BN_set_word(e, 0x010001);
+
+    n = BN_bin2bn(data + 1, data_len, NULL);
+    if (n == NULL) {
+      goto l_p_k_failure;
+    }
+
+    if (RSA_set0_key(rsa, n, e, NULL) == 0) {
+      goto l_p_k_failure;
+    }
+
+    n = NULL;
+    e = NULL;
+
+    *key = EVP_PKEY_new();
+    if (*key == NULL) {
+      goto l_p_k_failure;
+    }
+
+    if (EVP_PKEY_assign_RSA(*key, rsa) == 0) {
+      goto l_p_k_failure;
+    }
+  } else if (yh_is_ec(algo)) {
+    ec_key = EC_KEY_new();
+    if (ec_key == NULL) {
+      goto l_p_k_failure;
+    }
+
+    ec_group = EC_GROUP_new_by_curve_name(algo2nid(algo));
+    if (ec_group == NULL) {
+      goto l_p_k_failure;
+    }
+
+    // NOTE: this call is important since it makes it a named curve instead of
+    // encoded parameters
+    EC_GROUP_set_asn1_flag(ec_group, OPENSSL_EC_NAMED_CURVE);
+
+    if (EC_KEY_set_group(ec_key, ec_group) == 0) {
+      goto l_p_k_failure;
+    }
+
+    ec_point = EC_POINT_new(ec_group);
+    if (ec_point == NULL) {
+      goto l_p_k_failure;
+    }
+
+    data[0] = 0x04;
+    data_len++;
+    if (EC_POINT_oct2point(ec_group, ec_point, data, data_len, NULL) == 0) {
+      goto l_p_k_failure;
+    }
+
+    if (EC_KEY_set_public_key(ec_key, ec_point) == 0) {
+      goto l_p_k_failure;
+    }
+
+    *key = EVP_PKEY_new();
+    if (*key == NULL) {
+      goto l_p_k_failure;
+    }
+
+    if (EVP_PKEY_assign_EC_KEY(*key, ec_key) == 0) {
+      goto l_p_k_failure;
+    }
+
+    EC_POINT_free(ec_point);
+    EC_GROUP_free(ec_group);
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
+  } else if (yh_is_ed(algo)) {
+    *key =
+      EVP_PKEY_new_raw_public_key(algo2nid(algo), NULL, data + 1, data_len);
+    if (*key == NULL) {
+      goto l_p_k_failure;
+    }
+#endif
+  } else {
+    DBG_ERR("Unsupported key algorithm");
+    goto l_p_k_failure;
   }
 
   return CKR_OK;
+
+l_p_k_failure:
+  EC_POINT_free(ec_point);
+  EC_GROUP_free(ec_group);
+  EC_KEY_free(ec_key);
+  RSA_free(rsa);
+  BN_free(n);
+  BN_free(e);
+
+  return CKR_FUNCTION_FAILED;
 }
 
 static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
