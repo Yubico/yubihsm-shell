@@ -36,13 +36,13 @@ static char *string_parser(char *str_orig, char delimiter, char *str_found) {
              escape_char)) { // The escape_char before the delimiter is escaped
                              // => the delimiter is still in effect
         str_found[f - 1] = '\0';
-        return ++p;
+        return p + 1;
       } else if (*(p - 1) == escape_char &&
                  *(p - 2) != escape_char) { // the delimiter is escaped
         str_found[f - 1] = delimiter;
       } else {                              // nothing is escaped
         str_found[f] = '\0';
-        return ++p;
+        return p + 1;
       }
     }
   }

@@ -876,9 +876,6 @@ EVP_PKEY *get_pubkey_evp(uint8_t *pubkey, size_t pubkey_len,
       goto rsa_cleanup;
     }
   rsa_cleanup:
-    if(e != NULL) {
-      BN_free(e);
-    }
     RSA_free(rsa);
     if (error) {
       EVP_PKEY_free(public_key);
