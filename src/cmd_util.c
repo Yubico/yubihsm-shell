@@ -15,6 +15,7 @@
 */
 
 #include <openssl/x509.h>
+#include <string.h>
 
 #include "yubihsm-shell.h"
 #include "cmd_util.h"

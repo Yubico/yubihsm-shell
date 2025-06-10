@@ -848,8 +848,7 @@ bool split_hmac_key(yh_algorithm algorithm, uint8_t *in, size_t in_len,
 }
 
 EVP_PKEY *get_pubkey_evp(uint8_t *pubkey, size_t pubkey_len,
-                                yh_algorithm pubkey_algo) {
-
+                         yh_algorithm pubkey_algo) {
   EVP_PKEY *public_key = EVP_PKEY_new();
   if (public_key == NULL) {
     fprintf(stderr, "Failed to create public key\n");
@@ -857,6 +856,7 @@ EVP_PKEY *get_pubkey_evp(uint8_t *pubkey, size_t pubkey_len,
   }
 
   if (yh_is_rsa(pubkey_algo)) {
+    bool error = false;
     RSA *rsa = RSA_new();
     if (rsa == NULL) {
       fprintf(stderr, "Failed to create RSA key\n");
@@ -867,24 +867,29 @@ EVP_PKEY *get_pubkey_evp(uint8_t *pubkey, size_t pubkey_len,
     BN_set_word(e, 0x010001);
     if (RSA_set0_key(rsa, n, e, NULL) != 1) {
       fprintf(stderr, "Failed to set RSA key\n");
-      BN_free(e);
-      BN_free(n);
-      RSA_free(rsa);
-      return NULL;
+      error = true;
+      goto rsa_cleanup;
     }
     if (EVP_PKEY_set1_RSA(public_key, rsa) != 1) {
       fprintf(stderr, "Failed to set RSA key\n");
+      error = true;
+      goto rsa_cleanup;
+    }
+  rsa_cleanup:
+    if(e != NULL) {
       BN_free(e);
-      BN_free(n);
-      RSA_free(rsa);
-      return NULL;
     }
     RSA_free(rsa);
+    if (error) {
+      EVP_PKEY_free(public_key);
+      return NULL;
+    }
   } else if (yh_is_ec(pubkey_algo)) {
     bool error = false;
     EC_KEY *eckey = EC_KEY_new();
     if (eckey == NULL) {
       fprintf(stderr, "Failed to create EC key\n");
+      EVP_PKEY_free(public_key);
       return NULL;
     }
     int nid = algo2nid(pubkey_algo);
@@ -936,6 +941,7 @@ EVP_PKEY *get_pubkey_evp(uint8_t *pubkey, size_t pubkey_len,
       EC_GROUP_free(group);
     }
     if (error) {
+      EVP_PKEY_free(public_key);
       return NULL;
     }
 #if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
@@ -946,6 +952,5 @@ EVP_PKEY *get_pubkey_evp(uint8_t *pubkey, size_t pubkey_len,
   } else {
     public_key = NULL;
   }
-
   return public_key;
 }

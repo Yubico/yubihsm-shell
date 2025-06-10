@@ -499,8 +499,8 @@ jobs:
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
-          apt update
-          apt install -q -y build-essential       \
+          sudo apt update
+          sudo apt install -q -y build-essential       \
                             cmake pkg-config      \
                             gengetopt             \
                             help2man              \
@@ -532,7 +532,7 @@ jobs:
         run: |
           set -x
           mkdir build; cd build
-          PKG_CONFIG_PATH=/home/runner/work/yubico-piv-tool/libressl-3.6.1/build/pkgconfig cmake .. -DVERBOSE_CMAKE=ON
+          PKG_CONFIG_PATH=/home/runner/work/yubihsm-shell/libressl-3.6.1/build/pkgconfig cmake .. -DVERBOSE_CMAKE=ON
 
           ./src/yubihsm-shell --help | grep "Usage: yubihsm-shell"
 
@@ -547,8 +547,8 @@ jobs:
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
-          apt update
-          apt install -q -y build-essential       \
+          sudo apt update
+          sudo apt install -q -y build-essential       \
                             cmake pkg-config      \
                             gengetopt             \
                             help2man              \
