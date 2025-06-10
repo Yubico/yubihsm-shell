@@ -846,3 +846,106 @@ bool split_hmac_key(yh_algorithm algorithm, uint8_t *in, size_t in_len,
 
   return true;
 }
+
+EVP_PKEY *get_pubkey_evp(uint8_t *pubkey, size_t pubkey_len,
+                                yh_algorithm pubkey_algo) {
+
+  EVP_PKEY *public_key = EVP_PKEY_new();
+  if (public_key == NULL) {
+    fprintf(stderr, "Failed to create public key\n");
+    return NULL;
+  }
+
+  if (yh_is_rsa(pubkey_algo)) {
+    RSA *rsa = RSA_new();
+    if (rsa == NULL) {
+      fprintf(stderr, "Failed to create RSA key\n");
+      return NULL;
+    }
+    BIGNUM *e = BN_new();
+    BIGNUM *n = BN_bin2bn(pubkey, pubkey_len, NULL);
+    BN_set_word(e, 0x010001);
+    if (RSA_set0_key(rsa, n, e, NULL) != 1) {
+      fprintf(stderr, "Failed to set RSA key\n");
+      BN_free(e);
+      BN_free(n);
+      RSA_free(rsa);
+      return NULL;
+    }
+    if (EVP_PKEY_set1_RSA(public_key, rsa) != 1) {
+      fprintf(stderr, "Failed to set RSA key\n");
+      BN_free(e);
+      BN_free(n);
+      RSA_free(rsa);
+      return NULL;
+    }
+    RSA_free(rsa);
+  } else if (yh_is_ec(pubkey_algo)) {
+    bool error = false;
+    EC_KEY *eckey = EC_KEY_new();
+    if (eckey == NULL) {
+      fprintf(stderr, "Failed to create EC key\n");
+      return NULL;
+    }
+    int nid = algo2nid(pubkey_algo);
+    EC_POINT *point = NULL;
+    EC_GROUP *group = EC_GROUP_new_by_curve_name(nid);
+    if (group == NULL) {
+      fprintf(stderr, "Failed to create EC group from curve name\n");
+      error = true;
+      goto ec_cleanup;
+    }
+
+    EC_GROUP_set_asn1_flag(group, OPENSSL_EC_NAMED_CURVE);
+    if (EC_KEY_set_group(eckey, group) != 1) {
+      fprintf(stderr, "Failed to set EC group\n");
+      error = true;
+      goto ec_cleanup;
+    }
+    point = EC_POINT_new(group);
+
+    uint8_t ec_pubkey[YH_MSG_BUF_SIZE] = {0};
+    ec_pubkey[0] = 0x04; // hack to make it a valid ec pubkey.
+    memcpy(ec_pubkey + 1, pubkey, pubkey_len);
+
+    if (EC_POINT_oct2point(group, point, ec_pubkey, pubkey_len + 1, NULL) !=
+        1) {
+      fprintf(stderr, "Failed to parse EC point\n");
+      error = true;
+      goto ec_cleanup;
+    }
+
+    if (EC_KEY_set_public_key(eckey, point) != 1) {
+      fprintf(stderr, "Failed to set EC public key\n");
+      error = true;
+      goto ec_cleanup;
+    }
+
+    if (EVP_PKEY_set1_EC_KEY(public_key, eckey) != 1) {
+      fprintf(stderr, "Failed to set EC public key\n");
+      error = true;
+    }
+  ec_cleanup:
+    if (point != NULL) {
+      EC_POINT_free(point);
+    }
+    if (eckey != NULL) {
+      EC_KEY_free(eckey);
+    }
+    if (group != NULL) {
+      EC_GROUP_free(group);
+    }
+    if (error) {
+      return NULL;
+    }
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
+  } else if (pubkey_algo == YH_ALGO_EC_ED25519) {
+    public_key =
+      EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL, pubkey, pubkey_len);
+#endif
+  } else {
+    public_key = NULL;
+  }
+
+  return public_key;
+}

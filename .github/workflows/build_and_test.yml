@@ -487,3 +487,96 @@ jobs:
           if [ -n "$DEFAULT_CONNECTOR_URL" ]; then
             curl -s http://localhost:12345/dispatcher/release?connector=$DEFAULT_CONNECTOR_URL
           fi
+
+  libressl_build:
+    name: Build with LibreSSL
+    runs-on: ubuntu-latest
+    steps:
+      - name: clone the Yubico/yubihsm-shell repository
+        uses: actions/checkout@v4
+
+      - name: install dependencies from package management
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt update
+          apt install -q -y build-essential       \
+                            cmake pkg-config      \
+                            gengetopt             \
+                            help2man              \
+                            libcurl4-openssl-dev  \
+                            libedit-dev           \
+                            libpcsclite-dev       \
+                            libusb-1.0-0-dev      \
+                            libssl-dev            \
+                            file                  \
+                            curl                  \
+                            jq                    \
+                            zlib1g-dev
+
+      - name: Install LibreSSL from source
+        run: |
+          set -x
+          cd ..
+          wget -nv http://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-3.6.1.tar.gz
+          tar -xzf libressl-3.6.1.tar.gz
+          cd libressl-3.6.1
+          mkdir build; cd build
+          cmake ..
+          make
+
+      - name: do build
+        working-directory: yubihsm-shell
+        env:
+          VERBOSE: 1
+        run: |
+          set -x
+          mkdir build; cd build
+          PKG_CONFIG_PATH=/home/runner/work/yubico-piv-tool/libressl-3.6.1/build/pkgconfig cmake .. -DVERBOSE_CMAKE=ON
+
+          ./src/yubihsm-shell --help | grep "Usage: yubihsm-shell"
+
+  openssl_1_1_build:
+    name: Build with OpenSSL 1.1
+    runs-on: ubuntu-latest
+    steps:
+      - name: clone the Yubico/yubihsm-shell repository
+        uses: actions/checkout@v4
+
+      - name: install dependencies from package management
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt update
+          apt install -q -y build-essential       \
+                            cmake pkg-config      \
+                            gengetopt             \
+                            help2man              \
+                            libcurl4-openssl-dev  \
+                            libedit-dev           \
+                            libpcsclite-dev       \
+                            libusb-1.0-0-dev      \
+                            libssl-dev            \
+                            file                  \
+                            curl                  \
+                            jq                    \
+                            zlib1g-dev
+
+      - name: Install OpenSSL 1.1 from source
+        run: |
+          set -x
+          cd ..
+          wget -nv  https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_1_1_1w.tar.gz
+          tar -xzf OpenSSL_1_1_1w.tar.gz
+          cd openssl-OpenSSL_1_1_1w
+          ./Configure linux-x86_64 shared --prefix=/home/runner/work/yubico-piv-tool/openssl
+          sudo make all install VERSION="1.1.1s"
+
+      - name: Build and install
+        run: |
+          set -x
+          mkdir build; cd build
+          cmake .. -DVERBOSE_CMAKE=ON -DOPENSSL_PKG_PATH=/home/runner/work/yubihsm-shell/openssl/lib/pkgconfig
+          make
+
+          ./src/yubihsm-shell --help | grep "Usage: yubihsm-shell"
