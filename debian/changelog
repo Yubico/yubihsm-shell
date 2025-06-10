@@ -1,3 +1,11 @@
+yubihsm-shell (2.7.0) unstable; urgency=medium
+
+    * lib: shell: pkcs11: Add support for compressing X509Certificate before import
+    * shell: Add subcommand to generate certificate signing request (CSR)
+    * test: Increase test coverage
+
+ -- Aveen Ismail <aveen.ismail@yubico.com>  Tue, 10 Jun 2025 10:56:54 +0100
+
 yubihsm-shell (2.6.0) unstable; urgency=medium
 
     * lib: shell: pkcs11: Add support for asymmetric wrap

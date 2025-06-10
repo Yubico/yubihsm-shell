@@ -1,8 +1,14 @@
+=== Version 2.7.0
+
+lib: shell: pkcs11: Add support for compressing X509Certificate before import
+shell: Add subcommand to generate certificate signing request (CSR)
+test: Increase test coverage
+
 === Version 2.6.0
 
 lib: shell: pkcs11: Add support for asymmetric wrap
 pkcs11: Add support for PKCS11 3.0
-cmd: Fix opening a session using credentials stored on a YubiKey
+shell: Fix opening a session using credentials stored on a YubiKey
 build: Always compile with YubiHSM Auth enabled
 
 === Version 2.5.0
