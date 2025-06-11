@@ -27,6 +27,7 @@
 
 #include "hash.h"
 #include "util.h"
+#include "cmd_util.h"
 #include "openssl-compat.h"
 
 #ifdef __WIN32
@@ -43,6 +44,7 @@
 #include <openssl/pem.h>
 #include <openssl/x509.h>
 #include <openssl/bio.h>
+#include <openssl/err.h>
 #include <time.h>
 
 static format_t fmt_to_fmt(cmd_format fmt) {
@@ -1079,87 +1081,9 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
     return -1;
   }
 
-  public_key = EVP_PKEY_new();
-  if (public_key == NULL) {
-    fprintf(stderr, "Failed to create public key\n");
-    return -1;
-  }
-
-  if (yh_is_rsa(algo)) {
-    RSA *rsa = RSA_new();
-    if (rsa == NULL) {
-      fprintf(stderr, "Failed to create RSA key\n");
-      return -1;
-    }
-    BIGNUM *e = BN_new();
-    BIGNUM *n = BN_bin2bn(response, response_len, NULL);
-    BN_set_word(e, 0x010001);
-    if (RSA_set0_key(rsa, n, e, NULL) != 1) {
-      fprintf(stderr, "Failed to set RSA key\n");
-      RSA_free(rsa);
-      return -1;
-    }
-    if (EVP_PKEY_set1_RSA(public_key, rsa) != 1) {
-      fprintf(stderr, "Failed to set RSA key\n");
-      RSA_free(rsa);
-      return -1;
-    }
-    RSA_free(rsa);
-  } else if (yh_is_ec(algo)) {
-    bool error = false;
-    EC_KEY *eckey = EC_KEY_new();
-    if (eckey == NULL) {
-      fprintf(stderr, "Failed to create EC key\n");
-      return -1;
-    }
-    int nid = algo2nid(algo);
-    EC_POINT *point = NULL;
-    EC_GROUP *group = EC_GROUP_new_by_curve_name(nid);
-    if (group == NULL) {
-      fprintf(stderr, "Failed to create EC group from curve name\n");
-      error = true;
-      goto ec_cleanup;
-    }
-
-    EC_GROUP_set_asn1_flag(group, OPENSSL_EC_NAMED_CURVE);
-    if (EC_KEY_set_group(eckey, group) != 1) {
-      fprintf(stderr, "Failed to set EC group\n");
-      error = true;
-      goto ec_cleanup;
-    }
-    point = EC_POINT_new(group);
-
-    memmove(response + 1, response, response_len);
-    response[0] = 0x04; // hack to make it a valid ec pubkey..
-    response_len++;
-
-    if (EC_POINT_oct2point(group, point, response, response_len, NULL) != 1) {
-      fprintf(stderr, "Failed to parse EC point\n");
-      error = true;
-      goto ec_cleanup;
-    }
-
-    if (EC_KEY_set_public_key(eckey, point) != 1) {
-      fprintf(stderr, "Failed to set EC public key\n");
-      error = true;
-      goto ec_cleanup;
-    }
-
-    if (EVP_PKEY_set1_EC_KEY(public_key, eckey) != 1) {
-      fprintf(stderr, "Failed to set EC public key\n");
-      error = true;
-    }
-  ec_cleanup:
-    if (point != NULL) {
-      EC_POINT_free(point);
-    }
-    if (eckey != NULL) {
-      EC_KEY_free(eckey);
-    }
-    if (group != NULL) {
-      EC_GROUP_free(group);
-    }
-    if (error) {
+  if (yh_is_rsa(algo) || (yh_is_ec(algo))) {
+    if (!get_pubkey_evp(response, response_len, algo, &public_key)) {
+      fprintf(stderr, "Failed to encode public key\n");
       return -1;
     }
   } else {
@@ -4259,5 +4183,148 @@ int yh_com_change_authentication_key_asym(yubihsm_context *ctx, Argument *argv,
 
   fprintf(stderr, "Changed Asymmetric Authentication key 0x%04x\n", argv[1].w);
 
+  return 0;
+}
+
+// NOTE: Generate a Certificate Signing Request
+// argc = 3
+// arg 0: e:session
+// arg 1: w:key_id
+// arg 2: s:subject
+// arg 3: f:out_filename
+int yh_com_generate_csr(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
+                        cmd_format fmt) {
+
+#if !(OPENSSL_VERSION_NUMBER >= 0x10100000L)
+  fprintf(stderr,
+          "Generating CSR is only supported with OpenSSL 3.0 or higher\n");
+  return -1;
+#endif
+
+  UNUSED(in_fmt);
+
+  X509_REQ *req = NULL;
+  X509_NAME *name = NULL;
+  EVP_PKEY *public_key = NULL;
+  const EVP_MD *md = NULL;
+  yh_algorithm algorithm;
+
+  uint8_t response[YH_MSG_BUF_SIZE] = {0};
+  size_t response_len = sizeof(response);
+  yh_rc yrc = yh_util_get_public_key(argv[0].e, argv[1].w, response,
+                                     &response_len, &algorithm);
+  if (yrc != YHR_SUCCESS) {
+    fprintf(stderr, "Failed to get public key: %s\n", yh_strerror(yrc));
+    return -1;
+  }
+
+  if (!get_pubkey_evp(response, response_len, algorithm, &public_key)) {
+    fprintf(stderr, "Failed to encode public key\n");
+    return -1;
+  }
+
+  req = X509_REQ_new();
+  if (!req) {
+    fprintf(stderr, "Failed to allocate request structure.\n");
+    goto request_out;
+  }
+
+  if (algorithm != YH_ALGO_EC_ED25519) {
+    md = EVP_sha256();
+    if (md == NULL) {
+      goto request_out;
+    }
+  }
+
+  if (!X509_REQ_set_pubkey(req, public_key)) {
+    fprintf(stderr, "Failed setting the request public key.\n");
+    goto request_out;
+  }
+
+  if (X509_REQ_set_version(req, 0) != 1) {
+    fprintf(stderr, "Failed setting the certificate request version.\n");
+  }
+
+  name = parse_subject_name(argv[2].s);
+  if (!name) {
+    fprintf(stderr, "Failed encoding subject as name.\n");
+    goto request_out;
+  }
+  if (!X509_REQ_set_subject_name(req, name)) {
+    fprintf(stderr, "Failed setting the request subject.\n");
+    goto request_out;
+  }
+
+  if (algorithm == YH_ALGO_EC_ED25519) {
+
+    // Generate a dummy ED25519 to sign with OpenSSL
+    EVP_PKEY *ed_key = NULL;
+    EVP_PKEY_CTX *ed_ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, NULL);
+    EVP_PKEY_keygen_init(ed_ctx);
+    EVP_PKEY_keygen(ed_ctx, &ed_key);
+    EVP_PKEY_CTX_free(ed_ctx);
+
+    // Sign the request object using the dummy key
+    if (X509_REQ_sign(req, ed_key, md) == 0) {
+      fprintf(stderr, "Failed signing certificate.\n");
+      ERR_print_errors_fp(stderr);
+      EVP_PKEY_free(ed_key);
+      goto request_out;
+    }
+    EVP_PKEY_free(ed_key);
+
+    // Extract the request data without the signature
+    unsigned char *tbs_data = NULL;
+    int tbs_len = i2d_re_X509_REQ_tbs(req, &tbs_data);
+
+    // Sign the request data using the YubiKey
+    unsigned char yh_sig[64] = {0};
+    size_t yh_siglen = sizeof(yh_sig);
+
+    yrc = yh_util_sign_eddsa(argv[0].e, argv[1].w, tbs_data, tbs_len, yh_sig,
+                             &yh_siglen);
+    if (yrc != YHR_SUCCESS) {
+      fprintf(stderr, "Failed signing tbs request portion: %s\n",
+              yh_strerror(yrc));
+      goto request_out;
+    }
+
+    // Replace the dummy signature with the signature from the yubikey
+    ASN1_BIT_STRING *psig;
+    const X509_ALGOR *palg;
+    X509_REQ_get0_signature(req, (const ASN1_BIT_STRING **) &psig, &palg);
+    ASN1_BIT_STRING_set(psig, yh_sig, yh_siglen);
+
+  } else {
+    /* With opaque structures we can not touch whatever we want, but we need
+     * to embed the sign_data function in the RSA/EC key structures  */
+    EVP_PKEY *sk = wrap_public_key(argv[0].e, algorithm, public_key, argv[1].w);
+
+    if (X509_REQ_sign(req, sk, md) == 0) {
+      fprintf(stderr, "Failed signing request.\n");
+      ERR_print_errors_fp(stderr);
+      EVP_PKEY_free(sk);
+      goto request_out;
+    }
+    EVP_PKEY_free(sk);
+  }
+
+  if (fmt == fmt_PEM) {
+    if (PEM_write_X509_REQ(ctx->out, req) != 1) {
+      fprintf(stderr, "Failed writing certificate request\n");
+      ERR_print_errors_fp(stderr);
+    }
+  } else {
+    fprintf(stderr, "Only PEM support available for certificate requests.\n");
+  }
+
+request_out:
+  EVP_PKEY_free(public_key);
+  if (req != NULL) {
+    X509_REQ_free(req);
+  }
+  if (name != NULL) {
+    X509_NAME_free(name);
+  }
   return 0;
 }

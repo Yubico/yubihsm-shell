@@ -846,3 +846,114 @@ bool split_hmac_key(yh_algorithm algorithm, uint8_t *in, size_t in_len,
 
   return true;
 }
+
+bool get_pubkey_evp(uint8_t *pubkey, size_t pubkey_len,
+                    yh_algorithm pubkey_algo, EVP_PKEY **key) {
+
+  RSA *rsa = NULL;
+  BIGNUM *e = NULL;
+  BIGNUM *n = NULL;
+  EC_KEY *ec_key = NULL;
+  EC_GROUP *ec_group = NULL;
+  EC_POINT *ec_point = NULL;
+
+  if (yh_is_rsa(pubkey_algo)) {
+    rsa = RSA_new();
+    e = BN_new();
+    if (rsa == NULL || e == NULL) {
+      goto l_p_k_failure;
+    }
+
+    BN_set_word(e, 0x010001);
+
+    n = BN_bin2bn(pubkey, pubkey_len, NULL);
+    if (n == NULL) {
+      goto l_p_k_failure;
+    }
+
+    if (RSA_set0_key(rsa, n, e, NULL) == 0) {
+      goto l_p_k_failure;
+    }
+
+    n = NULL;
+    e = NULL;
+
+    *key = EVP_PKEY_new();
+    if (*key == NULL) {
+      goto l_p_k_failure;
+    }
+
+    if (EVP_PKEY_assign_RSA(*key, rsa) == 0) {
+      goto l_p_k_failure;
+    }
+  } else if (yh_is_ec(pubkey_algo)) {
+    ec_key = EC_KEY_new();
+    if (ec_key == NULL) {
+      goto l_p_k_failure;
+    }
+
+    ec_group = EC_GROUP_new_by_curve_name(algo2nid(pubkey_algo));
+    if (ec_group == NULL) {
+      goto l_p_k_failure;
+    }
+
+    // NOTE: this call is important since it makes it a named curve instead of
+    // encoded parameters
+    EC_GROUP_set_asn1_flag(ec_group, OPENSSL_EC_NAMED_CURVE);
+
+    if (EC_KEY_set_group(ec_key, ec_group) == 0) {
+      goto l_p_k_failure;
+    }
+
+    ec_point = EC_POINT_new(ec_group);
+    if (ec_point == NULL) {
+      goto l_p_k_failure;
+    }
+
+    uint8_t ec_pubkey[YH_MSG_BUF_SIZE] = {0};
+    ec_pubkey[0] = 0x04; // hack to make it a valid ec pubkey.
+    memcpy(ec_pubkey + 1, pubkey, pubkey_len);
+    if (EC_POINT_oct2point(ec_group, ec_point, ec_pubkey, pubkey_len + 1,
+                           NULL) == 0) {
+      goto l_p_k_failure;
+    }
+
+    if (EC_KEY_set_public_key(ec_key, ec_point) == 0) {
+      goto l_p_k_failure;
+    }
+
+    *key = EVP_PKEY_new();
+    if (*key == NULL) {
+      goto l_p_k_failure;
+    }
+
+    if (EVP_PKEY_assign_EC_KEY(*key, ec_key) == 0) {
+      goto l_p_k_failure;
+    }
+
+    EC_POINT_free(ec_point);
+    EC_GROUP_free(ec_group);
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
+  } else if (yh_is_ed(pubkey_algo)) {
+    *key = EVP_PKEY_new_raw_public_key(algo2nid(pubkey_algo), NULL, pubkey,
+                                       pubkey_len);
+    if (*key == NULL) {
+      goto l_p_k_failure;
+    }
+#endif
+  } else {
+    goto l_p_k_failure;
+  }
+
+  return true;
+
+l_p_k_failure:
+  EC_POINT_free(ec_point);
+  EC_GROUP_free(ec_group);
+  EC_KEY_free(ec_key);
+  RSA_free(rsa);
+  BN_free(n);
+  BN_free(e);
+
+  return false;
+}

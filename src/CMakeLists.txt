@@ -21,6 +21,7 @@ set (
   SOURCE
   commands.c
   main.c
+  cmd_util.c
   ../common/util.c
   ../common/hash.c
   ../common/parsing.c

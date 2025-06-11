@@ -167,6 +167,13 @@ for k in ${RSA_KEYSIZE[@]}; do
   test "cmp data.txt data.dec" "   Compare decrypted data with plain text data"
   test "rm data.dec" "   Clean up"
 
+  echo "=== Make PKCS10 Certificate Signing Request:"
+  test "openssl req -new -key rsa$k-keypair.pem -subj /CN=test -out csr-ossl.pem" "   Generate CSR with OpenSSL"
+  test "$BIN -p password -a generate-csr -i $import_keyid -S /CN=test/ --out csr.pem" "   Generate CSR with yubihsm-shell"
+  test "openssl req -in csr.pem -verify" "   Verify CSR with openssl"
+  test "cmp csr-ossl.pem csr.pem" "   Compare CSRs generated with openssl and yubihsm-shell"
+  test "rm csr.pem csr-ossl.pem" "   Clean up"
+
   echo "=== Clean up:"
   test "$BIN -p password -a delete-object -i $keyid -t asymmetric-key" "   Delete generated key"
   test "$BIN -p password -a delete-object -i $import_keyid -t asymmetric-key" "   Delete imported key"

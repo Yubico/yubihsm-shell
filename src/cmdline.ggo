@@ -29,6 +29,7 @@ option "action" a "Action to perform" values="benchmark",
                                              "encrypt-aescbc",
                                              "encrypt-aesecb",
                                              "generate-asymmetric-key",
+                                             "generate-csr",
                                              "generate-hmac-key",
                                              "generate-otp-aead-key",
                                              "generate-wrap-key",
@@ -98,6 +99,7 @@ option "log-index" - "Log index" int optional
 option "opt-name" - "Device option name" string optional
 option "opt-value" - "Device option value" string optional
 option "with-compression" - "Compress a X509Certificate before importing it into the device or detect compressed certificates when listing objects" flag off
+option "subject" S "The subject to use for certificate request. The subject must be written as: /CN=host.example.com/OU=test/O=example.com/" string optional
 
 option "in" - "Input data (filename)" string optional default="-"
 option "out" - "Output data (filename)" string optional default="-"
