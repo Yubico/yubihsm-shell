@@ -1,6 +1,6 @@
-if($args.length -lt 2)
+if($args.length -lt 3)
 {
-    echo "Usage: ./make_release_binaries.ps1 <Win32|x64> <VCPKG_PATH>"
+    echo "Usage: ./make_release_binaries.ps1 <Win32|x64> <VCPKG_PATH> <SOURCE_DIR>"
     echo ""
     echo "This is a script to build an MSI installer for yubihsm"
     echo ""
@@ -8,11 +8,13 @@ if($args.length -lt 2)
     echo "   x64                    builds using X64 architecture by adding '-A x64' argument to the cmake command"
     echo ""
     echo "   VCPKG_PATH             Absolute path to the directory where vcpkg.exe is located"
+    echo "   SOURCE_DIR             Absolute path to the directory where the yubihsm-shell source code is located"
     exit
 }
 
 $CMAKE_ARCH=$args[0]
 $VCPKG_PATH=$args[1]
+$SOURCE_DIR=$args[2]
 
 if($CMAKE_ARCH -eq "Win32") {
     $ARCH="x86"
@@ -21,7 +23,6 @@ if($CMAKE_ARCH -eq "Win32") {
 }
 
 $WIN_DIR = "$PSScriptRoot"
-$SOURCE_DIR="$PSScriptRoot/../../.."
 $BUILD_DIR="$WIN_DIR/build_release"
 $RELEASE_DIR="$WIN_DIR/yubihsm-shell-$ARCH"
 $LICENSES_DIR="$RELEASE_DIR/licenses"

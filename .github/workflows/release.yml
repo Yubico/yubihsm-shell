@@ -21,10 +21,10 @@ jobs:
       - name: Create tar.gz
         run: |
           set -x
-          ./resources/make_src_dist.sh $VERSION
-          cd ..
           mkdir $GITHUB_WORKSPACE/artifact
-          mv $GITHUB_WORKSPACE/yubihsm-shell-$VERSION.tar.gz $GITHUB_WORKSPACE/artifact/
+          ./resources/release/make_src_dist.sh $VERSION
+          mv yubihsm-shell-$VERSION.tar.gz $GITHUB_WORKSPACE/artifact/
+          cp -r resources/release $GITHUB_WORKSPACE/artifact/
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -61,20 +61,19 @@ jobs:
           ARCH: ${{ matrix.arch }}
         run: |
           Set-PSDebug -Trace 1
-          $YHSHELL_SRC_DIR="$env:GITHUB_WORKSPACE\yubihsm-shell-$env:VERSION"
 
-          cd $YHSHELL_SRC_DIR/resources/release/win
+          cd $env:GITHUB_WORKSPACE/release/win
           if($env:ARCH -eq "x86")
           {
-            ./make_release_binaries.ps1 Win32 C:/vcpkg
+            ./make_release_binaries.ps1 Win32 C:/vcpkg $env:GITHUB_WORKSPACE\yubihsm-shell-$env:VERSION
           }
           else
           {
-            ./make_release_binaries.ps1 x64 C:/vcpkg
+            ./make_release_binaries.ps1 x64 C:/vcpkg $env:GITHUB_WORKSPACE\yubihsm-shell-$env:VERSION
           }
 
           mkdir $env:GITHUB_WORKSPACE/artifact
-          cp -r $YHSHELL_SRC_DIR/resources/release/win/yubihsm-shell-$env:ARCH $env:GITHUB_WORKSPACE/artifact/
+          cp -r $env:GITHUB_WORKSPACE/release/win/yubihsm-shell-$env:ARCH $env:GITHUB_WORKSPACE/artifact/
 
 
       - name: Upload artifact
@@ -121,16 +120,14 @@ jobs:
         run: |
           set -e -o pipefail
           set -x
-          
           uname -a
                     
-          YHSHELL_SRC_DIR="$GITHUB_WORKSPACE/yubihsm-shell-$VERSION"
-
-          cd $YHSHELL_SRC_DIR
-          ./resources/release/macos/make_release_binaries.sh $ARCH $VERSION $SO_VERSION
+          cd $GITHUB_WORKSPACE/release/macos
+          chmod +x make_release_binaries.sh
+          ./make_release_binaries.sh $ARCH $VERSION $SO_VERSION $GITHUB_WORKSPACE/yubihsm-shell-$VERSION
 
           mkdir $GITHUB_WORKSPACE/artifact
-          cp -r $YHSHELL_SRC_DIR/resources/release/macos/yubihsm-shell-darwin-$ARCH-$VERSION $GITHUB_WORKSPACE/artifact/
+          cp -r $GITHUB_WORKSPACE/release/macos/yubihsm-shell-darwin-$ARCH-$VERSION $GITHUB_WORKSPACE/artifact/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -151,8 +148,7 @@ jobs:
             "debian:12",
             "debian:11",
         ]
-        # perform gcc builds for all environments
-        cc: [ "gcc" ]
+        version: [ "2.7.0" ]
 
     name: build on ${{ matrix.environment }}
     runs-on: ubuntu-latest
@@ -162,7 +158,6 @@ jobs:
 
       - name: install dependencies from package management
         env:
-          CC: ${{ matrix.cc }}
           DEBIAN_FRONTEND: noninteractive
         run: |
           export DEBIAN_FRONTEND=noninteractive
@@ -235,6 +230,7 @@ jobs:
         working-directory: yubihsm-shell
         env:
           PLATFORM: ${{ env.PLATFORM }}
+          VERSION: ${{ matrix.version }}
         run: |
           set -x
 
@@ -260,7 +256,7 @@ jobs:
 
           cd $OUTPUT
           rm -f yubihsm-shell-$PLATFORM-amd64.tar.gz
-          tar -C .. -zcvf ../yubihsm-shell-$PLATFORM-amd64.tar.gz yubihsm-shell
+          tar -C .. -zcvf ../yubihsm-shell-$VERSION-$PLATFORM-amd64.tar.gz yubihsm-shell
           rm -f *.deb
           rm -rf licenses
           rm -rf ../yubihsm-shell
@@ -298,6 +294,7 @@ jobs:
             "fedora:42",
             "fedora:41",
         ]
+        version: [ "2.7.0" ]
 
     name: build on ${{ matrix.environment }}
     runs-on: ubuntu-latest
@@ -355,6 +352,7 @@ jobs:
         working-directory: yubihsm-shell
         env:
           PLATFORM: ${{ env.PLATFORM }}
+          VERSION: ${{ matrix.version }}
         run: |
           uname -a
           
@@ -384,7 +382,7 @@ jobs:
 
           cd $OUTPUT
           rm -f "yubihsm-shell-$PLATFORM-amd64.tar.gz"
-          tar -C ".." -zcvf "../yubihsm-shell-$PLATFORM-amd64.tar.gz" "yubihsm-shell"
+          tar -C ".." -zcvf "../yubihsm-shell-$VERSION-$PLATFORM-amd64.tar.gz" "yubihsm-shell"
           rm -f *.rpm
           rm -rf licenses
           rm -rf ../yubihsm-shell

@@ -13,6 +13,8 @@ set +e
 set -x
 
 tar --exclude README                  \
+    --exclude resources/release       \
+    --exclude resources/fuzzing       \
     --exclude .git                    \
     --exclude .github                 \
     --exclude .gitignore              \
