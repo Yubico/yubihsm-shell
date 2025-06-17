@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<installer-gui-script minSpecVersion="1">
+    <title>yubihsm-shell</title>
+<!--    <readme file="README.html" mime-type="text/html"/> -->
+    <license file="license.html" mime-type="text/html" />
+    <pkg-ref id="com.yubico.yubihsm-shell"/>
+    <options hostArchitectures="x86_64,arm64" customize="never" require-scripts="false"/>
+    <choices-outline>
+        <line choice="default">
+            <line choice="com.yubico.yubihsm-shell"/>
+        </line>
+    </choices-outline>
+    <choice id="default"/>
+    <choice id="com.yubico.yubihsm-shell" visible="false">
+        <pkg-ref id="com.yubico.yubihsm-shell"/>
+    </choice>
+    <pkg-ref id="com.yubico.yubihsm-shell" version="0" onConclusion="none">yubihsm-shell.pkg</pkg-ref>
+</installer-gui-script>

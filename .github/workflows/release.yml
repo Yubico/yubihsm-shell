@@ -96,7 +96,6 @@ jobs:
             arch: arm
     env:
       VERSION: 2.7.0
-      SO_VERSION: 2
     steps:
       - name: Download source from source job
         uses: actions/download-artifact@v4
@@ -114,7 +113,7 @@ jobs:
           brew install cmake pkg-config gengetopt help2man zlib
           brew reinstall openssl@3
 
-      - name: Build and make MSI installer
+      - name: Build and make PKG installer
         env:
           ARCH: ${{ matrix.arch }}
         run: |
@@ -122,12 +121,14 @@ jobs:
           set -x
           uname -a
                     
-          cd $GITHUB_WORKSPACE/release/macos
+          cd $GITHUB_WORKSPACE/release/macos/shell
           chmod +x make_release_binaries.sh
-          ./make_release_binaries.sh $ARCH $VERSION $SO_VERSION $GITHUB_WORKSPACE/yubihsm-shell-$VERSION
+          ./make_release_binaries.sh $ARCH $VERSION $GITHUB_WORKSPACE/yubihsm-shell-$VERSION
+          chmod +x check_hardening.sh
+          ./check_hardening.sh "yubihsm-shell-darwin-$ARCH-$VERSION/usr/local/bin/yubihsm-shell"
 
           mkdir $GITHUB_WORKSPACE/artifact
-          cp -r $GITHUB_WORKSPACE/release/macos/yubihsm-shell-darwin-$ARCH-$VERSION $GITHUB_WORKSPACE/artifact/
+          cp -r $GITHUB_WORKSPACE/release/macos/shell/yubihsm-shell-darwin-$ARCH-$VERSION $GITHUB_WORKSPACE/artifact/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -152,6 +153,7 @@ jobs:
 
     name: build on ${{ matrix.environment }}
     runs-on: ubuntu-latest
+    needs: source
     container: ${{ matrix.environment }}
 
     steps:
@@ -184,10 +186,18 @@ jobs:
                                   jq                   \
                                   zlib1g-dev 
 
-      - name: clone the Yubico/yubihsm-shell repository
-        uses: actions/checkout@v4
+      - name: Download source from source job
+        uses: actions/download-artifact@v4
         with:
-          path: yubihsm-shell
+          name: yubihsm-shell-src
+
+      - name: Extract source
+        env:
+          VERSION: ${{ matrix.version }}
+        run: |
+          set -x
+          tar xf yubihsm-shell-$VERSION.tar.gz
+          mv yubihsm-shell-$VERSION yubihsm-shell
 
       - name: apply environment specific changes to CMakeLists.txt
         working-directory: yubihsm-shell
@@ -249,7 +259,7 @@ jobs:
 
           LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
           mkdir -p $LICENSE_DIR
-          cp -r $GITHUB_WORKSPACE/yubihsm-shell/resources/release/linux/licenses $LICENSE_DIR/
+          cp -r $GITHUB_WORKSPACE/release/linux/licenses $LICENSE_DIR/
           for lf in $LICENSE_DIR/licenses/*; do
             chmod 644 $lf
           done
@@ -298,14 +308,23 @@ jobs:
 
     name: build on ${{ matrix.environment }}
     runs-on: ubuntu-latest
+    needs: source
     container: ${{ matrix.environment }}
 
     steps:
 
-      - name: clone the Yubico/yubihsm-shell repository
-        uses: actions/checkout@v4
+      - name: Download source from source job
+        uses: actions/download-artifact@v4
         with:
-          path: yubihsm-shell
+          name: yubihsm-shell-src
+
+      - name: Extract source
+        env:
+          VERSION: ${{ matrix.version }}
+        run: |
+          set -x
+          tar xf yubihsm-shell-$VERSION.tar.gz
+          mv yubihsm-shell-$VERSION yubihsm-shell
 
       - name: apply environment specific changes to CMakeLists.txt
         working-directory: yubihsm-shell
@@ -339,7 +358,8 @@ jobs:
         env:
           PLATFORM: ${{ env.PLATFORM }}
         run: |
-          cd yubihsm-shell/resources/release/linux
+          cd $GITHUB_WORKSPACE/release/linux
+          chmod +x install_redhat_dependencies.sh 
           ./install_redhat_dependencies.sh $PLATFORM
 
           if [ $PLATFORM = "centos7" ]; then
@@ -368,14 +388,14 @@ jobs:
 
           RPM_DIR=$GITHUB_WORKSPACE/rpmbuild
 
-          cp resources/release/linux/yubihsm-shell.spec $RPM_DIR/SPECS/
+          cp $GITHUB_WORKSPACE/release/linux/yubihsm-shell.spec $RPM_DIR/SPECS/
 
           QA_SKIP_BUILD_ROOT=1 QA_RPATHS=$(( 0x0001|0x0010 )) rpmbuild -bb $RPM_DIR/SPECS/yubihsm-shell.spec
           cp /github/home/rpmbuild/RPMS/x86_64/*.rpm $OUTPUT/
 
           LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
           mkdir -p $LICENSE_DIR
-          cp -r $INPUT/resources/release/linux/licenses $LICENSE_DIR/
+          cp -r $GITHUB_WORKSPACE/release/linux/licenses $LICENSE_DIR/
           for lf in $LICENSE_DIR/licenses/*; do
            chmod 644 $lf
           done

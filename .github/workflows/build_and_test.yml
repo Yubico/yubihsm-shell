@@ -354,7 +354,7 @@ jobs:
       - name: check binaries for hardening
         working-directory: yubihsm-shell
         run: |
-          ./resources/release/macos/check_hardening.sh "build/src/yubihsm-shell"
+          ./resources/release/macos/shell/check_hardening.sh "build/src/yubihsm-shell"
 
   test:
     strategy:
