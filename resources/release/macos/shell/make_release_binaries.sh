@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
+if [ "$#" -ne 3 ]; then
+    echo "This script builds release binaries for MacOS. Output files will be found in the directory this script is running from."
+    echo ""
+    echo "      Usage: ./make_release_binaries.sh <amd|arm> <RELEASE VERSION> <SOURCECODE DIRECTORY>"
+    echo "";
+    exit 0
+fi
+
 set -e -o pipefail
 set -x
 
 ARCH=$1 # amd or arm
 VERSION=$2 # Full yubico-piv-tool version, tex 2.1.0
-SO_VERSION=$3
-SOURCE_DIR=$4 # Path to the source tarball, e.g. yubihsm-shell-2.1.0.tar.gz
+SOURCE_DIR=$3 # Path to the source tarball, e.g. yubihsm-shell-2.1.0.tar.gz
 
 if [ "$ARCH" == "amd" ]; then
   BREW_LIB="/usr/local/opt"
