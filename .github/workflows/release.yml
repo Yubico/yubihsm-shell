@@ -92,7 +92,7 @@ jobs:
         include:
           - os: macos-latest-large
             arch: amd
-          - os: macos-latest-xlarge
+          - os: macos-latest
             arch: arm
     env:
       VERSION: 2.7.0
