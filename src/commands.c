@@ -1314,7 +1314,7 @@ int yh_com_get_object_info(yubihsm_context *ctx, Argument *argv,
       fprintf(ctx->out, "%s%s", cap[i], i < n_cap - 1 ? ":" : "");
     }
   }
-  if (object.type == YH_WRAP_KEY || object.type == YH_AUTHENTICATION_KEY) {
+  if (object.type == YH_WRAP_KEY || object.type == YH_PUBLIC_WRAP_KEY || object.type == YH_AUTHENTICATION_KEY) {
     fprintf(ctx->out, ", delegated_capabilities: ");
     n_cap = sizeof(yh_capability) / sizeof(yh_capability[0]);
     if (yh_capabilities_to_strings(&object.delegated_capabilities, cap,
