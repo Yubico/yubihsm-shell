@@ -73,7 +73,7 @@ option "action" a "Action to perform" values="benchmark",
                                              "sign-pss",
                                              "sign-ssh-certificate" enum optional multiple
 option "password" p "Authentication password" string optional
-option "authkey" - "Authentication key" int optional default="1"
+option "authkey" - "Authentication key" short optional default="1"
 option "object-id" i "Object ID" short optional default="0"
 option "label" l "Object label" string optional default=""
 option "domains" d "Object domains" string optional default="1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16"
@@ -91,10 +91,10 @@ option "nonce" - "OTP nonce" int optional
 option "iv" - "An initialization vector as a hexadecimal string" string optional
 option "count" - "Number of bytes to request" int optional default="256"
 option "duration" - "Blink duration in seconds" int optional default="10"
-option "wrap-id" - "Wrap key ID" int optional
+option "wrap-id" - "Wrap key ID" short optional
 option "include-seed" - "Include seed when exporting an ED25519 key under wrap" flag off
-option "template-id" - "Template ID" int optional
-option "attestation-id" - "Attestation ID" int optional
+option "template-id" - "Template ID" short optional
+option "attestation-id" - "Attestation ID" short optional
 option "log-index" - "Log index" int optional
 option "opt-name" - "Device option name" string optional
 option "opt-value" - "Device option value" string optional
