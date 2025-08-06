@@ -4048,13 +4048,15 @@ CK_RV get_session(yubihsm_pkcs11_context *ctx, CK_SESSION_HANDLE hSession,
   CK_RV rv = CKR_SESSION_HANDLE_INVALID;
   if (session_state == SESSION_AUTHENTICATED) {
     rv = CKR_USER_NOT_LOGGED_IN;
-    DBG_ERR("Session user not logged in");
+    DBG_ERR("Session %d user not logged in", session_id);
   } else if (session_state == SESSION_AUTHENTICATED_RW) {
     rv = CKR_SESSION_READ_ONLY;
-    DBG_ERR("Session read only");
+    DBG_ERR("Session %d read only", session_id);
   } else if (session_state == SESSION_NOT_AUTHENTICATED) {
     rv = CKR_USER_ALREADY_LOGGED_IN;
-    DBG_ERR("Session user already logged in");
+    DBG_ERR("Session %d user already logged in", session_id);
+  } else {
+    DBG_ERR("Session %d invalid state %d (requested %d)", session_id, state, session_state);
   }
 
   release_slot(ctx, slot);
