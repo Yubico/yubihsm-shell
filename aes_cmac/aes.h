@@ -31,6 +31,7 @@
 #include <ntstatus.h>
 #else
 #include <openssl/evp.h>
+#include <openssl/err.h>
 #endif
 
 #ifndef AES_BLOCK_SIZE // Defined in openssl/aes.h
