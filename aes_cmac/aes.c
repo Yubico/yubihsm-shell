@@ -15,6 +15,7 @@
  */
 
 #include "aes.h"
+#include "debug_lib.h"
 #include "../common/insecure_memzero.h"
 
 #include <string.h>
@@ -196,24 +197,42 @@ static const EVP_CIPHER *aes_cbc(uint16_t key_len) {
   }
 }
 
+static int ossl_err_cb(const char *str, size_t len, void *u) {
+  (void)len;
+  (void)u;
+  DBG_ERR("%s %s", (const char*)u, str);
+  return 1;
+}
+
+static void DBG_OSSL(const char *str) {
+  DBG_ERR("%s: OpenSSL error stack begin", str);
+  ERR_print_errors_cb(ossl_err_cb, (void*)str);
+  DBG_ERR("%s: OpenSSL error stack end", str);
+}
+
 static int aes_encrypt_ex(const EVP_CIPHER *cipher, const uint8_t *in,
                           uint8_t *out, uint16_t len, const uint8_t *iv,
                           aes_context *ctx) {
   if (EVP_EncryptInit_ex(ctx->ctx, cipher, NULL, ctx->key, iv) != 1) {
+    DBG_OSSL("aes_encrypt_ex EVP_EncryptInit_ex");
     return -1;
   }
   if (EVP_CIPHER_CTX_set_padding(ctx->ctx, 0) != 1) {
+    DBG_OSSL("aes_encrypt_ex EVP_CIPHER_CTX_set_padding");
     return -2;
   }
   int update_len = len;
   if (EVP_EncryptUpdate(ctx->ctx, out, &update_len, in, len) != 1) {
+    DBG_OSSL("aes_encrypt_ex EVP_EncryptUpdate");
     return -3;
   }
   int final_len = len - update_len;
   if (EVP_EncryptFinal_ex(ctx->ctx, out + update_len, &final_len) != 1) {
+    DBG_OSSL("aes_encrypt_ex EVP_EncryptFinal_ex");
     return -4;
   }
   if (update_len + final_len != len) {
+    DBG_ERR("update_len + final_len != len");
     return -5;
   }
   return 0;
@@ -223,20 +242,25 @@ static int aes_decrypt_ex(const EVP_CIPHER *cipher, const uint8_t *in,
                           uint8_t *out, uint16_t len, const uint8_t *iv,
                           aes_context *ctx) {
   if (EVP_DecryptInit_ex(ctx->ctx, cipher, NULL, ctx->key, iv) != 1) {
+    DBG_OSSL("aes_encrypt_ex EVP_EncryptInit_ex");
     return -1;
   }
   if (EVP_CIPHER_CTX_set_padding(ctx->ctx, 0) != 1) {
+    DBG_OSSL("aes_decrypt_ex EVP_CIPHER_CTX_set_padding");
     return -2;
   }
   int update_len = len;
   if (EVP_DecryptUpdate(ctx->ctx, out, &update_len, in, len) != 1) {
+    DBG_OSSL("aes_decrypt_ex EVP_EncryptUpdate");
     return -3;
   }
   int final_len = len - update_len;
   if (EVP_DecryptFinal_ex(ctx->ctx, out + update_len, &final_len) != 1) {
+    DBG_OSSL("aes_decrypt_ex EVP_EncryptFinal_ex");
     return -4;
   }
   if (update_len + final_len != len) {
+    DBG_ERR("update_len + final_len != len");
     return -5;
   }
   return 0;
@@ -272,6 +296,7 @@ int aes_set_key(const uint8_t *key, uint16_t key_len, aes_context *ctx) {
   if (!ctx->ctx) {
     ctx->ctx = EVP_CIPHER_CTX_new();
     if (!ctx->ctx) {
+      DBG_OSSL("aes_set_key EVP_CIPHER_CTX_new");
       return -2;
     }
   }
@@ -302,6 +327,7 @@ int aes_load_key(const char *key, aes_context *ctx) {
   if (!ctx->ctx) {
     ctx->ctx = EVP_CIPHER_CTX_new();
     if (!ctx->ctx) {
+      DBG_OSSL("aes_load_key EVP_CIPHER_CTX_new");
       return -2;
     }
   }
