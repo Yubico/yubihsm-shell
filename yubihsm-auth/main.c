@@ -28,6 +28,9 @@
 
 #include "cmdline.h"
 
+uint8_t _yh_verbosity = 0xff;
+FILE *_yh_output;
+
 static bool parse_label(const char *prompt, char *label, char *parsed,
                         size_t *parsed_len) {
   if (strlen(label) > *parsed_len) {
