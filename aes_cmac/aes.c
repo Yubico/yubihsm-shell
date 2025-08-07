@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include "aes.h"
-#include "debug_lib.h"
-#include "../common/insecure_memzero.h"
-
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
+
+#include "aes.h"
+#include "debug_lib.h"
+#include "../common/insecure_memzero.h"
 
 #ifdef _WIN32_BCRYPT
 #include <ntstatus.h>
