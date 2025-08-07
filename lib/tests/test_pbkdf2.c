@@ -20,8 +20,12 @@
 #endif
 #include <assert.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "../../common/pkcs5.h"
+
+uint8_t _yh_verbosity = 0xff;
+FILE *_yh_output;
 
 static void test_pbkdf2_vectors(void) {
   struct vector {
