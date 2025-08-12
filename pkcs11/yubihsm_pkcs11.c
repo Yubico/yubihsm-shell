@@ -73,10 +73,12 @@
   } while (0)
 
 static const CK_FUNCTION_LIST function_list;
-static const CK_FUNCTION_LIST_3_0 function_list_3;
+static const CK_FUNCTION_LIST_3_0 function_list_3_0;
+static const CK_FUNCTION_LIST_3_2 function_list_3_2;
 
 static const CK_INTERFACE interfaces_list[] =
-  {{(CK_CHAR_PTR) "PKCS 11", (CK_VOID_PTR) &function_list_3, 0},
+  {{(CK_CHAR_PTR) "PKCS 11", (CK_VOID_PTR) &function_list_3_2, 0},
+   {(CK_CHAR_PTR) "PKCS 11", (CK_VOID_PTR) &function_list_3_0, 0},
    {(CK_CHAR_PTR) "PKCS 11", (CK_VOID_PTR) &function_list, 0}};
 
 static bool g_yh_initialized = false;
@@ -484,7 +486,17 @@ static CK_RV C_GetInfo_3_0(CK_INFO_PTR pInfo) {
 
   DIN;
 
-  CK_RV rv = C_GetInfo_Ex(pInfo, function_list_3.version);
+  CK_RV rv = C_GetInfo_Ex(pInfo, function_list_3_0.version);
+
+  DOUT;
+  return rv;
+}
+
+static CK_RV C_GetInfo_3_2(CK_INFO_PTR pInfo) {
+
+  DIN;
+
+  CK_RV rv = C_GetInfo_Ex(pInfo, function_list_3_2.version);
 
   DOUT;
   return rv;
@@ -6739,6 +6751,223 @@ CK_DEFINE_FUNCTION(CK_RV, C_MessageVerifyFinal)
   return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
+CK_DEFINE_FUNCTION(CK_RV, C_EncapsulateKey)
+(
+  CK_SESSION_HANDLE hSession,    /* the session's handle */
+  CK_MECHANISM_PTR pMechanism,   /* the encapsulation mechanism */
+  CK_OBJECT_HANDLE hPublicKey,   /* the encapsulating key */
+  CK_ATTRIBUTE_PTR pTemplate,    /* new key template */
+  CK_ULONG ulAttributeCount,     /* template length */
+  CK_BYTE_PTR pCiphertext,       /* the wrapped key */
+  CK_ULONG_PTR pulCiphertextLen, /* the wrapped key size */
+  CK_OBJECT_HANDLE_PTR phKey     /* the encapsulated key */
+) {
+  DIN;
+  UNUSED(hSession);
+  UNUSED(pMechanism);
+  UNUSED(hPublicKey);
+  UNUSED(pTemplate);
+  UNUSED(ulAttributeCount);
+  UNUSED(pCiphertext);
+  UNUSED(pulCiphertextLen);
+  UNUSED(phKey);
+  DOUT;
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_DecapsulateKey)
+(
+  CK_SESSION_HANDLE hSession,    /* the session's handle */
+  CK_MECHANISM_PTR pMechanism,   /* the decapsulation mechanism */
+  CK_OBJECT_HANDLE hPrivateKey,  /* the decapsulating key */
+  CK_ATTRIBUTE_PTR pTemplate,    /* new key template */
+  CK_ULONG ulAttributeCount,     /* template length */
+  CK_BYTE_PTR pCiphertext,       /* the wrapped key */
+  CK_ULONG ulCiphertextLen,      /* the wrapped key size */
+  CK_OBJECT_HANDLE_PTR phKey     /* the decapsulated key */
+) {
+  DIN;
+  UNUSED(hSession);
+  UNUSED(pMechanism);
+  UNUSED(hPrivateKey);
+  UNUSED(pTemplate);
+  UNUSED(ulAttributeCount);
+  UNUSED(pCiphertext);
+  UNUSED(ulCiphertextLen);
+  UNUSED(phKey);
+  DOUT;
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_VerifySignatureInit)
+(
+  CK_SESSION_HANDLE hSession,    /* the session's handle */
+  CK_MECHANISM_PTR pMechanism,   /* the verification mechanism */
+  CK_OBJECT_HANDLE hKey,         /* verification key */
+  CK_BYTE_PTR pSignature,        /* signature */
+  CK_ULONG ulSignatureLen        /* signature length */
+) {
+  DIN;
+  UNUSED(hSession);
+  UNUSED(pMechanism);
+  UNUSED(hKey);
+  UNUSED(pSignature);
+  UNUSED(ulSignatureLen);
+  DOUT;
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_VerifySignature)
+(
+  CK_SESSION_HANDLE hSession,    /* the session's handle */
+  CK_BYTE_PTR pData,             /* signed data */
+  CK_ULONG ulDataLen             /* length of signed data */
+) {
+  DIN;
+  UNUSED(hSession);
+  UNUSED(pData);
+  UNUSED(ulDataLen);
+  DOUT;
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_VerifySignatureUpdate)
+(
+  CK_SESSION_HANDLE hSession,    /* the session's handle */
+  CK_BYTE_PTR pPart,             /* signed data */
+  CK_ULONG ulPartLen             /* length of signed data */
+) {
+  DIN;
+  UNUSED(hSession);
+  UNUSED(pPart);
+  UNUSED(ulPartLen);
+  DOUT;
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_VerifySignatureFinal)
+(
+   CK_SESSION_HANDLE hSession    /* the session's handle */
+) {
+  DIN;
+  UNUSED(hSession);
+  DOUT;
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_GetSessionValidationFlags)
+(
+  CK_SESSION_HANDLE hSession,             /* the session's handle */
+  CK_SESSION_VALIDATION_FLAGS_TYPE type,  /* which state of flags */
+  CK_FLAGS_PTR pFlags                     /* validation flags */
+) {
+  DIN;
+  UNUSED(hSession);
+  UNUSED(type);
+  UNUSED(pFlags);
+  DOUT;
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_AsyncComplete)
+(
+  CK_SESSION_HANDLE hSession,      /* the session's handle */
+  CK_UTF8CHAR_PTR pFunctionName,   /* pkcs11 function name */
+  CK_ASYNC_DATA_PTR pResult        /* operation result */
+) {
+  DIN;
+  UNUSED(hSession);
+  UNUSED(pFunctionName);
+  UNUSED(pResult);
+  DOUT;
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_AsyncGetID)
+(
+  CK_SESSION_HANDLE hSession,    /* the session's handle */
+  CK_UTF8CHAR_PTR pFunctionName, /* pkcs11 function name */
+  CK_ULONG_PTR pulID             /* persistent operation id */
+) {
+  DIN;
+  UNUSED(hSession);
+  UNUSED(pFunctionName);
+  UNUSED(pulID);
+  DOUT;
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_AsyncJoin)
+(
+  CK_SESSION_HANDLE hSession,    /* the session's handle */
+  CK_UTF8CHAR_PTR pFunctionName, /* pkcs11 function name */
+  CK_ULONG ulID,                 /* persistent operation id */
+  CK_BYTE_PTR pData,             /* location for the data */
+  CK_ULONG ulData
+) {
+  DIN;
+  UNUSED(hSession);
+  UNUSED(pFunctionName);
+  UNUSED(ulID);
+  UNUSED(pData);
+  UNUSED(ulData);
+  DOUT;
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_WrapKeyAuthenticated)
+(
+  CK_SESSION_HANDLE hSession,
+  CK_MECHANISM_PTR pMechanism,
+  CK_OBJECT_HANDLE hWrappingKey,
+  CK_OBJECT_HANDLE hKey,
+  CK_BYTE_PTR pAssociatedData,
+  CK_ULONG ulAssociatedDataLen,
+  CK_BYTE_PTR pWrappedKey,
+  CK_ULONG_PTR pulWrappedKeyLen
+) {
+  DIN;
+  UNUSED(hSession);
+  UNUSED(pMechanism);
+  UNUSED(hWrappingKey);
+  UNUSED(hKey);
+  UNUSED(pAssociatedData);
+  UNUSED(ulAssociatedDataLen);
+  UNUSED(pWrappedKey);
+  UNUSED(pulWrappedKeyLen);
+  DOUT;
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+CK_DEFINE_FUNCTION(CK_RV, C_UnwrapKeyAuthenticated)
+(
+  CK_SESSION_HANDLE hSession,
+  CK_MECHANISM_PTR pMechanism,
+  CK_OBJECT_HANDLE hUnwrappingKey,
+  CK_BYTE_PTR pWrappedKey,
+  CK_ULONG ulWrappedKeyLen,
+  CK_ATTRIBUTE_PTR pTemplate,
+  CK_ULONG ulAttributeCount,
+  CK_BYTE_PTR pAssociatedData,
+  CK_ULONG ulAssociatedDataLen,
+  CK_OBJECT_HANDLE_PTR phKey
+) {
+  DIN;
+  UNUSED(hSession);
+  UNUSED(pMechanism);
+  UNUSED(hUnwrappingKey);
+  UNUSED(pWrappedKey);
+  UNUSED(ulWrappedKeyLen);
+  UNUSED(pTemplate);
+  UNUSED(ulAttributeCount);
+  UNUSED(pAssociatedData);
+  UNUSED(ulAssociatedDataLen);
+  UNUSED(pWrappedKey);
+  UNUSED(phKey);
+  DOUT;
+  return CKR_FUNCTION_NOT_SUPPORTED;
+}
+
 static const CK_FUNCTION_LIST function_list = {
   {CRYPTOKI_LEGACY_VERSION_MAJOR, CRYPTOKI_LEGACY_VERSION_MINOR},
   C_Initialize,
@@ -6811,8 +7040,8 @@ static const CK_FUNCTION_LIST function_list = {
   C_WaitForSlotEvent,
 };
 
-static const CK_FUNCTION_LIST_3_0 function_list_3 = {
-  {CRYPTOKI_VERSION_MAJOR, CRYPTOKI_VERSION_MINOR},
+static const CK_FUNCTION_LIST_3_0 function_list_3_0 = {
+  {CRYPTOKI_3_0_VERSION_MAJOR, CRYPTOKI_3_0_VERSION_MINOR},
   C_Initialize,
   C_Finalize,
   C_GetInfo_3_0,
@@ -6905,4 +7134,112 @@ static const CK_FUNCTION_LIST_3_0 function_list_3 = {
   C_VerifyMessageBegin,
   C_VerifyMessageNext,
   C_MessageVerifyFinal,
+};
+
+static const CK_FUNCTION_LIST_3_2 function_list_3_2 = {
+  {CRYPTOKI_VERSION_MAJOR, CRYPTOKI_VERSION_MINOR},
+  C_Initialize,
+  C_Finalize,
+  C_GetInfo_3_2,
+  C_GetFunctionList,
+  C_GetSlotList,
+  C_GetSlotInfo,
+  C_GetTokenInfo,
+  C_GetMechanismList,
+  C_GetMechanismInfo,
+  C_InitToken,
+  C_InitPIN,
+  C_SetPIN,
+  C_OpenSession,
+  C_CloseSession,
+  C_CloseAllSessions,
+  C_GetSessionInfo,
+  C_GetOperationState,
+  C_SetOperationState,
+  C_Login,
+  C_Logout,
+  C_CreateObject,
+  C_CopyObject,
+  C_DestroyObject,
+  C_GetObjectSize,
+  C_GetAttributeValue,
+  C_SetAttributeValue,
+  C_FindObjectsInit,
+  C_FindObjects,
+  C_FindObjectsFinal,
+  C_EncryptInit,
+  C_Encrypt,
+  C_EncryptUpdate,
+  C_EncryptFinal,
+  C_DecryptInit,
+  C_Decrypt,
+  C_DecryptUpdate,
+  C_DecryptFinal,
+  C_DigestInit,
+  C_Digest,
+  C_DigestUpdate,
+  C_DigestKey,
+  C_DigestFinal,
+  C_SignInit,
+  C_Sign,
+  C_SignUpdate,
+  C_SignFinal,
+  C_SignRecoverInit,
+  C_SignRecover,
+  C_VerifyInit,
+  C_Verify,
+  C_VerifyUpdate,
+  C_VerifyFinal,
+  C_VerifyRecoverInit,
+  C_VerifyRecover,
+  C_DigestEncryptUpdate,
+  C_DecryptDigestUpdate,
+  C_SignEncryptUpdate,
+  C_DecryptVerifyUpdate,
+  C_GenerateKey,
+  C_GenerateKeyPair,
+  C_WrapKey,
+  C_UnwrapKey,
+  C_DeriveKey,
+  C_SeedRandom,
+  C_GenerateRandom,
+  C_GetFunctionStatus,
+  C_CancelFunction,
+  C_WaitForSlotEvent,
+  C_GetInterfaceList,
+  C_GetInterface,
+  C_LoginUser,
+  C_SessionCancel,
+  C_MessageEncryptInit,
+  C_EncryptMessage,
+  C_EncryptMessageBegin,
+  C_EncryptMessageNext,
+  C_MessageEncryptFinal,
+  C_MessageDecryptInit,
+  C_DecryptMessage,
+  C_DecryptMessageBegin,
+  C_DecryptMessageNext,
+  C_MessageDecryptFinal,
+  C_MessageSignInit,
+  C_SignMessage,
+  C_SignMessageBegin,
+  C_SignMessageNext,
+  C_MessageSignFinal,
+  C_MessageVerifyInit,
+  C_VerifyMessage,
+  C_VerifyMessageBegin,
+  C_VerifyMessageNext,
+  C_MessageVerifyFinal,
+  C_EncapsulateKey,
+  C_DecapsulateKey,
+  C_VerifySignatureInit,
+  C_VerifySignature,
+  C_VerifySignatureUpdate,
+  C_VerifySignatureFinal,
+  C_GetSessionValidationFlags,
+  C_AsyncComplete,
+  C_AsyncGetID,
+  C_AsyncJoin,
+  C_WrapKeyAuthenticated,
+  C_UnwrapKeyAuthenticated,
 };
