@@ -25,7 +25,7 @@ if(WIN32)
 endif(WIN32)
 
 include_directories (
-  ${LIBPCSC_INCLUDEDIR}
+  ${LIBPCSC_INCLUDE_DIRS}
 )
 
 # Uncomment this for Ubuntu 24.10 and higher and Fedora 41 and higher
