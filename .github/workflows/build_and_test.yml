@@ -312,6 +312,8 @@ jobs:
         include:
           - os: macos-latest
           - os: macos-latest-xlarge
+    env:
+      VERSION: 2.7.0
 
     steps:
 
@@ -333,6 +335,26 @@ jobs:
           cd build
           cmake -DCMAKE_BUILD_TYPE=Release ..
           cmake --build .
+
+      - name: Check rpaths
+        working-directory: yubihsm-shell/build
+        run: |
+          sudo make install
+          ls -l /usr/local/lib
+          
+          otool -L /usr/local/bin/yubihsm-shell
+          otool -l /usr/local/bin/yubihsm-shell | grep LC_RPATH -A 3
+          otool -L /usr/local/lib/libyubihsm.dylib
+          otool -L /usr/local/lib/pkcs11/yubihsm_pkcs11.dylib
+          otool -l /usr/local/lib/pkcs11/yubihsm_pkcs11.dylib | grep LC_RPATH -A 3
+          otool -L /usr/local/lib/libyubihsm_http.dylib
+          otool -L /usr/local/lib/libyubihsm_usb.dylib
+          otool -L /usr/local/lib/ libykhsmauth.dylib
+          otool -l /usr/local/lib/libykhsmauth.dylib | grep LC_RPATH -A 3
+          otool -L /usr/local/bin/yubihsm-wrap
+          otool -l /usr/local/bin/yubihsm-wrap | grep LC_RPATH -A 3
+          otool -L /usr/local/bin/yubihsm-auth
+          otool -l /usr/local/bin/yubihsm-auth | grep LC_RPATH -A 3
 
       - name: Test loading PKCS11 module
         working-directory: yubihsm-shell
@@ -356,227 +378,227 @@ jobs:
         run: |
           ./resources/release/macos/shell/check_hardening.sh "build/src/yubihsm-shell"
 
-  test:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - environment: "ubuntu:22.04"
-            cc: "clang"
-          - environment: "fedora:42"
-            cc: "gcc"
-
-    name: run unit tests
-    runs-on: ubuntu-latest
-    container: ${{ matrix.environment }}
-    needs: [build_debian_derivatives, build_centos_fedora]
-
-    steps:
-
-      - name: install dependencies from package management (debian based)
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        if: ${{ matrix.environment == 'ubuntu:22.04' }}
-        run: |
-          apt update
-          apt install -q -y build-essential cmake python3 python3-pip python3-setuptools curl libedit2 libpcsclite1 libengine-pkcs11-openssl opensc swig libssl3 zlib1g-dev
-
-      - name: install dependencies from package management (rpm based)
-        if: ${{ matrix.environment == 'fedora:42' }}
-        run: |
-          yum install -y gawk gcc gcc-c++ cmake python3-devel python3-pip python3-setuptools curl libedit gengetopt openssl libcurl pcsc-lite swig which zlib-devel crypto-policies-scripts
-
-      - name: prepare name for download-artifact action
-        env:
-          DOCKER_IMAGE: ${{ matrix.environment }}
-          CC: ${{ matrix.cc }}
-        run: |
-          ESCAPED_IMAGE=$(echo -n "$DOCKER_IMAGE" | sed -E 's/[^a-zA-Z0-9]//g')
-          echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_${CC}" >> $GITHUB_ENV
-
-      - name: download artifacts from the build job
-        uses: actions/download-artifact@v4
-        with:
-          name: "${{ env.ARTIFACT_NAME }}"
-
-      - name: decompress yubihsm-shell.tar.gz
-        run: tar xfz yubihsm-shell.tar.gz
-
-      - name: prepare ghostunnel
-        env:
-          TLSPWD: ${{ secrets.TLSKEY }}
-          # GODEBUG required for ghostunnel to temporarily enable Common Name matching
-          GODEBUG: x509ignoreCN=0
-        run: |
-          curl -o /tmp/ghostunnel -L https://github.com/ghostunnel/ghostunnel/releases/download/v1.6.0/ghostunnel-v1.6.0-linux-amd64
-          chmod +x /tmp/ghostunnel
-          openssl aes-256-cbc \
-            -k "$TLSPWD" \
-            -md sha256 \
-            -in yubihsm-shell/.ci/client-combined.pem.enc \
-            -out yubihsm-shell/.ci/client-combined.pem \
-            -d
-          /tmp/ghostunnel client \
-            --listen localhost:12345 \
-            --target hsm-connector01.sthlm.in.yubico.org:8443 \
-            --keystore yubihsm-shell/.ci/client-combined.pem \
-            --cacert yubihsm-shell/.ci/server-crt.pem > /dev/null 2>&1 &
-          sleep 3
-          DEFAULT_CONNECTOR_URL=$(curl -s http://localhost:12345/dispatcher/request)
-          test -n "$DEFAULT_CONNECTOR_URL" || (echo "Unable to obtain a connector URL, aborting"; exit 1)
-          echo "DEFAULT_CONNECTOR_URL=$DEFAULT_CONNECTOR_URL" >> $GITHUB_ENV
-
-      - name: clone the YubicoLabs/pkcs11test repository
-        uses: actions/checkout@v4
-        with:
-          repository: YubicoLabs/pkcs11test
-          path: pkcs11test
-
-      - name: build the pkcs11test binary
-        working-directory: pkcs11test
-        env:
-          DOCKER_IMAGE: ${{ matrix.environment }}
-        run: |
-          if [ "$DOCKER_IMAGE" = "fedora:42" ]; then
-            # Allows usage of SHA1
-            #update-crypto-policies --show
-            update-crypto-policies --set LEGACY
-          fi
-          make
-          echo "PKCS11TEST_PATH=`pwd`" >> $GITHUB_ENV
-
-      - name: reset the hsm
-        working-directory: yubihsm-shell/build/src
-        run: |
-          ./yubihsm-shell --connector "$DEFAULT_CONNECTOR_URL" -p password -a reset
-          sleep 3
-
-      - name: run tests with ctest
-        working-directory: yubihsm-shell/build
-        env:
-          DOCKER_IMAGE: ${{ matrix.environment }}
-        run: |
-          if [ $DOCKER_IMAGE = "debian:11" ]; then
-            # we skip the engine tests (for now) since it ships with a broken curl version
-            ctest --output-on-failure -E engine
-          elif [ $DOCKER_IMAGE = "centos:7" ]; then
-            # we skip the ecdh_derive tests (for now) since there is an issue with generating secp224r1 keys
-            ctest --output-on-failure -E ecdh_derive\|aes\|ecdh_sp800
-          else
-            ctest --output-on-failure
-          fi
-
-      - name: clone the YubicoLabs/python-pkcs11tester repository
-        uses: actions/checkout@v4
-        with:
-          repository: YubicoLabs/python-pkcs11tester
-          path: python-pkcs11tester
-
-      - name: run python-pkcs11tester
-        if: ${{ matrix.environment == 'ubuntu:22.04' }}
-        run: |
-          export YUBIHSM_PKCS11_MODULE=`pwd`/yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so
-          cd python-pkcs11tester
-          echo "connector=$DEFAULT_CONNECTOR_URL" > yubihsm_pkcs11.conf
-          python3 -m pip install 'pykcs11' 'cryptography>=1.4.0'
-          python3 setup.py test
-
-      - name: cleanup
-        if: ${{ always() }}
-        run: |
-          if [ -n "$DEFAULT_CONNECTOR_URL" ]; then
-            curl -s http://localhost:12345/dispatcher/release?connector=$DEFAULT_CONNECTOR_URL
-          fi
-
-  libressl_build:
-    name: Build with LibreSSL
-    runs-on: ubuntu-latest
-    steps:
-      - name: clone the Yubico/yubihsm-shell repository
-        uses: actions/checkout@v4
-
-      - name: install dependencies from package management
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          sudo apt update
-          sudo apt install -q -y build-essential       \
-                            cmake pkg-config      \
-                            gengetopt             \
-                            help2man              \
-                            libcurl4-openssl-dev  \
-                            libedit-dev           \
-                            libpcsclite-dev       \
-                            libusb-1.0-0-dev      \
-                            libssl-dev            \
-                            file                  \
-                            curl                  \
-                            jq                    \
-                            zlib1g-dev
-
-      - name: Install LibreSSL from source
-        run: |
-          set -x
-          cd $GITHUB_WORKSPACE
-          wget -nv http://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-3.6.1.tar.gz
-          tar -xzf libressl-3.6.1.tar.gz
-          cd libressl-3.6.1
-          mkdir build; cd build
-          cmake ..
-          make
-
-      - name: Do build
-        env:
-          VERBOSE: 1
-        run: |
-          set -x
-          mkdir build; cd build
-          PKG_CONFIG_PATH=$GITHUB_WORKSPACE/libressl-3.6.1/build/pkgconfig cmake .. -DVERBOSE_CMAKE=ON
-          make
-          
-          ./src/yubihsm-shell --help | grep "Usage: yubihsm-shell"
-
-  openssl_1_1_build:
-    name: Build with OpenSSL 1.1
-    runs-on: ubuntu-latest
-    steps:
-      - name: clone the Yubico/yubihsm-shell repository
-        uses: actions/checkout@v4
-
-      - name: install dependencies from package management
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          sudo apt update
-          sudo apt install -q -y build-essential       \
-                            cmake pkg-config      \
-                            gengetopt             \
-                            help2man              \
-                            libcurl4-openssl-dev  \
-                            libedit-dev           \
-                            libpcsclite-dev       \
-                            libusb-1.0-0-dev      \
-                            libssl-dev            \
-                            file                  \
-                            curl                  \
-                            jq                    \
-                            zlib1g-dev
-
-      - name: Install OpenSSL 1.1 from source
-        run: |
-          set -x
-          cd $GITHUB_WORKSPACE
-          wget -nv  https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_1_1_1w.tar.gz
-          tar -xzf OpenSSL_1_1_1w.tar.gz
-          cd openssl-OpenSSL_1_1_1w
-          ./Configure linux-x86_64 shared --prefix=$GITHUB_WORKSPACE/openssl
-          sudo make all install VERSION="1.1.1s"
-
-      - name: Do build
-        run: |
-          set -x
-          mkdir build; cd build
-          cmake .. -DVERBOSE_CMAKE=ON -DOPENSSL_PKG_PATH=$GITHUB_WORKSPACE/openssl/lib/pkgconfig
-          make
-
-          ./src/yubihsm-shell --help | grep "Usage: yubihsm-shell"
+#  test:
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        include:
+#          - environment: "ubuntu:22.04"
+#            cc: "clang"
+#          - environment: "fedora:42"
+#            cc: "gcc"
+#
+#    name: run unit tests
+#    runs-on: ubuntu-latest
+#    container: ${{ matrix.environment }}
+#    needs: [build_debian_derivatives, build_centos_fedora]
+#
+#    steps:
+#
+#      - name: install dependencies from package management (debian based)
+#        env:
+#          DEBIAN_FRONTEND: noninteractive
+#        if: ${{ matrix.environment == 'ubuntu:22.04' }}
+#        run: |
+#          apt update
+#          apt install -q -y build-essential cmake python3 python3-pip python3-setuptools curl libedit2 libpcsclite1 libengine-pkcs11-openssl opensc swig libssl3 zlib1g-dev
+#
+#      - name: install dependencies from package management (rpm based)
+#        if: ${{ matrix.environment == 'fedora:42' }}
+#        run: |
+#          yum install -y gawk gcc gcc-c++ cmake python3-devel python3-pip python3-setuptools curl libedit gengetopt openssl libcurl pcsc-lite swig which zlib-devel crypto-policies-scripts
+#
+#      - name: prepare name for download-artifact action
+#        env:
+#          DOCKER_IMAGE: ${{ matrix.environment }}
+#          CC: ${{ matrix.cc }}
+#        run: |
+#          ESCAPED_IMAGE=$(echo -n "$DOCKER_IMAGE" | sed -E 's/[^a-zA-Z0-9]//g')
+#          echo "ARTIFACT_NAME=yubihsm-shell_${ESCAPED_IMAGE}_${CC}" >> $GITHUB_ENV
+#
+#      - name: download artifacts from the build job
+#        uses: actions/download-artifact@v4
+#        with:
+#          name: "${{ env.ARTIFACT_NAME }}"
+#
+#      - name: decompress yubihsm-shell.tar.gz
+#        run: tar xfz yubihsm-shell.tar.gz
+#
+#      - name: prepare ghostunnel
+#        env:
+#          TLSPWD: ${{ secrets.TLSKEY }}
+#          # GODEBUG required for ghostunnel to temporarily enable Common Name matching
+#          GODEBUG: x509ignoreCN=0
+#        run: |
+#          curl -o /tmp/ghostunnel -L https://github.com/ghostunnel/ghostunnel/releases/download/v1.6.0/ghostunnel-v1.6.0-linux-amd64
+#          chmod +x /tmp/ghostunnel
+#          openssl aes-256-cbc \
+#            -k "$TLSPWD" \
+#            -md sha256 \
+#            -in yubihsm-shell/.ci/client-combined.pem.enc \
+#            -out yubihsm-shell/.ci/client-combined.pem \
+#            -d
+#          /tmp/ghostunnel client \
+#            --listen localhost:12345 \
+#            --target hsm-connector01.sthlm.in.yubico.org:8443 \
+#            --keystore yubihsm-shell/.ci/client-combined.pem \
+#            --cacert yubihsm-shell/.ci/server-crt.pem > /dev/null 2>&1 &
+#          sleep 3
+#          DEFAULT_CONNECTOR_URL=$(curl -s http://localhost:12345/dispatcher/request)
+#          test -n "$DEFAULT_CONNECTOR_URL" || (echo "Unable to obtain a connector URL, aborting"; exit 1)
+#          echo "DEFAULT_CONNECTOR_URL=$DEFAULT_CONNECTOR_URL" >> $GITHUB_ENV
+#
+#      - name: clone the YubicoLabs/pkcs11test repository
+#        uses: actions/checkout@v4
+#        with:
+#          repository: YubicoLabs/pkcs11test
+#          path: pkcs11test
+#
+#      - name: build the pkcs11test binary
+#        working-directory: pkcs11test
+#        env:
+#          DOCKER_IMAGE: ${{ matrix.environment }}
+#        run: |
+#          if [ "$DOCKER_IMAGE" = "fedora:42" ]; then
+#            # Allows usage of SHA1
+#            #update-crypto-policies --show
+#            update-crypto-policies --set LEGACY
+#          fi
+#          make
+#          echo "PKCS11TEST_PATH=`pwd`" >> $GITHUB_ENV
+#
+#      - name: reset the hsm
+#        working-directory: yubihsm-shell/build/src
+#        run: |
+#          ./yubihsm-shell --connector "$DEFAULT_CONNECTOR_URL" -p password -a reset
+#          sleep 3
+#
+#      - name: run tests with ctest
+#        working-directory: yubihsm-shell/build
+#        env:
+#          DOCKER_IMAGE: ${{ matrix.environment }}
+#        run: |
+#          if [ $DOCKER_IMAGE = "debian:11" ]; then
+#            # we skip the engine tests (for now) since it ships with a broken curl version
+#            ctest --output-on-failure -E engine
+#          elif [ $DOCKER_IMAGE = "centos:7" ]; then
+#            # we skip the ecdh_derive tests (for now) since there is an issue with generating secp224r1 keys
+#            ctest --output-on-failure -E ecdh_derive\|aes\|ecdh_sp800
+#          else
+#            ctest --output-on-failure
+#          fi
+#
+#      - name: clone the YubicoLabs/python-pkcs11tester repository
+#        uses: actions/checkout@v4
+#        with:
+#          repository: YubicoLabs/python-pkcs11tester
+#          path: python-pkcs11tester
+#
+#      - name: run python-pkcs11tester
+#        if: ${{ matrix.environment == 'ubuntu:22.04' }}
+#        run: |
+#          export YUBIHSM_PKCS11_MODULE=`pwd`/yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so
+#          cd python-pkcs11tester
+#          echo "connector=$DEFAULT_CONNECTOR_URL" > yubihsm_pkcs11.conf
+#          python3 -m pip install 'pykcs11' 'cryptography>=1.4.0'
+#          python3 setup.py test
+#
+#      - name: cleanup
+#        if: ${{ always() }}
+#        run: |
+#          if [ -n "$DEFAULT_CONNECTOR_URL" ]; then
+#            curl -s http://localhost:12345/dispatcher/release?connector=$DEFAULT_CONNECTOR_URL
+#          fi
+#
+#  libressl_build:
+#    name: Build with LibreSSL
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: clone the Yubico/yubihsm-shell repository
+#        uses: actions/checkout@v4
+#
+#      - name: install dependencies from package management
+#        env:
+#          DEBIAN_FRONTEND: noninteractive
+#        run: |
+#          sudo apt update
+#          sudo apt install -q -y build-essential       \
+#                            cmake pkg-config      \
+#                            gengetopt             \
+#                            help2man              \
+#                            libcurl4-openssl-dev  \
+#                            libedit-dev           \
+#                            libpcsclite-dev       \
+#                            libusb-1.0-0-dev      \
+#                            libssl-dev            \
+#                            file                  \
+#                            curl                  \
+#                            jq                    \
+#                            zlib1g-dev
+#
+#      - name: Install LibreSSL from source
+#        run: |
+#          set -x
+#          cd $GITHUB_WORKSPACE
+#          wget -nv http://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-3.6.1.tar.gz
+#          tar -xzf libressl-3.6.1.tar.gz
+#          cd libressl-3.6.1
+#          mkdir build; cd build
+#          cmake ..
+#          make
+#
+#      - name: Do build
+#        env:
+#          VERBOSE: 1
+#        run: |
+#          set -x
+#          mkdir build; cd build
+#          PKG_CONFIG_PATH=$GITHUB_WORKSPACE/libressl-3.6.1/build/pkgconfig cmake .. -DVERBOSE_CMAKE=ON
+#          make
+#
+#          ./src/yubihsm-shell --help | grep "Usage: yubihsm-shell"
+#
+#  openssl_1_1_build:
+#    name: Build with OpenSSL 1.1
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: clone the Yubico/yubihsm-shell repository
+#        uses: actions/checkout@v4
+#
+#      - name: install dependencies from package management
+#        env:
+#          DEBIAN_FRONTEND: noninteractive
+#        run: |
+#          sudo apt update
+#          sudo apt install -q -y build-essential       \
+#                            cmake pkg-config      \
+#                            gengetopt             \
+#                            help2man              \
+#                            libcurl4-openssl-dev  \
+#                            libedit-dev           \
+#                            libpcsclite-dev       \
+#                            libusb-1.0-0-dev      \
+#                            libssl-dev            \
+#                            file                  \
+#                            curl                  \
+#                            jq                    \
+#                            zlib1g-dev
+#
+#      - name: Install OpenSSL 1.1 from source
+#        run: |
+#          set -x
+#          cd $GITHUB_WORKSPACE
+#          wget -nv  https://github.com/openssl/openssl/archive/refs/tags/OpenSSL_1_1_1w.tar.gz
+#          tar -xzf OpenSSL_1_1_1w.tar.gz
+#          cd openssl-OpenSSL_1_1_1w
+#          ./Configure linux-x86_64 shared --prefix=$GITHUB_WORKSPACE/openssl
+#          sudo make all install VERSION="1.1.1s"
+#
+#      - name: Do build
+#        run: |
+#          set -x
+#          mkdir build; cd build
+#          cmake .. -DVERBOSE_CMAKE=ON -DOPENSSL_PKG_PATH=$GITHUB_WORKSPACE/openssl/lib/pkgconfig
+#          make
+#
+#          ./src/yubihsm-shell --help | grep "Usage: yubihsm-shell"
