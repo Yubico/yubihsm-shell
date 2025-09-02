@@ -3094,8 +3094,20 @@ int main(int argc, char *argv[]) {
         } break;
 
         case action_arg_signMINUS_hmac:
-          LIB_SUCCEED_OR_DIE(YHR_GENERIC_ERROR, "Command not implemented: ");
-          // TODO(adma): this requires a hex parser
+          arg[1].w = args_info.object_id_arg;
+
+          if (!get_input_data(args_info.in_arg, &arg[2].x, &arg[2].len, fmt_hex)) {
+            fprintf(stderr, "Failed to get input data\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          comrc = yh_com_hmac(&g_ctx, arg, fmt_hex,
+                                    g_out_fmt == fmt_nofmt ? fmt_hex
+                                                           : g_out_fmt);
+          free(arg[2].x);
+          COM_SUCCEED_OR_DIE(comrc, "Unable to perform HMAC signing");
+          break;
 
         case action_arg_reset: {
           comrc = yh_com_reset(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
