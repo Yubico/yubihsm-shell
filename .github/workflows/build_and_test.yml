@@ -14,12 +14,6 @@ jobs:
           - environment: "ubuntu:25.04"
             cc: "clang"
             upload_for_test: "false"
-          - environment: "ubuntu:24.10"
-            cc: "gcc"
-            upload_for_test: "false"
-          - environment: "ubuntu:24.10"
-            cc: "clang"
-            upload_for_test: "false"
           - environment: "ubuntu:24.04"
             cc: "gcc"
             upload_for_test: "false"
@@ -32,22 +26,16 @@ jobs:
           - environment: "ubuntu:22.04"
             cc: "clang"
             upload_for_test: "true"
-          - environment: "ubuntu:20.04"
+          - environment: "debian:13"
             cc: "gcc"
             upload_for_test: "false"
-          - environment: "ubuntu:20.04"
+          - environment: "debian:13"
             cc: "clang"
             upload_for_test: "false"
           - environment: "debian:12"
             cc: "gcc"
             upload_for_test: "false"
           - environment: "debian:12"
-            cc: "clang"
-            upload_for_test: "false"
-          - environment: "debian:11"
-            cc: "gcc"
-            upload_for_test: "false"
-          - environment: "debian:11"
             cc: "clang"
             upload_for_test: "false"
 
@@ -107,8 +95,11 @@ jobs:
         run: |
           
           if [ "$DOCKER_IMAGE" = "ubuntu:24.10" ] || [ "$DOCKER_IMAGE" = "ubuntu:25.04" ]; then
-            # ubuntu 24.10 comes with _FORTIFY_SOURCE already set
+            # ubuntu 24.10 and above comes with _FORTIFY_SOURCE already set
             sed -i 's/add_definitions (-D_FORTIFY_SOURCE=2)/add_definitions (-D_FORTIFY_SOURCE=3)/' cmake/SecurityFlags.cmake
+          fi
+          
+          if [ "$DOCKER_IMAGE" = "ubuntu:24.10" ] || [ "$DOCKER_IMAGE" = "ubuntu:25.04" ] || [ "$DOCKER_IMAGE" = "debian:13" ]; then
             # Set PCSC flags
             sed -i 's/#SET(CMAKE_C_FLAGS/SET(CMAKE_C_FLAGS/' ykhsmauth/CMakeLists.txt
           fi
