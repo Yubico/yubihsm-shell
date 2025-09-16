@@ -62,6 +62,8 @@ jobs:
         run: |
           Set-PSDebug -Trace 1
 
+          uname -o
+
           cd $env:GITHUB_WORKSPACE/release/win
           if($env:ARCH -eq "x86")
           {
@@ -120,6 +122,7 @@ jobs:
           set -e -o pipefail
           set -x
           uname -a
+          uname -o
                     
           cd $GITHUB_WORKSPACE/release/macos/shell
           chmod +x make_release_binaries.sh
@@ -245,6 +248,7 @@ jobs:
           set -x
 
           uname -a
+          uname -o
   
           # Create directory containing all output
           OUTPUT=$GITHUB_WORKSPACE/$PLATFORM/yubihsm-shell
@@ -375,6 +379,7 @@ jobs:
           VERSION: ${{ matrix.version }}
         run: |
           uname -a
+          uname -o
           
           export CMAKE="cmake"
           export INPUT=$GITHUB_WORKSPACE/yubihsm-shell
