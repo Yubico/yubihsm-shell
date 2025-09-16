@@ -142,12 +142,10 @@ jobs:
       matrix:
         environment: [
             "ubuntu:25.04",
-            "ubuntu:24.10",
             "ubuntu:24.04",
             "ubuntu:22.04",
-            "ubuntu:20.04",
+            "debian:13",
             "debian:12",
-            "debian:11",
         ]
         version: [ "2.7.0" ]
 
@@ -223,7 +221,7 @@ jobs:
             sed -i 's/add_definitions (-D_FORTIFY_SOURCE=2)/add_definitions (-D_FORTIFY_SOURCE=3)/' cmake/SecurityFlags.cmake
           fi
           
-          if [ "$DOCKER_IMAGE" = "ubuntu:24.10" ] || [ "$DOCKER_IMAGE" = "ubuntu:25.04" ]; then
+          if [ "$DOCKER_IMAGE" = "ubuntu:24.10" ] || [ "$DOCKER_IMAGE" = "ubuntu:25.04" ] || [ "$DOCKER_IMAGE" = "debian:13" ]; then
             # Set PCSC flags
             sed -i 's/#SET(CMAKE_C_FLAGS/SET(CMAKE_C_FLAGS/' ykhsmauth/CMakeLists.txt
           fi

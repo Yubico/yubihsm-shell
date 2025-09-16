@@ -46,7 +46,7 @@ cmake -S $SOURCE_DIR -A "$CMAKE_ARCH" -DCMAKE_INSTALL_PREFIX="$RELEASE_DIR" `
             -DZLIB_LIB_DIR="$VCPKG_PATH/packages/zlib_$ARCH-windows/lib" `
             -DZLIB_INCLUDE_DIR="$VCPKG_PATH/packages/zlib_$ARCH-windows/include"
 
-cmake --build . --config Release --target install
+cmake --build . -v --config Release --target install
 
 # Copy openssl and getopt libraries
 cd $RELEASE_DIR/bin
