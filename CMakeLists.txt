@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required (VERSION 3.5)
+cmake_minimum_required (VERSION 3.15)
 # policy CMP0025 is to get AppleClang identifier rather than Clang for both
 # this matters since the apple compiler accepts different flags.
 cmake_policy(SET CMP0025 NEW)
