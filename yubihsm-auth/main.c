@@ -325,6 +325,68 @@ static bool put_credential(ykhsmauth_state *state, char *mgmkey, char *label,
   return true;
 }
 
+static bool change_credential(ykhsmauth_state *state, char *label,
+                              bool use_mgmkey, char *mgmkey, char *credpassword,
+                              char *new_credpassword) {
+  char label_parsed[YKHSMAUTH_MAX_LABEL_LEN + 2] = {0};
+  size_t label_parsed_len = sizeof(label_parsed);
+  uint8_t new_cpw_parsed[YKHSMAUTH_PW_LEN + 2] = {0};
+  size_t new_cpw_parsed_len = sizeof(new_cpw_parsed);
+
+  uint8_t auth_parsed[YKHSMAUTH_PW_LEN + 2] = {0};
+  size_t auth_parsed_len = sizeof(auth_parsed);
+
+  if (parse_label("Label", label, label_parsed, &label_parsed_len) == false) {
+    return false;
+  }
+
+  if (parse_pw("New credential Password (max 16 characters)", new_credpassword,
+               new_cpw_parsed, &new_cpw_parsed_len) == false) {
+    return false;
+  }
+  if (new_cpw_parsed_len > YKHSMAUTH_PW_LEN) {
+    fprintf(stderr,
+            "New credential password can not be more than %d characters.\n",
+            YKHSMAUTH_PW_LEN);
+    return false;
+  }
+
+  if (use_mgmkey) {
+    auth_parsed_len -= 2;
+    if (parse_key("Management key", mgmkey, auth_parsed, &auth_parsed_len) ==
+        false) {
+      fprintf(stderr, "Unable to read management key\n");
+      return false;
+    }
+  } else {
+    if (parse_pw("Credential Password (max 16 characters)", credpassword,
+                 auth_parsed, &auth_parsed_len) == false) {
+      fprintf(stderr, "Unable to read credential password\n");
+      return false;
+    }
+    if (auth_parsed_len > YKHSMAUTH_PW_LEN) {
+      fprintf(stderr,
+              "Credential password can not be more than %d characters.\n",
+              YKHSMAUTH_PW_LEN);
+      return false;
+    }
+  }
+
+  ykhsmauth_rc ykhsmauthrc =
+    ykhsmauth_change_credpwd(state, label_parsed, use_mgmkey, auth_parsed,
+                             auth_parsed_len, new_cpw_parsed,
+                             new_cpw_parsed_len);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
+    fprintf(stderr, "Unable to change credential: %s\n",
+            ykhsmauth_strerror(ykhsmauthrc));
+    return false;
+  }
+
+  fprintf(stdout, "Credential successfully changed\n");
+
+  return true;
+}
+
 static bool reset_device(ykhsmauth_state *state) {
   ykhsmauth_rc ykhsmauthrc = ykhsmauth_reset(state);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
@@ -567,6 +629,13 @@ int main(int argc, char *argv[]) {
                        args_info.derivation_password_arg, args_info.enckey_arg,
                        args_info.mackey_arg, args_info.privkey_arg,
                        args_info.credpwd_arg, args_info.touch_arg);
+      break;
+
+    case action_arg_change:
+      result =
+        change_credential(state, args_info.label_arg, args_info.mgmkey_given,
+                          args_info.mgmkey_arg, args_info.credpwd_arg,
+                          args_info.new_credpwd_arg);
       break;
 
     case action_arg_reset:
