@@ -49,10 +49,10 @@ set -e
 
 echo "====================== AEAD keys ===================== "
 echo "------------- AEAD Key 128"
-test_with_resp "$BIN -p password -a generate-otp-aead-key -i 0 -l aeadkey -d 1,2,3 -c randomize-otp-aead -A aes128-yubico-otp --nonce 0x01020304" "   Generate key"
+test_with_resp ""$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a generate-otp-aead-key -i 0 -l aeadkey -d 1,2,3 -c randomize-otp-aead -A aes128-yubico-otp --nonce 0x01020304" "   Generate key"
 keyid=$(tail -1 resp.txt | awk '{print $5}')
-test "$BIN -p password -a get-object-info -i $keyid -t otp-aead-key" "   Get object info"
-info=$($BIN -p password -a get-object-info -i $keyid -t otp-aead-key 2> /dev/null)
+test ""$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a get-object-info -i $keyid -t otp-aead-key" "   Get object info"
+info=$("$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a get-object-info -i $keyid -t otp-aead-key 2> /dev/null)
 test "echo $info | grep \"id: $keyid\"" "   Object info contains correct ID"
 test "echo $info | grep \"type: otp-aead-key\"" "   Object info contains correct type"
 test "echo $info | grep \"algorithm: aes128-yubico-otp\"" "   Object info contains correct algorithm"
@@ -60,26 +60,26 @@ test "echo $info | grep 'label: \"aeadkey\"'" "   Object info contains correct l
 test "echo $info | grep \"domains: 1:2:3\"" "   Object info contains correct domains"
 test "echo $info | grep \"origin: generated\"" "   Object info contains correct origin"
 test "echo $info | grep \"capabilities: randomize-otp-aead\"" "   Object info contains correct capabilities"
-test "$BIN -p password -a randomize-otp-aead -i $keyid" "   Randomize OTP AEAD"
-test "$BIN -p password -a delete-object -i $keyid -t otp-aead-key" "   Delete key"
+test ""$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a randomize-otp-aead -i $keyid" "   Randomize OTP AEAD"
+test ""$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a delete-object -i $keyid -t otp-aead-key" "   Delete key"
 
 echo "------------- AEAD Key 128"
-test_with_resp "$BIN -p password -a generate-otp-aead-key -i 0 -l aeadkey -d 1,2,3 -c randomize-otp-aead -A aes192-yubico-otp --nonce 0x01020304" "   Generate key"
+test_with_resp ""$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a generate-otp-aead-key -i 0 -l aeadkey -d 1,2,3 -c randomize-otp-aead -A aes192-yubico-otp --nonce 0x01020304" "   Generate key"
 keyid=$(tail -1 resp.txt | awk '{print $5}')
-test "$BIN -p password -a get-object-info -i $keyid -t otp-aead-key" "   Get object info"
-info=$($BIN -p password -a get-object-info -i $keyid -t otp-aead-key 2> /dev/null)
+test ""$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a get-object-info -i $keyid -t otp-aead-key" "   Get object info"
+info=$("$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a get-object-info -i $keyid -t otp-aead-key 2> /dev/null)
 test "echo $info | grep \"algorithm: aes192-yubico-otp\"" "   Object info contains correct algorithm"
-test "$BIN -p password -a randomize-otp-aead -i $keyid" "   Randomize OTP AEAD"
-test "$BIN -p password -a delete-object -i $keyid -t otp-aead-key" "   Delete key"
+test ""$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a randomize-otp-aead -i $keyid" "   Randomize OTP AEAD"
+test ""$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a delete-object -i $keyid -t otp-aead-key" "   Delete key"
 
 echo "------------- AEAD Key 256"
-test_with_resp "$BIN -p password -a generate-otp-aead-key -i 0 -l aeadkey -d 1,2,3 -c randomize-otp-aead -A aes256-yubico-otp --nonce 0x01020304" "   Generate key"
+test_with_resp ""$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a generate-otp-aead-key -i 0 -l aeadkey -d 1,2,3 -c randomize-otp-aead -A aes256-yubico-otp --nonce 0x01020304" "   Generate key"
 keyid=$(tail -1 resp.txt | awk '{print $5}')
-test "$BIN -p password -a get-object-info -i $keyid -t otp-aead-key" "   Get object info"
-info=$($BIN -p password -a get-object-info -i $keyid -t otp-aead-key 2> /dev/null)
+test ""$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a get-object-info -i $keyid -t otp-aead-key" "   Get object info"
+info=$("$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a get-object-info -i $keyid -t otp-aead-key 2> /dev/null)
 test "echo $info | grep \"algorithm: aes256-yubico-otp\"" "   Object info contains correct algorithm"
-test "$BIN -p password -a randomize-otp-aead -i $keyid" "   Randomize OTP AEAD"
-test "$BIN -p password -a delete-object -i $keyid -t otp-aead-key" "   Delete key"
+test ""$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a randomize-otp-aead -i $keyid" "   Randomize OTP AEAD"
+test ""$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a delete-object -i $keyid -t otp-aead-key" "   Delete key"
 
 cd ..
 rm -rf yubihsm-shell_test_dir

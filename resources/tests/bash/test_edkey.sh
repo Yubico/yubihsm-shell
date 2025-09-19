@@ -6,6 +6,11 @@ if [ "$#" -ne 1 ]; then
 else
   BIN=$1 # path to the yubico-piv-tool command line tool
 fi
+# if [ -z "${c_var+x}" ]; then
+#   c_var=""
+#   SPECIFIED_CONNECTOR=""
+#   echo "c_var not set, using default"
+# fi
 
 if [ -e yubihsm-shell_test_dir ]; then
     rm -rf yubihsm-shell_test_dir
@@ -18,7 +23,7 @@ test () {
   $1 > output.txt 2>&1
   ret=$?
   if [ $ret -ne 0 ]; then
-    echo $1
+    echo $1 >&3
     cat output.txt
     rm output.txt
     exit 1
@@ -34,9 +39,9 @@ set -e
 echo "====================== ED keys ===================== "
 # Generate
 echo "Generate key:"
-test "$BIN -p password -a generate-asymmetric-key -i 100 -l \"edKey\" -d 1,2,3 -c sign-eddsa -A ed25519" "   Generate key"
-test "$BIN -p password -a get-object-info -i 100 -t asymmetric-key" "   get-object-info"
-info=$($BIN -p password -a get-object-info -i 100 -t asymmetric-key 2>&1)
+test ""$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a generate-asymmetric-key -i 100 -l \"edKey\" -d 1,2,3 -c sign-eddsa -A ed25519" "   Generate key"
+test ""$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a get-object-info -i 100 -t asymmetric-key" "   get-object-info"
+info=$("$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a get-object-info -i 100 -t asymmetric-key 2>&1)
 test "echo $info | grep \"id: 0x0064\"" "   Object info contains correct ID"
 test "echo $info | grep \"type: asymmetric-key\"" "   Object info contains correct type"
 test "echo $info | grep \"algorithm: ed25519\"" "   Object info contains correct algorithm"
@@ -51,16 +56,16 @@ test "echo $info | grep \"capabilities: sign-eddsa\"" "   Object info contains c
 
 # Get public key
 echo "Get public key:"
-test "$BIN -p password -a get-public-key -i 100" "   Get public key to stdout"
-$BIN -p password -a get-public-key -i 100 > edkey1.pub 2>/dev/null
-test "$BIN -p password -a get-public-key -i 100 --out edkey2.pub" "   Get public key to file"
+test ""$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a get-public-key -i 100" "   Get public key to stdout"
+"$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a get-public-key -i 100 > edkey1.pub 2>/dev/null
+test ""$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a get-public-key -i 100 --out edkey2.pub" "   Get public key to file"
 test "cmp edkey1.pub edkey2.pub" "   Match public key in stdout and file"
 
 # Signing
 echo "Signing:"
-test "$BIN -p password -a sign-eddsa -i 100 -A ed25519 --in data.txt" "   Sign to stdout"
-$BIN -p password -a sign-eddsa -i 100 -A ed25519 --in data.txt > data.ed1.sig 2>/dev/null
-test "$BIN -p password -a sign-eddsa -i 100 -A ed25519 --in data.txt --out data.ed2.sig" "   Sign to file"
+test ""$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a sign-eddsa -i 100 -A ed25519 --in data.txt" "   Sign to stdout"
+"$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a sign-eddsa -i 100 -A ed25519 --in data.txt > data.ed1.sig 2>/dev/null
+test ""$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a sign-eddsa -i 100 -A ed25519 --in data.txt --out data.ed2.sig" "   Sign to file"
 if [[ $(cat data.ed1.sig) != $(cat data.ed2.sig) ]]; then
   echo "Signature in stdout and file are different"
   exit 2
@@ -69,12 +74,12 @@ echo "   Matching signature in stdout and file ... OK"
 
 # Generating CSR
 echo "Generating CSR:"
-test "$BIN -p password -a generate-csr -i 100 -S /CN=test/ --out csr.pem" "   Generate CSR with yubihsm-shell"
+test ""$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a generate-csr -i 100 -S /CN=test/ --out csr.pem" "   Generate CSR with yubihsm-shell"
 test "openssl req -in csr.pem -verify" "   Verify CSR with openssl"
 
 # Delete
 echo "Clean up:"
-test "$BIN -p password -a delete-object -i 100 -t asymmetric-key" "   Delete key"
+test ""$BIN" "$c_var" "$SPECIFIED_CONNECTOR" -p password -a delete-object -i 100 -t asymmetric-key" "   Delete key"
 
 cd ..
 rm -rf yubihsm-shell_test_dir
