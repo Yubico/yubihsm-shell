@@ -13,7 +13,19 @@ jobs:
         run: |
           set -x
           sudo apt -q update
-          sudo apt install libpcsclite-dev gengetopt help2man libedit-dev libcurl4-openssl-dev libssl-dev libusb-1.0-0-dev zlib1g-dev
+          apt install -q -y build-essential       \
+                            cmake pkg-config      \
+                            gengetopt             \
+                            help2man              \
+                            libcurl4-openssl-dev  \
+                            libedit-dev           \
+                            libpcsclite-dev       \
+                            libusb-1.0-0-dev      \
+                            libssl-dev            \
+                            file                  \
+                            curl                  \
+                            jq                    \
+                            zlib1g-dev
       - name: Create tar.gz
         run: |
           mkdir $GITHUB_WORKSPACE/artifact
