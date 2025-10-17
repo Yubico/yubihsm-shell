@@ -26,19 +26,17 @@ setup_file() {
 
   local default_bin_path="yubihsm-shell"
   export c_var=""
-  #local specified_connector="yhusb://"
   local winpath
   winpath=$(uname -o) 
 
   if [[ "$winpath" == "Msys" ]]; then
-    default_bin_path=";C:/Program Files/Yubico/YubiHSM Shell/bin"
+    default_bin_path="/c/Program Files/Yubico/YubiHSM Shell/bin/yubihsm-shell.exe"
     export MSYS2_ARG_CONV_EXCL=* # To prevent path conversion by MSYS2
-
   elif [[ "$winpath" == "GNU/Linux" || "$winpath" == "Darwin" ]]; then
     default_bin_path="/usr/local/bin/yubihsm-shell"
   fi
 
-  if [ -n "$SPECIFIED_CONNECTOR" ]; then # Specified connector exists
+  if [ -n "$SPECIFIED_CONNECTOR" ]; then
     echo "Specified connector exists" >&3
     c_var="-C"
   fi
@@ -52,9 +50,12 @@ setup_file() {
   echo test signing data > data.txt
 }
 
-@test "Test basic functions, Reset HSM and get Pseudo-Random" {
-  #skip "Skipping right now"
+@test "Test basic functions and get Pseudo-Random" {
   command_args=("$BIN" "$c_var" "$SPECIFIED_CONNECTOR")
+
+  run "${command_args[@]}" -p password -a reset
+    assert_success "HSM was reset"
+  sleep 3
   
   run "${command_args[@]}" --version
     assert_success "Version works"
@@ -65,10 +66,6 @@ setup_file() {
   run "${command_args[@]}" -a get-device-info  
     assert_success "Get device info"
     assert_output --partial "Serial number:"
-
-  run "${command_args[@]}" -p password -a reset
-    assert_success "HSM was reset"
-    sleep 3
 
   run "${command_args[@]}" -p password -a blink
     assert_success "Blink works"
@@ -100,7 +97,6 @@ setup_file() {
     byte_count=$(echo -n "$output_data" | wc -c | xargs)
     assert_equal "$byte_count" 20
 
-
   run "${command_args[@]}" -p password -a get-pseudo-random --count=10 --out=random.txt
     assert_success "Get pseudo-random with --count=10"
     length=$(cat random.txt | wc -c)
@@ -117,7 +113,7 @@ setup_file() {
 
   run "${command_args[@]}" -p password -a reset
     assert_success "HSM was reset"
-    sleep 3
+  sleep 3
 
   #Generate
   run "${command_args[@]}" -p password -a generate-asymmetric-key -i 100 -l \"edKey\" -d 1,2,3 -c sign-eddsa -A ed25519
@@ -138,8 +134,11 @@ setup_file() {
   "${command_args[@]}" -p password -a get-public-key -i 100 > edkey1.pub 2>/dev/null
   run "${command_args[@]}" -p password -a get-public-key -i 100 --out edkey2.pub
     assert_success "Get public key to file"
-  run cmp edkey1.pub edkey2.pub
-    assert_success "Match public key in stdout and file"
+  local content1
+  local content2
+  content1=$(tr -d '\r' < edkey1.pub)
+  content2=$(tr -d '\r' < edkey2.pub)
+  assert_equal "$content1" "$content2"
 
   #Signing
   run "${command_args[@]}" -p password -a sign-eddsa -i 100 -A ed25519 --in data.txt
@@ -147,9 +146,7 @@ setup_file() {
   "${command_args[@]}" -p password -a sign-eddsa -i 100 -A ed25519 --in data.txt > data.ed1.sig 2>/dev/null
   run "${command_args[@]}" -p password -a sign-eddsa -i 100 -A ed25519 --in data.txt --out data.ed2.sig
     assert_success "Sign to file"
-  local content1
   content1=$(tr -d '[:space:]' < data.ed1.sig)
-  local content2
   content2=$(tr -d '[:space:]' < data.ed2.sig)
   assert_equal "$content1" "$content2"
 
@@ -170,7 +167,8 @@ setup_file() {
 @test "EC Key tests" {
   [[ "$EC_KEY_TESTS" == "true" ]] || skip "skipping right now"
   command_args=("$BIN" "$c_var" "$SPECIFIED_CONNECTOR")
-  skip "skipping"
+  genkey=100
+  import_key=200
   run "${command_args[@]}" -p password -a reset
     assert_success "HSM was reset"  
   sleep 3
@@ -181,8 +179,6 @@ setup_file() {
     EC_ALGOS+=("ecbp256" "ecbp384" "ecbp512")
     EC_CURVES+=("brainpoolP256r1" "brainpoolP384r1" "brainpoolP512r1")
   fi
-  genkey=100
-  import_key=200
 
   for i in "${!EC_ALGOS[@]}"; do
     algo=${EC_ALGOS[i]}
@@ -323,7 +319,7 @@ setup_file() {
   [[ "$RSA_KEY_TESTS" == "true" ]] || skip "skipping right now"
   command_args=("$BIN" "$c_var" "$SPECIFIED_CONNECTOR")
   RSA_KEYSIZE=("2048" "3072" "4096")
-  skip "skipping"
+
   run "${command_args[@]}" -p password -a reset
     assert_success "HSM was reset"
   sleep 3
@@ -533,7 +529,6 @@ setup_file() {
       assert_success "Delete imported key"
   done
 
-
   run openssl req -x509 -newkey rsa:4096 -out too_large_cert.pem -sha256 -days 3650 -nodes -subj '/C=01/ST=01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567/L=01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567/O=0123456789012345678901234567890123456789012345678901234567890123/OU=0123456789012345678901234567890123456789012345678901234567890123/CN=0123456789012345678901234567890123456789012345678901234567890123/CN=0123456789012345678901234567890123456789012345678901234567890123' > /dev/null 2>&1
     assert_success "Generate too large certificate with OpenSSL"
   
@@ -541,12 +536,10 @@ setup_file() {
     if [ "$status" -eq 0 ]; then
       assert_success "Import large certificate raw"
       echo "Imported x509 certificate raw" >&3
-
     elif [[ "$output" == *"Failed to store opaque object: Not enough space to store data"* ]]; then
       run "${command_args[@]}" -p password -a put-opaque -i 100 -l too_large_cert -A opaque-x509-certificate --with-compression --in too_large_cert.pem --informat PEM
         assert_success "Import compressed x509 certificate"
         echo "Imported compressed x509 Certificate" >&3
-
     else
       fail "Import of x509 certificate failed"
     fi
@@ -555,34 +548,19 @@ setup_file() {
     assert_success "Get too large certificate"
   run cmp too_large_cert.pem too_large_cert_out.pem
     assert_success "Compare imported and read certificate"
-  
-  # resp=$("${command_args[@]}" -p password -a put-opaque -i 100 -l too_large_cert -A opaque-x509-certificate --in too_large_cert.pem --informat PEM 2>&1)
-  # ret=$?
-  # if [ $ret -ne 0 ]; then
-  #   if [[ $resp == *"Failed to store opaque object: Not enough space to store data"* ]]; then
-  #     run "${command_args[@]}" -p password -a put-opaque -i 100 -l too_large_cert -A opaque-x509-certificate --with-compression --in too_large_cert.pem --informat PEM
-  #       assert_success "Import compressed X509 certificate"
-  #   else
-  #     echo ""${command_args[@]}" -p password -a put-opaque -i 100 -l too_large_cert -A opaque-x509-certificate --in too_large_cert.pem --informat PEM"
-  #     echo $resp
-  #   fi
-  # else
-  #   echo "Imported too large certificate raw" >&3
-  # fi
-  # set -e
 
   run "${command_args[@]}" -p password -a delete-object -i 100 -t opaque
     assert_success "Delete too large certificate"
-
 }
 
 @test "HMAC Key tests" {
   [[ "$HMAC_KEY_TESTS" == "true" ]] || skip "skipping right now"
   command_args=("$BIN" "$c_var" "$SPECIFIED_CONNECTOR")
+  algorithms=("hmac-sha1" "hmac-sha256" "hmac-sha384" "hmac-sha512")
+
   run "${command_args[@]}" -p password -a reset
     assert_success "HSM was reset"
   sleep 3
-  algorithms=("hmac-sha1" "hmac-sha256" "hmac-sha384" "hmac-sha512")
 
   for algo in ${algorithms[@]}; do
     echo "$algo" >&3
@@ -604,10 +582,11 @@ setup_file() {
 @test "OTP AEAD Key tests" {
   [[ "$OTP_AEAD_TESTS" == "true" ]] || skip "skipping right now"
   command_args=("$BIN" "$c_var" "$SPECIFIED_CONNECTOR")
+  algorithms=("aes128" "aes192" "aes256")
+
   run "${command_args[@]}" -p password -a reset
     assert_success "HSM was reset"
   sleep 3
-  algorithms=("aes128" "aes192" "aes256")
 
   for algo in ${algorithms[@]}; do
     echo "$algo" >&3
@@ -635,6 +614,7 @@ setup_file() {
 @test "Template tests" {
   [[ "$TEMPLATE_TESTS" == "true" ]] || skip "skipping right now"
   command_args=("$BIN" "$c_var" "$SPECIFIED_CONNECTOR")
+
   run "${command_args[@]}" -p password -a reset
     assert_success "HSM was reset"
   sleep 3
@@ -643,7 +623,6 @@ setup_file() {
     assert_success "Import template"
 
   id=$(echo "$output" | grep "Stored Template object" | awk '{print $4}')
-
   run "${command_args[@]}" -p password -a get-object-info -i "$id" -t template
     assert_success "Get object info"
     assert_output --partial "id: "$id""
@@ -667,27 +646,27 @@ setup_file() {
 @test "Wrap Keys tests" {
   [[ "$WRAP_KEY_TESTS" == "true" ]] || skip "skipping right now"
   command_args=("$BIN" "$c_var" "$SPECIFIED_CONNECTOR")
+  algorithms=("aes128-ccm-wrap" "aes192-ccm-wrap" "aes256-ccm-wrap")
+  eckey=100
+  aeskey=200
+  sequence=0
+  RSA_KEYSIZE=("2048" "3072" "4096")
+  seq_ec=6
+  seq_aes=0
+  aes_enabled=false
+
   run "${command_args[@]}" -p password -a reset
     assert_success "HSM was reset"
   sleep 3
-  algorithms=("aes128-ccm-wrap" "aes192-ccm-wrap" "aes256-ccm-wrap")
-
-  run "${command_args[@]}" -p password -a reset
-    assert_success "Reset device"
-  sleep 3
   
-  eckey=100
-  aeskey=200
-  declare -i sequence=1
-
   run "${command_args[@]}" -p password -a generate-asymmetric-key -i "$eckey" -l eckey -d 1 -c exportable-under-wrap,sign-ecdsa -A ecp224
     assert_success "Generate EC Key to wrap"
   run "${command_args[@]}" -p password -a get-object-info -i "$eckey" -t asymmetric-key
     assert_success "Get object info"
-    assert_output --partial "sequence: 0"
+    assert_output --partial "sequence: "$sequence""
+    sequence=$((sequence+1))
     assert_output --partial "origin: generated"
   
-
   for algo in ${algorithms[@]}; do
     echo "$algo" >&3
     length=24
@@ -716,7 +695,7 @@ setup_file() {
     run "${command_args[@]}" -p password -a put-wrap-key -i 0 -l imported_wrapkey -d 1 -c export-wrapped,import-wrapped --delegated sign-ecdsa,exportable-under-wrap --in="$wrapkey"
       assert_success "Import wrap key"
 
-    import_keyid=$(echo "$output" | awk '/Stored Wrap key/ {print $4}') #Kanske fel output att använda, tidigare?
+    import_keyid=$(echo "$output" | awk '/Stored Wrap key/ {print $4}') 
     run "${command_args[@]}" -p password -a get-object-info -i "$import_keyid" -t wrap-key
       assert_success "Get object info"
       assert_output --partial "algorithm: "$algo""
@@ -733,7 +712,7 @@ setup_file() {
     run "${command_args[@]}" -p password -a get-object-info -i "$eckey" -t asymmetric-key
       assert_success "Get object info"
       assert_output --partial "sequence: "$sequence""
-      ((sequence++))
+      sequence=$((sequence+1))
       assert_output --partial "origin: generated:imported_wrapped"
       assert_output --partial "capabilities: exportable-under-wrap:sign-ecdsa"
     run "${command_args[@]}" -p password -a sign-ecdsa -i "$eckey" -A ecdsa-sha1 --in data.txt
@@ -749,7 +728,7 @@ setup_file() {
     run "${command_args[@]}" -p password -a get-object-info -i "$eckey" -t asymmetric-key
       assert_success "Get object info"
       assert_output --partial "sequence: "$sequence""
-      ((sequence++))
+      sequence=$((sequence+1))
       assert_output --partial "origin: generated:imported_wrapped"
       assert_output --partial "capabilities: exportable-under-wrap:sign-ecdsa"
     run "${command_args[@]}" -p password -a sign-ecdsa -i "$eckey" -A ecdsa-sha1 --in data.txt
@@ -772,7 +751,6 @@ setup_file() {
       assert_success "Delete object"
     skip "Device does not support aes-kwp, skipping these tests."
   fi
-  aes_enabled=false
 
   run "${command_args[@]}" -p password -a get-device-info
     assert_success "Get device info"
@@ -787,10 +765,6 @@ setup_file() {
       assert_success "Get random 32 bytes for encryption"
     data=$(echo "$output" | tail -n 1)
   fi
-
-  RSA_KEYSIZE=("2048" "3072" "4096")
-  seq_ec=6
-  seq_aes=0
 
   for k in ${RSA_KEYSIZE[@]}; do
     echo "RSA"$k"" >&3
@@ -821,9 +795,9 @@ setup_file() {
       assert_success "Import wrapped EC object"
     run "${command_args[@]}" -p password -a get-object-info -i "$eckey" -t asymmetric-key
       assert_success "Get object info"
-    seq_ec=$((seq_ec+1))
-    assert_output --partial "sequence: "$seq_ec""
-    assert_output --partial "capabilities: exportable-under-wrap:sign-ecdsa"
+      seq_ec=$((seq_ec+1))
+      assert_output --partial "sequence: "$seq_ec""
+      assert_output --partial "capabilities: exportable-under-wrap:sign-ecdsa"
     run "${command_args[@]}" -p password -a sign-ecdsa -i "$eckey" -A ecdsa-sha1 --in data.txt
       assert_success "Perform signature with imported wrapped EC key"
     run rm rsawrapped.object
@@ -864,26 +838,7 @@ setup_file() {
         assert_success "Perform encryption with imported wrapped AES key"
       run "${command_args[@]}" -p password -a decrypt-aescbc -i "$aeskey" --iv "$iv" --in data.enc
         decrypted_data=$(echo "$output" | tail -n +3)
-        
-        echo "----------" >&3
-        echo "keyid is: "$keyid"" >&3
-        echo "aeskey is: "$aeskey"" >&3
-        echo "eckey is: "$eckey"" >&3
-        echo "Iv is: $iv" >&3
-        echo "data is: $data " >&3
-        echo "---------------------------------------" >&3
-        echo "Last line of output is" >&3
-        echo "$decrypted_data" >&3
-        echo "---------------------------------------" >&3
-        echo "output is" >&3
-        echo "$output" >&3
-
-
-        # sleep 600
-
-
-
-        assert_equal "$decrypted_data" "$data" #Line 288-293
+        assert_equal "$decrypted_data" "$data"
         assert_success "Perform decryption with imported wrapped AES key"
 
       run rm rsawrapped.object data.enc
@@ -911,7 +866,7 @@ setup_file() {
       run "${command_args[@]}" -p password -a decrypt-aescbc -i "$aeskey" --iv "$iv" --in data.enc
         assert_success "Decryption succeeded"
         last_line_of_output=$(echo "$output" | tail -n 1)
-        assert_equal "$last_line_of_output" "$data" #Line 310-315
+        assert_equal "$last_line_of_output" "$data"
       run rm rsawrapped.key data.enc
         assert_success "Removed RSA wrapped key and encrypted data"
     fi
@@ -990,7 +945,7 @@ setup_file() {
       run "${command_args[@]}" -p password -a decrypt-aescbc -i "$aeskey" --iv "$iv" --in data.enc
         assert_success "Decryption succeeded"
         last_line_of_output=$(echo "$output" | tail -n 1)
-        assert_equal "$last_line_of_output" "$data" #Line 369-375
+        assert_equal "$last_line_of_output" "$data"
       run rm rsawrapped.object data.enc
         assert_success "Removed RSA wrapped object and encrypted data"
       
@@ -1016,7 +971,7 @@ setup_file() {
       run "${command_args[@]}" -p password -a decrypt-aescbc -i "$aeskey" --iv "$iv" --in data.enc
         assert_success "Decryption succeeded"
         last_line_of_output=$(echo "$output" | tail -n 1)
-        assert_equal "$last_line_of_output" "$data" #Line 390-397
+        assert_equal "$last_line_of_output" "$data" 
       run rm rsawrapped.key data.enc
         assert_success "Removed RSA wrapped key and encrypted data"
 
@@ -1031,15 +986,12 @@ setup_file() {
     run "${command_args[@]}" -p password -a delete-object -i "$import_keyid" -t public-wrap-key
       assert_success "Delete imported RSA public wrap key"
   done
-  run "${command_args[@]}" -p password -a reset
-    assert_success "Reset device"
-  sleep 3 #Connection crashes otherwise (over usb)
-
 }
 
 @test "List Objects" {
   [[ "$LIST_TESTS" == "true" ]] || skip "skipping right now"
   command_args=("$BIN" "$c_var" "$SPECIFIED_CONNECTOR")
+
   run "${command_args[@]}" -p password -a reset
     assert_success "HSM was reset"
   sleep 3
@@ -1078,6 +1030,7 @@ setup_file() {
 @test "Label Size" {
   [[ "$LABEL_TESTS" == "true" ]] || skip "skipping right now"
   command_args=("$BIN" "$c_var" "$SPECIFIED_CONNECTOR")
+
   run "${command_args[@]}" -p password -a reset
     assert_success "HSM was reset"
   sleep 3
@@ -1133,6 +1086,7 @@ setup_file() {
 @test "Authentication" {
   [[ "$AUTHENTICATION_TESTS" == "true" ]] || skip "skipping right now"
   command_args=("$BIN" "$c_var" "$SPECIFIED_CONNECTOR")
+
   run "${command_args[@]}" -p password -a reset
     assert_success "HSM was reset"
   sleep 3
@@ -1140,9 +1094,7 @@ setup_file() {
   run "${command_args[@]}" -p password -a put-authentication-key -i 0 -l authkey -d 1,2,3 -c all --delegated all --new-password foo123
       assert_success "Create new authentication key"
 
-  local keyid
   keyid=$(echo "$output" | tail -1 | awk '{print $4}')
-
   run "${command_args[@]}" --authkey "$keyid" -p foo123 -a get-object-info -i 1 -t authentication-key
       assert_success "Authenticate with new authentication key"
 

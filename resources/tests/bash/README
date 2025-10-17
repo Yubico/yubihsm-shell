@@ -1,0 +1,18 @@
+Install MSYS2:
+-   Download the installer through "https://www.msys2.org/" and run the MSYS terminal (default is UCRT64).
+You may need to do a system update with the command "pacman -Syu" and close then reopen the terminal.
+
+Download BATS:
+-   Create a directory in which you will download the bats-core source code.
+-   Clone the repository "git clone https://github.com/bats-core/bats-core.git"
+-   Run the installation script "cd bats-core" and "./install.sh /usr/local"
+-   Verify that BATS was correctly installed with "bats --version"
+
+Install dependencies:
+-   If "diffutils" and "openssl" aren't already installed on your system install them
+-   Can check if installed by "diff --version" and "openssl --version"
+-   If not installed, install with "pacman -S diffutils openssl"
+
+To run the BATS scripts make sure current directory is /resources/tests/bash and run with "bats cmdline_test.bats" or "bats opensc_test.bats"
+Environment variables can be set up in the same line
+In order to run the opensc_test you need to create a file named "yubihsm_pkcs11.config" and follow the steps under https://docs.yubico.com/hardware/yubihsm-2/hsm-2-user-guide/hsm2-sdk-tools-libraries.html#hsm2-pkcs11-configuration-sample-label
