@@ -4,35 +4,70 @@ load 'test_helper/bats-assert/load'
 setup_file() {
   
   echo "--- Configuration via Environment Variables ---" >&3
-  echo "YUBIHSM_PATH: path to the yubihsm-shell command line tool - using default connector." >&3
-  echo "SPECIFIED_CONNECTOR:      path to the yubihsm-shell command line tool - using specified connector" >&3
-  echo "<test>=false: Choose to skip test" >&3
-  echo " ED_KEY_TESTS EC_KEY_TESTS RSA_KEY_TESTS HMAC_KEY_TESTS OTP_AEAD_TESTS TEMPLATE_TESTS WRAP_KEY_TESTS LIST_TESTS LABEL_TESTS AUTHENTICATION_TESTS" >&3
+  echo "YUBIHSM_PATH: path to the yubihsm-shell command line tool - using default connector" >&3
+  echo "SPECIFIED_CONNECTOR: path to the yubihsm-shell command line tool - using specified connector" >&3
+  echo "TESTS: which tests to run. Possible values are: 'short', 'medium' or 'all'" >&3
+  echo "It is also possible to individually enable tests by setting the environment variables specified in the README file to 'true'" >&3
   echo "-----------------------------------------------" >&3
-  echo "These tests will reset your HSM" >&3
-  echo "Press Enter to continue or Ctrl-C + enter to abort" >&3
-  read -p "" 
+   
+  case "$TESTS" in
+  "all")
+    ED_KEY_TESTS="true"
+    EC_KEY_TESTS="true"
+    RSA_KEY_TESTS="true"
+    HMAC_KEY_TESTS="true"
+    OTP_AEAD_TESTS="true"
+    TEMPLATE_TESTS="true"
+    WRAP_KEY_TESTS="true"
+    LIST_TESTS="true"
+    LABEL_TESTS="true"
+    AUTHENTICATION_TESTS="true"
+    ;;
+  "medium")
+    ED_KEY_TESTS="true"
+    EC_KEY_TESTS="true"
+    HMAC_KEY_TESTS="true"
+    OTP_AEad_TESTS="true"
+    TEMPLATE_TESTS="true"
+    LIST_TESTS="true"
+    LABEL_TESTS="true"
+    AUTHENTICATION_TESTS="true"
+    ;;
+  "short")
+    HMAC_KEY_TESTS="true"
+    OTP_AEAD_TESTS="true"
+    TEMPLATE_TESTS="true"
+    LIST_TESTS="true"
+    LABEL_TESTS="true"
+    AUTHENTICATION_TESTS="true"
+    ;;
+  *)
+    echo "---------------------------------------------------" >&3
+    echo "Warning: Unrecognized TEST level: '$TESTS'" >&3
+    echo "Ignore if you are setting individual test variables" >&3
+    echo "---------------------------------------------------" >&3
+    ;;
+  esac
 
-  export ED_KEY_TESTS=${ED_KEY_TESTS:-"true"}
-  export EC_KEY_TESTS=${EC_KEY_TESTS:-"true"}
-  export RSA_KEY_TESTS=${RSA_KEY_TESTS:-"true"}
-  export HMAC_KEY_TESTS=${HMAC_KEY_TESTS:-"true"}
-  export OTP_AEAD_TESTS=${OTP_AEAD_TESTS:-"true"}
-  export TEMPLATE_TESTS=${TEMPLATE_TESTS:-"true"}
-  export WRAP_KEY_TESTS=${WRAP_KEY_TESTS:-"true"}
-  export LIST_TESTS=${LIST_TESTS:-"true"}
-  export LABEL_TESTS=${LABEL_TESTS:-"true"}
-  export AUTHENTICATION_TESTS=${AUTHENTICATION_TESTS:-"true"}
+  export ED_KEY_TESTS=${ED_KEY_TESTS:-"false"}
+  export EC_KEY_TESTS=${EC_KEY_TESTS:-"false"}
+  export RSA_KEY_TESTS=${RSA_KEY_TESTS:-"false"}
+  export HMAC_KEY_TESTS=${HMAC_KEY_TESTS:-"false"}
+  export OTP_AEAD_TESTS=${OTP_AEAD_TESTS:-"false"}
+  export TEMPLATE_TESTS=${TEMPLATE_TESTS:-"false"}
+  export WRAP_KEY_TESTS=${WRAP_KEY_TESTS:-"false"}
+  export LIST_TESTS=${LIST_TESTS:-"false"}
+  export LABEL_TESTS=${LABEL_TESTS:-"false"}
+  export AUTHENTICATION_TESTS=${AUTHENTICATION_TESTS:-"false"}
 
   local default_bin_path="yubihsm-shell"
+  local os=$(uname -o) 
   export c_var=""
-  local winpath
-  winpath=$(uname -o) 
 
-  if [[ "$winpath" == "Msys" ]]; then
-    default_bin_path="/c/Program Files/Yubico/YubiHSM Shell/bin/yubihsm-shell.exe"
+  if [[ "$os" == "Msys" ]]; then
+    default_bin_path="C:\Program Files\Yubico\YubiHSM Shell\bin\yubihsm-shell.exe"
     export MSYS2_ARG_CONV_EXCL=* # To prevent path conversion by MSYS2
-  elif [[ "$winpath" == "GNU/Linux" || "$winpath" == "Darwin" ]]; then
+  elif [[ "$os" == "GNU/Linux" || "$os" == "Darwin" ]]; then
     default_bin_path="/usr/local/bin/yubihsm-shell"
   fi
 
@@ -42,6 +77,15 @@ setup_file() {
   fi
   export BIN=${YUBIHSM_PATH:-$default_bin_path}
   export SPECIFIED_CONNECTOR=${SPECIFIED_CONNECTOR:-""}
+
+  echo "Variables Check:" >&3
+  echo "YubiHSM-shell: $BIN" >&3
+  echo "Connector: "$c_var" "$SPECIFIED_CONNECTOR"" >&3
+  echo "Tests to run: $TESTS" >&3
+
+  echo "These tests will reset your HSM" >&3
+  echo "Press Enter to continue or Ctrl-C + enter to abort" >&3
+  read -p ""
 
   if [ -e yubihsm-shell_test_dir ]; then
     rm -rf yubihsm-shell_test_dir
@@ -837,7 +881,7 @@ setup_file() {
       run "${command_args[@]}" -p password -a encrypt-aescbc -i "$aeskey" --iv "$iv" --in "$data" --out data.enc
         assert_success "Perform encryption with imported wrapped AES key"
       run "${command_args[@]}" -p password -a decrypt-aescbc -i "$aeskey" --iv "$iv" --in data.enc
-        decrypted_data=$(echo "$output" | tail -n +3)
+        decrypted_data=$(echo "$output" | tail -n 1)
         assert_equal "$decrypted_data" "$data"
         assert_success "Perform decryption with imported wrapped AES key"
 

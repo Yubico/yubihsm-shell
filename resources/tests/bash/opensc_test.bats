@@ -4,15 +4,16 @@ load 'test_helper/bats-assert/load'
 setup_file() {
   echo "--- Configuration via Environment Variables ---" >&3
   echo "MODULE: Path to the PKCS#11 module, default /usr/local/lib/yubihsm_pkcs11.so (Linux) or /usr/local/lib/yubihsm_pkcs11.dylib (Mac)" >&3
-  echo "EDIT_PATH: (Windows/Msys only) Path to directory where pkcs11-tool.exe and yubihsm_pkcs11.dll is located if not in default locations" >&3
+  echo "EDIT_PATH: (Windows/Msys only) Path to directory where pkcs11-tool.exe and yubihsm_pkcs11.dll is located if not in default locations. Use delimiter ":". Example: export EDIT_PATH='C:\Path\To\OpenSC\tools:C:\Path\To\YubiHSM Shell\bin" >&3
+  echo "CONFIG_FILE: Path to the yubihsm_pkcs11 configuration file, default is in current directory" >&3
   echo "-----------------------------------------------" >&3
   echo "" >&3
 
   export EC_CURVES="secp224r1 secp256r1 secp384r1 secp521r1 secp256k1"
   export pkcs11="pkcs11-tool"
   export RSA_LENGTHS="2048 3072 4096"
+  export YUBIHSM_PKCS11_CONF=${CONFIG_FILE:-"$(pwd)/yubihsm_pkcs11.conf"}
   local default_module_path="/usr/local/lib/yubihsm_pkcs11.dylib" #Default path for Mac
-  export YUBIHSM_PKCS11_CONF="$(pwd)/yubihsm_pkcs11.conf"
   os=$(uname -o)
 
   if ! { [[ "$os" == "Linux" ]] && grep -q 'Fedora' /etc/os-release 2>/dev/null; }; then
@@ -20,31 +21,41 @@ setup_file() {
   fi
   
   if [[ "$os" == "Msys" ]]; then
-    echo "This script expects that the pkcs11-tool from OpenSC is installed under "/c/Program Files/OpenSC Project/OpenSC/tools" and that the yubihsm_pkcs11 module is installed under "/c/Program Files/Yubico/YubiHSM Shell/bin" "
+    echo "This script expects that the pkcs11-tool from OpenSC is installed under "C:\Program Files\OpenSC Project\OpenSC\tools" and that libyubihsm.dll is installed under "C:\Program Files\Yubico\YubiHSM Shell\bin" "
     echo "If that is not the case, please point to the correct locations via the environment variable EDIT_PATH"
     pkcs11="pkcs11-tool.exe"
-    default_module_path="pkcs11/yubihsm_pkcs11.dll"
+    default_module_path="C:\Program Files\Yubico\YubiHSM Shell\bin\pkcs11\yubihsm_pkcs11.dll"
     export MSYS2_ARG_CONV_EXCL=*
 
     if ! [ -z "$EDIT_PATH" ]; then
         export PATH="$PATH:"$EDIT_PATH""
     else
         # Adds pkcs11-tool and yubihsm-shell to PATH
-        export PATH="$PATH:/c/Program Files/OpenSC Project/OpenSC/tools:/c/Program Files/Yubico/YubiHSM Shell/bin"
+        export PATH="$PATH:C:\Program Files\OpenSC Project\OpenSC\tools:C:\Program Files\Yubico\YubiHSM Shell\bin"
     fi
   elif [[ "$os" == "GNU/LINUX" ]]; then
     default_module_path="/usr/local/lib/yubihsm_pkcs11.so"
   fi
 
   export MODULE=${MODULE:-$default_module_path}
-  echo test signing data > data.txt
-}
 
-@test "Variables check" {
-    echo "Using module: "$MODULE"" >&3
-    echo "Using pkcs11: "$pkcs11"" >&3
-    echo "EC Curves to test: "$EC_CURVES"" >&3
-    echo "RSA Lengths to test: "$RSA_LENGTHS"" >&3       
+  echo "--------------------------------" >&3
+  echo "Variables Check:" >&3
+  echo "Using module: "$MODULE"" >&3
+  echo "Using pkcs11: "$pkcs11"" >&3
+  echo "EC Curves to test: "$EC_CURVES"" >&3
+  echo "RSA Lengths to test: "$RSA_LENGTHS"" >&3 
+  echo "--------------------------------" >&3
+
+  echo "These tests will reset your HSM" >&3
+  echo "Press Enter to continue or Ctrl-C + enter to abort" >&3
+  read -p ""
+
+  if [ -e yubihsm-shell_test_dir ]; then
+    rm -rf yubihsm-shell_test_dir
+  fi
+  mkdir yubihsm-shell_test_dir; cd yubihsm-shell_test_dir
+  echo "test signing data" > data.txt
 }
 
 @test "EC Curve tests" {
@@ -336,6 +347,6 @@ setup_file() {
         assert_success "Compare read certificate with the one imported"
     run "$pkcs11" --module "$MODULE" --login --pin 0001password --delete-object --id 6464 --type cert
         assert_success "Delete certificate"
-    run rm too_large_cert.der too_large_cert_out.der
-        assert_success "Delete test certificate files"
+    run rm too_large_cert.der too_large_cert_out.der privkey.pem
+        assert_success "Delete files"
 }

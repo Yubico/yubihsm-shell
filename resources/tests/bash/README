@@ -1,3 +1,5 @@
+In order to run the BATS files on Windows/Msys you need to do the following:
+
 Install MSYS2:
 -   Download the installer through "https://www.msys2.org/" and run the MSYS terminal (default is UCRT64).
 You may need to do a system update with the command "pacman -Syu" and close then reopen the terminal.
@@ -16,3 +18,14 @@ Install dependencies:
 To run the BATS scripts make sure current directory is /resources/tests/bash and run with "bats cmdline_test.bats" or "bats opensc_test.bats"
 Environment variables can be set up in the same line
 In order to run the opensc_test you need to create a file named "yubihsm_pkcs11.config" and follow the steps under https://docs.yubico.com/hardware/yubihsm-2/hsm-2-user-guide/hsm2-sdk-tools-libraries.html#hsm2-pkcs11-configuration-sample-label
+
+Available tests to run in cmdline_test.bats (set the corresponding environment variable to "true" in order to run):
+ED_KEY_TESTS
+EC_KEY_TESTS
+RSA_KEY_TESTS
+HMAC_KEY_TESTS
+OTP_AEAD_TESTS
+TEMPLATE_TESTS
+WRAP_KEY_TESTS
+LABEL_TESTS
+AUTHENTICATION_TESTS
