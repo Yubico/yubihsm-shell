@@ -1,4 +1,5 @@
 In order to run the BATS files on Windows/Msys you need to do the following:
+If you used "git clone" to clone this repository you need to do "git submodule update --init --recursive" in order for the BATS submodules to load
 
 Install MSYS2:
 -   Download the installer through "https://www.msys2.org/" and run the MSYS terminal (default is UCRT64).
