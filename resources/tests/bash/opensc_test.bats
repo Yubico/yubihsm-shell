@@ -4,7 +4,7 @@ load 'test_helper/bats-assert/load'
 setup_file() {
   echo "--- Configuration via Environment Variables ---" >&3
   echo "MODULE: Path to the PKCS#11 module, default /usr/local/lib/yubihsm_pkcs11.so (Linux) or /usr/local/lib/yubihsm_pkcs11.dylib (Mac)" >&3
-  echo "EDIT_PATH: (Windows/Msys only) Path to directory where pkcs11-tool.exe and yubihsm_pkcs11.dll is located if not in default locations. Use delimiter ":". Example: export EDIT_PATH='C:\Path\To\OpenSC\tools:C:\Path\To\YubiHSM Shell\bin" >&3
+  echo "EDIT_PATH: (Windows/Msys only) Path to directory where pkcs11-tool.exe and libyubihsm is located if not in default locations. Use delimiter ":". Example: export EDIT_PATH='C:\Path\To\OpenSC\tools:C:\Path\To\YubiHSM Shell\bin" >&3
   echo "CONFIG_FILE: Path to the yubihsm_pkcs11 configuration file, default is in current directory" >&3
   echo "-----------------------------------------------" >&3
   echo "" >&3
