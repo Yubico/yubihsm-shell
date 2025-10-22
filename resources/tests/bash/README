@@ -1,32 +1,39 @@
-In order to run the BATS files on Windows/Msys you need to do the following:
-If you used "git clone" to clone this repository you need to do "git submodule update --init --recursive" in order for the BATS submodules to load
+These scripts are just example usage. They are mostly used by developers to test functionality and they require a YubiKey to be plugged in.
 
-Install MSYS2:
--   Download the installer through "https://www.msys2.org/" and run the MSYS terminal (default is UCRT64).
-You may need to do a system update with the command "pacman -Syu" and close then reopen the terminal.
+WARNING: Data on the YubiHSM2 will be overwritten.
+
+In order to run the BATS files on Windows/Msys follow the steps below:
+When using it for the first time, run "git submodule update --init --recursive" in order for the BATS submodlues to load correctly
+
+Installing MSYS2:
+-   Download the installer through "https://www.msys2.org/" and run the MSYS terminal (default is UCRT64)
+A system update may be needed with the command "pacman -Syu". Close then reopen the terminal.
 
 Download BATS:
--   Create a directory in which you will download the bats-core source code.
+-   Create a directory to download the bats-core source code to.
 -   Clone the repository "git clone https://github.com/bats-core/bats-core.git"
 -   Run the installation script "cd bats-core" and "./install.sh /usr/local"
 -   Verify that BATS was correctly installed with "bats --version"
 
 Install dependencies:
--   If "diffutils" and "openssl" aren't already installed on your system install them
--   Can check if installed by "diff --version" and "openssl --version"
+-   If "diffutils" and "openssl" aren't already installed on the system, install them
+-   Verify installation by running "diff --version" and "openssl --version"
 -   If not installed, install with "pacman -S diffutils openssl"
 
-To run the BATS scripts make sure current directory is /resources/tests/bash and run with "bats cmdline_test.bats" or "bats opensc_test.bats"
-Environment variables can be set up in the same line
-In order to run the opensc_test you need to create a file named "yubihsm_pkcs11.config" and follow the steps under https://docs.yubico.com/hardware/yubihsm-2/hsm-2-user-guide/hsm2-sdk-tools-libraries.html#hsm2-pkcs11-configuration-sample-label
+To run BATS scripts, make sure current directory is /resources/tests/bash, then run "bats cmdline_test.bats" or "bats opensc_test.bats"
+Tests can be modified with environment variables. Help text will be displayed when running the tests
+opensc_test require OpenSC to be installed
+To run the opensc_test, create a configuration file according to https://docs.yubico.com/hardware/yubihsm-2/hsm-2-user-guide/hsm2-sdk-tools-libraries.html#hsm2-pkcs11-configuration-sample-label
 
-Available tests to run in cmdline_test.bats (set the corresponding environment variable to "true" in order to run):
-ED_KEY_TESTS
-EC_KEY_TESTS
-RSA_KEY_TESTS
-HMAC_KEY_TESTS
-OTP_AEAD_TESTS
-TEMPLATE_TESTS
-WRAP_KEY_TESTS
-LABEL_TESTS
-AUTHENTICATION_TESTS
+Tests in cmdline_test are disabled by default but can be enabled individually by setting the corresponding environment variable to "true". 
+
+The environment variables are:
+- ED_KEY_TESTS
+- EC_KEY_TESTS
+- RSA_KEY_TESTS
+- HMAC_KEY_TESTS
+- OTP_AEAD_TESTS
+- TEMPLATE_TESTS
+- WRAP_KEY_TESTS
+- LABEL_TESTS
+- AUTHENTICATION_TESTS
