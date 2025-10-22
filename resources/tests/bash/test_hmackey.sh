@@ -46,40 +46,48 @@ test_with_resp () {
 
 set -e
 
-
-echo "====================== AEAD keys ===================== "
-echo "------------- AEAD Key 128"
-test_with_resp "$BIN -p password -a generate-otp-aead-key -i 0 -l aeadkey -d 1,2,3 -c randomize-otp-aead -A aes128-yubico-otp --nonce 0x01020304" "   Generate key"
-keyid=$(tail -1 resp.txt | awk '{print $5}')
-test "$BIN -p password -a get-object-info -i $keyid -t otp-aead-key" "   Get object info"
-info=$($BIN -p password -a get-object-info -i $keyid -t otp-aead-key 2> /dev/null)
+echo "====================== HMAC keys ===================== "
+echo "------------- hmac-sha1"
+test_with_resp "$BIN -p password -a generate-hmac-key -i 0 -l hmackey -d 1,2,3 -c sign-hmac -A hmac-sha1" "   Generate key"
+keyid=$(tail -1 resp.txt | awk '{print $4}')
+test "$BIN -p password -a get-object-info -i $keyid -t hmac-key" "   Get object info"
+info=$($BIN -p password -a get-object-info -i $keyid -t hmac-key 2> /dev/null)
 test "echo $info | grep \"id: $keyid\"" "   Object info contains correct ID"
-test "echo $info | grep \"type: otp-aead-key\"" "   Object info contains correct type"
-test "echo $info | grep \"algorithm: aes128-yubico-otp\"" "   Object info contains correct algorithm"
-test "echo $info | grep 'label: \"aeadkey\"'" "   Object info contains correct label"
+test "echo $info | grep \"type: hmac-key\"" "   Object info contains correct type"
+test "echo $info | grep \"algorithm: hmac-sha1\"" "   Object info contains correct algorithm"
+test "echo $info | grep 'label: \"hmackey\"'" "   Object info contains correct label"
 test "echo $info | grep \"domains: 1:2:3\"" "   Object info contains correct domains"
 test "echo $info | grep \"origin: generated\"" "   Object info contains correct origin"
-test "echo $info | grep \"capabilities: randomize-otp-aead\"" "   Object info contains correct capabilities"
-test "$BIN -p password -a randomize-otp-aead -i $keyid" "   Randomize OTP AEAD"
-test "$BIN -p password -a delete-object -i $keyid -t otp-aead-key" "   Delete key"
+test "echo $info | grep \"capabilities: sign-hmac\"" "   Object info contains correct capabilities"
+#$BIN -p password -a sign-hmac -i $keyid --in data.txt
+test "$BIN -p password -a delete-object -i $keyid -t hmac-key" "   Delete key"
 
-echo "------------- AEAD Key 128"
-test_with_resp "$BIN -p password -a generate-otp-aead-key -i 0 -l aeadkey -d 1,2,3 -c randomize-otp-aead -A aes192-yubico-otp --nonce 0x01020304" "   Generate key"
-keyid=$(tail -1 resp.txt | awk '{print $5}')
-test "$BIN -p password -a get-object-info -i $keyid -t otp-aead-key" "   Get object info"
-info=$($BIN -p password -a get-object-info -i $keyid -t otp-aead-key 2> /dev/null)
-test "echo $info | grep \"algorithm: aes192-yubico-otp\"" "   Object info contains correct algorithm"
-test "$BIN -p password -a randomize-otp-aead -i $keyid" "   Randomize OTP AEAD"
-test "$BIN -p password -a delete-object -i $keyid -t otp-aead-key" "   Delete key"
+echo "------------- hmac-sha256"
+test_with_resp "$BIN -p password -a generate-hmac-key -i 0 -l hmackey -d 1,2,3 -c sign-hmac -A hmac-sha256" "   Generate key"
+keyid=$(tail -1 resp.txt | awk '{print $4}')
+test "$BIN -p password -a get-object-info -i $keyid -t hmac-key" "   Get object info"
+info=$($BIN -p password -a get-object-info -i $keyid -t hmac-key 2> /dev/null)
+test "echo $info | grep \"algorithm: hmac-sha256\"" "   Object info contains correct algorithm"
+#$BIN -p password -a sign-hmac -i $keyid --in data.txt
+test "$BIN -p password -a delete-object -i $keyid -t hmac-key" "   Delete key"
 
-echo "------------- AEAD Key 256"
-test_with_resp "$BIN -p password -a generate-otp-aead-key -i 0 -l aeadkey -d 1,2,3 -c randomize-otp-aead -A aes256-yubico-otp --nonce 0x01020304" "   Generate key"
-keyid=$(tail -1 resp.txt | awk '{print $5}')
-test "$BIN -p password -a get-object-info -i $keyid -t otp-aead-key" "   Get object info"
-info=$($BIN -p password -a get-object-info -i $keyid -t otp-aead-key 2> /dev/null)
-test "echo $info | grep \"algorithm: aes256-yubico-otp\"" "   Object info contains correct algorithm"
-test "$BIN -p password -a randomize-otp-aead -i $keyid" "   Randomize OTP AEAD"
-test "$BIN -p password -a delete-object -i $keyid -t otp-aead-key" "   Delete key"
+echo "------------- hmac-sha384"
+test_with_resp "$BIN -p password -a generate-hmac-key -i 0 -l hmackey -d 1,2,3 -c sign-hmac -A hmac-sha384" "   Generate key"
+keyid=$(tail -1 resp.txt | awk '{print $4}')
+test "$BIN -p password -a get-object-info -i $keyid -t hmac-key" "   Get object info"
+info=$($BIN -p password -a get-object-info -i $keyid -t hmac-key 2> /dev/null)
+test "echo $info | grep \"algorithm: hmac-sha384\"" "   Object info contains correct algorithm"
+#$BIN -p password -a sign-hmac -i $keyid --in data.txt
+test "$BIN -p password -a delete-object -i $keyid -t hmac-key" "   Delete key"
+
+echo "------------- hmac-sha512"
+test_with_resp "$BIN -p password -a generate-hmac-key -i 0 -l hmackey -d 1,2,3 -c sign-hmac -A hmac-sha512" "   Generate key"
+keyid=$(tail -1 resp.txt | awk '{print $4}')
+test "$BIN -p password -a get-object-info -i $keyid -t hmac-key" "   Get object info"
+info=$($BIN -p password -a get-object-info -i $keyid -t hmac-key 2> /dev/null)
+test "echo $info | grep \"algorithm: hmac-sha512\"" "   Object info contains correct algorithm"
+#$BIN -p password -a sign-hmac -i $keyid --in data.txt
+test "$BIN -p password -a delete-object -i $keyid -t hmac-key" "   Delete key"
 
 cd ..
 rm -rf yubihsm-shell_test_dir
