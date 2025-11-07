@@ -14,6 +14,6 @@
 # limitations under the License.
 #
 
-option "in" - "Input data (filename)" string
+option "in" - "Input data as base64 (filename)" string
 option "out" - "Output data (filename)" string
-option "wrapkey" k "Key to wrap data with (filename)" string
+option "wrapkey" k "Key to unwrap data with as binary (filename)" string
