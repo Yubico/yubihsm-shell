@@ -24,25 +24,21 @@ if(WIN32)
     set(SOURCE ${SOURCE} ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
 endif(WIN32)
 
-include_directories (
-  ${LIBPCSC_INCLUDE_DIRS}
-)
-
-# Uncomment this for Ubuntu 24.10 and higher and Fedora 41 and higher
-#SET(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} ${LIBPCSC_CFLAGS}")
-
 add_library (ykhsmauth SHARED ${SOURCE})
 
 #add_definitions (-DVERSION="${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}")
 
+target_include_directories (ykhsmauth PRIVATE ${LIBPCSC_INCLUDE_DIRS})
+target_compile_options (ykhsmauth PRIVATE ${LIBPCSC_CFLAGS_OTHER})
 target_link_libraries (ykhsmauth ${LIBPCSC_LDFLAGS})
-
 set_target_properties (ykhsmauth PROPERTIES VERSION "${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}" SOVERSION ${yubihsm_shell_VERSION_MAJOR})
 
 # Set install RPATH
 set_target_properties(ykhsmauth PROPERTIES INSTALL_RPATH "${YUBIHSM_INSTALL_LIB_DIR}")
 
 add_library (ykhsmauth_static STATIC ${SOURCE})
+target_include_directories (ykhsmauth_static PRIVATE ${LIBPCSC_INCLUDE_DIRS})
+target_compile_options (ykhsmauth_static PRIVATE ${LIBPCSC_CFLAGS_OTHER})
 set_target_properties (ykhsmauth_static PROPERTIES POSITION_INDEPENDENT_CODE on OUTPUT_NAME ykhsmauth)
 set_target_properties (ykhsmauth_static PROPERTIES COMPILE_FLAGS "-DSTATIC")
 target_link_libraries (ykhsmauth_static ${LIBPCSC_LDFLAGS})
