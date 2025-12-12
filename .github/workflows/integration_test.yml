@@ -83,8 +83,6 @@ jobs:
           # Allows usage of SHA1
           update-crypto-policies --set LEGACY
           
-          # Set PCSC flags
-          sed -i 's/#SET(CMAKE_C_FLAGS/SET(CMAKE_C_FLAGS/' ykhsmauth/CMakeLists.txt
           # Remove SHA-1 tests from the test suite
           #sed -i 's/openssl dgst -sha1 -verify/#openssl dgst -sha1 -verify/' src/tests/tests.sh
           

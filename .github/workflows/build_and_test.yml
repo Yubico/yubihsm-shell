@@ -98,11 +98,6 @@ jobs:
             # ubuntu 24.10 and above comes with _FORTIFY_SOURCE already set
             sed -i 's/add_definitions (-D_FORTIFY_SOURCE=2)/add_definitions (-D_FORTIFY_SOURCE=3)/' cmake/SecurityFlags.cmake
           fi
-          
-          if [ "$DOCKER_IMAGE" = "ubuntu:24.10" ] || [ "$DOCKER_IMAGE" = "ubuntu:25.04" ] || [ "$DOCKER_IMAGE" = "debian:13" ]; then
-            # Set PCSC flags
-            sed -i 's/#SET(CMAKE_C_FLAGS/SET(CMAKE_C_FLAGS/' ykhsmauth/CMakeLists.txt
-          fi
 
       - name: do build
         working-directory: yubihsm-shell
@@ -225,12 +220,6 @@ jobs:
           sed -i 's/cmake_policy(SET CMP0054 NEW)/#cmake_policy(SET CMP0054 NEW)/' CMakeLists.txt
           # append the following flags: -Wno-missing-braces -Wno-missing-field-initializers -Wno-implicit-function-declaration
           sed -i 's/-Wall -Wextra -Werror/-Wall -Wextra -Werror -Wno-missing-braces -Wno-missing-field-initializers/' cmake/SecurityFlags.cmake
-
-      - name: apply changes necessary for newer Fedora versions
-        working-directory: yubihsm-shell
-        run: |
-          # Set PCSC flags
-          sed -i 's/#SET(CMAKE_C_FLAGS/SET(CMAKE_C_FLAGS/' ykhsmauth/CMakeLists.txt
 
       - name: do build
         working-directory: yubihsm-shell
