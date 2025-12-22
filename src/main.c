@@ -2145,6 +2145,44 @@ int main(int argc, char *argv[]) {
           COM_SUCCEED_OR_DIE(comrc, "Unable to decrypt data");
         } break;
 
+        case action_arg_decryptMINUS_oaep: {
+
+          if (args_info.object_id_given == 0) {
+            fprintf(stderr, "Missing object id\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          if (args_info.algorithm_given == 0) {
+            fprintf(stderr, "Missing argument algorithm\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          arg[1].w = args_info.object_id_arg;
+
+          yrc = yh_string_to_algo(args_info.algorithm_arg, &arg[2].a);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse algorithm: ");
+
+          if (get_input_data(args_info.in_arg, &arg[3].x, &arg[3].len,
+                             g_in_fmt == fmt_nofmt ? fmt_binary : g_in_fmt) ==
+              false) {
+            fprintf(stderr, "Failed to get input data\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          arg[4].s = args_info.label_arg;
+          arg[4].len = strlen(args_info.label_arg);
+
+          comrc = yh_com_decrypt_oaep(&g_ctx, arg, fmt_nofmt,
+                                           g_out_fmt == fmt_nofmt ? fmt_binary
+                                                                  : g_out_fmt);
+          free(arg[3].x);
+          COM_SUCCEED_OR_DIE(comrc, "Unable to decrypt data");
+        } break;
+
+
         case action_arg_deriveMINUS_ecdh: {
           arg[1].w = args_info.object_id_arg;
           if (get_input_data(args_info.in_arg, &arg[2].x, &arg[2].len,
@@ -2161,7 +2199,6 @@ int main(int argc, char *argv[]) {
           COM_SUCCEED_OR_DIE(comrc, "Unable to perform ECDH key exchange");
         } break;
 
-        case action_arg_decryptMINUS_oaep:
         case action_arg_decryptMINUS_aesccm:
         case action_arg_encryptMINUS_aesccm:
           LIB_SUCCEED_OR_DIE(YHR_GENERIC_ERROR, "Command not implemented: ");
