@@ -1,7 +1,7 @@
 %global _yubihsm yubihsm
 
 Name:		yubihsm-shell
-Version:	2.7.0
+Version:	2.7.1
 Release:	1%{?dist}
 Summary:	Tools to interact with YubiHSM 2
 
@@ -78,5 +78,6 @@ install -m 0644 ../LICENSE %{buildroot}/%{_prefix}/share/licenses/%{name}
 
 
 %changelog
-* Wed Jun 10 2025 Aveen Ismail <aveen.ismail@yubico.com> - 2.7.0
-- Releasing version 2.7.0
+* Fri Jan 16 2026 Aveen Ismail <aveen.ismail@yubico.com> - 2.7.1
+- cmd: Add support for decrypt-oaep command in non-interactive mode
+- test: Improve testing processes

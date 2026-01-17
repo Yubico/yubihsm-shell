@@ -1,3 +1,8 @@
+=== Version 2.7.1
+
+shell: Add support for decrypt-oaep command in non-interactive mode
+test: Improve testing processes
+
 === Version 2.7.0
 
 lib: shell: pkcs11: Add support for compressing X509Certificate before import

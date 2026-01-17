@@ -9,7 +9,7 @@ jobs:
     name: Build dist with Linux
     runs-on: ubuntu-latest
     env:
-      VERSION: 2.7.0
+      VERSION: 2.7.1
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -44,7 +44,7 @@ jobs:
           - os: windows-latest
             arch: x64
     env:
-      VERSION: 2.7.0
+      VERSION: 2.7.1
     steps:
       - name: Download source from source job
         uses: actions/download-artifact@v4
@@ -95,7 +95,7 @@ jobs:
           - os: macos-latest-xlarge
             arch: arm
     env:
-      VERSION: 2.7.0
+      VERSION: 2.7.1
     steps:
       - name: Download source from source job
         uses: actions/download-artifact@v4
@@ -148,7 +148,7 @@ jobs:
             "debian:13",
             "debian:12",
         ]
-        version: [ "2.7.0" ]
+        version: [ "2.7.1" ]
 
     name: build on ${{ matrix.environment }}
     runs-on: ubuntu-latest
@@ -298,7 +298,7 @@ jobs:
             "fedora:42",
             "fedora:43",
         ]
-        version: [ "2.7.0" ]
+        version: [ "2.7.1" ]
 
     name: build on ${{ matrix.environment }}
     runs-on: ubuntu-latest

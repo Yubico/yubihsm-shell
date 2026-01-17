@@ -1,3 +1,10 @@
+yubihsm-shell (2.7.1) unstable; urgency=medium
+
+    * shell: Add support for decrypt-oaep command in non-interactive mode
+    * test: Improve testing processes
+
+ -- Aveen Ismail <aveen.ismail@yubico.com>  Sat, 17 Jan 2026 10:58:49 +0100
+
 yubihsm-shell (2.7.0) unstable; urgency=medium
 
     * lib: shell: pkcs11: Add support for compressing X509Certificate before import
