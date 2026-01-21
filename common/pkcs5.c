@@ -14,13 +14,33 @@
  * limitations under the License.
  */
 
+#include <string.h>
+#include <assert.h>
+#include <stdlib.h>
+
 #include "pkcs5.h"
+#include "../lib/debug_lib.h"
 
 #ifdef _WIN32_BCRYPT
 #include <windows.h>
 #include <bcrypt.h>
 #else
 #include <openssl/evp.h>
+#include <openssl/err.h>
+
+static int ossl_err_cb(const char *str, size_t len, void *u) {
+  (void) len;
+  (void) u;
+  DBG_ERR("%s %s", (const char *) u, str);
+  return 1;
+}
+
+static void DBG_OSSL(const char *str, int err) {
+  DBG_ERR("%s: %d OSSL error stack begin", str, err);
+  ERR_print_errors_cb(ossl_err_cb, (void *) str);
+  DBG_ERR("%s: OSSL error stack end", str);
+}
+
 #endif
 
 bool pkcs5_pbkdf2_hmac(const uint8_t *password, size_t cb_password,
@@ -61,14 +81,17 @@ cleanup:
 
 #else
   const EVP_MD *md = NULL;
+  int err = 0;
 
   if (!(md = get_hash(hash))) {
+    DBG_OSSL("get_hash", err);
     return false;
   }
 
   /* for some reason openssl always returns 1 for PBKDF2 */
-  if (1 != PKCS5_PBKDF2_HMAC((const char *) password, cb_password, salt,
-                             cb_salt, iterations, md, cb_key, key)) {
+  if (!(err = PKCS5_PBKDF2_HMAC((const char *) password, cb_password, salt,
+                                cb_salt, iterations, md, cb_key, key))) {
+    DBG_OSSL("PKCS5_PBKDF2_HMAC", err);
     return false;
   }
 
