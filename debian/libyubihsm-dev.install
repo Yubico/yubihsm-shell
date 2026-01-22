@@ -2,4 +2,4 @@
 usr/lib/lib*.so /usr/lib/${DEB_HOST_MULTIARCH}
 usr/share/pkgconfig/ /usr/lib/${DEB_HOST_MULTIARCH}
 
-usr/include/
+usr/include/yubihsm.h
