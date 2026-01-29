@@ -59,7 +59,11 @@ if (NOT DEFINED YUBIHSM_INSTALL_MAN_DIR)
 endif ()
 
 if (NOT DEFINED YUBIHSM_INSTALL_PKGCONFIG_DIR)
-  set(YUBIHSM_INSTALL_PKGCONFIG_DIR "${CMAKE_INSTALL_PREFIX}/share/pkgconfig" CACHE PATH "Installation directory for pkgconfig (.pc) files")
+  if (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+    set(YUBIHSM_INSTALL_PKGCONFIG_DIR "${CMAKE_INSTALL_PREFIX}/libdata/pkgconfig" CACHE PATH "Installation directory for pkgconfig (.pc) files")
+  else ()
+    set(YUBIHSM_INSTALL_PKGCONFIG_DIR "${CMAKE_INSTALL_PREFIX}/share/pkgconfig" CACHE PATH "Installation directory for pkgconfig (.pc) files")
+  endif ()
 endif ()
 
 if (NOT CMAKE_BUILD_TYPE)
