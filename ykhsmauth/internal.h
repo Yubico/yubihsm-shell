@@ -21,6 +21,9 @@
 
 #if defined(_WIN32)
 #include <winscard.h>
+#elif defined(__FreeBSD__)
+#include <wintypes.h>
+#include <winscard.h>
 #else
 #include <PCSC/wintypes.h>
 #include <PCSC/winscard.h>
