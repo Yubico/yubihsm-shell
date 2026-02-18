@@ -393,7 +393,7 @@ static void create_command_list(CommandList *c) {
                                     fmt_nofmt, fmt_nofmt, "Get storages stats",
                                     NULL, NULL});
   register_subcommand(*c, (Command){"pubkey", yh_com_get_pubkey,
-                                    "e:session,w:key_id,t:key_type=asymmetric-key,F:file=-", fmt_nofmt,
+                                    "e:session,w:key_id,F:file=-,t:key_type=asymmetric-key", fmt_nofmt,
                                     fmt_PEM, "Get a public key", NULL, NULL});
   register_subcommand(*c,
                       (Command){"objectinfo", yh_com_get_object_info,
@@ -401,7 +401,7 @@ static void create_command_list(CommandList *c) {
                                 "Get information about an object", NULL, NULL});
   register_subcommand(*c,
                       (Command){"wrapped", yh_com_get_wrapped,
-                                "e:session,w:wrapkey_id,t:type,w:id,b:include_seed=0,F:file=-",
+                                "e:session,w:wrapkey_id,t:type,w:id,F:file=-,b:include_seed=0",
                                 fmt_nofmt, fmt_base64,
                                 "Get an object under wrap", NULL, NULL});
   register_subcommand(*c,
@@ -2432,14 +2432,16 @@ int main(int argc, char *argv[]) {
 
         case action_arg_getMINUS_publicMINUS_key: {
           arg[1].w = args_info.object_id_arg;
+
+          arg[2].s = args_info.out_arg;
+          arg[2].len = strlen(args_info.out_arg);
+
           if(args_info.object_type_given) {
-            yrc = yh_string_to_type(args_info.object_type_arg, &arg[2].t);
+            yrc = yh_string_to_type(args_info.object_type_arg, &arg[3].t);
             LIB_SUCCEED_OR_DIE(yrc, "Unable to parse type: ");
           } else {
-            arg[2].t = YH_ASYMMETRIC_KEY;
+            arg[3].t = YH_ASYMMETRIC_KEY;
           }
-          arg[3].s = args_info.out_arg;
-          arg[3].len = strlen(args_info.out_arg);
 
           comrc =
             yh_com_get_pubkey(&g_ctx, arg, fmt_nofmt,
@@ -2488,10 +2490,10 @@ int main(int argc, char *argv[]) {
 
           arg[3].w = args_info.object_id_arg;
 
-          arg[4].b = args_info.include_seed_given;
+          arg[4].s = args_info.out_arg;
+          arg[4].len = strlen(args_info.out_arg);
 
-          arg[5].s = args_info.out_arg;
-          arg[5].len = strlen(args_info.out_arg);
+          arg[5].b = args_info.include_seed_given;
 
           comrc =
             yh_com_get_wrapped(&g_ctx, arg, fmt_nofmt,
