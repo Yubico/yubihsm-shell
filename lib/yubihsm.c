@@ -4296,7 +4296,8 @@ yh_rc yh_util_set_option(yh_session *session, yh_option option, size_t len,
 
   if (option == YH_OPTION_COMMAND_AUDIT &&
       get_audit_cmd_value(val, len, YHC_SESSION_MESSAGE) > 0) {
-    DBG_ERR("Command-audit cannot be turned on for %02x", YHC_SESSION_MESSAGE);
+    DBG_ERR("Command-audit cannot be turned on for command %02x",
+            YHC_SESSION_MESSAGE);
     return YHR_DEVICE_INVALID_DATA;
   }
 
