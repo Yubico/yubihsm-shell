@@ -4273,13 +4273,10 @@ yh_rc yh_util_sign_attestation_certificate(yh_session *session, uint16_t key_id,
 }
 
 static uint8_t get_audit_cmd_value(uint8_t *val, size_t len, yh_cmd cmd) {
-  uint8_t *ptr = val;
-  while (ptr < val + len) {
-    uint8_t tag = *(ptr++);
-    if (tag == cmd) {
-      return *ptr;
+  for (size_t i = 0; i < len; i+=2) {
+    if (val[i] == cmd) {
+      return val[i+1];
     }
-    ptr++;
   }
   return 0;
 }
@@ -4296,8 +4293,6 @@ yh_rc yh_util_set_option(yh_session *session, yh_option option, size_t len,
     DBG_ERR("Too much data, must be < %d", YH_MSG_BUF_SIZE - 3);
     return YHR_INVALID_PARAMETERS;
   }
-
-  yh_rc yrc;
 
   if (option == YH_OPTION_COMMAND_AUDIT && get_audit_cmd_value(val, len, YHC_SESSION_MESSAGE) != 0) {
       DBG_ERR("Command-audit cannot be turned on for the session message command (0x05)");
@@ -4322,7 +4317,7 @@ yh_rc yh_util_set_option(yh_session *session, yh_option option, size_t len,
   data.len = htons(len);
   memcpy(data.bytes, val, len);
 
-  yrc = yh_send_secure_msg(session, YHC_SET_OPTION, data.buf, len + 3,
+  yh_rc yrc = yh_send_secure_msg(session, YHC_SET_OPTION, data.buf, len + 3,
                                  &response_cmd, out, &outlen);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send SET OPTION command: %s\n", yh_strerror(yrc));
