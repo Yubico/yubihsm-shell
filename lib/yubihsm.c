@@ -4273,10 +4273,6 @@ yh_rc yh_util_sign_attestation_certificate(yh_session *session, uint16_t key_id,
 }
 
 static uint8_t get_audit_cmd_value(uint8_t *val, size_t len, yh_cmd cmd) {
-  if (len % 2 != 0) {
-    DBG_ERR("Invalid length for command-audit option value");
-    return YHR_INVALID_PARAMETERS;
-  }
   uint8_t *ptr = val;
   while (ptr < val + len) {
     uint8_t tag = *(ptr++);
