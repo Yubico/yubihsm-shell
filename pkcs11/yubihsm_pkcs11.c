@@ -1036,7 +1036,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetSessionInfo)
   yubihsm_pkcs11_session *session = 0;
   CK_RV ret = get_session(&g_ctx, hSession, &session, 0);
   if (ret != CKR_OK) {
-    DBG_ERR("Session handle invalid");
     return ret;
   }
 
@@ -1065,7 +1064,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetSessionInfo)
       break;
 
     default:
-      DBG_ERR("Unknown session %lu", hSession);
+      DBG_ERR("Invalid session state %d for session %lu", session->session_state, hSession);
       rv = CKR_SESSION_HANDLE_INVALID;
   }
 
@@ -1179,7 +1178,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Logout)(CK_SESSION_HANDLE hSession) {
   yubihsm_pkcs11_session *session = 0;
   CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID: %lu", hSession);
     return rv;
   }
 
@@ -1265,7 +1263,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
   yubihsm_pkcs11_session *session = 0;
   CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED_RW);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID: %lu", hSession);
     return rv;
   }
 
@@ -1932,7 +1929,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
   yubihsm_pkcs11_session *session = 0;
   CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID %lu", hSession);
     return rv;
   }
 
@@ -2022,7 +2018,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetObjectSize)
   yubihsm_pkcs11_session *session = 0;
   CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Unknown session %lu", hSession);
     return rv;
   }
 
@@ -2073,7 +2068,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_GetAttributeValue)
   yubihsm_pkcs11_session *session = 0;
   CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Unknown session %lu", hSession);
     return rv;
   }
 
@@ -2147,7 +2141,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_SetAttributeValue)
   yubihsm_pkcs11_session *session = 0;
   CK_RV rv = get_session(&g_ctx, hSession, &session, 0);
   if (rv != CKR_OK) {
-    DBG_ERR("Unknown session %lu", hSession);
     return rv;
   }
 
@@ -2336,7 +2329,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsInit)
   yubihsm_pkcs11_session *session = 0;
   CK_RV rv = get_session(&g_ctx, hSession, &session, 0);
   if (rv != CKR_OK) {
-    DBG_ERR("Unknown session %lu", hSession);
     return rv;
   }
 
@@ -2767,7 +2759,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjects)
   yubihsm_pkcs11_session *session = 0;
   CK_RV rv = get_session(&g_ctx, hSession, &session, 0);
   if (rv != CKR_OK) {
-    DBG_ERR("Unknown session %lu", hSession);
     return rv;
   }
 
@@ -2852,7 +2843,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjectsFinal)(CK_SESSION_HANDLE hSession) {
   yubihsm_pkcs11_session *session = 0;
   CK_RV rv = get_session(&g_ctx, hSession, &session, 0);
   if (rv != CKR_OK) {
-    DBG_ERR("Unknown session %lu", hSession);
     return rv;
   }
 
@@ -2894,7 +2884,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptInit)
   yubihsm_pkcs11_session *session = 0;
   CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID %lu", hSession);
     return rv;
   }
 
@@ -2950,7 +2939,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Encrypt)
 
   rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID %lu", hSession);
     goto c_e_out;
   }
 
@@ -3090,7 +3078,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptUpdate)
 
   rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID %lu", hSession);
     goto c_eu_out;
   }
 
@@ -3154,7 +3141,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_EncryptFinal)
 
   rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID %lu", hSession);
     goto c_ef_out;
   }
 
@@ -3350,7 +3336,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptInit)
   yubihsm_pkcs11_session *session = 0;
   CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID %lu", hSession);
     return rv;
   }
 
@@ -3514,7 +3499,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Decrypt)
 
   rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID %lu", hSession);
     goto c_d_out;
   }
 
@@ -3659,7 +3643,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptUpdate)
 
   rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID %lu", hSession);
     goto c_du_out;
   }
 
@@ -3724,7 +3707,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_DecryptFinal)
 
   rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID %lu", hSession);
     goto c_df_out;
   }
 
@@ -3825,7 +3807,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_DigestInit)
   yubihsm_pkcs11_session *session = 0;
   CK_RV rv = get_session(&g_ctx, hSession, &session, 0);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID %lu", hSession);
     return rv;
   }
 
@@ -3885,7 +3866,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Digest)
 
   rv = get_session(&g_ctx, hSession, &session, 0);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID %lu", hSession);
     goto c_d_out;
   }
 
@@ -3991,7 +3971,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_DigestUpdate)
 
   rv = get_session(&g_ctx, hSession, &session, 0);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID %lu", hSession);
     goto c_du_out;
   }
 
@@ -4065,7 +4044,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_DigestFinal)
 
   rv = get_session(&g_ctx, hSession, &session, 0);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID %lu", hSession);
     goto c_df_out;
   }
 
@@ -4160,7 +4138,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_SignInit)
   yubihsm_pkcs11_session *session = 0;
   CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID %lu", hSession);
     return rv;
   }
 
@@ -4340,7 +4317,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Sign)
 
   rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID %lu", hSession);
     goto c_s_out;
   }
 
@@ -4434,7 +4410,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_SignUpdate)
 
   rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID %lu", hSession);
     goto c_su_out;
   }
 
@@ -4491,7 +4466,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_SignFinal)
 
   rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID %lu", hSession);
     goto c_sf_out;
   }
 
@@ -4589,7 +4563,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_VerifyInit)
   yubihsm_pkcs11_session *session = 0;
   CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID %lu", hSession);
     return rv;
   }
 
@@ -4765,7 +4738,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Verify)
 
   rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID %lu", hSession);
     goto c_v_out;
   }
 
@@ -4836,7 +4808,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_VerifyUpdate)
 
   rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID %lu", hSession);
     goto c_vu_out;
   }
 
@@ -4891,7 +4862,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_VerifyFinal)
 
   rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID %lu", hSession);
     goto c_vf_out;
   }
 
@@ -5045,7 +5015,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKey)
   yubihsm_pkcs11_session *session = 0;
   CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED_RW);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID: %lu", hSession);
     return rv;
   }
 
@@ -5315,7 +5284,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
   yubihsm_pkcs11_session *session = 0;
   CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED_RW);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID: %lu", hSession);
     return rv;
   }
 
@@ -5530,7 +5498,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_WrapKey)
   yubihsm_pkcs11_session *session = 0;
   CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Unknown session %lu", hSession);
     return rv;
   }
 
@@ -5685,7 +5652,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_UnwrapKey)
   yubihsm_pkcs11_session *session = 0;
   CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Unknown session %lu", hSession);
     return rv;
   }
 
@@ -5908,7 +5874,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_DeriveKey)
   yubihsm_pkcs11_session *session = 0;
   CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Unknown session %lu", hSession);
     return rv;
   }
 
@@ -6087,7 +6052,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateRandom)
   yubihsm_pkcs11_session *session = 0;
   CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Unknown session %lu", hSession);
     return rv;
   }
 
@@ -6289,7 +6253,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_LoginUser)
   yubihsm_pkcs11_session *session = 0;
   CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_NOT_AUTHENTICATED);
   if (rv != CKR_OK) {
-    DBG_ERR("Invalid session ID: %lu", hSession);
     return rv;
   }
 

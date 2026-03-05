@@ -40,6 +40,9 @@
 
 #include <yubihsm.h>
 
+uint8_t _yh_verbosity = YH_VERB_ALL;
+FILE *_yh_output;
+
 #define INPUT_BUFSIZE 4096
 #define WRAPKEY_BUFSIZE 32
 
