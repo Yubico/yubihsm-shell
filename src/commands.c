@@ -1848,7 +1848,8 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
   }
 
   if (major > 5 || (major == 5 && minor > 7) ||
-      (major == 5 && minor == 7 && patch >= 1)) {
+      (major == 5 && minor == 7 && patch >= 1) ||
+      (major == 0 && minor == 0 && patch == 1)) {
     ykhsmauthrc =
       ykhsmauth_get_challenge_ex(ctx->state, argv[1].s, argv[2].x, argv[2].len,
                                  host_challenge, &host_challenge_len);
