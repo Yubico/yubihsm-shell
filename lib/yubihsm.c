@@ -4272,6 +4272,22 @@ yh_rc yh_util_sign_attestation_certificate(yh_session *session, uint16_t key_id,
   return YHR_SUCCESS;
 }
 
+static uint8_t get_audit_cmd_value(uint8_t *val, size_t len, yh_cmd cmd) {
+  if (len % 2 != 0) {
+    DBG_ERR("Invalid length of command-audit option value length");
+    return YHR_INVALID_PARAMETERS;
+  }
+  uint8_t *ptr = val;
+  while (ptr < val + len) {
+    uint8_t tag = *(ptr++);
+    if (tag == cmd) {
+      return *ptr;
+    }
+    ptr++;
+  }
+  return 0;
+}
+
 yh_rc yh_util_set_option(yh_session *session, yh_option option, size_t len,
                          uint8_t *val) {
 
@@ -4283,6 +4299,50 @@ yh_rc yh_util_set_option(yh_session *session, yh_option option, size_t len,
   if (len > YH_MSG_BUF_SIZE - 3) {
     DBG_ERR("Too much data, must be < %d", YH_MSG_BUF_SIZE - 3);
     return YHR_INVALID_PARAMETERS;
+  }
+
+  yh_rc yrc;
+
+  if (option == YH_OPTION_COMMAND_AUDIT || option == YH_OPTION_FORCE_AUDIT) {
+    uint8_t cmd_audit[YH_MSG_BUF_SIZE] = {0};
+    size_t cmd_audit_len = sizeof(cmd_audit);
+    yrc = yh_util_get_option(session, YH_OPTION_COMMAND_AUDIT, cmd_audit,
+                             &cmd_audit_len);
+    if (yrc != YHR_SUCCESS) {
+      DBG_ERR("Failed to get current value of command-audit option: %s. "
+              "Required when attempting to set command-audit or force-audit "
+              "options",
+              yh_strerror(yrc));
+      return yrc;
+    }
+    if (option == YH_OPTION_FORCE_AUDIT && val[0] != 0 &&
+        get_audit_cmd_value(cmd_audit, cmd_audit_len, YHC_SESSION_MESSAGE) !=
+          0) {
+      DBG_ERR("Force-audit should not be turned on when the session message "
+              "command (0x05) is audited. "
+              "Please turn off command-audit for the session message command "
+              "(0x05) before turning force-audit on");
+      return YHR_INVALID_PARAMETERS;
+    } else if (option == YH_OPTION_COMMAND_AUDIT &&
+               get_audit_cmd_value(val, len, YHC_SESSION_MESSAGE) != 0) {
+      uint8_t force_audit[16] = {0};
+      size_t force_audit_len = sizeof(force_audit);
+      yrc = yh_util_get_option(session, YH_OPTION_FORCE_AUDIT, force_audit,
+                               &force_audit_len);
+      if (yrc != YHR_SUCCESS) {
+        DBG_ERR("Failed to get current value of force-audit option: %s. "
+                "Required when attempting to set command-audit option",
+                yh_strerror(yrc));
+        return yrc;
+      }
+      if (force_audit[0] != 0) {
+        DBG_ERR("Command-audit for session message command (0x05) should not "
+                "be turned on when force-audit is turned on. "
+                "Please turn off force-audit before turning on command-audit "
+                "for session message command (0x05)");
+        return YHR_INVALID_PARAMETERS;
+      }
+    }
   }
 
 #pragma pack(push, 1)
@@ -4303,7 +4363,7 @@ yh_rc yh_util_set_option(yh_session *session, yh_option option, size_t len,
   data.len = htons(len);
   memcpy(data.bytes, val, len);
 
-  yh_rc yrc = yh_send_secure_msg(session, YHC_SET_OPTION, data.buf, len + 3,
+  yrc = yh_send_secure_msg(session, YHC_SET_OPTION, data.buf, len + 3,
                                  &response_cmd, out, &outlen);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed to send SET OPTION command: %s\n", yh_strerror(yrc));
