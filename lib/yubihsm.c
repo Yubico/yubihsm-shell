@@ -4272,13 +4272,13 @@ yh_rc yh_util_sign_attestation_certificate(yh_session *session, uint16_t key_id,
   return YHR_SUCCESS;
 }
 
-static uint8_t get_audit_cmd_value(uint8_t *val, size_t len, yh_cmd cmd) {
+static int get_audit_cmd_value(uint8_t *val, size_t len, yh_cmd cmd) {
   for (size_t i = 0; i < len; i+=2) {
     if (val[i] == cmd) {
       return val[i+1];
     }
   }
-  return 0;
+  return -1;
 }
 
 yh_rc yh_util_set_option(yh_session *session, yh_option option, size_t len,
@@ -4294,7 +4294,7 @@ yh_rc yh_util_set_option(yh_session *session, yh_option option, size_t len,
     return YHR_INVALID_PARAMETERS;
   }
 
-  if (option == YH_OPTION_COMMAND_AUDIT && get_audit_cmd_value(val, len, YHC_SESSION_MESSAGE) != 0) {
+  if (option == YH_OPTION_COMMAND_AUDIT && get_audit_cmd_value(val, len, YHC_SESSION_MESSAGE) > 0) {
       DBG_ERR("Command-audit cannot be turned on for the session message command (0x05)");
       return YHR_DEVICE_INVALID_DATA;
   }
