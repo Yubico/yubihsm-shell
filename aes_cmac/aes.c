@@ -244,7 +244,7 @@ static int aes_decrypt_ex(const EVP_CIPHER *cipher, const uint8_t *in,
                           aes_context *ctx) {
   int err;
   if ((err = EVP_DecryptInit_ex(ctx->ctx, cipher, NULL, ctx->key, iv)) != 1) {
-    DBG_OSSL("aes_encrypt_ex EVP_EncryptInit_ex", err);
+    DBG_OSSL("aes_encrypt_ex EVP_DecryptInit_ex", err);
     return -1;
   }
   if ((err = EVP_CIPHER_CTX_set_padding(ctx->ctx, 0)) != 1) {
@@ -253,12 +253,12 @@ static int aes_decrypt_ex(const EVP_CIPHER *cipher, const uint8_t *in,
   }
   int update_len = len;
   if ((err = EVP_DecryptUpdate(ctx->ctx, out, &update_len, in, len)) != 1) {
-    DBG_OSSL("aes_decrypt_ex EVP_EncryptUpdate", err);
+    DBG_OSSL("aes_decrypt_ex EVP_DecryptUpdate", err);
     return -3;
   }
   int final_len = len - update_len;
   if ((err = EVP_DecryptFinal_ex(ctx->ctx, out + update_len, &final_len)) != 1) {
-    DBG_OSSL("aes_decrypt_ex EVP_EncryptFinal_ex", err);
+    DBG_OSSL("aes_decrypt_ex EVP_DecryptFinal_ex", err);
     return -4;
   }
   if (update_len + final_len != len) {
