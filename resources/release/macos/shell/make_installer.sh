@@ -65,76 +65,92 @@ cd ..
 chmod +x bin/*
 chmod +x lib/*
 
-ls -l bin
-ls -l lib
-echo "\nDO NOW: Make sure that the files in bin/ and lib/ directories are correct."
-echo "\nThe files in lib/ should includelibcrypto*.dylib, libusb*.dylib and libz*.dylib files."
-read -p "Press Enter to continue"
-
-if [ "$ARCH" == "amd" ]; then
-  BREW_LIB="/usr/local/opt"
-  #BREW_CELLAR="/usr/local/Cellar"
-elif [ "$ARCH" == "arm" ]; then
-  BREW_LIB="/opt/homebrew/opt"
-  #BREW_CELLAR="/opt/homebrew/Cellar"
-else
-  echo "Unknown architecture"
-  exit
-fi
-
-# Checking files's paths
-echo "\nChecking binary files' paths using 'otool -L FILE' and 'otool -l FILE'"
-install_name_tool -id @loader_path/../lib/libusb-1.0.0.dylib lib/libusb-1.0.0.dylib
-
-install_name_tool -change $BREW_LIB/openssl@3/lib/libcrypto.3.dylib @loader_path/../lib/libcrypto.3.dylib bin/yubihsm-shell
-install_name_tool -rpath /Users/runner/work/yubihsm-shell/yubihsm-shell/yubihsm-shell-$RELEASE_VERSION/resources/release/macos/yubihsm-shell-darwin-$ARCH-$RELEASE_VERSION/usr/local/lib @loader_path/../lib bin/yubihsm-shell
-otool -L bin/yubihsm-shell
-otool -l bin/yubihsm-shell | grep LC_RPATH -A 3
-read -p "Press Enter to continue"
-
-install_name_tool -change $BREW_LIB/openssl@3/lib/libcrypto.3.dylib @loader_path/../lib/libcrypto.3.dylib bin/yubihsm-auth
-install_name_tool -rpath /Users/runner/work/yubihsm-shell/yubihsm-shell/yubihsm-shell-$RELEASE_VERSION/resources/release/macos/yubihsm-shell-darwin-$ARCH-$RELEASE_VERSION/usr/local/lib @loader_path/../lib bin/yubihsm-auth
-otool -L bin/yubihsm-auth
-otool -l bin/yubihsm-auth | grep LC_RPATH -A 3
-read -p "Press Enter to continue"
-
-install_name_tool -change $BREW_LIB/openssl@3/lib/libcrypto.3.dylib @loader_path/../lib/libcrypto.3.dylib bin/yubihsm-wrap
-install_name_tool -rpath /Users/runner/work/yubihsm-shell/yubihsm-shell/yubihsm-shell-$RELEASE_VERSION/resources/release/macos/yubihsm-shell-darwin-$ARCH-$RELEASE_VERSION/usr/local/lib @loader_path/../lib bin/yubihsm-wrap
-otool -L bin/yubihsm-wrap
-otool -l bin/yubihsm-wrap | grep LC_RPATH -A 3
-read -p "Press Enter to continue"
 
 
-otool -L lib/libcrypto.dylib
-#otool -l lib/libcrypto.dylib | grep LC_RPATH -A 3 # does not have rpath reference
-read -p "Press Enter to continue"
+# ── Verify paths are correct (read-only, no modifications needed) ──
+echo "Verifying binary paths..."
+for f in bin/yubihsm-shell bin/yubihsm-auth bin/yubihsm-wrap \
+         lib/pkcs11/yubihsm_pkcs11.dylib lib/libykhsmauth.dylib; do
+  echo "--- $f ---"
+  otool -L "$f"
+  otool -l "$f" | grep LC_RPATH -A 3
+  echo ""
+done
+read -p "Verify paths are correct, then press Enter to continue"
 
-install_name_tool -rpath /Users/runner/work/yubihsm-shell/yubihsm-shell/yubihsm-shell-$RELEASE_VERSION/resources/release/macos/yubihsm-shell-darwin-$ARCH-$RELEASE_VERSION/usr/local/lib @loader_path/../lib lib/libykhsmauth.dylib
-otool -L lib/libykhsmauth.dylib
-otool -l lib/libykhsmauth.dylib | grep LC_RPATH -A 3
-read -p "Press Enter to continue"
-
-otool -L lib/libyubihsm.dylib
-#otool -l lib/libyubihsm.dylib | grep LC_RPATH -A 3 # does not have rpath reference
-read -p "Press Enter to continue"
-
-otool -L lib/libyubihsm_http.dylib
-#otool -l lib/libyubihsm_http.dylib | grep LC_RPATH -A 3  # does not have rpath reference
-read -p "Press Enter to continue"
-
-otool -L lib/libyubihsm_usb.dylib
-#otool -l lib/libyubihsm_usb.dylib | grep LC_RPATH -A 3  # does not have rpath reference
-read -p "Press Enter to continue"
-
-install_name_tool -change $BREW_LIB/openssl@3/lib/libcrypto.3.dylib @loader_path/../lib/libcrypto.3.dylib lib/pkcs11/yubihsm_pkcs11.dylib
-install_name_tool -rpath /Users/runner/work/yubihsm-shell/yubihsm-shell/yubihsm-shell-$RELEASE_VERSION/resources/release/macos/yubihsm-shell-darwin-$ARCH-$RELEASE_VERSION/usr/local/lib @loader_path/../lib lib/pkcs11/yubihsm_pkcs11.dylib
-otool -L lib/pkcs11/yubihsm_pkcs11.dylib
-otool -l lib/pkcs11/yubihsm_pkcs11.dylib | grep LC_RPATH -A 3
-read -p "Press Enter to continue"
-
-otool -L lib/libz.1.dylib
-otool -l lib/libz.1.dylib | grep LC_RPATH -A 3 # does not have rpath reference
-read -p "Press Enter to continue"
+#
+#
+#
+# ls -l bin
+# ls -l lib
+# echo "\nDO NOW: Make sure that the files in bin/ and lib/ directories are correct."
+# echo "\nThe files in lib/ should includelibcrypto*.dylib, libusb*.dylib and libz*.dylib files."
+# read -p "Press Enter to continue"
+#
+# if [ "$ARCH" == "amd" ]; then
+#   BREW_LIB="/usr/local/opt"
+#   #BREW_CELLAR="/usr/local/Cellar"
+# elif [ "$ARCH" == "arm" ]; then
+#   BREW_LIB="/opt/homebrew/opt"
+#   #BREW_CELLAR="/opt/homebrew/Cellar"
+# else
+#   echo "Unknown architecture"
+#   exit
+# fi
+#
+# # Checking files's paths
+# echo "\nChecking binary files' paths using 'otool -L FILE' and 'otool -l FILE'"
+# install_name_tool -id @loader_path/../lib/libusb-1.0.0.dylib lib/libusb-1.0.0.dylib
+#
+# install_name_tool -change $BREW_LIB/openssl@3/lib/libcrypto.3.dylib @loader_path/../lib/libcrypto.3.dylib bin/yubihsm-shell
+# install_name_tool -rpath /Users/runner/work/yubihsm-shell/yubihsm-shell/yubihsm-shell-$RELEASE_VERSION/resources/release/macos/yubihsm-shell-darwin-$ARCH-$RELEASE_VERSION/usr/local/lib @loader_path/../lib bin/yubihsm-shell
+# otool -L bin/yubihsm-shell
+# otool -l bin/yubihsm-shell | grep LC_RPATH -A 3
+# read -p "Press Enter to continue"
+#
+# install_name_tool -change $BREW_LIB/openssl@3/lib/libcrypto.3.dylib @loader_path/../lib/libcrypto.3.dylib bin/yubihsm-auth
+# install_name_tool -rpath /Users/runner/work/yubihsm-shell/yubihsm-shell/yubihsm-shell-$RELEASE_VERSION/resources/release/macos/yubihsm-shell-darwin-$ARCH-$RELEASE_VERSION/usr/local/lib @loader_path/../lib bin/yubihsm-auth
+# otool -L bin/yubihsm-auth
+# otool -l bin/yubihsm-auth | grep LC_RPATH -A 3
+# read -p "Press Enter to continue"
+#
+# install_name_tool -change $BREW_LIB/openssl@3/lib/libcrypto.3.dylib @loader_path/../lib/libcrypto.3.dylib bin/yubihsm-wrap
+# install_name_tool -rpath /Users/runner/work/yubihsm-shell/yubihsm-shell/yubihsm-shell-$RELEASE_VERSION/resources/release/macos/yubihsm-shell-darwin-$ARCH-$RELEASE_VERSION/usr/local/lib @loader_path/../lib bin/yubihsm-wrap
+# otool -L bin/yubihsm-wrap
+# otool -l bin/yubihsm-wrap | grep LC_RPATH -A 3
+# read -p "Press Enter to continue"
+#
+#
+# otool -L lib/libcrypto.dylib
+# #otool -l lib/libcrypto.dylib | grep LC_RPATH -A 3 # does not have rpath reference
+# read -p "Press Enter to continue"
+#
+# install_name_tool -rpath /Users/runner/work/yubihsm-shell/yubihsm-shell/yubihsm-shell-$RELEASE_VERSION/resources/release/macos/yubihsm-shell-darwin-$ARCH-$RELEASE_VERSION/usr/local/lib @loader_path/../lib lib/libykhsmauth.dylib
+# otool -L lib/libykhsmauth.dylib
+# otool -l lib/libykhsmauth.dylib | grep LC_RPATH -A 3
+# read -p "Press Enter to continue"
+#
+# otool -L lib/libyubihsm.dylib
+# #otool -l lib/libyubihsm.dylib | grep LC_RPATH -A 3 # does not have rpath reference
+# read -p "Press Enter to continue"
+#
+# otool -L lib/libyubihsm_http.dylib
+# #otool -l lib/libyubihsm_http.dylib | grep LC_RPATH -A 3  # does not have rpath reference
+# read -p "Press Enter to continue"
+#
+# otool -L lib/libyubihsm_usb.dylib
+# #otool -l lib/libyubihsm_usb.dylib | grep LC_RPATH -A 3  # does not have rpath reference
+# read -p "Press Enter to continue"
+#
+# install_name_tool -change $BREW_LIB/openssl@3/lib/libcrypto.3.dylib @loader_path/../lib/libcrypto.3.dylib lib/pkcs11/yubihsm_pkcs11.dylib
+# install_name_tool -rpath /Users/runner/work/yubihsm-shell/yubihsm-shell/yubihsm-shell-$RELEASE_VERSION/resources/release/macos/yubihsm-shell-darwin-$ARCH-$RELEASE_VERSION/usr/local/lib @loader_path/../lib lib/pkcs11/yubihsm_pkcs11.dylib
+# otool -L lib/pkcs11/yubihsm_pkcs11.dylib
+# otool -l lib/pkcs11/yubihsm_pkcs11.dylib | grep LC_RPATH -A 3
+# read -p "Press Enter to continue"
+#
+# otool -L lib/libz.1.dylib
+# otool -l lib/libz.1.dylib | grep LC_RPATH -A 3 # does not have rpath reference
+# read -p "Press Enter to continue"
 
 # Sign binaries
 read -p "DO NOW: Insert signing key then press Enter to continue"

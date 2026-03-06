@@ -31,56 +31,56 @@ jobs:
           name: yubihsm-shell-src
           path: artifact
 
-  Windowsx-build:
-    name: Build Windows release
-    needs: source
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            arch: x86
-          - os: windows-latest
-            arch: x64
-    env:
-      VERSION: 2.7.1
-    steps:
-      - name: Download source from source job
-        uses: actions/download-artifact@v4
-        with:
-          name: yubihsm-shell-src
-
-      - name: Extract source
-        run: |
-          Set-PSDebug -Trace 1
-          tar xf yubihsm-shell-$env:VERSION.tar.gz
-
-      - name: Build release binaries
-        env:
-          ARCH: ${{ matrix.arch }}
-        run: |
-          Set-PSDebug -Trace 1
-
-          cd $env:GITHUB_WORKSPACE/release/win
-          if($env:ARCH -eq "x86")
-          {
-            ./make_release_binaries.ps1 Win32 C:/vcpkg $env:GITHUB_WORKSPACE\yubihsm-shell-$env:VERSION
-          }
-          else
-          {
-            ./make_release_binaries.ps1 x64 C:/vcpkg $env:GITHUB_WORKSPACE\yubihsm-shell-$env:VERSION
-          }
-
-          mkdir $env:GITHUB_WORKSPACE/artifact
-          cp -r $env:GITHUB_WORKSPACE/release/win/yubihsm-shell-$env:ARCH $env:GITHUB_WORKSPACE/artifact/
-
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: yubihsm-shell-${{ matrix.arch }}
-          path: artifact
+#  Windowsx-build:
+#    name: Build Windows release
+#    needs: source
+#    runs-on: ${{ matrix.os }}
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        include:
+#          - os: windows-latest
+#            arch: x86
+#          - os: windows-latest
+#            arch: x64
+#    env:
+#      VERSION: 2.7.1
+#    steps:
+#      - name: Download source from source job
+#        uses: actions/download-artifact@v4
+#        with:
+#          name: yubihsm-shell-src
+#
+#      - name: Extract source
+#        run: |
+#          Set-PSDebug -Trace 1
+#          tar xf yubihsm-shell-$env:VERSION.tar.gz
+#
+#      - name: Build release binaries
+#        env:
+#          ARCH: ${{ matrix.arch }}
+#        run: |
+#          Set-PSDebug -Trace 1
+#
+#          cd $env:GITHUB_WORKSPACE/release/win
+#          if($env:ARCH -eq "x86")
+#          {
+#            ./make_release_binaries.ps1 Win32 C:/vcpkg $env:GITHUB_WORKSPACE\yubihsm-shell-$env:VERSION
+#          }
+#          else
+#          {
+#            ./make_release_binaries.ps1 x64 C:/vcpkg $env:GITHUB_WORKSPACE\yubihsm-shell-$env:VERSION
+#          }
+#
+#          mkdir $env:GITHUB_WORKSPACE/artifact
+#          cp -r $env:GITHUB_WORKSPACE/release/win/yubihsm-shell-$env:ARCH $env:GITHUB_WORKSPACE/artifact/
+#
+#
+#      - name: Upload artifact
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: yubihsm-shell-${{ matrix.arch }}
+#          path: artifact
 
   macos-build:
     name: Build MacOS release
