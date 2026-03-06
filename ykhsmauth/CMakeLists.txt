@@ -33,8 +33,9 @@ target_compile_options (ykhsmauth PRIVATE ${LIBPCSC_CFLAGS_OTHER})
 target_link_libraries (ykhsmauth ${LIBPCSC_LDFLAGS})
 set_target_properties (ykhsmauth PROPERTIES VERSION "${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}" SOVERSION ${yubihsm_shell_VERSION_MAJOR})
 
-# Set install RPATH
-set_target_properties(ykhsmauth PROPERTIES INSTALL_RPATH "${YUBIHSM_INSTALL_LIB_DIR}")
+if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    set_target_properties(ykhsmauth PROPERTIES INSTALL_RPATH "${YUBIHSM_INSTALL_LIB_DIR}")
+endif()
 
 add_library (ykhsmauth_static STATIC ${SOURCE})
 target_include_directories (ykhsmauth_static PRIVATE ${LIBPCSC_INCLUDE_DIRS})

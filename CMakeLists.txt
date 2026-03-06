@@ -66,6 +66,27 @@ if (NOT DEFINED YUBIHSM_INSTALL_PKGCONFIG_DIR)
   endif ()
 endif ()
 
+# ---------------------------------------------------------------------------
+# macOS: Configure relocatable @rpath-based install names
+# ---------------------------------------------------------------------------
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  # Use @rpath in install names for all shared libraries
+  set(CMAKE_MACOSX_RPATH ON)
+
+  # Don't embed the build tree rpath into installed binaries
+  set(CMAKE_SKIP_BUILD_RPATH FALSE)
+  set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+
+  # Strip build-tree rpaths when installing
+  set(CMAKE_INSTALL_RPATH_USE_LINK_DEPENDS FALSE)
+
+  # Executables in bin/ need to find libs in ../lib relative to themselves
+  # Libraries in lib/ don't need an rpath (they live alongside their siblings)
+  # The PKCS#11 module in lib/pkcs11/ needs to find libs in .. relative to itself
+  # We set a default here; individual targets override as needed in their CMakeLists.txt
+  set(CMAKE_INSTALL_RPATH "@loader_path/../lib")
+endif()
+
 if (NOT CMAKE_BUILD_TYPE)
    if (${RELEASE_BUILD} MATCHES 1)
       set (CMAKE_BUILD_TYPE Release)

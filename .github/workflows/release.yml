@@ -110,7 +110,7 @@ jobs:
       - name: Install dependecies
         run: |
           brew update
-          brew install cmake pkg-config gengetopt help2man zlib
+          brew install gengetopt help2man zlib
           brew reinstall openssl@3
 
       - name: Build and make PKG installer
