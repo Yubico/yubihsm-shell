@@ -2012,7 +2012,6 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
     case CKA_SIGN_RECOVER:
     case CKA_VERIFY_RECOVER:
     case CKA_UNWRAP:
-    case CKA_WRAP:
     case CKA_WRAP_WITH_TRUSTED:
     case CKA_ALWAYS_AUTHENTICATE:
     case CKA_NEVER_EXTRACTABLE:
@@ -2024,6 +2023,16 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       if (object->type == YH_PUBLIC_KEY && yh_is_rsa(object->algorithm)) {
         get_capability_attribute(object, "decrypt-pkcs,decrypt-oaep", true,
                                  value, length, NULL);
+      } else {
+        *((CK_BBOOL *) value) = CK_FALSE;
+        *length = sizeof(CK_BBOOL);
+      }
+      break;
+
+    case CKA_WRAP:
+      if (object->type == YH_PUBLIC_WRAP_KEY) {
+        get_capability_attribute(object, "export-wrapped", true, value, length,
+                                 NULL);
       } else {
         *((CK_BBOOL *) value) = CK_FALSE;
         *length = sizeof(CK_BBOOL);
@@ -2056,57 +2065,46 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       // NOTE(adma): Key Objects attributes
 
     case CKA_KEY_TYPE:
-      if (object->type == YH_PUBLIC_KEY) {
-        switch (object->algorithm) {
-          case YH_ALGO_RSA_2048:
-          case YH_ALGO_RSA_3072:
-          case YH_ALGO_RSA_4096:
-            *((CK_KEY_TYPE *) value) = CKK_RSA;
-            break;
+      switch (object->algorithm) {
+        case YH_ALGO_RSA_2048:
+        case YH_ALGO_RSA_3072:
+        case YH_ALGO_RSA_4096:
+          *((CK_KEY_TYPE *) value) = CKK_RSA;
+          break;
 
-          case YH_ALGO_EC_P224:
-          case YH_ALGO_EC_K256:
-          case YH_ALGO_EC_P256:
-          case YH_ALGO_EC_P384:
-          case YH_ALGO_EC_P521:
-          case YH_ALGO_EC_BP256:
-          case YH_ALGO_EC_BP384:
-          case YH_ALGO_EC_BP512:
-            *((CK_KEY_TYPE *) value) = CKK_EC;
-            break;
+        case YH_ALGO_EC_P224:
+        case YH_ALGO_EC_K256:
+        case YH_ALGO_EC_P256:
+        case YH_ALGO_EC_P384:
+        case YH_ALGO_EC_P521:
+        case YH_ALGO_EC_BP256:
+        case YH_ALGO_EC_BP384:
+        case YH_ALGO_EC_BP512:
+          *((CK_KEY_TYPE *) value) = CKK_EC;
+          break;
 
-          case YH_ALGO_EC_ED25519:
-            *((CK_KEY_TYPE *) value) = CKK_EC_EDWARDS;
-            break;
+        case YH_ALGO_EC_ED25519:
+          *((CK_KEY_TYPE *) value) = CKK_EC_EDWARDS;
+          break;
 
-          default:
-            *((CK_KEY_TYPE *) value) = CKK_VENDOR_DEFINED; // TODO: argh
-        }
-      } else if (object->type == YH_HMAC_KEY) {
-        switch (object->algorithm) {
-          case YH_ALGO_HMAC_SHA1:
-            *((CK_KEY_TYPE *) value) = CKK_SHA_1_HMAC;
-            break;
+        case YH_ALGO_HMAC_SHA1:
+          *((CK_KEY_TYPE *) value) = CKK_SHA_1_HMAC;
+          break;
 
-          case YH_ALGO_HMAC_SHA256:
-            *((CK_KEY_TYPE *) value) = CKK_SHA256_HMAC;
-            break;
+        case YH_ALGO_HMAC_SHA256:
+          *((CK_KEY_TYPE *) value) = CKK_SHA256_HMAC;
+          break;
 
-          case YH_ALGO_HMAC_SHA384:
-            *((CK_KEY_TYPE *) value) = CKK_SHA384_HMAC;
-            break;
+        case YH_ALGO_HMAC_SHA384:
+          *((CK_KEY_TYPE *) value) = CKK_SHA384_HMAC;
+          break;
 
-          case YH_ALGO_HMAC_SHA512:
-            *((CK_KEY_TYPE *) value) = CKK_SHA512_HMAC;
-            break;
+        case YH_ALGO_HMAC_SHA512:
+          *((CK_KEY_TYPE *) value) = CKK_SHA512_HMAC;
+          break;
 
-          default:
-            *((CK_KEY_TYPE *) value) = CKK_VENDOR_DEFINED; // TODO: argh
-        }
-      } else if (object->type == YH_PUBLIC_WRAP_KEY && yh_is_rsa(object->algorithm)) {
-        *((CK_KEY_TYPE *) value) = CKK_RSA;
-      } else {
-        return CKR_FUNCTION_FAILED;
+        default:
+          *((CK_KEY_TYPE *) value) = CKK_VENDOR_DEFINED; // TODO: argh
       }
       *length = sizeof(CK_KEY_TYPE);
       break;
@@ -2300,6 +2298,11 @@ static CK_RV get_attribute(CK_ATTRIBUTE_TYPE type, yh_object_descriptor *object,
                                object->sequence, object->domains);
   pkcs11_meta_object *meta_object = meta_desc ? &meta_desc->meta_object : NULL;
 
+  if (is_pseudo_pubkey(object->type) || object->type == YH_PUBLIC_WRAP_KEY) {
+    return get_attribute_public_key(type, object, meta_object, value, length,
+                                    session);
+  }
+
   switch (object->type) {
     case YH_OPAQUE:
       return get_attribute_opaque(type, object, meta_object, value, length,
@@ -2323,8 +2326,9 @@ static CK_RV get_attribute(CK_ATTRIBUTE_TYPE type, yh_object_descriptor *object,
                                        session);
     case YH_PUBLIC_KEY:
     case YH_PUBLIC_WRAP_KEY:
-      return get_attribute_public_key(type, object, meta_object, value, length,
-                                      session);
+      // Ignore since we've already dealt with it
+//      return get_attribute_public_key(type, object, meta_object, value, length,
+//                                      session);
 
     case YH_TEMPLATE:
     case YH_AUTHENTICATION_KEY:

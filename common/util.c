@@ -957,3 +957,7 @@ l_p_k_failure:
 
   return false;
 }
+
+bool is_pseudo_pubkey(yh_object_type object_type) {
+  return (object_type & 0xF0) == 0x80;
+}
