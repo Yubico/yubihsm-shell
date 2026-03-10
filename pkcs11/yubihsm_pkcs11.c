@@ -1950,7 +1950,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
       DBG_INFO("No ECDH session key with ID %08lx was found", hObject);
     }
   } else {
-    if (is_pseudo_pubkey(type)) {
+    if (type == YH_PUBLIC_KEY || type == YH_WRAP_KEY_PUBLIC) {
       DBG_INFO("Trying to delete public key, returning success with noop");
       goto c_do_out;
     }
@@ -2783,29 +2783,27 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjects)
       &session->operation.op.find
          .objects[session->operation.op.find.current_object];
     uint32_t id;
-    if (object->type == ECDH_KEY_TYPE) {
-      id = ECDH_KEY_TYPE << 16;
-      id |= object->id;
-    } else if (is_pseudo_pubkey(object->type)) {
-      id = object->sequence << 24;
-      id |= object->type << 16;
-      id |= object->id;
-    } else {
-      switch (object->type) {
-        case YH_ASYMMETRIC_KEY:
-        case YH_OPAQUE:
-        case YH_WRAP_KEY:
-        case YH_PUBLIC_WRAP_KEY:
-        case YH_HMAC_KEY:
-        case YH_SYMMETRIC_KEY:
-          id = object->sequence << 24;
-          id |= object->type << 16;
+    switch (object->type) {
+      case YH_ASYMMETRIC_KEY:
+      case YH_OPAQUE:
+      case YH_WRAP_KEY:
+      case YH_PUBLIC_WRAP_KEY:
+      case YH_HMAC_KEY:
+      case YH_PUBLIC_KEY:
+      case YH_WRAP_KEY_PUBLIC:
+      case YH_SYMMETRIC_KEY:
+        id = object->sequence << 24;
+        id |= object->type << 16;
+        id |= object->id;
+        break;
+      default:
+        if (object->type == ECDH_KEY_TYPE) {
+          id = ECDH_KEY_TYPE << 16;
           id |= object->id;
-          break;
-        default:
+        } else {
           DBG_INFO("Found unknown object type %x, skipping over", object->type);
           continue;
-      }
+        }
     }
 
     phObject[i++] = id;

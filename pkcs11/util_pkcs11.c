@@ -2298,11 +2298,6 @@ static CK_RV get_attribute(CK_ATTRIBUTE_TYPE type, yh_object_descriptor *object,
                                object->sequence, object->domains);
   pkcs11_meta_object *meta_object = meta_desc ? &meta_desc->meta_object : NULL;
 
-  if (is_pseudo_pubkey(object->type) || object->type == YH_PUBLIC_WRAP_KEY) {
-    return get_attribute_public_key(type, object, meta_object, value, length,
-                                    session);
-  }
-
   switch (object->type) {
     case YH_OPAQUE:
       return get_attribute_opaque(type, object, meta_object, value, length,
@@ -2326,9 +2321,9 @@ static CK_RV get_attribute(CK_ATTRIBUTE_TYPE type, yh_object_descriptor *object,
                                        session);
     case YH_PUBLIC_KEY:
     case YH_PUBLIC_WRAP_KEY:
-      // Ignore since we've already dealt with it
-//      return get_attribute_public_key(type, object, meta_object, value, length,
-//                                      session);
+    case YH_WRAP_KEY_PUBLIC:
+      return get_attribute_public_key(type, object, meta_object, value, length,
+                                      session);
 
     case YH_TEMPLATE:
     case YH_AUTHENTICATION_KEY:

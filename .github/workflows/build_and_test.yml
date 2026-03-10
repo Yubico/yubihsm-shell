@@ -396,7 +396,7 @@ jobs:
           # GODEBUG required for ghostunnel to temporarily enable Common Name matching
           GODEBUG: x509ignoreCN=0
         run: |
-          curl -o /tmp/ghostunnel -L https://github.com/ghostunnel/ghostunnel/releases/download/v1.9.0/ghostunnel-linux-amd64
+          curl -o /tmp/ghostunnel -L https://github.com/ghostunnel/ghostunnel/releases/download/v1.6.0/ghostunnel-v1.6.0-linux-amd64
           chmod +x /tmp/ghostunnel
           openssl aes-256-cbc \
             -k "$TLSPWD" \
