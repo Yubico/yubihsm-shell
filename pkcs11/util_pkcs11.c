@@ -2322,6 +2322,7 @@ static CK_RV get_attribute(CK_ATTRIBUTE_TYPE type, yh_object_descriptor *object,
       return get_attribute_private_key(type, object, meta_object, value, length,
                                        session);
     case YH_PUBLIC_KEY:
+    case YH_WRAP_KEY_PUBLIC:
     case YH_PUBLIC_WRAP_KEY:
       return get_attribute_public_key(type, object, meta_object, value, length,
                                       session);
@@ -5955,11 +5956,11 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
 
       rv = attribute_rc;
       if (attribute_rc == CKR_ATTRIBUTE_TYPE_INVALID) {
-        DBG_ERR("Unable to get attribute");
+        DBG_ERR("Attribute type invalid");
       } else if (attribute_rc == CKR_BUFFER_TOO_SMALL) {
         DBG_ERR("Skipping attribute because buffer is too small");
       } else {
-        DBG_ERR("Get attribute failed.");
+        DBG_ERR("Get attribute failed: %lx", attribute_rc);
       }
     } else {
       DBG_INFO("Attribute/length successfully returned with length %lu",
