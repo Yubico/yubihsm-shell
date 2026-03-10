@@ -1255,6 +1255,34 @@ static CK_RV get_allowed_mechs(yh_object_descriptor *object, CK_BYTE_PTR value,
   return CKR_OK;
 }
 
+static CK_RV get_key_type_attribute(yh_algorithm object_algorithm, CK_VOID_PTR value) {
+  if (yh_is_rsa(object_algorithm)) {
+    *((CK_KEY_TYPE *) value) = CKK_RSA;
+  } else if (yh_is_ec(object_algorithm)) {
+    *((CK_KEY_TYPE *) value) =  CKK_EC;
+  } else if (object_algorithm == YH_ALGO_EC_ED25519) {
+    *((CK_KEY_TYPE *) value) =  CKK_EC_EDWARDS;
+  } else if (yh_is_aes(object_algorithm)) {
+    *((CK_KEY_TYPE *) value) =  CKK_AES;
+  } else if (yh_is_hmac(object_algorithm)) {
+    switch (object_algorithm) {
+      case YH_ALGO_HMAC_SHA1:
+        *((CK_KEY_TYPE *) value) =  CKK_SHA_1_HMAC;
+      case YH_ALGO_HMAC_SHA256:
+        *((CK_KEY_TYPE *) value) =  CKK_SHA256_HMAC;
+      case YH_ALGO_HMAC_SHA384:
+        *((CK_KEY_TYPE *) value) =  CKK_SHA384_HMAC;
+      case YH_ALGO_HMAC_SHA512:
+        *((CK_KEY_TYPE *) value) =  CKK_SHA512_HMAC;
+      default:
+        return CKR_FUNCTION_FAILED;
+    }
+  } else {
+    return CKR_FUNCTION_FAILED;
+  }
+  return CKR_OK;
+}
+
 static CK_RV get_attribute_opaque(CK_ATTRIBUTE_TYPE type,
                                   yh_object_descriptor *object,
                                   pkcs11_meta_object *meta_object,
@@ -1381,55 +1409,7 @@ static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
       // NOTE(adma): Key Objects attributes
 
     case CKA_KEY_TYPE:
-      if (object->type == YH_WRAP_KEY) {
-        switch (object->algorithm) {
-          case YH_ALGO_AES128_CCM_WRAP:
-            *((CK_KEY_TYPE *) value) = CKK_YUBICO_AES128_CCM_WRAP;
-            break;
-
-          case YH_ALGO_AES192_CCM_WRAP:
-            *((CK_KEY_TYPE *) value) = CKK_YUBICO_AES192_CCM_WRAP;
-            break;
-
-          case YH_ALGO_AES256_CCM_WRAP:
-            *((CK_KEY_TYPE *) value) = CKK_YUBICO_AES256_CCM_WRAP;
-            break;
-
-          default:
-            return CKR_FUNCTION_FAILED;
-        }
-      } else if (object->type == YH_HMAC_KEY) {
-        switch (object->algorithm) {
-          case YH_ALGO_HMAC_SHA1:
-            *((CK_KEY_TYPE *) value) = CKK_SHA_1_HMAC;
-            break;
-
-          case YH_ALGO_HMAC_SHA256:
-            *((CK_KEY_TYPE *) value) = CKK_SHA256_HMAC;
-            break;
-
-          case YH_ALGO_HMAC_SHA384:
-            *((CK_KEY_TYPE *) value) = CKK_SHA384_HMAC;
-            break;
-
-          case YH_ALGO_HMAC_SHA512:
-            *((CK_KEY_TYPE *) value) = CKK_SHA512_HMAC;
-            break;
-
-          default:
-            return CKR_FUNCTION_FAILED;
-        }
-      } else if (object->type == YH_SYMMETRIC_KEY) {
-        switch (object->algorithm) {
-          case YH_ALGO_AES128:
-          case YH_ALGO_AES192:
-          case YH_ALGO_AES256:
-            *((CK_KEY_TYPE *) value) = CKK_AES;
-            break;
-          default:
-            return CKR_FUNCTION_FAILED;
-        }
-      } else {
+      if (get_key_type_attribute(object->algorithm, value) != CKR_OK) {
         return CKR_FUNCTION_FAILED;
       }
       *length = sizeof(CK_KEY_TYPE);
@@ -1598,17 +1578,7 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       // NOTE(adma): Key Objects attributes
 
     case CKA_KEY_TYPE:
-      if (object->type == YH_ASYMMETRIC_KEY) {
-        if (yh_is_rsa(object->algorithm)) {
-          *((CK_KEY_TYPE *) value) = CKK_RSA;
-        } else if (yh_is_ed(object->algorithm)) {
-          *((CK_KEY_TYPE *) value) = CKK_EC_EDWARDS;
-        } else {
-          *((CK_KEY_TYPE *) value) = CKK_EC;
-        }
-      } else if (object->type == YH_WRAP_KEY && yh_is_rsa(object->algorithm)) {
-        *((CK_KEY_TYPE *) value) = CKK_RSA;
-      } else {
+      if (get_key_type_attribute(object->algorithm, value) != CKR_OK) {
         return CKR_FUNCTION_FAILED;
       }
       *length = sizeof(CK_KEY_TYPE);
@@ -2065,46 +2035,8 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       // NOTE(adma): Key Objects attributes
 
     case CKA_KEY_TYPE:
-      switch (object->algorithm) {
-        case YH_ALGO_RSA_2048:
-        case YH_ALGO_RSA_3072:
-        case YH_ALGO_RSA_4096:
-          *((CK_KEY_TYPE *) value) = CKK_RSA;
-          break;
-
-        case YH_ALGO_EC_P224:
-        case YH_ALGO_EC_K256:
-        case YH_ALGO_EC_P256:
-        case YH_ALGO_EC_P384:
-        case YH_ALGO_EC_P521:
-        case YH_ALGO_EC_BP256:
-        case YH_ALGO_EC_BP384:
-        case YH_ALGO_EC_BP512:
-          *((CK_KEY_TYPE *) value) = CKK_EC;
-          break;
-
-        case YH_ALGO_EC_ED25519:
-          *((CK_KEY_TYPE *) value) = CKK_EC_EDWARDS;
-          break;
-
-        case YH_ALGO_HMAC_SHA1:
-          *((CK_KEY_TYPE *) value) = CKK_SHA_1_HMAC;
-          break;
-
-        case YH_ALGO_HMAC_SHA256:
-          *((CK_KEY_TYPE *) value) = CKK_SHA256_HMAC;
-          break;
-
-        case YH_ALGO_HMAC_SHA384:
-          *((CK_KEY_TYPE *) value) = CKK_SHA384_HMAC;
-          break;
-
-        case YH_ALGO_HMAC_SHA512:
-          *((CK_KEY_TYPE *) value) = CKK_SHA512_HMAC;
-          break;
-
-        default:
-          *((CK_KEY_TYPE *) value) = CKK_VENDOR_DEFINED; // TODO: argh
+      if (get_key_type_attribute(object->algorithm, value) != CKR_OK) {
+        return CKR_FUNCTION_FAILED;
       }
       *length = sizeof(CK_KEY_TYPE);
       break;
