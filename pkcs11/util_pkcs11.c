@@ -1255,31 +1255,32 @@ static CK_RV get_allowed_mechs(yh_object_descriptor *object, CK_BYTE_PTR value,
   return CKR_OK;
 }
 
-static CK_RV get_key_type_attribute(yh_algorithm object_algorithm, CK_VOID_PTR value) {
+static CK_RV get_key_type_attribute(yh_algorithm object_algorithm, CK_KEY_TYPE *value, CK_ULONG_PTR length) {
   if (yh_is_rsa(object_algorithm)) {
-    *((CK_KEY_TYPE *) value) = CKK_RSA;
+    *value = CKK_RSA;
   } else if (yh_is_ec(object_algorithm)) {
-    *((CK_KEY_TYPE *) value) =  CKK_EC;
+    *value =  CKK_EC;
   } else if (object_algorithm == YH_ALGO_EC_ED25519) {
-    *((CK_KEY_TYPE *) value) =  CKK_EC_EDWARDS;
+    *value =  CKK_EC_EDWARDS;
   } else if (yh_is_aes(object_algorithm)) {
-    *((CK_KEY_TYPE *) value) =  CKK_AES;
+    *value =  CKK_AES;
   } else if (yh_is_hmac(object_algorithm)) {
     switch (object_algorithm) {
       case YH_ALGO_HMAC_SHA1:
-        *((CK_KEY_TYPE *) value) =  CKK_SHA_1_HMAC;
+        *value =  CKK_SHA_1_HMAC;
       case YH_ALGO_HMAC_SHA256:
-        *((CK_KEY_TYPE *) value) =  CKK_SHA256_HMAC;
+        *value =  CKK_SHA256_HMAC;
       case YH_ALGO_HMAC_SHA384:
-        *((CK_KEY_TYPE *) value) =  CKK_SHA384_HMAC;
+        *value =  CKK_SHA384_HMAC;
       case YH_ALGO_HMAC_SHA512:
-        *((CK_KEY_TYPE *) value) =  CKK_SHA512_HMAC;
+        *value =  CKK_SHA512_HMAC;
       default:
         return CKR_FUNCTION_FAILED;
     }
   } else {
     return CKR_FUNCTION_FAILED;
   }
+  *length = sizeof(*value);
   return CKR_OK;
 }
 
@@ -1409,10 +1410,7 @@ static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
       // NOTE(adma): Key Objects attributes
 
     case CKA_KEY_TYPE:
-      if (get_key_type_attribute(object->algorithm, value) != CKR_OK) {
-        return CKR_FUNCTION_FAILED;
-      }
-      *length = sizeof(CK_KEY_TYPE);
+      return get_key_type_attribute(object->algorithm, value, length);
       break;
 
     case CKA_VALUE_LEN:
@@ -1578,10 +1576,7 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       // NOTE(adma): Key Objects attributes
 
     case CKA_KEY_TYPE:
-      if (get_key_type_attribute(object->algorithm, value) != CKR_OK) {
-        return CKR_FUNCTION_FAILED;
-      }
-      *length = sizeof(CK_KEY_TYPE);
+      return get_key_type_attribute(object->algorithm, value, length);
       break;
 
     case CKA_ID:
@@ -2035,10 +2030,7 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       // NOTE(adma): Key Objects attributes
 
     case CKA_KEY_TYPE:
-      if (get_key_type_attribute(object->algorithm, value) != CKR_OK) {
-        return CKR_FUNCTION_FAILED;
-      }
-      *length = sizeof(CK_KEY_TYPE);
+      return get_key_type_attribute(object->algorithm, value, length);
       break;
 
     case CKA_ID:
