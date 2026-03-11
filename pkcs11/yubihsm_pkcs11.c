@@ -5341,6 +5341,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
 
   if (yh_is_rsa(template.algorithm)) {
     if (template.unwrap) { // This is a wrap key
+      DBG_INFO("CKA_UNWRAP was set. Generating RSA wrap key...");
       rc = set_wrapkey_capabilities(&template, &capabilities);
       if (rc != YHR_SUCCESS) {
         rv = yrc_to_rv(rc);
@@ -5360,6 +5361,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
                                   template.algorithm, &delegated_capabilities);
 
     } else {
+      DBG_INFO("Generating RSA asymmetric key...");
       if (template.sign == ATTRIBUTE_TRUE) {
         rc = yh_string_to_capabilities("sign-pkcs,sign-pss", &capabilities);
         if (rc != YHR_SUCCESS) {
