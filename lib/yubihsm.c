@@ -1709,9 +1709,7 @@ yh_rc yh_util_get_public_key_ex(yh_session *session, yh_object_type type,
     return YHR_INVALID_PARAMETERS;
   }
 
-  if (type == YH_PUBLIC_KEY) {
-    type = YH_ASYMMETRIC_KEY;
-  }
+  type &= ~0x80; // Convert pseudo-public key type to real type
 
   uint8_t cmd[] = {id >> 8, id & 0xff, type};
   yh_cmd response_cmd = 0;
