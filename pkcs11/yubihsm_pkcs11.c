@@ -312,6 +312,15 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
         goto c_i_failure;
       }
     }
+    if (args_info.key_password_given) {
+      yrc = yh_set_connector_option(connector_list[i], YH_CONNECTOR_HTTPS_PASSWD,
+                                    args_info.key_password_arg);
+      if (yrc != YHR_SUCCESS) {
+        DBG_ERR("Failed to set HTTPS key password option: %s", yh_strerror(yrc));
+        rv = yrc_to_rv(yrc);
+        goto c_i_failure;
+      }
+    }
     if (args_info.proxy_given) {
       yrc =
         yh_set_connector_option(connector_list[i], YH_CONNECTOR_PROXY_SERVER,
