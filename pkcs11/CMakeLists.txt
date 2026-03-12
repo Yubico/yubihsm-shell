@@ -69,7 +69,12 @@ add_coverage (yubihsm_pkcs11)
 set_target_properties(yubihsm_pkcs11 PROPERTIES PREFIX "")
 
 # Set install RPATH
-set_target_properties(yubihsm_pkcs11 PROPERTIES INSTALL_RPATH "${YUBIHSM_INSTALL_LIB_DIR}")
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    # lib/pkcs11/ -> one level up to reach lib/ where sibling dylibs live
+    set_target_properties(yubihsm_pkcs11 PROPERTIES INSTALL_RPATH "@loader_path/..")
+else()
+    set_target_properties(yubihsm_pkcs11 PROPERTIES INSTALL_RPATH "${YUBIHSM_INSTALL_LIB_DIR}")
+endif()
 
 if(NOT MSVC)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden")

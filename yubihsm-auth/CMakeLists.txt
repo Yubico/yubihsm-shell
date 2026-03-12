@@ -68,8 +68,10 @@ target_link_libraries (
   ${BCRYPT_LIBRARY}
   )
 
-# Set install RPATH
-set_target_properties(yubihsm-auth PROPERTIES INSTALL_RPATH "${YUBIHSM_INSTALL_LIB_DIR}")
+# Set install RPATH (Darwin default from root CMakeLists.txt is correct for bin/ targets)
+if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  set_target_properties(yubihsm-auth PROPERTIES INSTALL_RPATH "${YUBIHSM_INSTALL_LIB_DIR}")
+endif()
 
 install(
   TARGETS yubihsm-auth
