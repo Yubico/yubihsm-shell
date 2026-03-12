@@ -5340,7 +5340,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
   // TODO(adma): check more return values
 
   if (yh_is_rsa(template.algorithm)) {
-    if (template.unwrap) { // This is a wrap key
+    if (template.unwrap == ATTRIBUTE_TRUE) { // This is a wrap key
       DBG_INFO("CKA_UNWRAP was set. Generating RSA wrap key...");
       rc = set_wrapkey_capabilities(&template, &capabilities);
       if (rc != YHR_SUCCESS) {
@@ -5436,7 +5436,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
   }
 
   yubihsm_pkcs11_object_desc *object_desc = NULL;
-  if (template.unwrap) {
+  if (template.unwrap == ATTRIBUTE_TRUE) {
     object_desc =
       _get_object_desc(session->slot, template.id, YH_WRAP_KEY, 0xffff);
   } else {
