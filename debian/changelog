@@ -1,3 +1,12 @@
+yubihsm-shell (2.7.2) unstable; urgency=medium
+
+    * lib: Ensure that command audit for command 0x05 cannot be turned on
+    * pkcs11: Improve handling of public key component of RSA Wrap Key
+    * pkcs11: Fix a bug where generating an RSA key pair can potentially result in the wrong type of object being created
+    * build: Upgrade minimum CMake version requirement
+
+ -- Aveen Ismail <aveen.ismail@yubico.com>  Thu, 12 Mar 2026 05:11:13 +0100
+
 yubihsm-shell (2.7.1) unstable; urgency=medium
 
     * shell: Add support for decrypt-oaep command in non-interactive mode
