@@ -1368,7 +1368,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       BN_free(template.obj.rsa.p);
       BN_free(template.obj.rsa.q);
 
-      if (template.unwrap) {
+      if (template.unwrap  == ATTRIBUTE_TRUE) {
         type = YH_WRAP_KEY;
 
         rc = set_wrapkey_capabilities(&template, &capabilities);
@@ -1721,7 +1721,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       }
     }
 
-    if (template.wrap && key_type.d == CKK_RSA) {
+    if (template.wrap  == ATTRIBUTE_TRUE && key_type.d == CKK_RSA) {
       switch (template.objlen) {
         case 256:
           template.algorithm = YH_ALGO_RSA_2048;
