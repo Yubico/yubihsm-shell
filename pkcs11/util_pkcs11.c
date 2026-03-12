@@ -1210,6 +1210,22 @@ static CK_RV get_allowed_mechs(yh_object_descriptor *object, CK_BYTE_PTR value,
       if (rv != CKR_OK)
         return rv;
     }
+    if (yh_check_capability(&object->capabilities, "wrap-data")) {
+      rv = add_mech_type(value, max, length, CKM_RSA_AES_KEY_WRAP);
+      if (rv != CKR_OK)
+        return rv;
+      rv = add_mech_type(value, max, length, CKM_YUBICO_RSA_WRAP);
+      if (rv != CKR_OK)
+        return rv;
+    }
+    if (yh_check_capability(&object->capabilities, "unwrap-data")) {
+      rv = add_mech_type(value, max, length, CKM_RSA_AES_KEY_WRAP);
+      if (rv != CKR_OK)
+        return rv;
+      rv = add_mech_type(value, max, length, CKM_YUBICO_RSA_WRAP);
+      if (rv != CKR_OK)
+        return rv;
+    }
   } else if (yh_is_ec(object->algorithm)) {
     if (yh_check_capability(&object->capabilities, "sign-ecdsa")) {
       rv = add_mech_type(value, max, length, CKM_ECDSA);
