@@ -414,7 +414,10 @@ typedef enum {
   YH_PUBLIC_WRAP_KEY = 0x09,
   /// Public Key is the public key of an asymmetric key-pair. The public key
   /// never exists in device and is mostly here for PKCS#11.
-  YH_PUBLIC_KEY = 0x83,
+  YH_PUBLIC_KEY = YH_ASYMMETRIC_KEY | 0x80,
+  /// Wrap Key public is the public key of an asymmetric wrap key. The public key
+  /// never exists in device and is mostly here for PKCS#11.
+  YH_WRAP_KEY_PUBLIC = YH_WRAP_KEY | 0x80,
 } yh_object_type;
 
 /// Max number of algorithms defined here

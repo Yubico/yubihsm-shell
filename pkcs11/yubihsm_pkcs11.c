@@ -1368,7 +1368,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       BN_free(template.obj.rsa.p);
       BN_free(template.obj.rsa.q);
 
-      if (template.unwrap) {
+      if (template.unwrap  == ATTRIBUTE_TRUE) {
         type = YH_WRAP_KEY;
 
         rc = set_wrapkey_capabilities(&template, &capabilities);
@@ -1721,7 +1721,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
       }
     }
 
-    if (template.wrap && key_type.d == CKK_RSA) {
+    if (template.wrap  == ATTRIBUTE_TRUE && key_type.d == CKK_RSA) {
       switch (template.objlen) {
         case 256:
           template.algorithm = YH_ALGO_RSA_2048;
@@ -1950,7 +1950,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_DestroyObject)
       DBG_INFO("No ECDH session key with ID %08lx was found", hObject);
     }
   } else {
-    if (((uint8_t) (hObject >> 16)) == YH_PUBLIC_KEY) {
+    if (type == YH_PUBLIC_KEY || type == YH_WRAP_KEY_PUBLIC) {
       DBG_INFO("Trying to delete public key, returning success with noop");
       goto c_do_out;
     }
@@ -2790,6 +2790,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_FindObjects)
       case YH_PUBLIC_WRAP_KEY:
       case YH_HMAC_KEY:
       case YH_PUBLIC_KEY:
+      case YH_WRAP_KEY_PUBLIC:
       case YH_SYMMETRIC_KEY:
         id = object->sequence << 24;
         id |= object->type << 16;
@@ -5339,7 +5340,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
   // TODO(adma): check more return values
 
   if (yh_is_rsa(template.algorithm)) {
-    if (template.unwrap) { // This is a wrap key
+    if (template.unwrap == ATTRIBUTE_TRUE) { // This is a wrap key
+      DBG_INFO("CKA_UNWRAP was set. Generating RSA wrap key...");
       rc = set_wrapkey_capabilities(&template, &capabilities);
       if (rc != YHR_SUCCESS) {
         rv = yrc_to_rv(rc);
@@ -5359,6 +5361,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
                                   template.algorithm, &delegated_capabilities);
 
     } else {
+      DBG_INFO("Generating RSA asymmetric key...");
       if (template.sign == ATTRIBUTE_TRUE) {
         rc = yh_string_to_capabilities("sign-pkcs,sign-pss", &capabilities);
         if (rc != YHR_SUCCESS) {
@@ -5433,7 +5436,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
   }
 
   yubihsm_pkcs11_object_desc *object_desc = NULL;
-  if (template.unwrap) {
+  if (template.unwrap == ATTRIBUTE_TRUE) {
     object_desc =
       _get_object_desc(session->slot, template.id, YH_WRAP_KEY, 0xffff);
   } else {

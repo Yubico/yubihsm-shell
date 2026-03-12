@@ -1210,6 +1210,22 @@ static CK_RV get_allowed_mechs(yh_object_descriptor *object, CK_BYTE_PTR value,
       if (rv != CKR_OK)
         return rv;
     }
+    if (yh_check_capability(&object->capabilities, "wrap-data")) {
+      rv = add_mech_type(value, max, length, CKM_RSA_AES_KEY_WRAP);
+      if (rv != CKR_OK)
+        return rv;
+      rv = add_mech_type(value, max, length, CKM_YUBICO_RSA_WRAP);
+      if (rv != CKR_OK)
+        return rv;
+    }
+    if (yh_check_capability(&object->capabilities, "unwrap-data")) {
+      rv = add_mech_type(value, max, length, CKM_RSA_AES_KEY_WRAP);
+      if (rv != CKR_OK)
+        return rv;
+      rv = add_mech_type(value, max, length, CKM_YUBICO_RSA_WRAP);
+      if (rv != CKR_OK)
+        return rv;
+    }
   } else if (yh_is_ec(object->algorithm)) {
     if (yh_check_capability(&object->capabilities, "sign-ecdsa")) {
       rv = add_mech_type(value, max, length, CKM_ECDSA);
@@ -1252,6 +1268,35 @@ static CK_RV get_allowed_mechs(yh_object_descriptor *object, CK_BYTE_PTR value,
   }
   qsort(value, *length / sizeof(CK_MECHANISM_TYPE), sizeof(CK_MECHANISM_TYPE),
         compare_mechs);
+  return CKR_OK;
+}
+
+static CK_RV get_key_type_attribute(yh_algorithm object_algorithm, CK_KEY_TYPE *value, CK_ULONG_PTR length) {
+  if (yh_is_rsa(object_algorithm)) {
+    *value = CKK_RSA;
+  } else if (yh_is_ec(object_algorithm)) {
+    *value =  CKK_EC;
+  } else if (object_algorithm == YH_ALGO_EC_ED25519) {
+    *value =  CKK_EC_EDWARDS;
+  } else if (yh_is_aes(object_algorithm)) {
+    *value =  CKK_AES;
+  } else if (yh_is_hmac(object_algorithm)) {
+    switch (object_algorithm) {
+      case YH_ALGO_HMAC_SHA1:
+        *value =  CKK_SHA_1_HMAC;
+      case YH_ALGO_HMAC_SHA256:
+        *value =  CKK_SHA256_HMAC;
+      case YH_ALGO_HMAC_SHA384:
+        *value =  CKK_SHA384_HMAC;
+      case YH_ALGO_HMAC_SHA512:
+        *value =  CKK_SHA512_HMAC;
+      default:
+        return CKR_FUNCTION_FAILED;
+    }
+  } else {
+    return CKR_FUNCTION_FAILED;
+  }
+  *length = sizeof(*value);
   return CKR_OK;
 }
 
@@ -1381,58 +1426,7 @@ static CK_RV get_attribute_secret_key(CK_ATTRIBUTE_TYPE type,
       // NOTE(adma): Key Objects attributes
 
     case CKA_KEY_TYPE:
-      if (object->type == YH_WRAP_KEY) {
-        switch (object->algorithm) {
-          case YH_ALGO_AES128_CCM_WRAP:
-            *((CK_KEY_TYPE *) value) = CKK_YUBICO_AES128_CCM_WRAP;
-            break;
-
-          case YH_ALGO_AES192_CCM_WRAP:
-            *((CK_KEY_TYPE *) value) = CKK_YUBICO_AES192_CCM_WRAP;
-            break;
-
-          case YH_ALGO_AES256_CCM_WRAP:
-            *((CK_KEY_TYPE *) value) = CKK_YUBICO_AES256_CCM_WRAP;
-            break;
-
-          default:
-            return CKR_FUNCTION_FAILED;
-        }
-      } else if (object->type == YH_HMAC_KEY) {
-        switch (object->algorithm) {
-          case YH_ALGO_HMAC_SHA1:
-            *((CK_KEY_TYPE *) value) = CKK_SHA_1_HMAC;
-            break;
-
-          case YH_ALGO_HMAC_SHA256:
-            *((CK_KEY_TYPE *) value) = CKK_SHA256_HMAC;
-            break;
-
-          case YH_ALGO_HMAC_SHA384:
-            *((CK_KEY_TYPE *) value) = CKK_SHA384_HMAC;
-            break;
-
-          case YH_ALGO_HMAC_SHA512:
-            *((CK_KEY_TYPE *) value) = CKK_SHA512_HMAC;
-            break;
-
-          default:
-            return CKR_FUNCTION_FAILED;
-        }
-      } else if (object->type == YH_SYMMETRIC_KEY) {
-        switch (object->algorithm) {
-          case YH_ALGO_AES128:
-          case YH_ALGO_AES192:
-          case YH_ALGO_AES256:
-            *((CK_KEY_TYPE *) value) = CKK_AES;
-            break;
-          default:
-            return CKR_FUNCTION_FAILED;
-        }
-      } else {
-        return CKR_FUNCTION_FAILED;
-      }
-      *length = sizeof(CK_KEY_TYPE);
+      return get_key_type_attribute(object->algorithm, value, length);
       break;
 
     case CKA_VALUE_LEN:
@@ -1598,20 +1592,7 @@ static CK_RV get_attribute_private_key(CK_ATTRIBUTE_TYPE type,
       // NOTE(adma): Key Objects attributes
 
     case CKA_KEY_TYPE:
-      if (object->type == YH_ASYMMETRIC_KEY) {
-        if (yh_is_rsa(object->algorithm)) {
-          *((CK_KEY_TYPE *) value) = CKK_RSA;
-        } else if (yh_is_ed(object->algorithm)) {
-          *((CK_KEY_TYPE *) value) = CKK_EC_EDWARDS;
-        } else {
-          *((CK_KEY_TYPE *) value) = CKK_EC;
-        }
-      } else if (object->type == YH_WRAP_KEY && yh_is_rsa(object->algorithm)) {
-        *((CK_KEY_TYPE *) value) = CKK_RSA;
-      } else {
-        return CKR_FUNCTION_FAILED;
-      }
-      *length = sizeof(CK_KEY_TYPE);
+      return get_key_type_attribute(object->algorithm, value, length);
       break;
 
     case CKA_ID:
@@ -2012,7 +1993,6 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
     case CKA_SIGN_RECOVER:
     case CKA_VERIFY_RECOVER:
     case CKA_UNWRAP:
-    case CKA_WRAP:
     case CKA_WRAP_WITH_TRUSTED:
     case CKA_ALWAYS_AUTHENTICATE:
     case CKA_NEVER_EXTRACTABLE:
@@ -2024,6 +2004,16 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       if (object->type == YH_PUBLIC_KEY && yh_is_rsa(object->algorithm)) {
         get_capability_attribute(object, "decrypt-pkcs,decrypt-oaep", true,
                                  value, length, NULL);
+      } else {
+        *((CK_BBOOL *) value) = CK_FALSE;
+        *length = sizeof(CK_BBOOL);
+      }
+      break;
+
+    case CKA_WRAP:
+      if (object->type == YH_PUBLIC_WRAP_KEY) {
+        get_capability_attribute(object, "export-wrapped", true, value, length,
+                                 NULL);
       } else {
         *((CK_BBOOL *) value) = CK_FALSE;
         *length = sizeof(CK_BBOOL);
@@ -2056,59 +2046,7 @@ static CK_RV get_attribute_public_key(CK_ATTRIBUTE_TYPE type,
       // NOTE(adma): Key Objects attributes
 
     case CKA_KEY_TYPE:
-      if (object->type == YH_PUBLIC_KEY) {
-        switch (object->algorithm) {
-          case YH_ALGO_RSA_2048:
-          case YH_ALGO_RSA_3072:
-          case YH_ALGO_RSA_4096:
-            *((CK_KEY_TYPE *) value) = CKK_RSA;
-            break;
-
-          case YH_ALGO_EC_P224:
-          case YH_ALGO_EC_K256:
-          case YH_ALGO_EC_P256:
-          case YH_ALGO_EC_P384:
-          case YH_ALGO_EC_P521:
-          case YH_ALGO_EC_BP256:
-          case YH_ALGO_EC_BP384:
-          case YH_ALGO_EC_BP512:
-            *((CK_KEY_TYPE *) value) = CKK_EC;
-            break;
-
-          case YH_ALGO_EC_ED25519:
-            *((CK_KEY_TYPE *) value) = CKK_EC_EDWARDS;
-            break;
-
-          default:
-            *((CK_KEY_TYPE *) value) = CKK_VENDOR_DEFINED; // TODO: argh
-        }
-      } else if (object->type == YH_HMAC_KEY) {
-        switch (object->algorithm) {
-          case YH_ALGO_HMAC_SHA1:
-            *((CK_KEY_TYPE *) value) = CKK_SHA_1_HMAC;
-            break;
-
-          case YH_ALGO_HMAC_SHA256:
-            *((CK_KEY_TYPE *) value) = CKK_SHA256_HMAC;
-            break;
-
-          case YH_ALGO_HMAC_SHA384:
-            *((CK_KEY_TYPE *) value) = CKK_SHA384_HMAC;
-            break;
-
-          case YH_ALGO_HMAC_SHA512:
-            *((CK_KEY_TYPE *) value) = CKK_SHA512_HMAC;
-            break;
-
-          default:
-            *((CK_KEY_TYPE *) value) = CKK_VENDOR_DEFINED; // TODO: argh
-        }
-      } else if (object->type == YH_PUBLIC_WRAP_KEY && yh_is_rsa(object->algorithm)) {
-        *((CK_KEY_TYPE *) value) = CKK_RSA;
-      } else {
-        return CKR_FUNCTION_FAILED;
-      }
-      *length = sizeof(CK_KEY_TYPE);
+      return get_key_type_attribute(object->algorithm, value, length);
       break;
 
     case CKA_ID:
@@ -2323,6 +2261,7 @@ static CK_RV get_attribute(CK_ATTRIBUTE_TYPE type, yh_object_descriptor *object,
                                        session);
     case YH_PUBLIC_KEY:
     case YH_PUBLIC_WRAP_KEY:
+    case YH_WRAP_KEY_PUBLIC:
       return get_attribute_public_key(type, object, meta_object, value, length,
                                       session);
 
@@ -5955,11 +5894,11 @@ CK_RV populate_template(int type, void *object, CK_ATTRIBUTE_PTR pTemplate,
 
       rv = attribute_rc;
       if (attribute_rc == CKR_ATTRIBUTE_TYPE_INVALID) {
-        DBG_ERR("Unable to get attribute");
+        DBG_ERR("Attribute type invalid");
       } else if (attribute_rc == CKR_BUFFER_TOO_SMALL) {
         DBG_ERR("Skipping attribute because buffer is too small");
       } else {
-        DBG_ERR("Get attribute failed.");
+        DBG_ERR("Get attribute failed: %lx", attribute_rc);
       }
     } else {
       DBG_INFO("Attribute/length successfully returned with length %lu",

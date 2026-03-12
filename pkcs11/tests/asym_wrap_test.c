@@ -318,14 +318,194 @@ static void generate_rsa_wrapkey(int keylen, CK_OBJECT_HANDLE_PTR keyid) {
           *keyid);
 }
 
-static void get_pub_wrapkey(CK_OBJECT_HANDLE rsa_wrapkeyid, uint8_t *pubkey,
+static void get_pub_wrapkey(CK_OBJECT_HANDLE key_handle, uint8_t *pubkey,
                             size_t *pubkey_len) {
   CK_ATTRIBUTE template[] = {
     {CKA_MODULUS, pubkey, *pubkey_len},
   };
-  assert(p11->C_GetAttributeValue(session, rsa_wrapkeyid, template, 1) ==
+  assert(p11->C_GetAttributeValue(session, key_handle, template, 1) ==
          CKR_OK);
   *pubkey_len = template[0].ulValueLen;
+}
+
+static void generate_rsa_wrapkey_with_attributes(void) {
+  CK_ULONG class_k = CKO_PRIVATE_KEY;
+  CK_ULONG class_c = CKO_PUBLIC_KEY;
+  CK_ULONG kt = CKK_RSA;
+  char *label = "rsa_wrap";
+  CK_BBOOL attr_true = CK_TRUE;
+  CK_BBOOL attr_false = CK_FALSE;
+  CK_ULONG key_len = 2048;
+  CK_OBJECT_HANDLE priv_keyid;
+  CK_OBJECT_HANDLE pub_keyid;
+
+  CK_MECHANISM mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, NULL, 0};
+
+  CK_ATTRIBUTE privateKeyTemplate[] = {
+    {CKA_SENSITIVE, &attr_true, sizeof(attr_true)},
+    {CKA_TOKEN, &attr_true, sizeof(attr_true)},
+    {CKA_PRIVATE, &attr_true, sizeof(attr_true)},
+    {CKA_CLASS, &class_k, sizeof(class_k)},
+    {CKA_KEY_TYPE, &kt, sizeof(kt)},
+    {CKA_LABEL, label, strlen(label)},
+    {CKA_SIGN, &attr_true, sizeof(attr_true)},
+    {CKA_DECRYPT, &attr_false, sizeof(attr_false)},
+    {CKA_UNWRAP, &attr_true, sizeof(attr_true)},
+    {CKA_DERIVE, &attr_false, sizeof(attr_false)},
+    {CKA_EXTRACTABLE, &attr_false, sizeof(attr_false)},
+    {CKA_MODIFIABLE, &attr_false, sizeof(attr_false)}
+  };
+
+  CK_ATTRIBUTE publicKeyTemplate[] = {
+    {CKA_MODULUS_BITS, &key_len, sizeof(key_len)},
+    {CKA_CLASS, &class_c, sizeof(class_c)},
+    {CKA_TOKEN, &attr_true, sizeof(attr_true)},
+    {CKA_PRIVATE, &attr_false, sizeof(attr_false)},
+    {CKA_LABEL, label, strlen(label)},
+    {CKA_VERIFY, &attr_true, sizeof(attr_true)},
+    {CKA_ENCRYPT, &attr_false, sizeof(attr_false)},
+    {CKA_WRAP, &attr_false, sizeof(attr_false)},
+    {CKA_DERIVE, &attr_false, sizeof(attr_false)},
+    {CKA_MODIFIABLE, &attr_false, sizeof(attr_false)},
+  };
+
+  assert(p11->C_GenerateKeyPair(session, &mech, publicKeyTemplate, 10,
+                                privateKeyTemplate, 12, &pub_keyid,
+                                &priv_keyid) == CKR_OK);
+  uint8_t object_type = (priv_keyid >> 16);
+  assert(object_type == YH_WRAP_KEY);
+  fprintf(stdout, "Generated RSA wrap key when CKA_UNWRAP is set\n");
+
+  CK_BOOL priv_sensitive;
+  CK_BOOL priv_token, pub_token;
+  CK_BOOL priv_private, pub_private;
+  CK_ULONG priv_class, pub_class;
+  CK_ULONG priv_key_type, pub_key_type;
+  char priv_label[64] = {0}, pub_label[64] = {0};
+  CK_BOOL priv_sign;
+  CK_BOOL priv_decrypt;
+  CK_BOOL priv_unwrap, pub_wrap;
+  CK_BOOL priv_derive, pub_derive;
+  CK_BOOL priv_extractable;
+  CK_BOOL priv_modifiable, pub_modifiable;
+  CK_BOOL pub_verify;
+  CK_BOOL pub_encrypt;
+  CK_ULONG pub_modulus_bits;
+  uint8_t pubkey[2048] = {0};
+  size_t pubkey_len = sizeof(pubkey);
+
+  CK_ATTRIBUTE priv_attrs[] = {
+    {CKA_SENSITIVE, &priv_sensitive, sizeof(priv_sensitive)},
+    {CKA_TOKEN, &priv_token, sizeof(priv_token)},
+    {CKA_PRIVATE, &priv_private, sizeof(priv_private)},
+    {CKA_CLASS, &priv_class, sizeof(priv_class)},
+    {CKA_KEY_TYPE, &priv_key_type, sizeof(priv_key_type)},
+    {CKA_LABEL, &priv_label, sizeof(priv_label)},
+    {CKA_SIGN, &priv_sign, sizeof(priv_sign)},
+    {CKA_DECRYPT, &priv_decrypt, sizeof(priv_decrypt)},
+    {CKA_UNWRAP, &priv_unwrap, sizeof(priv_unwrap)},
+    {CKA_DERIVE, &priv_derive, sizeof(priv_derive)},
+    {CKA_EXTRACTABLE, &priv_extractable, sizeof(priv_extractable)},
+    {CKA_MODIFIABLE, &priv_modifiable, sizeof(priv_modifiable)},
+    {CKA_MODULUS, pubkey, pubkey_len},
+  };
+
+  assert(p11->C_GetAttributeValue(session, priv_keyid, priv_attrs, 13) == CKR_OK);
+
+  assert(priv_sensitive == CK_TRUE);
+  assert(priv_token == CK_TRUE);
+  assert(priv_private == CK_TRUE);
+  assert(priv_class == CKO_PRIVATE_KEY);
+  assert(priv_key_type == CKK_RSA);
+  assert(strncmp(priv_label, label, strlen(label)) == 0);
+  assert(priv_sign == CK_FALSE);
+  assert(priv_decrypt == CK_FALSE);
+  assert(priv_unwrap == CK_TRUE);
+  assert(priv_derive == CK_FALSE);
+  assert(priv_extractable == CK_FALSE);
+  assert(priv_modifiable == CK_FALSE);
+  assert(pubkey_len == key_len);
+
+  CK_ATTRIBUTE pub_attrs[] = {
+    {CKA_MODULUS_BITS, &pub_modulus_bits, sizeof(pub_modulus_bits)},
+    {CKA_CLASS, &pub_class, sizeof(pub_class)},
+    {CKA_TOKEN, &pub_token, sizeof(pub_token)},
+    {CKA_PRIVATE, &pub_private, sizeof(pub_private)},
+    {CKA_KEY_TYPE, &pub_key_type, sizeof(pub_key_type)},
+    {CKA_LABEL, &pub_label, sizeof(pub_label)},
+    {CKA_VERIFY, &pub_verify, sizeof(pub_verify)},
+    {CKA_ENCRYPT, &pub_encrypt, sizeof(pub_encrypt)},
+    {CKA_WRAP, &pub_wrap, sizeof(pub_wrap)},
+    {CKA_DERIVE, &pub_derive, sizeof(pub_derive)},
+    {CKA_MODIFIABLE, &pub_modifiable, sizeof(pub_modifiable)},
+  };
+
+  assert(p11->C_GetAttributeValue(session, pub_keyid, pub_attrs, 11) == CKR_OK);
+  assert(pub_modulus_bits == key_len);
+  assert(pub_token == CK_TRUE);
+  assert(pub_private == CK_FALSE);
+  assert(pub_class == CKO_PUBLIC_KEY);
+  assert(pub_key_type == CKK_RSA);
+  assert(strcmp(pub_label, label) == 0);
+  assert(pub_verify == CK_FALSE);
+  assert(pub_encrypt == CK_FALSE);
+  assert(pub_wrap == CK_FALSE);
+  assert(pub_derive == CK_FALSE);
+  assert(pub_modifiable == CK_FALSE);
+
+  destroy_object(p11, session, priv_keyid);
+  destroy_object(p11, session, pub_keyid);
+}
+
+static void generate_not_rsa_wrapkey(void) {
+  CK_ULONG class_k = CKO_PRIVATE_KEY;
+  CK_ULONG class_c = CKO_PUBLIC_KEY;
+  CK_ULONG kt = CKK_RSA;
+  char *label = "not-rsa_wrap";
+  CK_BBOOL attr_true = CK_TRUE;
+  CK_BBOOL attr_false = CK_FALSE;
+  CK_ULONG key_len = 2048;
+  CK_OBJECT_HANDLE priv_keyid;
+  CK_OBJECT_HANDLE pub_keyid;
+
+  CK_MECHANISM mech = {CKM_RSA_PKCS_KEY_PAIR_GEN, NULL, 0};
+
+  CK_ATTRIBUTE privateKeyTemplate[] = {
+    {CKA_SENSITIVE, &attr_true, sizeof(attr_true)},
+    {CKA_TOKEN, &attr_true, sizeof(attr_true)},
+    {CKA_PRIVATE, &attr_true, sizeof(attr_true)},
+    {CKA_CLASS, &class_k, sizeof(class_k)},
+    {CKA_KEY_TYPE, &kt, sizeof(kt)},
+    {CKA_LABEL, label, strlen(label)},
+    {CKA_SIGN, &attr_true, sizeof(attr_true)},
+    {CKA_DECRYPT, &attr_false, sizeof(attr_false)},
+    {CKA_UNWRAP, &attr_false, sizeof(attr_false)},
+    {CKA_DERIVE, &attr_false, sizeof(attr_false)},
+    {CKA_EXTRACTABLE, &attr_false, sizeof(attr_false)},
+    {CKA_MODIFIABLE, &attr_false, sizeof(attr_false)}
+  };
+
+  CK_ATTRIBUTE publicKeyTemplate[] = {
+    {CKA_MODULUS_BITS, &key_len, sizeof(key_len)},
+    {CKA_CLASS, &class_c, sizeof(class_c)},
+    {CKA_TOKEN, &attr_true, sizeof(attr_true)},
+    {CKA_PRIVATE, &attr_false, sizeof(attr_false)},
+    {CKA_LABEL, label, strlen(label)},
+    {CKA_VERIFY, &attr_true, sizeof(attr_true)},
+    {CKA_ENCRYPT, &attr_false, sizeof(attr_false)},
+    {CKA_WRAP, &attr_false, sizeof(attr_false)},
+    {CKA_DERIVE, &attr_false, sizeof(attr_false)},
+    {CKA_MODIFIABLE, &attr_false, sizeof(attr_false)},
+  };
+
+  assert(p11->C_GenerateKeyPair(session, &mech, publicKeyTemplate, 10,
+                                privateKeyTemplate, 12, &pub_keyid,
+                                &priv_keyid) == CKR_OK);
+  uint8_t object_type = (priv_keyid >> 16);
+  assert(object_type == YH_ASYMMETRIC_KEY);
+  fprintf(stdout, "Generated RSA asymmetric key when CKA_UNWRAP is not set\n");
+  destroy_object(p11, session, priv_keyid);
+  destroy_object(p11, session, pub_keyid);
 }
 
 static void get_wrapped_data(CK_OBJECT_HANDLE wrapping_keyid,
@@ -621,6 +801,9 @@ int main(int argc, char **argv) {
     goto clean;
   }
 
+  generate_not_rsa_wrapkey();
+  generate_rsa_wrapkey_with_attributes();
+
   const char *keys[] = {rsa2048, rsa3072, rsa4096};
   size_t keysizes[] = {2048, 3072, 4096};
 
@@ -644,6 +827,7 @@ int main(int argc, char **argv) {
     destroy_object(p11, session, wrapkey);
   }
   destroy_object(p11, session, ec_privkey);
+  destroy_object(p11, session, aes_key);
   printf("OK!\n");
 
 clean:
