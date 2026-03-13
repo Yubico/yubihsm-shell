@@ -746,3 +746,48 @@ ykhsmauth_rc ykhsmauth_put_mgmkey(ykhsmauth_state *state, uint8_t *mgmkey,
 
   return YKHSMAUTHR_SUCCESS;
 }
+
+ykhsmauth_rc ykhsmauth_change_credpwd(ykhsmauth_state *state, const char *label,
+                                      bool use_mgmkey, const uint8_t *authkey,
+                                      size_t authkey_len, const uint8_t *new_pw,
+                                      size_t new_pw_len) {
+
+  if (state == NULL || label == NULL ||
+      strlen(label) < YKHSMAUTH_MIN_LABEL_LEN ||
+      strlen(label) > YKHSMAUTH_MAX_LABEL_LEN || new_pw == NULL ||
+      new_pw_len > YKHSMAUTH_PW_LEN || authkey_len > YKHSMAUTH_PW_LEN) {
+    return YKHSMAUTHR_INVALID_PARAMS;
+  }
+
+  if (authkey == NULL) {
+    fprintf(stderr, "Missing authentication key. Either management key or old "
+                    "password must be provided\n");
+    return YKHSMAUTHR_INVALID_PARAMS;
+  }
+
+  APDU apdu = {
+    {0, YKHSMAUTH_INS_CHANGE_CRED_PWD, use_mgmkey ? 0x1 : 0, 0, 0, {0}}};
+
+  add_tag(&apdu, YKHSMAUTH_TAG_LABEL, label, strlen(label), 0);
+  add_tag(&apdu, use_mgmkey ? YKHSMAUTH_TAG_MGMKEY : YKHSMAUTH_TAG_PW, authkey,
+          authkey_len, YKHSMAUTH_PW_LEN - authkey_len);
+  add_tag(&apdu, YKHSMAUTH_TAG_PW, new_pw, new_pw_len,
+          YKHSMAUTH_PW_LEN - new_pw_len);
+
+  unsigned char data[256] = {0};
+  DWORD recv_len = sizeof(data);
+  uint16_t sw = 0;
+
+  ykhsmauth_rc rc = send_data(state, &apdu, data, &recv_len, &sw);
+  if (rc != YKHSMAUTHR_SUCCESS) {
+    return rc;
+  } else if (sw != SW_SUCCESS) {
+    if (state->verbose) {
+      fprintf(stderr, "Unable to change credential password: %04x\n", sw);
+    }
+
+    return translate_error(sw, NULL);
+  }
+
+  return YKHSMAUTHR_SUCCESS;
+}
