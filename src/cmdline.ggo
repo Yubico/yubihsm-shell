@@ -114,6 +114,7 @@ option "connector" C "List of connectors to use" string optional multiple
 option "cacert" - "HTTPS cacert for connector" string optional
 option "cert" - "HTTPS client certificate to authenticate with" string optional
 option "key" - "HTTPS client certificate key" string optional
+option "key-password" - "HTTPS client certificate key password" string optional
 option "proxy" - "Proxy server to use for connector" string optional
 option "noproxy" - "Comma separated list of hosts ignore proxy for" string optional
 option "verbose" v "Print more information" int optional default="0"
