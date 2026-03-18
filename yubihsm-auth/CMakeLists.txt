@@ -39,6 +39,7 @@ endif(WIN32)
 include_directories (
   ${LIBCRYPTO_INCLUDEDIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/../ykhsmauth
+  ${CMAKE_CURRENT_SOURCE_DIR}/../lib
   ${CMAKE_CURRENT_SOURCE_DIR}/../common
 )
 
