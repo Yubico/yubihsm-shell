@@ -149,6 +149,7 @@ jobs:
             "debian:12",
         ]
         version: [ "2.7.2" ]
+        preversion: [ "2.7.1" ]
 
     name: build on ${{ matrix.environment }}
     runs-on: ubuntu-latest
@@ -266,139 +267,26 @@ jobs:
           rm -rf ../yubihsm-shell
 
       - name: install binaries
-        run: |
-          set -x
-          dpkg -i ./libykhsmauth1_*.deb ./libyubihsm-usb1_*.deb ./libyubihsm-http1_*.deb ./libyubihsm1_*.deb  ./yubihsm-shell_*.deb
-
-      - name: check binaries for hardening
-        run: |
-          curl -o checksec.sh-2.5.0.tar.gz -L https://github.com/slimm609/checksec.sh/archive/refs/tags/2.5.0.tar.gz
-          tar xfz checksec.sh-2.5.0.tar.gz
-          cs() {
-            checksec-2.5.0/checksec --file=/usr/bin/yubihsm-shell --format=json | jq -r ".[] | .$1"
-          }
-          if [ "`cs relro`" != "full" ]; then echo "relro is `cs relro`"; exit 1; fi
-          if [ "`cs canary`" != "yes" ]; then echo "canary is `cs canary`"; exit 1; fi
-          if [ "`cs nx`" != "yes" ]; then echo "nx is `cs nx`"; exit 1; fi
-          if [ "`cs pie`" != "yes" ]; then echo "pie is `cs pie`"; exit 1; fi
-          if [ "`cs fortify_source`" != "yes" ]; then echo "fortify_source is `cs fortify_source`"; exit 1; fi
-
-
-      - name: upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: "yubihsm-shell-${{ env.PLATFORM }}-amd64"
-          path: ${{ env.PLATFORM }}
-
-  redhat_based:
-    strategy:
-      fail-fast: false
-      matrix:
-        environment: [
-            "fedora:42",
-            "fedora:43",
-        ]
-        version: [ "2.7.2" ]
-
-    name: build on ${{ matrix.environment }}
-    runs-on: ubuntu-latest
-    needs: source
-    container: ${{ matrix.environment }}
-
-    steps:
-
-      - name: Download source from source job
-        uses: actions/download-artifact@v4
-        with:
-          name: yubihsm-shell-src
-
-      - name: Extract source
-        env:
-          VERSION: ${{ matrix.version }}
-        run: |
-          set -x
-          tar xf yubihsm-shell-$VERSION.tar.gz
-          mv yubihsm-shell-$VERSION yubihsm-shell
-
-      - name: apply environment specific changes to CMakeLists.txt
-        working-directory: yubihsm-shell
-        if: ${{ matrix.environment == 'centos:7' }}
-        run: |
-          # centos 7 comes with cmake version 2.8, but the project requires 3.5
-          # we downgrade that requirement for the centos 7 build
-          sed -i 's/cmake_minimum_required (VERSION 3.5)/cmake_minimum_required (VERSION 2.8)/' CMakeLists.txt
-          # we also remove the following policies which are not supported in the older cmake version
-          sed -i 's/cmake_policy(SET CMP0025 NEW)/#cmake_policy(SET CMP0025 NEW)/' CMakeLists.txt
-          sed -i 's/cmake_policy(SET CMP0042 NEW)/#cmake_policy(SET CMP0042 NEW)/' CMakeLists.txt
-          sed -i 's/cmake_policy(SET CMP0054 NEW)/#cmake_policy(SET CMP0054 NEW)/' CMakeLists.txt
-          # append the following flags: -Wno-missing-braces -Wno-missing-field-initializers -Wno-implicit-function-declaration
-          sed -i 's/-Wall -Wextra -Werror/-Wall -Wextra -Werror -Wno-missing-braces -Wno-missing-field-initializers/' cmake/SecurityFlags.cmake
-
-      - name: extract platform name
-        env:
-          DOCKER_IMAGE: ${{ matrix.environment }}
-        run: |
-          # Remove everything from DOCKER_IMAGE that is not a letter or a number
-          PLATFORM=$(echo -n "$DOCKER_IMAGE" | sed -E 's/[^a-zA-Z0-9]//g')
-          echo "PLATFORM=$PLATFORM" >> $GITHUB_ENV
-
-      - name: install dependencies
-        env:
-          PLATFORM: ${{ env.PLATFORM }}
-        run: |
-          cd $GITHUB_WORKSPACE/release/linux
-          chmod +x install_redhat_dependencies.sh 
-          ./install_redhat_dependencies.sh $PLATFORM
-
-          if [ $PLATFORM = "centos7" ]; then
-            # enable the epel repository for centos
-            yum install -y epel-release
-          fi
-          yum install -y procps-ng jq file which curl
-
-      - name: build release
-        working-directory: yubihsm-shell
         env:
           PLATFORM: ${{ env.PLATFORM }}
           VERSION: ${{ matrix.version }}
+          PREVERSION: ${{ matrix.preversion }}
         run: |
-          uname -a
+          ls
+          set -x
+          mkdir reg_test
+          cd reg_test
           
-          export CMAKE="cmake"
-          export INPUT=$GITHUB_WORKSPACE/yubihsm-shell
-          export OUTPUT=$GITHUB_WORKSPACE/$PLATFORM/yubihsm-shell
-          rm -rf $OUTPUT
-          mkdir -p $OUTPUT
-
-          # These 2 lines can be replaced by the command "rpmdev-setuptree", but this command seems to add macros that force check paths that do not exist
-          mkdir -p $GITHUB_WORKSPACE/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-          echo '%_topdir %(echo $HOME)/rpmbuild' > $GITHUB_WORKSPACE/.rpmmacros
-
-          RPM_DIR=$GITHUB_WORKSPACE/rpmbuild
-
-          cp $GITHUB_WORKSPACE/release/linux/yubihsm-shell.spec $RPM_DIR/SPECS/
-
-          QA_SKIP_BUILD_ROOT=1 QA_RPATHS=$(( 0x0001|0x0010 )) rpmbuild -bb $RPM_DIR/SPECS/yubihsm-shell.spec
-          cp /github/home/rpmbuild/RPMS/x86_64/*.rpm $OUTPUT/
-
-          LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
-          mkdir -p $LICENSE_DIR
-          cp -r $GITHUB_WORKSPACE/release/linux/licenses $LICENSE_DIR/
-          for lf in $LICENSE_DIR/licenses/*; do
-           chmod 644 $lf
-          done
-
-          cd $OUTPUT
-          rm -f "yubihsm-shell-$PLATFORM-amd64.tar.gz"
-          tar -C ".." -zcvf "../yubihsm-shell-$VERSION-$PLATFORM-amd64.tar.gz" "yubihsm-shell"
-          rm -f *.rpm
-          rm -rf licenses
-          rm -rf ../yubihsm-shell
-
-      - name: install binaries
-        working-directory: /github/home/rpmbuild/RPMS/x86_64
-        run: |
-          yum install -y ./yubihsm-shell-*.rpm
+          curl -o yubihsm-shell-$PREVERSION.tar.gz -L https://developers.yubico.com/yubihsm-shell/Releases/yubihsm-shell-$PREVERSION-$PLATFORM-amd64.tar.gz
+          tar xfz yubihsm-shell-$PREVERSION.tar.gz
+          dpkg -i ./yubihsm-shell/*.deb
+          yubihsm-shell --version | grep $PREVERSION
+          
+          rm -rf *
+          cp ../../yubihsm-shell-$VERSION-$PLATFORM-amd64.tar.gz .
+          tar xfz yubihsm-shell-$VERSION-$PLATFORM-amd64.tar.gz
+          dpkg -i ./yubihsm-shell/*.deb
+          yubihsm-shell --version | grep $VERSION
 
       - name: check binaries for hardening
         run: |
@@ -413,9 +301,138 @@ jobs:
           if [ "`cs pie`" != "yes" ]; then echo "pie is `cs pie`"; exit 1; fi
           if [ "`cs fortify_source`" != "yes" ]; then echo "fortify_source is `cs fortify_source`"; exit 1; fi
 
-
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: "yubihsm-shell-${{ env.PLATFORM }}-amd64"
           path: ${{ env.PLATFORM }}
+
+#  redhat_based:
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        environment: [
+#            "fedora:42",
+#            "fedora:43",
+#        ]
+#        version: [ "2.7.2" ]
+#
+#    name: build on ${{ matrix.environment }}
+#    runs-on: ubuntu-latest
+#    needs: source
+#    container: ${{ matrix.environment }}
+#
+#    steps:
+#
+#      - name: Download source from source job
+#        uses: actions/download-artifact@v4
+#        with:
+#          name: yubihsm-shell-src
+#
+#      - name: Extract source
+#        env:
+#          VERSION: ${{ matrix.version }}
+#        run: |
+#          set -x
+#          tar xf yubihsm-shell-$VERSION.tar.gz
+#          mv yubihsm-shell-$VERSION yubihsm-shell
+#
+#      - name: apply environment specific changes to CMakeLists.txt
+#        working-directory: yubihsm-shell
+#        if: ${{ matrix.environment == 'centos:7' }}
+#        run: |
+#          # centos 7 comes with cmake version 2.8, but the project requires 3.5
+#          # we downgrade that requirement for the centos 7 build
+#          sed -i 's/cmake_minimum_required (VERSION 3.5)/cmake_minimum_required (VERSION 2.8)/' CMakeLists.txt
+#          # we also remove the following policies which are not supported in the older cmake version
+#          sed -i 's/cmake_policy(SET CMP0025 NEW)/#cmake_policy(SET CMP0025 NEW)/' CMakeLists.txt
+#          sed -i 's/cmake_policy(SET CMP0042 NEW)/#cmake_policy(SET CMP0042 NEW)/' CMakeLists.txt
+#          sed -i 's/cmake_policy(SET CMP0054 NEW)/#cmake_policy(SET CMP0054 NEW)/' CMakeLists.txt
+#          # append the following flags: -Wno-missing-braces -Wno-missing-field-initializers -Wno-implicit-function-declaration
+#          sed -i 's/-Wall -Wextra -Werror/-Wall -Wextra -Werror -Wno-missing-braces -Wno-missing-field-initializers/' cmake/SecurityFlags.cmake
+#
+#      - name: extract platform name
+#        env:
+#          DOCKER_IMAGE: ${{ matrix.environment }}
+#        run: |
+#          # Remove everything from DOCKER_IMAGE that is not a letter or a number
+#          PLATFORM=$(echo -n "$DOCKER_IMAGE" | sed -E 's/[^a-zA-Z0-9]//g')
+#          echo "PLATFORM=$PLATFORM" >> $GITHUB_ENV
+#
+#      - name: install dependencies
+#        env:
+#          PLATFORM: ${{ env.PLATFORM }}
+#        run: |
+#          cd $GITHUB_WORKSPACE/release/linux
+#          chmod +x install_redhat_dependencies.sh
+#          ./install_redhat_dependencies.sh $PLATFORM
+#
+#          if [ $PLATFORM = "centos7" ]; then
+#            # enable the epel repository for centos
+#            yum install -y epel-release
+#          fi
+#          yum install -y procps-ng jq file which curl
+#
+#      - name: build release
+#        working-directory: yubihsm-shell
+#        env:
+#          PLATFORM: ${{ env.PLATFORM }}
+#          VERSION: ${{ matrix.version }}
+#        run: |
+#          uname -a
+#
+#          export CMAKE="cmake"
+#          export INPUT=$GITHUB_WORKSPACE/yubihsm-shell
+#          export OUTPUT=$GITHUB_WORKSPACE/$PLATFORM/yubihsm-shell
+#          rm -rf $OUTPUT
+#          mkdir -p $OUTPUT
+#
+#          # These 2 lines can be replaced by the command "rpmdev-setuptree", but this command seems to add macros that force check paths that do not exist
+#          mkdir -p $GITHUB_WORKSPACE/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+#          echo '%_topdir %(echo $HOME)/rpmbuild' > $GITHUB_WORKSPACE/.rpmmacros
+#
+#          RPM_DIR=$GITHUB_WORKSPACE/rpmbuild
+#
+#          cp $GITHUB_WORKSPACE/release/linux/yubihsm-shell.spec $RPM_DIR/SPECS/
+#
+#          QA_SKIP_BUILD_ROOT=1 QA_RPATHS=$(( 0x0001|0x0010 )) rpmbuild -bb $RPM_DIR/SPECS/yubihsm-shell.spec
+#          cp /github/home/rpmbuild/RPMS/x86_64/*.rpm $OUTPUT/
+#
+#          LICENSE_DIR="$OUTPUT/share/yubihsm-shell"
+#          mkdir -p $LICENSE_DIR
+#          cp -r $GITHUB_WORKSPACE/release/linux/licenses $LICENSE_DIR/
+#          for lf in $LICENSE_DIR/licenses/*; do
+#           chmod 644 $lf
+#          done
+#
+#          cd $OUTPUT
+#          rm -f "yubihsm-shell-$PLATFORM-amd64.tar.gz"
+#          tar -C ".." -zcvf "../yubihsm-shell-$VERSION-$PLATFORM-amd64.tar.gz" "yubihsm-shell"
+#          rm -f *.rpm
+#          rm -rf licenses
+#          rm -rf ../yubihsm-shell
+#
+#      - name: install binaries
+#        working-directory: /github/home/rpmbuild/RPMS/x86_64
+#        run: |
+#          yum install -y ./yubihsm-shell-*.rpm
+#
+#      - name: check binaries for hardening
+#        run: |
+#          curl -o checksec.sh-2.5.0.tar.gz -L https://github.com/slimm609/checksec.sh/archive/refs/tags/2.5.0.tar.gz
+#          tar xfz checksec.sh-2.5.0.tar.gz
+#          cs() {
+#            checksec-2.5.0/checksec --file=/usr/bin/yubihsm-shell --format=json | jq -r ".[] | .$1"
+#          }
+#          if [ "`cs relro`" != "full" ]; then echo "relro is `cs relro`"; exit 1; fi
+#          if [ "`cs canary`" != "yes" ]; then echo "canary is `cs canary`"; exit 1; fi
+#          if [ "`cs nx`" != "yes" ]; then echo "nx is `cs nx`"; exit 1; fi
+#          if [ "`cs pie`" != "yes" ]; then echo "pie is `cs pie`"; exit 1; fi
+#          if [ "`cs fortify_source`" != "yes" ]; then echo "fortify_source is `cs fortify_source`"; exit 1; fi
+#
+#
+#      - name: upload artifacts
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: "yubihsm-shell-${{ env.PLATFORM }}-amd64"
+#          path: ${{ env.PLATFORM }}
