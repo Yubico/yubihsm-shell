@@ -1,24 +1,12 @@
-/*
- * PKCS #11 Specification Version 3.1
- * Committee Specification Draft 01
- * 16 February 2022
- * Copyright (c) OASIS Open 2022. All Rights Reserved.
- * Source:
- * https://docs.oasis-open.org/pkcs11/pkcs11-spec/v3.1/csd01/include/pkcs11-v3.1/
- * Latest stage of narrative specification:
- * https://docs.oasis-open.org/pkcs11/pkcs11-spec/v3.1/pkcs11-spec-v3.1.html TC
- * IPR Statement: https://www.oasis-open.org/committees/pkcs11/ipr.php
- */
-
-/* Copyright (c) OASIS Open 2016,2019. All Rights Reserved./
+/* Copyright (c) OASIS Open 2016,2019,2024. All Rights Reserved./
  * /Distributed under the terms of the OASIS IPR Policy,
  * [http://www.oasis-open.org/policies-guidelines/ipr], AS-IS, WITHOUT ANY
- * IMPLIED OR EXPRESS WARRANTY; there is no warranty of MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE or NONINFRINGEMENT of the rights of others.
+ * IMPLIED OR EXPRESS WARRANTY; there is no warranty of MERCHANTABILITY, FITNESS FOR A
+ * PARTICULAR PURPOSE or NONINFRINGEMENT of the rights of others.
  */
 
 /* Latest version of the specification:
- * http://docs.oasis-open.org/pkcs11/pkcs11-base/v3.0/pkcs11-base-v3.0.html
+ * http://docs.oasis-open.org/pkcs11/pkcs11-base/v3.2/pkcs11-base-v3.2.html
  */
 
 #ifndef _PKCS11_H_
@@ -158,20 +146,23 @@ extern "C" {
  * #endif
  */
 
+
 /* All the various Cryptoki types and #define'd values are in the
  * file pkcs11t.h.
  */
 #include "pkcs11t.h"
 
-#define __PASTE(x, y) x##y
+#define __PASTE(x,y)      x##y
+
 
 /* ==============================================================
  * Define the "extern" form of all the entry points.
  * ==============================================================
  */
 
-#define CK_NEED_ARG_LIST 1
-#define CK_PKCS11_FUNCTION_INFO(name) extern CK_DECLARE_FUNCTION(CK_RV, name)
+#define CK_NEED_ARG_LIST  1
+#define CK_PKCS11_FUNCTION_INFO(name) \
+  extern CK_DECLARE_FUNCTION(CK_RV, name)
 
 /* pkcs11f.h has all the information about the Cryptoki
  * function prototypes.
@@ -180,6 +171,7 @@ extern "C" {
 
 #undef CK_NEED_ARG_LIST
 #undef CK_PKCS11_FUNCTION_INFO
+
 
 /* ==============================================================
  * Define the typedef form of all the entry points.  That is, for
@@ -188,9 +180,9 @@ extern "C" {
  * ==============================================================
  */
 
-#define CK_NEED_ARG_LIST 1
-#define CK_PKCS11_FUNCTION_INFO(name)                                          \
-  typedef CK_DECLARE_FUNCTION_POINTER(CK_RV, __PASTE(CK_, name))
+#define CK_NEED_ARG_LIST  1
+#define CK_PKCS11_FUNCTION_INFO(name) \
+  typedef CK_DECLARE_FUNCTION_POINTER(CK_RV, __PASTE(CK_,name))
 
 /* pkcs11f.h has all the information about the Cryptoki
  * function prototypes.
@@ -199,6 +191,7 @@ extern "C" {
 
 #undef CK_NEED_ARG_LIST
 #undef CK_PKCS11_FUNCTION_INFO
+
 
 /* ==============================================================
  * Define structed vector of entry points.  A CK_FUNCTION_LIST
@@ -209,36 +202,57 @@ extern "C" {
  * ==============================================================
  */
 
-#define CK_PKCS11_FUNCTION_INFO(name) __PASTE(CK_, name) name;
+#define CK_PKCS11_FUNCTION_INFO(name) \
+  __PASTE(CK_,name) name;
+
+/* Create the 3.2 Function list */
+struct CK_FUNCTION_LIST_3_2 {
+
+  CK_VERSION    version;  /* Cryptoki version */
+
+/* Pile all the function pointers into the CK_FUNCTION_LIST. */
+/* pkcs11f.h has all the information about the Cryptoki
+ * function prototypes.
+ */
+#include "pkcs11f.h"
+
+};
+
+#define CK_PKCS11_3_0_ONLY 1   /* don't include the 3.2 and later functions */
 
 /* Create the 3.0 Function list */
 struct CK_FUNCTION_LIST_3_0 {
 
-  CK_VERSION version; /* Cryptoki version */
+  CK_VERSION    version;  /* Cryptoki version */
 
 /* Pile all the function pointers into the CK_FUNCTION_LIST. */
 /* pkcs11f.h has all the information about the Cryptoki
  * function prototypes.
  */
 #include "pkcs11f.h"
+
 };
 
-#define CK_PKCS11_2_0_ONLY 1
+#undef CK_PKCS11_3_0_ONLY
+
+#define CK_PKCS11_2_0_ONLY 1   /* don't include the 3.0 and later functions */
 
 /* Continue to define the old CK_FUNCTION_LIST */
 struct CK_FUNCTION_LIST {
 
-  CK_VERSION version; /* Cryptoki version */
+  CK_VERSION    version;  /* Cryptoki version */
 
 /* Pile all the function pointers into the CK_FUNCTION_LIST. */
 /* pkcs11f.h has all the information about the Cryptoki
  * function prototypes.
  */
 #include "pkcs11f.h"
+
 };
 
 #undef CK_PKCS11_FUNCTION_INFO
 #undef CK_PKCS11_2_0_ONLY
+
 
 #undef __PASTE
 
@@ -247,3 +261,4 @@ struct CK_FUNCTION_LIST {
 #endif
 
 #endif /* _PKCS11_H_ */
+
