@@ -1,7 +1,7 @@
 %global _yubihsm yubihsm
 
 Name:		yubihsm-shell
-Version:	2.7.2
+Version:	2.7.3
 Release:	1%{?dist}
 Summary:	Tools to interact with YubiHSM 2
 
@@ -78,8 +78,5 @@ install -m 0644 ../LICENSE %{buildroot}/%{_prefix}/share/licenses/%{name}
 
 
 %changelog
-* Thu Mar 12 2026 Aveen Ismail <aveen.ismail@yubico.com> - 2.7.2
-- lib: Ensure that command audit for command 0x05 cannot be turned on
-- pkcs11: Improve handling of public key component of RSA Wrap Key
-- pkcs11: Fix a bug where generating an RSA key pair can potentially result in the wrong type of object being created
-- build: Upgrade minimum CMake version requirement
+* Thu Apr 13 2026 Aveen Ismail <aveen.ismail@yubico.com> - 2.7.3
+- lib: Fix a bug in defining the capabilities related to managing Public Wrap Key objects

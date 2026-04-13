@@ -1,3 +1,9 @@
+yubihsm-shell (2.7.3) unstable; urgency=medium
+
+    * lib: Fix a bug in defining the capabilities related to managing Public Wrap Key objects
+
+ -- Aveen Ismail <aveen.ismail@yubico.com>  Thu, 13 Apr 2026 14:03:06 +0100
+
 yubihsm-shell (2.7.2) unstable; urgency=medium
 
     * lib: Ensure that command audit for command 0x05 cannot be turned on
