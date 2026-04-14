@@ -1,3 +1,7 @@
+=== Version 2.7.3
+
+lib: Fix a bug in defining capabilities related to managing Public Wrap Key objects
+
 === Version 2.7.2
 
 lib: Ensure that command audit for command 0x05 cannot be turned on
