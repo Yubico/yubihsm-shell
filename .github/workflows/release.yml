@@ -141,6 +141,7 @@ jobs:
       fail-fast: false
       matrix:
         environment: [
+            "ubuntu:26.04",
             "ubuntu:25.10",
             "ubuntu:25.04",
             "ubuntu:24.04",
@@ -195,8 +196,10 @@ jobs:
           VERSION: ${{ matrix.version }}
         run: |
           set -x
-          tar xf yubihsm-shell-$VERSION.tar.gz
-          mv yubihsm-shell-$VERSION yubihsm-shell
+          #tar xf yubihsm-shell-$VERSION.tar.gz
+          #mv yubihsm-shell-$VERSION yubihsm-shell
+          
+          git clone --branch $VERSION https://github.com/Yubico/yubihsm-shell.git
 
       - name: apply environment specific changes to CMakeLists.txt
         working-directory: yubihsm-shell
@@ -217,7 +220,7 @@ jobs:
         env:
           DOCKER_IMAGE: ${{ matrix.environment }}
         run: |
-          if [ "$DOCKER_IMAGE" = "ubuntu:24.04" ] || [ "$DOCKER_IMAGE" = "ubuntu:25.04" ] || [ "$DOCKER_IMAGE" = "ubuntu:25.10" ]; then
+          if [ "$DOCKER_IMAGE" = "ubuntu:24.04" ] || [ "$DOCKER_IMAGE" = "ubuntu:25.04" ] || [ "$DOCKER_IMAGE" = "ubuntu:25.10" ]  || [ "$DOCKER_IMAGE" = "ubuntu:26.04" ]; then
             # ubuntu 24.04 and above come with _FORTIFY_SOURCE already set
             sed -i 's/add_definitions (-D_FORTIFY_SOURCE=2)/add_definitions (-D_FORTIFY_SOURCE=3)/' cmake/SecurityFlags.cmake
           fi
@@ -269,6 +272,8 @@ jobs:
         run: |
           set -x
           dpkg -i ./libykhsmauth1_*.deb ./libyubihsm-usb1_*.deb ./libyubihsm-http1_*.deb ./libyubihsm1_*.deb  ./yubihsm-shell_*.deb
+          yubihsm-shell --version
+          yubihsm-shell --help
 
       - name: check binaries for hardening
         run: |
