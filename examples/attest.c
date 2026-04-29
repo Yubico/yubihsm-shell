@@ -53,8 +53,8 @@ static void print_extension(X509_EXTENSION *extension) {
   const uint8_t label[] = {0x06, 0x0a, 0x2b, 0x06, 0x01, 0x04,
                            0x01, 0x82, 0xc4, 0x0a, 0x04, 0x09};
 
-  ASN1_OBJECT *a_object = X509_EXTENSION_get_object(extension);
-  ASN1_OCTET_STRING *a_value = X509_EXTENSION_get_data(extension);
+  const ASN1_OBJECT *a_object = X509_EXTENSION_get_object(extension);
+  const ASN1_OCTET_STRING *a_value = X509_EXTENSION_get_data(extension);
   uint8_t object[1024];
   uint8_t *ptr = object;
   if (i2d_ASN1_OBJECT(a_object, NULL) > 1024) {
