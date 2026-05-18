@@ -34,7 +34,6 @@ The available components are:
 - llvm/clang and friends
 - pkg-config
 - pre-commit
-- zlib
 
 === Documentation
 
