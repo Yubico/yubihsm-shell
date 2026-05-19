@@ -34,17 +34,17 @@ cd $VCPKG_PATH
 .\vcpkg.exe update
 .\vcpkg.exe install openssl:$ARCH-windows
 .\vcpkg.exe install getopt:$ARCH-windows
-.\vcpkg.exe install zlib:$env:ARCH-windows
+.\vcpkg.exe install zlib:$ARCH-windows
 
 $env:OPENSSL_ROOT_DIR ="$VCPKG_PATH/packages/openssl_$ARCH-windows"
 
 # Build binaries
 mkdir $BUILD_DIR; cd $BUILD_DIR
 cmake -S $SOURCE_DIR -A "$CMAKE_ARCH" -DCMAKE_INSTALL_PREFIX="$RELEASE_DIR" `
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_PATH/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET="$ARCH-windows" `
             -DGETOPT_LIB_DIR="$VCPKG_PATH\packages\getopt-win32_$ARCH-windows\lib" `
-            -DGETOPT_INCLUDE_DIR="$VCPKG_PATH\packages\getopt-win32_$ARCH-windows\include" `
-            -DZLIB_LIB_DIR="$VCPKG_PATH/packages/zlib_$ARCH-windows/lib" `
-            -DZLIB_INCLUDE_DIR="$VCPKG_PATH/packages/zlib_$ARCH-windows/include"
+            -DGETOPT_INCLUDE_DIR="$VCPKG_PATH\packages\getopt-win32_$ARCH-windows\include"
 
 cmake --build . -v --config Release --target install
 
@@ -60,7 +60,7 @@ else
     cp $VCPKG_PATH/packages/openssl_x64-windows/bin/libcrypto-3-x64.dll .
     cp $VCPKG_PATH/packages/getopt-win32_x64-windows/bin/getopt.dll .
 }
-cp $VCPKG_PATH/packages/zlib_$ARCH-windows/bin/zlib1.dll .
+cp $VCPKG_PATH/packages/zlib_$ARCH-windows/bin/z.dll .
 
 # Create missing directories
 Remove-Item -Path $LICENSES_DIR -Force -Recurse -ErrorAction SilentlyContinue
