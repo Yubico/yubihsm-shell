@@ -30,8 +30,7 @@
 #include <bcrypt.h>
 #include <ntstatus.h>
 #else
-#include <openssl/evp.h>
-#include <openssl/err.h>
+#include <openssl/aes.h>
 #endif
 
 #ifndef AES_BLOCK_SIZE // Defined in openssl/aes.h
@@ -52,9 +51,8 @@ typedef struct {
   PBYTE pbKeyECBObj;
   size_t cbKeyObj;
 #else
-  EVP_CIPHER_CTX *ctx;
-  uint16_t key_len;
-  uint8_t key[32];
+  AES_KEY enc_key;
+  AES_KEY dec_key;
 #endif
 } aes_context;
 
