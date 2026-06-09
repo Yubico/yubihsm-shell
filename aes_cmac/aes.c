@@ -171,102 +171,15 @@ cleanup:
 
 #else
 
-static const EVP_CIPHER *aes_ecb(uint16_t key_len) {
-  switch (key_len) {
-    case 16:
-      return EVP_aes_128_ecb();
-    case 24:
-      return EVP_aes_192_ecb();
-    case 32:
-      return EVP_aes_256_ecb();
-    default:
-      return NULL;
-  }
-}
-
-static const EVP_CIPHER *aes_cbc(uint16_t key_len) {
-  switch (key_len) {
-    case 16:
-      return EVP_aes_128_cbc();
-    case 24:
-      return EVP_aes_192_cbc();
-    case 32:
-      return EVP_aes_256_cbc();
-    default:
-      return NULL;
-  }
-}
-
-static int ossl_err_cb(const char *str, size_t len, void *u) {
-  (void)len;
-  (void)u;
-  DBG_ERR("%s %s", (const char*)u, str);
-  return 1;
-}
-
-static void DBG_OSSL(const char *str, int err) {
-  DBG_ERR("%s: %d OSSL error stack begin", str, err);
-  ERR_print_errors_cb(ossl_err_cb, (void*)str);
-  DBG_ERR("%s: OSSL error stack end", str);
-}
-
-static int aes_encrypt_ex(const EVP_CIPHER *cipher, const uint8_t *in,
-                          uint8_t *out, uint16_t len, const uint8_t *iv,
-                          aes_context *ctx) {
-  int err;
-  if ((err = EVP_EncryptInit_ex(ctx->ctx, cipher, NULL, ctx->key, iv)) <= 0) {
-    DBG_OSSL("aes_encrypt_ex EVP_EncryptInit_ex", err);
-    return -1;
-  }
-  if ((err = EVP_CIPHER_CTX_set_padding(ctx->ctx, 0)) <= 0) {
-    DBG_OSSL("aes_encrypt_ex EVP_CIPHER_CTX_set_padding", err);
-    return -2;
-  }
-  int update_len = len;
-  if ((err = EVP_EncryptUpdate(ctx->ctx, out, &update_len, in, len)) <= 0) {
-    DBG_OSSL("aes_encrypt_ex EVP_EncryptUpdate", err);
-    return -3;
-  }
-  int final_len = len - update_len;
-  if ((err = EVP_EncryptFinal_ex(ctx->ctx, out + update_len, &final_len)) <= 0) {
-    DBG_OSSL("aes_encrypt_ex EVP_EncryptFinal_ex", err);
-    return -4;
-  }
-  if (update_len + final_len != len) {
-    DBG_ERR("update_len + final_len != len");
-    return -5;
-  }
-  return 0;
-}
-
-static int aes_decrypt_ex(const EVP_CIPHER *cipher, const uint8_t *in,
-                          uint8_t *out, uint16_t len, const uint8_t *iv,
-                          aes_context *ctx) {
-  int err;
-  if ((err = EVP_DecryptInit_ex(ctx->ctx, cipher, NULL, ctx->key, iv)) != 1) {
-    DBG_OSSL("aes_encrypt_ex EVP_DecryptInit_ex", err);
-    return -1;
-  }
-  if ((err = EVP_CIPHER_CTX_set_padding(ctx->ctx, 0)) != 1) {
-    DBG_OSSL("aes_decrypt_ex EVP_CIPHER_CTX_set_padding", err);
-    return -2;
-  }
-  int update_len = len;
-  if ((err = EVP_DecryptUpdate(ctx->ctx, out, &update_len, in, len)) != 1) {
-    DBG_OSSL("aes_decrypt_ex EVP_DecryptUpdate", err);
-    return -3;
-  }
-  int final_len = len - update_len;
-  if ((err = EVP_DecryptFinal_ex(ctx->ctx, out + update_len, &final_len)) != 1) {
-    DBG_OSSL("aes_decrypt_ex EVP_DecryptFinal_ex", err);
-    return -4;
-  }
-  if (update_len + final_len != len) {
-    DBG_ERR("update_len + final_len != len");
-    return -5;
-  }
-  return 0;
-}
+/*
+ * Use the low-level AES API (AES_set_encrypt_key / AES_ecb_encrypt /
+ * AES_cbc_encrypt) instead of the EVP API.  The low-level functions
+ * operate directly on an AES_KEY struct with pre-computed round keys
+ * and do not depend on OpenSSL's global library context.  This means
+ * they continue to work after OPENSSL_cleanup() has been called,
+ * which is critical for SCP03 session close during application
+ * teardown.
+ */
 
 #endif
 
@@ -292,18 +205,18 @@ int aes_set_key(const uint8_t *key, uint16_t key_len, aes_context *ctx) {
 
 #else
 
-  if (key == NULL || aes_ecb(key_len) == NULL) {
+  if (key == NULL || (key_len != 16 && key_len != 24 && key_len != 32)) {
+    DBG_ERR("aes_set_key: invalid key or key_len %u", key_len);
     return -1;
   }
-  if (!ctx->ctx) {
-    ctx->ctx = EVP_CIPHER_CTX_new();
-    if (!ctx->ctx) {
-      DBG_OSSL("aes_set_key EVP_CIPHER_CTX_new", 0);
-      return -2;
-    }
+  if (AES_set_encrypt_key(key, key_len * 8, &ctx->enc_key) != 0) {
+    DBG_ERR("AES_set_encrypt_key failed");
+    return -2;
   }
-  ctx->key_len = key_len;
-  memcpy(ctx->key, key, key_len);
+  if (AES_set_decrypt_key(key, key_len * 8, &ctx->dec_key) != 0) {
+    DBG_ERR("AES_set_decrypt_key failed");
+    return -3;
+  }
 
 #endif
 
@@ -322,24 +235,18 @@ int aes_load_key(const char *key, aes_context *ctx) {
   const uint8_t default_mac[] = {0x59, 0x2f, 0xd4, 0x83, 0xf7, 0x59,
                                  0xe2, 0x99, 0x09, 0xa0, 0x4c, 0x45,
                                  0x05, 0xd2, 0xce, 0x0a};
-  ctx->key_len = sizeof(default_enc);
-  if (key == NULL || aes_ecb(ctx->key_len) == NULL) {
+  const uint8_t *k;
+
+  if (key == NULL)
     return -1;
-  }
-  if (!ctx->ctx) {
-    ctx->ctx = EVP_CIPHER_CTX_new();
-    if (!ctx->ctx) {
-      DBG_OSSL("aes_load_key EVP_CIPHER_CTX_new", 0);
-      return -2;
-    }
-  }
   if (!strcmp(key, "default_enc"))
-    memcpy(ctx->key, default_enc, ctx->key_len);
+    k = default_enc;
   else if (!strcmp(key, "default_mac"))
-    memcpy(ctx->key, default_mac, ctx->key_len);
+    k = default_mac;
   else
-    memset(ctx->key, 0, ctx->key_len);
-  return 0;
+    return -1;
+
+  return aes_set_key(k, sizeof(default_enc), ctx);
 #endif
 }
 
@@ -362,8 +269,8 @@ int aes_encrypt(const uint8_t *in, uint8_t *out, aes_context *ctx) {
 
 #else
 
-  return aes_encrypt_ex(aes_ecb(ctx->key_len), in, out, AES_BLOCK_SIZE, NULL,
-                        ctx);
+  AES_ecb_encrypt(in, out, &ctx->enc_key, AES_ENCRYPT);
+  return 0;
 
 #endif
 }
@@ -387,8 +294,8 @@ int aes_decrypt(const uint8_t *in, uint8_t *out, aes_context *ctx) {
 
 #else
 
-  return aes_decrypt_ex(aes_ecb(ctx->key_len), in, out, AES_BLOCK_SIZE, NULL,
-                        ctx);
+  AES_ecb_encrypt(in, out, &ctx->dec_key, AES_DECRYPT);
+  return 0;
 
 #endif
 }
@@ -416,7 +323,10 @@ int aes_cbc_encrypt(const uint8_t *in, uint8_t *out, uint16_t len,
 
 #else
 
-  return aes_encrypt_ex(aes_cbc(ctx->key_len), in, out, len, iv, ctx);
+  uint8_t _iv[AES_BLOCK_SIZE];
+  memcpy(_iv, iv, AES_BLOCK_SIZE);
+  AES_cbc_encrypt(in, out, len, &ctx->enc_key, _iv, AES_ENCRYPT);
+  return 0;
 
 #endif
 }
@@ -444,7 +354,10 @@ int aes_cbc_decrypt(const uint8_t *in, uint8_t *out, uint16_t len,
 
 #else
 
-  return aes_decrypt_ex(aes_cbc(ctx->key_len), in, out, len, iv, ctx);
+  uint8_t _iv[AES_BLOCK_SIZE];
+  memcpy(_iv, iv, AES_BLOCK_SIZE);
+  AES_cbc_encrypt(in, out, len, &ctx->dec_key, _iv, AES_DECRYPT);
+  return 0;
 
 #endif
 }
@@ -512,7 +425,7 @@ void aes_destroy(aes_context *ctx) {
 
 #else
 
-  EVP_CIPHER_CTX_free(ctx->ctx);
+  /* AES_KEY has no resources to free, just zero the key material */
 
 #endif
 
