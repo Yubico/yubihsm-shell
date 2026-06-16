@@ -29,6 +29,7 @@
 #include "debug_p11.h"
 #include "util_pkcs11.h"
 #include "yubihsm_pkcs11.h"
+#include "../ykhsmauth/ykhsmauth.h"
 #include "../common/insecure_memzero.h"
 #include "../common/parsing.h"
 #include "../common/util.h"
@@ -1141,6 +1142,164 @@ static void logout_sessions(void *data) {
   }
 }
 
+static yh_rc create_yksession(yh_connector *connector, uint16_t authkey_id,
+                              const char *label, const uint8_t *pPin,
+                              CK_ULONG ulPinLen, yh_session **session) {
+  ykhsmauth_state *state = NULL;
+  yh_rc ret = YHR_GENERIC_ERROR;
+
+  uint8_t key_s_enc[YH_KEY_LEN] = {0};
+  uint8_t key_s_mac[YH_KEY_LEN] = {0};
+  uint8_t key_s_rmac[YH_KEY_LEN] = {0};
+  uint8_t retries = 0;
+
+  ykhsmauth_rc ykhsmauthrc = ykhsmauth_init(&state, false);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
+    DBG_ERR("Failed to init ykhsmauth state: %s",
+            ykhsmauth_strerror(ykhsmauthrc));
+    return YHR_GENERIC_ERROR;
+  }
+
+  ykhsmauthrc = ykhsmauth_connect(state, NULL);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
+    DBG_ERR("Failed to connect to the YubiKey: %s",
+            ykhsmauth_strerror(ykhsmauthrc));
+    ykhsmauth_done(state);
+    return YHR_GENERIC_ERROR;
+  }
+
+  uint8_t host_challenge[YH_EC_P256_PUBKEY_LEN] = {0};
+  size_t host_challenge_len = sizeof(host_challenge);
+
+  uint8_t major = 0, minor = 0, patch = 0;
+  ykhsmauthrc = ykhsmauth_get_version_ex(state, &major, &minor, &patch);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
+    DBG_ERR("Failed to get YubiKey firmware version: %s",
+            ykhsmauth_strerror(ykhsmauthrc));
+    ykhsmauth_disconnect(state);
+    ykhsmauth_done(state);
+    goto cleanup;
+  }
+
+  if (major > 5 || (major == 5 && minor > 7) ||
+      (major == 5 && minor == 7 && patch >= 1) ||
+      (major == 0 && minor == 0 && patch == 1)) {
+    ykhsmauthrc =
+      ykhsmauth_get_challenge_ex(state, label, pPin, ulPinLen,
+                                 host_challenge, &host_challenge_len);
+  } else {
+    ykhsmauthrc =
+      ykhsmauth_get_challenge(state, label, host_challenge, &host_challenge_len);
+  }
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
+    DBG_ERR("Failed to get host challenge from the YubiKey: %s",
+            ykhsmauth_strerror(ykhsmauthrc));
+    ykhsmauth_disconnect(state);
+    ykhsmauth_done(state);
+    goto cleanup;
+  }
+
+  uint8_t card_pubkey[YH_EC_P256_PUBKEY_LEN] = {0};
+  size_t card_pubkey_len = 0;
+  yh_rc yrc = YHR_SUCCESS;
+
+  if (host_challenge_len == YH_EC_P256_PUBKEY_LEN) {
+    card_pubkey_len = sizeof(card_pubkey);
+    yrc = yh_util_get_device_pubkey(connector, card_pubkey,
+                                    &card_pubkey_len, NULL);
+    if (yrc != YHR_SUCCESS) {
+      DBG_ERR("Failed to retrieve device pubkey: %s", yh_strerror(yrc));
+      ykhsmauth_disconnect(state);
+      ykhsmauth_done(state);
+      ret = yrc;
+      goto cleanup;
+    }
+
+    if (card_pubkey_len != YH_EC_P256_PUBKEY_LEN) {
+      DBG_ERR("Invalid device pubkey");
+      ykhsmauth_disconnect(state);
+      ykhsmauth_done(state);
+      goto cleanup;
+    }
+
+    int hits = 0;
+    for (ListItem *item = g_ctx.device_pubkeys.head; item != NULL;
+         item = item->next) {
+      if (!memcmp(item->data, card_pubkey, card_pubkey_len)) {
+        hits++;
+      }
+    }
+
+    if (g_ctx.device_pubkeys.length > 0 && hits == 0) {
+      DBG_ERR("Failed to validate device pubkey");
+      ykhsmauth_disconnect(state);
+      ykhsmauth_done(state);
+      goto cleanup;
+    }
+  }
+
+  uint8_t card_cryptogram[YH_KEY_LEN] = {0};
+  size_t card_cryptogram_len = sizeof(card_cryptogram);
+  uint8_t *yh_context = NULL;
+
+  yrc = yh_begin_create_session(connector, authkey_id, &yh_context,
+                                host_challenge, &host_challenge_len,
+                                card_cryptogram, &card_cryptogram_len, session);
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("Failed to begin create session: %s", yh_strerror(yrc));
+    ykhsmauth_disconnect(state);
+    ykhsmauth_done(state);
+    ret = yrc;
+    goto cleanup;
+  }
+
+  ykhsmauthrc =
+    ykhsmauth_calculate_ex(state, label, yh_context, 2 * host_challenge_len,
+                           card_pubkey, card_pubkey_len,
+                           card_cryptogram, card_cryptogram_len,
+                           pPin, ulPinLen,
+                           key_s_enc, sizeof(key_s_enc),
+                           key_s_mac, sizeof(key_s_mac),
+                           key_s_rmac, sizeof(key_s_rmac),
+                           &retries);
+  ykhsmauth_disconnect(state);
+  ykhsmauth_done(state);
+  if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
+    if (ykhsmauthrc == YKHSMAUTHR_WRONG_PW) {
+      DBG_ERR("Failed to get session keys from the YubiKey: %s"
+              ", %d attempts remaining",
+              ykhsmauth_strerror(ykhsmauthrc), retries);
+      ret = YHR_DEVICE_AUTHENTICATION_FAILED;
+    } else {
+      DBG_ERR("Failed to get session keys from the YubiKey: %s",
+              ykhsmauth_strerror(ykhsmauthrc));
+    }
+    yh_destroy_session(session);
+    goto cleanup;
+  }
+
+  yrc = yh_finish_create_session(*session,
+                                 key_s_enc, sizeof(key_s_enc),
+                                 key_s_mac, sizeof(key_s_mac),
+                                 key_s_rmac, sizeof(key_s_rmac),
+                                 card_cryptogram, card_cryptogram_len);
+  if (yrc != YHR_SUCCESS) {
+    DBG_ERR("Failed to finish create session: %s", yh_strerror(yrc));
+    yh_destroy_session(session);
+    ret = yrc;
+    goto cleanup;
+  }
+
+  ret = YHR_SUCCESS;
+
+cleanup:
+  insecure_memzero(key_s_enc, sizeof(key_s_enc));
+  insecure_memzero(key_s_mac, sizeof(key_s_mac));
+  insecure_memzero(key_s_rmac, sizeof(key_s_rmac));
+
+  return ret;
+}
+
 CK_DEFINE_FUNCTION(CK_RV, C_Login)
 (CK_SESSION_HANDLE hSession, CK_USER_TYPE userType, CK_UTF8CHAR_PTR pPin,
  CK_ULONG ulPinLen) {
@@ -1152,7 +1311,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_Login)
     return CKR_ARGUMENTS_BAD;
   }
 
-  CK_ULONG ulUsernameLen = *pPin == '@' ? 5 : 4;
+  CK_ULONG ulUsernameLen = 0;
+  if (ulUsernameLen < ulPinLen && pPin[ulUsernameLen] == '@') {
+    ulUsernameLen++; // optional asymmetric indicator
+  } else if (ulUsernameLen < ulPinLen && pPin[ulUsernameLen] == '#') {
+    ulUsernameLen++; // opening '#'
+    while (ulUsernameLen < ulPinLen && pPin[ulUsernameLen] != '#') {
+      ulUsernameLen++; // scan label
+    }
+    ulUsernameLen++; // closing '#'
+  }
+  ulUsernameLen += 4; // key ID (4 hex digits)
 
   if (ulUsernameLen > ulPinLen) {
     ulUsernameLen = ulPinLen;
@@ -6196,7 +6365,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_LoginUser)
  CK_UTF8CHAR_PTR pPin,       /* the user's PIN */
  CK_ULONG ulPinLen,          /* the length of the PIN */
  CK_UTF8CHAR_PTR pUsername,  /* the user's name */
- CK_ULONG ulUsernameLen      /*the length of the user's name */
+ CK_ULONG ulUsernameLen      /* the length of the user's name */
 ) {
   DIN;
 
@@ -6227,8 +6396,41 @@ CK_DEFINE_FUNCTION(CK_RV, C_LoginUser)
     return CKR_ARGUMENTS_BAD;
   }
 
-  CK_UTF8CHAR prefix = *pUsername;
-  if (prefix == '@') {
+  if (!ulUsernameLen) {
+    DBG_ERR("Invalid argument ulUsernameLen");
+    return CKR_ARGUMENTS_BAD;
+  }
+
+  CK_UTF8CHAR prefix = '\0';
+  CK_UTF8CHAR_PTR pLabel = NULL;
+  CK_ULONG ulLabelLen = 0;
+
+  if (*pUsername == '@') {
+    prefix = *pUsername;
+    pUsername++;
+    ulUsernameLen--;
+  } else if (*pUsername == '#') {
+    prefix = *pUsername;
+    pUsername++;
+    ulUsernameLen--;
+
+    pLabel = pUsername;
+    while (ulUsernameLen && *pUsername != '#') {
+      pUsername++;
+      ulUsernameLen--;
+      ulLabelLen++;
+    }
+
+    if (!ulUsernameLen || *pUsername != '#') {
+      DBG_ERR("Can't locate trailing #");
+      return CKR_ARGUMENTS_BAD;
+    }
+
+    if (!ulLabelLen) {
+      DBG_ERR("Empty credential label");
+      return CKR_ARGUMENTS_BAD;
+    }
+
     pUsername++;
     ulUsernameLen--;
   }
@@ -6261,7 +6463,29 @@ CK_DEFINE_FUNCTION(CK_RV, C_LoginUser)
 
   yh_rc yrc = YHR_SUCCESS;
 
-  if (prefix == '@') { // Asymmetric authentication
+  if (prefix == '#') { // YubiKey authentication
+    if (ulLabelLen > YKHSMAUTH_MAX_LABEL_LEN) {
+      DBG_ERR("Credential label too long");
+      rv = CKR_ARGUMENTS_BAD;
+      goto c_l_out;
+    }
+
+    char label[YKHSMAUTH_MAX_LABEL_LEN + 1] = {0};
+    memcpy(label, pLabel, ulLabelLen);
+
+    yrc = create_yksession(session->slot->connector, key_id, label, pPin,
+                           ulPinLen, &session->slot->device_session);
+    if (yrc != YHR_SUCCESS) {
+      DBG_ERR("Failed to create yksession: %s", yh_strerror(yrc));
+      if (yrc == YHR_CRYPTOGRAM_MISMATCH ||
+          yrc == YHR_DEVICE_AUTHENTICATION_FAILED) {
+        rv = CKR_PIN_INCORRECT;
+      } else {
+        rv = yrc_to_rv(yrc);
+      }
+      goto c_l_out;
+    }
+  } else if (prefix == '@') { // Asymmetric authentication
 
     uint8_t sk_oce[YH_EC_P256_PRIVKEY_LEN], pk_oce[YH_EC_P256_PUBKEY_LEN],
       pk_sd[YH_EC_P256_PUBKEY_LEN];

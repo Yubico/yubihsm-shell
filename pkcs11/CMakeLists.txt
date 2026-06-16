@@ -89,6 +89,7 @@ endif()
 
 target_link_libraries(
   yubihsm_pkcs11
+  ykhsmauth
   ${LIBCRYPTO_LDFLAGS}
   ${GETOPT_LIBS}
 )
