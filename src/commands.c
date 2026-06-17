@@ -1823,16 +1823,22 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
   UNUSED(in_fmt);
   UNUSED(fmt);
 
+  uint8_t key_s_enc[YH_KEY_LEN] = {0};
+  uint8_t key_s_mac[YH_KEY_LEN] = {0};
+  uint8_t key_s_rmac[YH_KEY_LEN] = {0};
+  uint8_t retries = 0;
+  int ret = -1;
+
   if (ctx->connector == NULL) {
     fprintf(stderr, "Not connected\n");
-    return -1;
+    goto cleanup;
   }
 
   ykhsmauth_rc ykhsmauthrc = ykhsmauth_connect(ctx->state, argv[3].s);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Failed to connect to the YubiKey: %s\n",
             ykhsmauth_strerror(ykhsmauthrc));
-    return -1;
+    goto cleanup;
   }
 
   uint8_t host_challenge[YH_EC_P256_PUBKEY_LEN] = {0};
@@ -1844,7 +1850,7 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
     fprintf(stderr, "Failed to get YubiKey firmware version: %s\n",
             ykhsmauth_strerror(ykhsmauthrc));
     ykhsmauth_disconnect(ctx->state);
-    return -1;
+    goto cleanup;
   }
 
   if (major > 5 || (major == 5 && minor > 7) ||
@@ -1861,7 +1867,7 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
     fprintf(stderr, "Failed to get host challenge from the YubiKey: %s\n",
             ykhsmauth_strerror(ykhsmauthrc));
     ykhsmauth_disconnect(ctx->state);
-    return -1;
+    goto cleanup;
   }
 
   uint8_t card_pubkey[YH_EC_P256_PUBKEY_LEN] = {0};
@@ -1877,13 +1883,13 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
       fprintf(stderr, "Failed to retrieve device pubkey: %s\n",
               yh_strerror(yrc));
       ykhsmauth_disconnect(ctx->state);
-      return -1;
+      goto cleanup;
     }
 
     if (card_pubkey_len != YH_EC_P256_PUBKEY_LEN) {
       fprintf(stderr, "Invalid device pubkey\n");
       ykhsmauth_disconnect(ctx->state);
-      return -1;
+      goto cleanup;
     }
 
     int matched = 0;
@@ -1902,7 +1908,7 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
     } else if (matched == 0) {
       fprintf(stderr, "Failed to validate device pubkey\n");
       ykhsmauth_disconnect(ctx->state);
-      return -1;
+      goto cleanup;
     }
   }
 
@@ -1917,13 +1923,8 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
     ykhsmauth_disconnect(ctx->state);
-    return -1;
+    goto cleanup;
   }
-
-  uint8_t key_s_enc[YH_KEY_LEN] = {0};
-  uint8_t key_s_mac[YH_KEY_LEN] = {0};
-  uint8_t key_s_rmac[YH_KEY_LEN] = {0};
-  uint8_t retries = 0;
 
   ykhsmauthrc =
     ykhsmauth_calculate_ex(ctx->state, argv[1].s, yh_context,
@@ -1932,7 +1933,6 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
                            argv[2].len, key_s_enc, sizeof(key_s_enc), key_s_mac,
                            sizeof(key_s_mac), key_s_rmac, sizeof(key_s_rmac),
                            &retries);
-  insecure_memzero(argv[2].x, argv[2].len);
   ykhsmauth_disconnect(ctx->state);
   if (ykhsmauthrc != YKHSMAUTHR_SUCCESS) {
     fprintf(stderr, "Failed to get session keys from the YubiKey: %s",
@@ -1942,7 +1942,8 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
     }
     fprintf(stderr, "\n");
 
-    return -1;
+    yh_destroy_session(&ses);
+    goto cleanup;
   }
 
   yrc =
@@ -1951,14 +1952,16 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
                              card_cryptogram, card_cryptogram_len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
-    return -1;
+    yh_destroy_session(&ses);
+    goto cleanup;
   }
 
   uint8_t session_id = 0;
   yrc = yh_get_session_id(ses, &session_id);
   if (yrc != YHR_SUCCESS) {
-    fprintf(stderr, "Failed to create session: %s\n", yh_strerror(yrc));
-    return -1;
+    fprintf(stderr, "Failed to fetch ID session: %s\n", yh_strerror(yrc));
+    yh_destroy_session(&ses);
+    goto cleanup;
   }
 
   if (ctx->sessions[session_id] != NULL) {
@@ -1966,14 +1969,22 @@ int yh_com_open_yksession(yubihsm_context *ctx, Argument *argv,
     if (yrc != YHR_SUCCESS) {
       fprintf(stderr, "Failed to destroy old session with same id (%d): %s\n",
               session_id, yh_strerror(yrc));
-      return -1;
+      yh_destroy_session(&ses);
+      goto cleanup;
     }
   }
   ctx->sessions[session_id] = ses;
 
   fprintf(stderr, "Created session %d\n", session_id);
+  ret = 0;
 
-  return 0;
+cleanup:
+  insecure_memzero(argv[2].x, argv[2].len);
+  insecure_memzero(key_s_enc, sizeof(key_s_enc));
+  insecure_memzero(key_s_mac, sizeof(key_s_mac));
+  insecure_memzero(key_s_rmac, sizeof(key_s_rmac));
+
+  return ret;
 }
 
 // NOTE(adma): Send unauthenticated echo
