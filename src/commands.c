@@ -1061,8 +1061,8 @@ int yh_com_get_storage(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 // argc = 3
 // arg 0: e:session
 // arg 1: w:key_id
-// arg 2: t:key_type
-// arg 3: f:filename
+// arg 2: f:filename
+// arg 3: t:key_type
 int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                       cmd_format fmt) {
 
@@ -1074,7 +1074,7 @@ int yh_com_get_pubkey(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
   yh_algorithm algo = 0;
   EVP_PKEY *public_key = NULL;
 
-  yh_rc yrc = yh_util_get_public_key_ex(argv[0].e, argv[2].t, argv[1].w,
+  yh_rc yrc = yh_util_get_public_key_ex(argv[0].e, argv[3].t, argv[1].w,
                                         response, &response_len, &algo);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to get public key: %s\n", yh_strerror(yrc));
@@ -1341,8 +1341,8 @@ int yh_com_get_object_info(yubihsm_context *ctx, Argument *argv,
 // arg 1: w:keyid
 // arg 2: t:type
 // arg 3: w:id
-// arg 4: b:include_seed
-// arg 5: f:file
+// arg 4: f:file
+// arg 5: b:include_seed
 int yh_com_get_wrapped(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
                        cmd_format fmt) {
   uint8_t response[YH_MSG_BUF_SIZE] = {0};
@@ -1350,7 +1350,7 @@ int yh_com_get_wrapped(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
   UNUSED(in_fmt);
 
-  uint8_t format = argv[4].b ? 1 : 0;
+  uint8_t format = argv[5].b ? 1 : 0;
 
   yh_rc yrc =
     yh_util_export_wrapped_ex(argv[0].e, argv[1].w, argv[2].b, argv[3].w,
