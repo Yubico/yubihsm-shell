@@ -51,6 +51,8 @@ build*/
 cscope.*
 yhauth/cmdline.c
 yhauth/cmdline.h
+yhunwrap/cmdline.c
+yhunwrap/cmdline.h
 yhwrap/cmdline.c
 yhwrap/cmdline.h
 yubihsm-auth/cmdline.c

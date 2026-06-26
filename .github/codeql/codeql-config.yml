@@ -7,6 +7,7 @@ paths:
   - lib
   - pkcs11
   - src
+  - yhunwrap
   - yhwrap
   - ykhsmauth
 paths-ignore:
