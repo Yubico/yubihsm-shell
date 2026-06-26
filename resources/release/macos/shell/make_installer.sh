@@ -54,7 +54,7 @@ chmod +x lib/*
 # ── Verify paths are correct (read-only, no modifications needed) ──
 echo "\n===================== Verify binary paths ====================="
 for f in bin/yubihsm-shell bin/yubihsm-auth bin/yubihsm-wrap \
-         lib/pkcs11/yubihsm_pkcs11.dylib lib/libykhsmauth.dylib; do
+         lib/pkcs11/yubihsm_pkcs11.dylib lib/libykhsmauth_$RELEASE_VERSION.dylib; do
   echo "--- $f ---"
   otool -L "$f"
   otool -l "$f" | grep LC_RPATH -A 3
