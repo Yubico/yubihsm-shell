@@ -61,15 +61,89 @@ website].
 
 === Logging In
 
-All interesting operations available through the PKCS#11 interface
-require a logged-in session. One peculiarity of the YubiHSM PKCS#11
-module is that the user PIN _MUST_ be prefixed with the ID (16 bits,
-in hexadecimal, zero padded if required) of the Authentication Key
-that should be used to perform the login operation.
+All interesting operations available through the PKCS#11 interface require
+a logged-in session. There are two ways the credentials can be provided:
+in plaintext or via YubiKey yubihsm-auth, and there are two types of
+credentials: symmetric and asymmetric.
+
+==== Plaintext symmetric credentials
+
+This is the authentication mode for the default admin user available on
+YubiHSM after factory reset. The 'Password' is fed into PBKDF2-HMAC-SHA256
+to derive symmetric AES-128 encryption and MAC keys used in the SCP03
+communication channel. The corresponding yubihsm-shell command to store
+the credential on the YubiHSM is `put authkey`.
+
+The format of the PKCS#11 PIN is as follows:
+
+----
+{AuthKeyID}{Password}
+----
+
+Where:
+
+ `AuthKeyID` is Authentication Key ID of the YubiHSM, 16 bits,
+            in hexadecimal, zero padded
+ `Password` is the secret used as input to KDF, _MUST_ be at least `8` and
+           at most `64` characters long.
 
 For example, to use the default Authentication Key with ID `1` and password
-`password`, the user PIN would then be `0001password`. To be compliant with PKCS#11
-standards, the Authentication Key password _MUST_ be at least `8` characters long.
+`password`, the PKCS#11 PIN would then be `0001password`.
+
+==== Plaintext asymmetric credentials
+
+This is an authentication mode available starting from YubiHSM firmware
+v2.3. The 'Password' is fed into PBKDF2-HMAC-SHA256 to derive a NIST
+P-256 private key. This key, alongside the YubiHSM static public key
+(configured via the `device-pubkey` option in `yubihsm_pkcs11.conf`), is
+used to establish a dual ECDH key agreement (SCP11b), from which ephemeral
+AES-128 encryption and MAC keys are derived. The corresponding yubihsm-shell
+command to store the credential on the YubiHSM is `put authkey_asym`.
+
+The format of the PKCS#11 PIN is as follows:
+
+----
+@{AuthKeyID}{Password}
+----
+
+Where:
+
+ `AuthKeyID` is Authentication Key ID of the YubiHSM, 16 bits,
+            in hexadecimal, zero padded
+ `Password` is the secret used as input to KDF, _MUST_ be at least `8` and
+           at most `64` characters long.
+
+For example, to use the Authentication Key with ID `63` (decimal) and password
+`DicewareGeneratedPassword`, the PKCS#11 PIN would then be
+`@003fDicewareGeneratedPassword`.
+
+==== Credentials from YubiKey yubihsm-auth applet
+
+The YubiKey yubihsm-auth applet supports both symmetric and asymmetric
+credentials stored in a non-exportable form in the YubiKey hardware. The
+'Password' in this case is the yubihsm-auth PIN. Additionally, the
+credential's label must be supplied. There is no distinction between
+symmetric and asymmetric credentials from the PKCS#11 point of view, as
+the authentication process is offloaded to the YubiKey.
+
+The format of the PKCS#11 PIN is as follows:
+
+----
+#{YkAuthLabel}#{AuthKeyID}{Password}
+----
+
+Where:
+
+ `YkAuthLabel` is a credential label in the YubiKey `yubihsm-auth`,
+              _MUST_ be at least `1` and at most `64` characters long.
+ `AuthKeyID` is Authentication Key ID of the YubiHSM, 16 bits,
+            in hexadecimal, zero padded
+ `Password` is the YubiKey `yubihsm-auth` credential PIN,
+            _MUST_ be at least `8` and at most `16` characters long.
+
+For example, to use the Authentication Key with ID `15` (decimal), with
+credential label "ProdHsmAdmin" and YubiKey PIN `12345678`, the PKCS#11
+PIN would then be `#ProdHsmAdmin#000f12345678`.
 
 === PKCS#11 Attributes
 
