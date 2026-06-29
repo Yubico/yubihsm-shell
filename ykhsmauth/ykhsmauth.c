@@ -144,17 +144,41 @@ static void dump_hex(const unsigned char *buf, DWORD len) {
 static ykhsmauth_rc send_data(ykhsmauth_state *state, const APDU *apdu,
                               unsigned char *data, LPDWORD recv_len,
                               uint16_t *sw) {
-  DWORD send_len = apdu->st.lc + 5;
+  unsigned char apdu_bytes[sizeof(apdu->raw)] = {0};
+  DWORD send_len = 0;
 
   *sw = 0;
 
+  if (apdu->st.lc > sizeof(apdu->st.data)) {
+    if (state->verbose) {
+      fprintf(stderr, "APDU too large: lc=%u\n", (unsigned) apdu->st.lc);
+    }
+    return YKHSMAUTHR_INVALID_PARAMS;
+  }
+
+  apdu_bytes[0] = apdu->st.cla;
+  apdu_bytes[1] = apdu->st.ins;
+  apdu_bytes[2] = apdu->st.p1;
+  apdu_bytes[3] = apdu->st.p2;
+  if (apdu->st.lc <= 255) {
+    apdu_bytes[4] = (unsigned char) apdu->st.lc;
+    memcpy(apdu_bytes + 5, apdu->st.data, apdu->st.lc);
+    send_len = (DWORD) apdu->st.lc + 5;
+  } else {
+    apdu_bytes[4] = 0x00; // Extended length marker
+    apdu_bytes[5] = (unsigned char) (apdu->st.lc >> 8);   // Length high byte
+    apdu_bytes[6] = (unsigned char) (apdu->st.lc & 0xff); // Length low byte
+    memcpy(apdu_bytes + 7, apdu->st.data, apdu->st.lc);
+    send_len = (DWORD) apdu->st.lc + 7;
+  }
+
   if (state->verbose > 1) {
     fprintf(stderr, "> ");
-    dump_hex(apdu->raw, send_len);
+    dump_hex(apdu_bytes, send_len);
     fprintf(stderr, "\n");
   }
 
-  int32_t rc = SCardTransmit(state->card, SCARD_PCI_T1, apdu->raw, send_len,
+  int32_t rc = SCardTransmit(state->card, SCARD_PCI_T1, apdu_bytes, send_len,
                              NULL, data, recv_len);
   if (rc != SCARD_S_SUCCESS) {
     if (state->verbose) {
