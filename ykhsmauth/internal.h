@@ -18,6 +18,7 @@
 #define YKHSMAUTH_INTERNAL_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #if defined(_WIN32)
 #include <winscard.h>
@@ -44,10 +45,10 @@ union u_APDU {
     unsigned char ins;
     unsigned char p1;
     unsigned char p2;
-    unsigned char lc;
-    unsigned char data[0xff];
+    uint16_t lc;
+    unsigned char data[512];
   } st;
-  unsigned char raw[0xff + 5];
+  unsigned char raw[512 + 7]; // +7 = CLA(1) + INS(1) + P1(1) + P2(1) + extended LC(3)
 };
 
 typedef union u_APDU APDU;
