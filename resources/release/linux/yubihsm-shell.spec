@@ -1,7 +1,7 @@
 %global _yubihsm yubihsm
 
 Name:		yubihsm-shell
-Version:	2.7.3
+Version:	2.8.0
 Release:	1%{?dist}
 Summary:	Tools to interact with YubiHSM 2
 
@@ -78,5 +78,7 @@ install -m 0644 ../LICENSE %{buildroot}/%{_prefix}/share/licenses/%{name}
 
 
 %changelog
-* Thu Apr 13 2026 Aveen Ismail <aveen.ismail@yubico.com> - 2.7.3
-- lib: Fix a bug in defining the capabilities related to managing Public Wrap Key objects
+* Thu Jun 30 2026 Aveen Ismail <aveen.ismail@yubico.com> - 2.8.0
+- pkcs11: Add support for authenticating a YubiHSM session using a YubiKey
+- ykhsmauth: Fix a buffer size bug when using longer credential labels
+- build: Code hardening

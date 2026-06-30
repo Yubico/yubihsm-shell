@@ -129,8 +129,8 @@ else ()
 endif ()
 
 set (yubihsm_shell_VERSION_MAJOR 2)
-set (yubihsm_shell_VERSION_MINOR 7)
-set (yubihsm_shell_VERSION_PATCH 3)
+set (yubihsm_shell_VERSION_MINOR 8)
+set (yubihsm_shell_VERSION_PATCH 0)
 set (VERSION "${yubihsm_shell_VERSION_MAJOR}.${yubihsm_shell_VERSION_MINOR}.${yubihsm_shell_VERSION_PATCH}")
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
