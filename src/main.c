@@ -2035,6 +2035,9 @@ int main(int argc, char *argv[]) {
   if (args_info.key_given) {
     g_ctx.key = strdup(args_info.key_arg);
   }
+  if (args_info.key_password_given) {
+    g_ctx.passwd = strdup(args_info.key_password_arg);
+  }
   if (args_info.proxy_given) {
     g_ctx.proxy = strdup(args_info.proxy_arg);
   }
@@ -3385,21 +3388,12 @@ main_exit:
     fclose(g_ctx.out);
   }
 
-  if (g_ctx.cacert) {
-    free(g_ctx.cacert);
-  }
-  if (g_ctx.cert) {
-    free(g_ctx.cert);
-  }
-  if (g_ctx.key) {
-    free(g_ctx.key);
-  }
-  if (g_ctx.proxy) {
-    free(g_ctx.proxy);
-  }
-  if (g_ctx.noproxy) {
-    free(g_ctx.noproxy);
-  }
+  free(g_ctx.cacert);
+  free(g_ctx.cert);
+  free(g_ctx.key);
+  free(g_ctx.passwd);
+  free(g_ctx.proxy);
+  free(g_ctx.noproxy);
 
   yh_exit();
   ykhsmauth_done(g_ctx.state);
