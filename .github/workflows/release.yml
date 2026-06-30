@@ -1,7 +1,7 @@
 name: Release binaries
 # This machine tests building the software on a both 32 and 64 Windows architecture.
 
-on: [pull_request]
+on: [push, pull_request]
 
 jobs:
 
@@ -9,7 +9,7 @@ jobs:
     name: Build dist with Linux
     runs-on: ubuntu-latest
     env:
-      VERSION: 2.7.3
+      VERSION: 2.8.0
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -44,7 +44,7 @@ jobs:
           - os: windows-latest
             arch: x64
     env:
-      VERSION: 2.7.3
+      VERSION: 2.8.0
     steps:
       - name: Download source from source job
         uses: actions/download-artifact@v4
@@ -95,7 +95,7 @@ jobs:
           - os: macos-latest-xlarge
             arch: arm
     env:
-      VERSION: 2.7.3
+      VERSION: 2.8.0
     steps:
       - name: Download source from source job
         uses: actions/download-artifact@v4
@@ -147,7 +147,7 @@ jobs:
             "debian:13",
             "debian:12",
         ]
-        version: [ "2.7.3" ]
+        version: [ "2.8.0" ]
 
     name: build on ${{ matrix.environment }}
     runs-on: ubuntu-latest
@@ -297,7 +297,7 @@ jobs:
             "fedora:44",
             "fedora:43",
         ]
-        version: [ "2.7.3" ]
+        version: [ "2.8.0" ]
 
     name: build on ${{ matrix.environment }}
     runs-on: ubuntu-latest

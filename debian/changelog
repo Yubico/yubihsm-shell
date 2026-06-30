@@ -1,3 +1,11 @@
+yubihsm-shell (2.8.0) unstable; urgency=medium
+
+    * pkcs11: Add support for authenticating a YubiHSM session using a YubiKey
+    * ykhsmauth: Fix a buffer size bug when using longer credential labels
+    * build: Code hardening
+
+ -- Aveen Ismail <aveen.ismail@yubico.com>  Tue, 30 Jun 2026 19:03:37 +0100
+
 yubihsm-shell (2.7.3) unstable; urgency=medium
 
     * lib: Fix a bug in defining the capabilities related to managing Public Wrap Key objects
