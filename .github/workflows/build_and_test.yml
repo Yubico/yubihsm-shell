@@ -1,8 +1,6 @@
 name: Build and Test
 
-#on: [push, pull_request]
-on: [pull_request]
-
+on: [push, pull_request]
 
 jobs:
   build_debian_derivatives:
@@ -16,24 +14,18 @@ jobs:
           - environment: "ubuntu:25.10"
             cc: "clang"
             upload_for_test: "false"
-          - environment: "ubuntu:25.04"
-            cc: "gcc"
-            upload_for_test: "false"
-          - environment: "ubuntu:25.04"
-            cc: "clang"
-            upload_for_test: "false"
           - environment: "ubuntu:24.04"
             cc: "gcc"
             upload_for_test: "false"
           - environment: "ubuntu:24.04"
-            cc: "clang"
-            upload_for_test: "false"
-          - environment: "ubuntu:22.04"
-            cc: "gcc"
-            upload_for_test: "false"
-          - environment: "ubuntu:22.04"
             cc: "clang"
             upload_for_test: "true"
+          - environment: "ubuntu:22.04"
+            cc: "gcc"
+            upload_for_test: "false"
+          - environment: "ubuntu:22.04"
+            cc: "clang"
+            upload_for_test: "false"
           - environment: "debian:13"
             cc: "gcc"
             upload_for_test: "false"
@@ -171,10 +163,10 @@ jobs:
       matrix:
         include:
           # we do not perform clang builds for all environments, only fedora
-          - environment: "fedora:42"
+          - environment: "fedora:44"
             cc: "gcc"
             upload_for_test: "true"
-          - environment: "fedora:42"
+          - environment: "fedora:44"
             cc: "clang"
             upload_for_test: "false"
           - environment: "fedora:43"
@@ -351,9 +343,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - environment: "ubuntu:22.04"
+          - environment: "ubuntu:24.04"
             cc: "clang"
-          - environment: "fedora:42"
+          - environment: "fedora:44"
             cc: "gcc"
 
     name: run unit tests
@@ -366,13 +358,13 @@ jobs:
       - name: install dependencies from package management (debian based)
         env:
           DEBIAN_FRONTEND: noninteractive
-        if: ${{ matrix.environment == 'ubuntu:22.04' }}
+        if: ${{ matrix.environment == 'ubuntu:24.04' }}
         run: |
           apt update
-          apt install -q -y build-essential cmake python3 python3-pip python3-setuptools curl libedit2 libpcsclite1 libengine-pkcs11-openssl opensc swig libssl3 zlib1g-dev
+          apt install -q -y build-essential cmake python3 python3-pip python3-setuptools python3-venv curl libedit2 libpcsclite1 libengine-pkcs11-openssl opensc swig libssl3 zlib1g-dev
 
       - name: install dependencies from package management (rpm based)
-        if: ${{ matrix.environment == 'fedora:42' }}
+        if: ${{ matrix.environment == 'fedora:44' }}
         run: |
           yum install -y gawk gcc gcc-c++ cmake python3-devel python3-pip python3-setuptools curl libedit gengetopt openssl libcurl pcsc-lite swig which zlib-devel crypto-policies-scripts
 
@@ -427,7 +419,7 @@ jobs:
         env:
           DOCKER_IMAGE: ${{ matrix.environment }}
         run: |
-          if [ "$DOCKER_IMAGE" = "fedora:42" ]; then
+          if [ "$DOCKER_IMAGE" = "fedora:44" ]; then
             # Allows usage of SHA1
             #update-crypto-policies --show
             update-crypto-policies --set LEGACY
@@ -463,13 +455,16 @@ jobs:
           path: python-pkcs11tester
 
       - name: run python-pkcs11tester
-        if: ${{ matrix.environment == 'ubuntu:22.04' }}
+        if: ${{ matrix.environment == 'ubuntu:24.04' }}
         run: |
           export YUBIHSM_PKCS11_MODULE=`pwd`/yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so
           cd python-pkcs11tester
           echo "connector=$DEFAULT_CONNECTOR_URL" > yubihsm_pkcs11.conf
+          python3 -m venv venv
+          . venv/bin/activate
+          venv/bin/pip install setuptools pytest
           python3 -m pip install 'pykcs11' 'cryptography>=1.4.0'
-          python3 setup.py test
+          python3 -m unittest pkcs11tester.Pkcs11Tester
 
       - name: cleanup
         if: ${{ always() }}
