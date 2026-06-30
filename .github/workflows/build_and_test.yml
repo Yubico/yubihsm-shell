@@ -1,6 +1,8 @@
 name: Build and Test
 
-on: [push, pull_request]
+#on: [push, pull_request]
+on: [pull_request]
+
 
 jobs:
   build_debian_derivatives:
