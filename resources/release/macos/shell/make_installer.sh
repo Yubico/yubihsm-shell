@@ -54,7 +54,7 @@ chmod +x lib/*
 # ── Verify paths are correct (read-only, no modifications needed) ──
 echo "\n===================== Verify binary paths ====================="
 for f in bin/yubihsm-shell bin/yubihsm-auth bin/yubihsm-wrap \
-         lib/pkcs11/yubihsm_pkcs11.dylib lib/libykhsmauth_$RELEASE_VERSION.dylib; do
+         lib/pkcs11/yubihsm_pkcs11.dylib lib/libykhsmauth.$RELEASE_VERSION.dylib; do
   echo "--- $f ---"
   otool -L "$f"
   otool -l "$f" | grep LC_RPATH -A 3
@@ -104,7 +104,7 @@ cd ..
 echo "\n===================== Make installer ====================="
 cd $MAC_DIR
 pkgbuild --root=$PKG_DIR/root --identifier "com.yubico.yubihsm-shell" $PKG_DIR/comp/yubihsm-shell.pkg
-productbuild  --package-path $PKG_DIR/comp/yubihsm-shell.pkg --distribution distribution.xml --resources $PKG_DIR/resources yubihsm-shell-$RELEASE_VERSION-$ARCH.pkg
+productbuild  --package-path $PKG_DIR/comp --distribution distribution.xml --resources $PKG_DIR/resources yubihsm-shell-$RELEASE_VERSION-$ARCH.pkg
 
 read -p "DO NOW: Insert signing key then press Enter to continue"
 productsign --sign 'Installer' yubihsm-shell-$RELEASE_VERSION-$ARCH.pkg yubihsm-shell-$RELEASE_VERSION-$ARCH-signed.pkg
