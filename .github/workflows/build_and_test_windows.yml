@@ -72,8 +72,8 @@ jobs:
           ./yubihsm-shell.exe --version | findstr "yubihsm-shell"
           ./yubihsm-shell.exe --help | findstr "Usage: yubihsm-shell [OPTION]"
           cd $env:GITHUB_WORKSPACE/release/win
-          ./repack_installer.ps1 $env:ARCH $env:WIX\bin "$MERGEDPATH"
-          cp yubihsm-shell-$env:ARCH.msi yubihsm-shell.msi
+          ./make_installer.ps1 $env:ARCH - $env:WIX\bin "$MERGEDPATH"
+          cp yubihsm-shell---*.msi yubihsm-shell.msi
 
       - name: Install yubihsm-shell from installer
         run: |
