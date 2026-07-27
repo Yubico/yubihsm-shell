@@ -3133,13 +3133,15 @@ int main(int argc, char *argv[]) {
         case action_arg_signMINUS_hmac:
           arg[1].w = args_info.object_id_arg;
 
-          if (!get_input_data(args_info.in_arg, &arg[2].x, &arg[2].len, fmt_hex)) {
+          if (!get_input_data(args_info.in_arg, &arg[2].x, &arg[2].len,
+                              g_in_fmt == fmt_nofmt ? fmt_hex : g_in_fmt)) {
             fprintf(stderr, "Failed to get input data\n");
+            free(arg[2].x);
             rc = EXIT_FAILURE;
             break;
           }
 
-          comrc = yh_com_hmac(&g_ctx, arg, fmt_hex,
+          comrc = yh_com_hmac(&g_ctx, arg, fmt_nofmt,
                                     g_out_fmt == fmt_nofmt ? fmt_hex
                                                            : g_out_fmt);
           free(arg[2].x);
