@@ -2612,6 +2612,22 @@ int main(int argc, char *argv[]) {
           COM_SUCCEED_OR_DIE(comrc, "Unable to list objects");
         } break;
 
+        case action_arg_changeMINUS_authkey: {
+          if (args_info.new_password_given == 0) {
+            fprintf(stderr, "Missing argument new-password\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          arg[1].w = args_info.authkey_arg;
+          arg[2].x = (uint8_t *) args_info.new_password_arg;
+          arg[2].len = strlen(args_info.new_password_arg);
+
+          comrc =
+            yh_com_change_authentication_key(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
+          COM_SUCCEED_OR_DIE(comrc, "Unable to change authentication key");
+        } break;
+
         case action_arg_putMINUS_authenticationMINUS_key: {
           if (args_info.new_password_given == 0) {
             fprintf(stderr, "Missing argument new-password\n");
