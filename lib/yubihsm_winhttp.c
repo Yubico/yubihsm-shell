@@ -123,11 +123,15 @@ static yh_rc backend_connect(yh_connector *connector, int timeout) {
   }
 
   DBG_INFO("Connecting to %s", connector->status_url);
+  DBG_INFO("Parsed status_url: hostname='%ls' port=%d https=%d session=%p",
+           backend->status_url.hostname, backend->status_url.port,
+           backend->status_url.https, backend->session);
   backend->connection =
     WinHttpConnect(backend->session, backend->status_url.hostname,
                    backend->status_url.port, 0);
   if (!backend->connection) {
-    DBG_ERR("Failed connecting to %s", connector->status_url);
+    DBG_ERR("Failed connecting to %s (GetLastError=%lu)", connector->status_url,
+            GetLastError());
     return YHR_CONNECTOR_ERROR;
   }
 
@@ -136,26 +140,29 @@ static yh_rc backend_connect(yh_connector *connector, int timeout) {
                        NULL, NULL, WINHTTP_DEFAULT_ACCEPT_TYPES,
                        backend->status_url.https ? WINHTTP_FLAG_SECURE : 0);
   if (!request) {
-    DBG_ERR("Failed opening request to %s", connector->status_url);
+    DBG_ERR("Failed opening request to %s (GetLastError=%lu)",
+            connector->status_url, GetLastError());
     return YHR_CONNECTOR_ERROR;
   }
   if (timeout > 0) {
     if (!WinHttpSetTimeouts(request, timeout * 1000, timeout * 1000,
                             timeout * 1000, timeout * 1000)) {
-      DBG_ERR("Failed setting timeouts.");
+      DBG_ERR("Failed setting timeouts (GetLastError=%lu)", GetLastError());
     }
   }
 
   DBG_INFO("Sending request to %s", connector->status_url);
   if (!WinHttpSendRequest(request, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
                           WINHTTP_NO_REQUEST_DATA, 0, 0, 0)) {
-    DBG_ERR("Failed sending request to %s", connector->status_url);
+    DBG_ERR("Failed sending request to %s (GetLastError=%lu)",
+            connector->status_url, GetLastError());
     WinHttpCloseHandle(request);
     return YHR_CONNECTOR_ERROR;
   }
 
   if (!WinHttpReceiveResponse(request, 0)) {
-    DBG_ERR("Failed receiving response from %s", connector->status_url);
+    DBG_ERR("Failed receiving response from %s (GetLastError=%lu)",
+            connector->status_url, GetLastError());
     WinHttpCloseHandle(request);
     return YHR_CONNECTOR_ERROR;
   }
@@ -167,8 +174,8 @@ static yh_rc backend_connect(yh_connector *connector, int timeout) {
                              WINHTTP_QUERY_FLAG_NUMBER,
                            WINHTTP_HEADER_NAME_BY_INDEX, &dwStatusCode, &dwSize,
                            WINHTTP_NO_HEADER_INDEX)) {
-    DBG_ERR("Failed retrieveing status code from %s",
-            backend->connector->status_url);
+    DBG_ERR("Failed retrieveing status code from %s (GetLastError=%lu)",
+            backend->connector->status_url, GetLastError());
     WinHttpCloseHandle(request);
     return YHR_CONNECTOR_ERROR;
   }
@@ -222,7 +229,8 @@ static yh_rc backend_send_msg(yh_backend *backend, Msg *msg, Msg *response,
                        NULL, NULL, WINHTTP_DEFAULT_ACCEPT_TYPES,
                        backend->api_url.https ? WINHTTP_FLAG_SECURE : 0);
   if (!request) {
-    DBG_ERR("Failed opening request to %s", backend->connector->api_url);
+    DBG_ERR("Failed opening request to %s (GetLastError=%lu)",
+            backend->connector->api_url, GetLastError());
     return YHR_CONNECTOR_ERROR;
   }
 
@@ -231,19 +239,21 @@ static yh_rc backend_send_msg(yh_backend *backend, Msg *msg, Msg *response,
   //  some time..
   if (!WinHttpSetTimeouts(request, 30 * 1000, 30 * 1000, 250 * 1000,
                           250 * 1000)) {
-    DBG_ERR("Failed setting timeouts.");
+    DBG_ERR("Failed setting timeouts (GetLastError=%lu)", GetLastError());
   }
 
   DBG_INFO("Sending %u bytes to %s", raw_len, backend->connector->api_url);
   if (!WinHttpSendRequest(request, headers, headers_len, msg->raw, raw_len,
                           raw_len, 0)) {
-    DBG_ERR("Failed sending request to %s", backend->connector->api_url);
+    DBG_ERR("Failed sending request to %s (GetLastError=%lu)",
+            backend->connector->api_url, GetLastError());
     WinHttpCloseHandle(request);
     return YHR_CONNECTOR_ERROR;
   }
 
   if (!WinHttpReceiveResponse(request, 0)) {
-    DBG_ERR("Failed receiving response from %s", backend->connector->api_url);
+    DBG_ERR("Failed receiving response from %s (GetLastError=%lu)",
+            backend->connector->api_url, GetLastError());
     WinHttpCloseHandle(request);
     return YHR_CONNECTOR_ERROR;
   }
@@ -255,8 +265,8 @@ static yh_rc backend_send_msg(yh_backend *backend, Msg *msg, Msg *response,
                              WINHTTP_QUERY_FLAG_NUMBER,
                            WINHTTP_HEADER_NAME_BY_INDEX, &dwStatusCode, &dwSize,
                            WINHTTP_NO_HEADER_INDEX)) {
-    DBG_ERR("Failed retrieveing status code from %s",
-            backend->connector->api_url);
+    DBG_ERR("Failed retrieveing status code from %s (GetLastError=%lu)",
+            backend->connector->api_url, GetLastError());
     WinHttpCloseHandle(request);
     return YHR_CONNECTOR_ERROR;
   }

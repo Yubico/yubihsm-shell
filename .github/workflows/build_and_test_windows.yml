@@ -133,6 +133,57 @@ jobs:
           pkcs11-tool.exe --module $PKCS11_MODULE --show-info *> .\outputFile.txt
           type .\outputFile.txt | findstr "YubiHSM"
 
+      - name: Build test binaries for the ghostunnel test job
+        if: ${{ matrix.os == 'windows-2025' && matrix.arch == 'x64' }}
+        run: |
+          Set-PSDebug -Trace 1
+          $env:OPENSSL_ROOT_DIR = "C:\vcpkg\packages\openssl_x64-windows"
+
+          cd $env:GITHUB_WORKSPACE\yubihsm-shell-
+          mkdir build_test; cd build_test
+          cmake -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET="x64-windows" `
+            -DGETOPT_LIB_DIR="C:\vcpkg\packages\getopt-win32_x64-windows\lib" `
+            -DGETOPT_INCLUDE_DIR="C:\vcpkg\packages\getopt-win32_x64-windows\include" `
+            ..
+          cmake --build . --config Release
+
+      - name: Copy runtime DLLs next to the binaries that need them
+        if: ${{ matrix.os == 'windows-2025' && matrix.arch == 'x64' }}
+        run: |
+          Set-PSDebug -Trace 1
+          $dlls = @(
+            "C:\vcpkg\packages\openssl_x64-windows\bin\libcrypto-3-x64.dll",
+            "C:\vcpkg\packages\getopt-win32_x64-windows\bin\getopt.dll",
+            "C:\vcpkg\packages\zlib_x64-windows\bin\z.dll"
+          )
+          $dirs = @(
+            "yubihsm-shell-\build_test\lib\Release",
+            "yubihsm-shell-\build_test\lib\tests\Release",
+            "yubihsm-shell-\build_test\pkcs11\Release",
+            "yubihsm-shell-\build_test\src\Release"
+          )
+          foreach ($dir in $dirs) {
+            foreach ($dll in $dlls) {
+              Copy-Item $dll -Destination $dir
+            }
+          }
+
+      - name: Archive the test build directory
+        if: ${{ matrix.os == 'windows-2025' && matrix.arch == 'x64' }}
+        run: |
+          Set-PSDebug -Trace 1
+          cd $env:GITHUB_WORKSPACE
+          tar cfz yubihsm-shell-build.tar.gz yubihsm-shell-\build_test
+
+      - name: Upload artifact for the ghostunnel test job
+        if: ${{ matrix.os == 'windows-2025' && matrix.arch == 'x64' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: yubihsm-shell-windows-test-build
+          path: yubihsm-shell-build.tar.gz
+
   build_without_zlib:
     name: Build and Test on Windows where zlib is not installed
     needs: source
@@ -185,3 +236,206 @@ jobs:
           mkdir build; cd build
           cmake -A $env:ARCH_CMAKE -DVERBOSE_CMAKE=ON -DENABLE_CERT_COMPRESS=OFF -DBUILD_ONLY_LIB=ON -DENABLE_STATIC=ON ..
           cmake --build .
+
+  test:
+    name: Run tests against a real YubiHSM via ghostunnel on Windows
+    needs: build
+    runs-on: windows-2025
+
+    steps:
+      - name: Download source from source job
+        uses: actions/download-artifact@v4
+        with:
+          name: yubihsm-shell-src
+
+      - name: Extract source
+        run: |
+          Set-PSDebug -Trace 1
+          tar xf yubihsm-shell-.tar.gz
+
+      - name: Download build artifact from the build job
+        uses: actions/download-artifact@v4
+        with:
+          name: yubihsm-shell-windows-test-build
+
+      - name: Extract build artifact
+        run: |
+          Set-PSDebug -Trace 1
+          tar xf yubihsm-shell-build.tar.gz
+          "$env:GITHUB_WORKSPACE\yubihsm-shell-\build_test\lib\Release" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "$env:GITHUB_WORKSPACE\yubihsm-shell-\build_test\ykhsmauth\Release" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      #- name: Add built DLL directories to PATH
+        #run: |
+          #Set-PSDebug -Trace 1
+          # yubihsm-shell.exe, the ctest binaries and yubihsm_pkcs11.dll all
+          # dynamically link against yubihsm.dll and/or ykhsmauth.dll, which
+          # live in different output directories than the binaries that need
+          # them, so they aren't found via same-directory DLL resolution.
+          #"$env:GITHUB_WORKSPACE\yubihsm-shell-\build_test\lib\Release" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          #"$env:GITHUB_WORKSPACE\yubihsm-shell-\build_test\ykhsmauth\Release" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Checkout the .ci directory
+        uses: actions/checkout@v4
+        with:
+          path: repo-ci
+          sparse-checkout: |
+            .ci
+          sparse-checkout-cone-mode: false
+
+      - name: prepare ghostunnel
+        env:
+          TLSPWD: ${{ secrets.TLSKEY }}
+          # GODEBUG required for ghostunnel to temporarily enable Common Name matching
+          GODEBUG: x509ignoreCN=0
+        run: |
+          Set-PSDebug -Trace 1
+
+          function Dump-GhostunnelLogs {
+            Write-Host "=== ghostunnel stdout ==="
+            Get-Content ghostunnel-stdout.log -ErrorAction SilentlyContinue
+            Write-Host "=== ghostunnel stderr ==="
+            Get-Content ghostunnel-stderr.log -ErrorAction SilentlyContinue
+          }
+
+          Invoke-WebRequest -UseBasicParsing -OutFile ghostunnel.exe `
+            -Uri https://github.com/ghostunnel/ghostunnel/releases/download/v1.6.0/ghostunnel-v1.6.0-windows-amd64.exe
+          #Write-Host "ghostunnel.exe: $((Get-Item ghostunnel.exe).Length) bytes"
+
+          openssl aes-256-cbc `
+            -k $env:TLSPWD `
+            -md sha256 `
+            -in repo-ci\.ci\client-combined.pem.enc `
+            -out repo-ci\.ci\client-combined.pem `
+            -d
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "openssl failed to decrypt client-combined.pem.enc (exit code $LASTEXITCODE)"
+            exit 1
+          }
+          #Write-Host "client-combined.pem: $((Get-Item repo-ci\.ci\client-combined.pem).Length) bytes"
+          #Write-Host "server-crt.pem: $((Get-Item repo-ci\.ci\server-crt.pem).Length) bytes"
+
+          # Use the literal IPv4 loopback address rather than "localhost" everywhere:
+          # WinHTTP resolves hostnames itself and may pick a different address
+          # family than ghostunnel bound to (or than Invoke-WebRequest/Test-NetConnection
+          # picked), causing WinHttpConnect to fail with ERROR_WINHTTP_CANNOT_CONNECT
+          # even though the port is genuinely listening.
+          $ghostunnel = Start-Process -FilePath ".\ghostunnel.exe" -NoNewWindow -PassThru `
+            -RedirectStandardOutput ghostunnel-stdout.log `
+            -RedirectStandardError ghostunnel-stderr.log `
+            -ArgumentList @(
+              "client",
+              "--listen", "127.0.0.1:12345",
+              "--target", "hsm-connector01.sthlm.in.yubico.org:8443",
+              "--keystore", "repo-ci\.ci\client-combined.pem",
+              "--cacert", "repo-ci\.ci\server-crt.pem"
+            )
+          Write-Host "started ghostunnel, pid=$($ghostunnel.Id)"
+
+          Start-Sleep -Seconds 3
+          if ($ghostunnel.HasExited) {
+            Write-Host "ghostunnel exited during startup with exit code $($ghostunnel.ExitCode)"
+            Dump-GhostunnelLogs
+            Write-Error "ghostunnel exited during startup"
+            exit 1
+          }
+
+          $portOpen = $false
+          for ($i = 0; $i -lt 10; $i++) {
+            $test = Test-NetConnection -ComputerName 127.0.0.1 -Port 12345 -WarningAction SilentlyContinue
+            if ($test.TcpTestSucceeded) {
+              $portOpen = $true
+              break
+            }
+            Write-Host "waiting for ghostunnel to listen on 127.0.0.1:12345 (attempt $($i+1)/10)"
+            Start-Sleep -Seconds 2
+          }
+          Write-Host "ghostunnel listening on 127.0.0.1:12345: $portOpen"
+          if (-not $portOpen) {
+            Dump-GhostunnelLogs
+            Write-Error "ghostunnel never started listening on 127.0.0.1:12345, aborting"
+            exit 1
+          }
+
+          $DEFAULT_CONNECTOR_URL = $null
+          for ($i = 0; $i -lt 30; $i++) {
+            if ($ghostunnel.HasExited) {
+              Write-Host "ghostunnel process exited unexpectedly with exit code $($ghostunnel.ExitCode) while waiting for the dispatcher"
+              break
+            }
+            # Use curl.exe (a standalone process, same as the Linux job) rather than
+            # Invoke-WebRequest: PowerShell's HttpClient pools/keeps its connection
+            # alive within this process, which can leave a session open against the
+            # dispatcher and make it refuse/stall the separate connection that
+            # yubihsm-shell.exe opens moments later. curl.exe's connection is torn
+            # down the instant the process exits, matching the Linux behavior.
+            $body = & curl.exe -s -m 5 http://127.0.0.1:12345/dispatcher/request
+            $curlExit = $LASTEXITCODE
+            if ($curlExit -eq 0 -and -not [string]::IsNullOrEmpty($body)) {
+              Write-Host "dispatcher request attempt $($i+1)/30: body: '$body'"
+              # The dispatcher always returns a "localhost"-based URL regardless of
+              # which host we queried it through, so rewrite it to the literal IPv4
+              # loopback address to avoid WinHTTP resolving "localhost" to a
+              # different address family than ghostunnel is actually listening on.
+              $DEFAULT_CONNECTOR_URL = ($body.Trim().TrimEnd('/')) -replace 'localhost', '127.0.0.1'
+              if (-not [string]::IsNullOrEmpty($DEFAULT_CONNECTOR_URL)) {
+                break
+              }
+            } else {
+              Write-Host "dispatcher request attempt $($i+1)/30 failed: curl exit code $curlExit"
+            }
+            Start-Sleep -Seconds 5
+          }
+
+          if ([string]::IsNullOrEmpty($DEFAULT_CONNECTOR_URL)) {
+            Dump-GhostunnelLogs
+            Write-Error "Unable to obtain a connector URL, aborting"
+            exit 1
+          }
+
+          "DEFAULT_CONNECTOR_URL=$DEFAULT_CONNECTOR_URL" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: reset the hsm
+        env:
+          # Enables YH_VERB_ALL in src/main.c, surfacing the library's DBG_ERR/DBG_INFO
+          DEBUG: "1"
+        run: |
+          Set-PSDebug -Trace 1
+          & ".\yubihsm-shell-\build_test\src\Release\yubihsm-shell.exe" --connector "$env:DEFAULT_CONNECTOR_URL" -p password -a reset
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "yubihsm-shell.exe -a reset failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
+          }
+          Start-Sleep -Seconds 3
+
+      - name: run the portable unit tests with ctest
+        working-directory: yubihsm-shell-\build_test
+        run: |
+          Set-PSDebug -Trace 1
+          ctest --output-on-failure -C Release -R "^(parsing|pbkdf2)$"
+
+      - name: clone the YubicoLabs/python-pkcs11tester repository
+        uses: actions/checkout@v4
+        with:
+          repository: YubicoLabs/python-pkcs11tester
+          path: python-pkcs11tester
+
+      - name: run python-pkcs11tester
+        run: |
+          Set-PSDebug -Trace 1
+          $env:YUBIHSM_PKCS11_MODULE = "$env:GITHUB_WORKSPACE\yubihsm-shell-\build_test\pkcs11\Release\yubihsm_pkcs11.dll"
+          cd python-pkcs11tester
+          "connector=$env:DEFAULT_CONNECTOR_URL" | Out-File -FilePath yubihsm_pkcs11.conf -Encoding utf8
+          python -m venv venv
+          .\venv\Scripts\Activate.ps1
+          pip install setuptools pytest
+          python -m pip install pykcs11 "cryptography>=1.4.0"
+          python -m unittest pkcs11tester.Pkcs11Tester
+
+      - name: cleanup
+        if: ${{ always() }}
+        run: |
+          Set-PSDebug -Trace 1
+          if ($env:DEFAULT_CONNECTOR_URL) {
+            Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:12345/dispatcher/release?connector=$env:DEFAULT_CONNECTOR_URL"
+          }
