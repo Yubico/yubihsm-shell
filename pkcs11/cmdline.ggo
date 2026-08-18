@@ -27,4 +27,6 @@ option "proxy" - "Proxy server to use for connector" string optional
 option "noproxy" - "Comma separated list of hosts ignore proxy for" string optional
 option "timeout" - "Timeout to use for initial connection to connector" int optional default="5"
 option "device-pubkey" - "List of device public keys allowed for asymmetric authentication" string optional multiple
+option "always-extractable" - "Set to true/TRUE/1 to force generated key pairs to be extractable (exportable-under-wrap); false/FALSE/0 or absent honors the requested CKA_EXTRACTABLE" string optional
+option "ignore-modifiable" - "Set to true/TRUE/1 to ignore the CKA_MODIFIABLE attribute in RSA/EC key templates; false/FALSE/0 or absent keeps the default behavior" string optional
 
