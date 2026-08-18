@@ -16,6 +16,7 @@
 
 option "action" a "Action to perform" values="benchmark",
                                              "blink-device",
+                                             "change-authkey",
                                              "create-otp-aead",
                                              "decrypt-aesccm",
                                              "decrypt-aescbc",

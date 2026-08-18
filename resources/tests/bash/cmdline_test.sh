@@ -173,7 +173,9 @@ echo "                    Authentication Keys"
 echo "********************************************************** "
 test_with_resp "$BIN -p password -a put-authentication-key -i 0 -l authkey -d 1,2,3 -c all --delegated all --new-password foo123" "   Create new authentication key"
 keyid=$(tail -1 resp.txt | awk '{print $4}')
-test "$BIN --authkey $keyid -p foo123 -a get-object-info -i 1 -t authentication-key" "   Login using new authetication key"
+test "$BIN --authkey $keyid -p foo123 -a get-object-info -i 1 -t authentication-key" "   Login using new authentication key"
+test "$BIN --authkey $keyid -p foo123 -a change-authkey --new-password bar456" "   Change authentication key password"
+test "$BIN --authkey $keyid -p bar456 -a get-object-info -i 1 -t authentication-key" "   Login using changed authentication key password"
 test "$BIN -p password -a delete-object -i $keyid -t authentication-key" "   Delete new authentication key"
 
 cd ..

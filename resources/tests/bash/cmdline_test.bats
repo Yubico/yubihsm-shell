@@ -1142,6 +1142,12 @@ setup_file() {
   run "${command_args[@]}" --authkey "$keyid" -p foo123 -a get-object-info -i 1 -t authentication-key
       assert_success "Authenticate with new authentication key"
 
+  run "${command_args[@]}" --authkey "$keyid" -p foo123 -a change-authkey --new-password bar456
+      assert_success "Change authentication key password"
+
+  run "${command_args[@]}" --authkey "$keyid" -p bar456 -a get-object-info -i 1 -t authentication-key
+      assert_success "Authenticate with changed authentication key password"
+
   run "${command_args[@]}" -p password -a delete-object -i "$keyid" -t authentication-key
       assert_success "Delete authentication key"
 }
