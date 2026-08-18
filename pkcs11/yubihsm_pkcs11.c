@@ -94,12 +94,12 @@ static bool parse_config_bool(const char *value) {
   return strcmp(value, "true") == 0 || strcmp(value, "TRUE") == 0 ||
          strcmp(value, "1") == 0;
 }
+
 static void destroy_slot_mutex(void *data) {
   yubihsm_pkcs11_slot *slot = (yubihsm_pkcs11_slot *) data;
   if (slot->mutex != NULL) {
     g_ctx.destroy_mutex(slot->mutex);
   }
-
   slot->mutex = NULL;
 }
 
