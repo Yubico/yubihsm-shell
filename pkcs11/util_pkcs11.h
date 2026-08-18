@@ -109,9 +109,9 @@ bool is_EDDSA_sign_mechanism(CK_MECHANISM_TYPE m);
 bool is_PSS_sign_mechanism(CK_MECHANISM_TYPE m);
 bool is_HMAC_sign_mechanism(CK_MECHANISM_TYPE m);
 
+extern bool is_cka_extractable_always;
+extern bool is_cka_modifiable_ignore;
 void set_native_locking(yubihsm_pkcs11_context *ctx);
-extern bool g_cka_extractable_always;
-extern bool g_cka_modifiable_ignore;
 
 CK_RV add_connectors(yubihsm_pkcs11_context *ctx, int n_connectors,
                      char **connector_names, yh_connector **connectors);
