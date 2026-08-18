@@ -4278,13 +4278,13 @@ CK_RV parse_rsa_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
         break;
       
       case CKA_MODIFIABLE:
-       if (!is_cka_modifiable_ignore) {
-         if ((rv = check_bool_attribute(pTemplate[i].pValue, false)) !=
-             CKR_OK) {
-           return rv;
-         }
-       }
-       break;
+        if (!is_cka_modifiable_ignore) {
+          if ((rv = check_bool_attribute(pTemplate[i].pValue, false)) !=
+              CKR_OK) {
+            return rv;
+          }
+        }
+        break;
       
       default:
         DBG_ERR("Invalid attribute type in key template: 0x%lx\n",
@@ -4485,7 +4485,7 @@ CK_RV parse_ec_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
            return rv;
          }
         }
-      break;
+        break;
       
       default:
         DBG_ERR("Invalid attribute type in key template: 0x%lx\n",
@@ -4558,7 +4558,7 @@ CK_RV parse_ed_template(CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
            return rv;
          }
         }
-      break;
+        break;
 
       default:
         return CKR_ATTRIBUTE_TYPE_INVALID;
@@ -4869,14 +4869,14 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
 
       case CKA_MODIFIABLE:
         if (!is_cka_modifiable_ignore) {
-          if ((rv = check_bool_attribute(pTemplate[i].pValue, false)) !=
+          if ((rv = check_bool_attribute(pPublicKeyTemplate[i].pValue, false)) !=
              CKR_OK) {
               DBG_ERR("Boolean false check failed for attribute 0x%lx",
                       pPublicKeyTemplate[i].type);
            return rv;
          }
         }
-      break;
+        break;
      
       default:
         DBG_ERR("Invalid attribute type in PublicKeyTemplate: 0x%lx",
@@ -4989,7 +4989,6 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
       case CKA_SIGN_RECOVER:
       case CKA_VERIFY:
       case CKA_VERIFY_RECOVER:
-      case CKA_MODIFIABLE:
       case CKA_COPYABLE:
         if ((rv = check_bool_attribute(pPrivateKeyTemplate[i].pValue, false)) !=
             CKR_OK) {
@@ -5002,6 +5001,17 @@ CK_RV parse_rsa_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
       case CKA_SUBJECT:
         break;
 
+      case CKA_MODIFIABLE:
+        if (!is_cka_modifiable_ignore) {
+          if ((rv = check_bool_attribute(pPrivateKeyTemplate[i].pValue, false)) !=
+             CKR_OK) {
+              DBG_ERR("Boolean false check failed for attribute 0x%lx",
+                      pPrivateKeyTemplate[i].type);
+           return rv;
+         }
+        }
+        break;
+ 
       default:
         DBG_ERR("Invalid attribute type in PrivateKeyTemplate: 0x%lx",
                 pPrivateKeyTemplate[i].type);
@@ -5123,14 +5133,14 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
 
       case CKA_MODIFIABLE:
         if (!is_cka_modifiable_ignore) {
-          if ((rv = check_bool_attribute(pTemplate[i].pValue, false)) !=
+          if ((rv = check_bool_attribute(pPublicKeyTemplate[i].pValue, false)) !=
              CKR_OK) {
               DBG_ERR("Boolean false check failed for attribute 0x%lx",
                       pPublicKeyTemplate[i].type);
            return rv;
          }
         }
-      break;
+        break;
     
       default:
         DBG_ERR("Invalid attribute type in PublicKeyTemplate: 0x%lx",
@@ -5220,7 +5230,6 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
       case CKA_DECRYPT:
       case CKA_SIGN_RECOVER:
       case CKA_VERIFY_RECOVER:
-      case CKA_MODIFIABLE:
       case CKA_COPYABLE:
         if ((rv = check_bool_attribute(pPrivateKeyTemplate[i].pValue, false)) !=
             CKR_OK) {
@@ -5233,6 +5242,17 @@ CK_RV parse_ec_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
       case CKA_SUBJECT:
         break;
 
+      case CKA_MODIFIABLE:
+        if (!is_cka_modifiable_ignore) {
+          if ((rv = check_bool_attribute(pPrivateKeyTemplate[i].pValue, false)) !=
+             CKR_OK) {
+              DBG_ERR("Boolean false check failed for attribute 0x%lx",
+                      pPrivateKeyTemplate[i].type);
+           return rv;
+         }
+        }
+        break;      
+      
       default:
         DBG_ERR("Invalid attribute type in PrivateKeyTemplate: 0x%lx",
                 pPrivateKeyTemplate[i].type);
@@ -5348,14 +5368,14 @@ CK_RV parse_ed_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
 
       case CKA_MODIFIABLE:
         if (!is_cka_modifiable_ignore) {
-          if ((rv = check_bool_attribute(pTemplate[i].pValue, false)) !=
+          if ((rv = check_bool_attribute(pPublicKeyTemplate[i].pValue, false)) !=
              CKR_OK) {
               DBG_ERR("Boolean false check failed for attribute 0x%lx",
                       pPublicKeyTemplate[i].type);
            return rv;
          }
         }
-      break;
+        break;
       
       default:
         DBG_ERR("invalid attribute type in PublicKeyTemplate: 0x%lx\n",
@@ -5430,7 +5450,6 @@ CK_RV parse_ed_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
         break;
 
       case CKA_COPYABLE:
-      case CKA_MODIFIABLE:
       case CKA_ENCRYPT:
       case CKA_DECRYPT:
       case CKA_SIGN_RECOVER:
@@ -5450,7 +5469,18 @@ CK_RV parse_ed_generate_template(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
 
       case CKA_SUBJECT:
         break;
-
+      
+      case CKA_MODIFIABLE:
+        if (!is_cka_modifiable_ignore) {
+          if ((rv = check_bool_attribute(pPrivateKeyTemplate[i].pValue, false)) !=
+             CKR_OK) {
+              DBG_ERR("Boolean false check failed for attribute 0x%lx",
+                      pPrivateKeyTemplate[i].type);
+           return rv;
+         }
+        }
+        break;
+      
       default:
         DBG_ERR("invalid attribute type in PrivateKeyTemplate: 0x%lx\n",
                 pPrivateKeyTemplate[i].type);
