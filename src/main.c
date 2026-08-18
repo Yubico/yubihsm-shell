@@ -2620,11 +2620,17 @@ int main(int argc, char *argv[]) {
           }
 
           arg[1].w = args_info.authkey_arg;
-          arg[2].x = (uint8_t *) args_info.new_password_arg;
           arg[2].len = strlen(args_info.new_password_arg);
+          arg[2].x = (uint8_t *) strdup(args_info.new_password_arg);
+          if (arg[2].x == NULL) {
+            fprintf(stderr, "Failed to allocate memory for new password\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
 
           comrc =
             yh_com_change_authentication_key(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
+          free(arg[2].x);
           COM_SUCCEED_OR_DIE(comrc, "Unable to change authentication key");
         } break;
 
@@ -2650,10 +2656,16 @@ int main(int argc, char *argv[]) {
           yrc = yh_string_to_capabilities(args_info.delegated_arg, &arg[5].c);
           LIB_SUCCEED_OR_DIE(yrc, "Unable to parse capabilities: ");
 
-          arg[6].x = (uint8_t *) args_info.new_password_arg;
           arg[6].len = strlen(args_info.new_password_arg);
+          arg[6].x = (uint8_t *) strdup(args_info.new_password_arg);
+          if (arg[6].x == NULL) {
+            fprintf(stderr, "Failed to allocate memory for new password\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
 
           comrc = yh_com_put_authentication(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
+          free(arg[6].x);
           COM_SUCCEED_OR_DIE(comrc, "Unable to store authentication key");
         } break;
 
@@ -3408,6 +3420,11 @@ main_exit:
   }
 
   yh_disconnect(g_ctx.connector);
+
+  if (args_info.new_password_arg != NULL) {
+    insecure_memzero(args_info.new_password_arg,
+                     strlen(args_info.new_password_arg));
+  }
 
   cmdline_parser_free(&args_info);
 

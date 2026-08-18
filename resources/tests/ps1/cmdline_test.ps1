@@ -97,6 +97,10 @@ yubihsm-shell.exe -p password -a put-authentication-key -i $id -l authkey -d 1,2
 yubihsm-shell.exe -p password -a get-object-info -i $id -t authentication-key; CheckExitStatus -ECode $?
 echo "=== Login using new authetication key"
 yubihsm-shell.exe --authkey $id -p foo123 -a get-object-info -i 1 -t authentication-key; CheckExitStatus -ECode $?
+echo "=== Change authentication key password"
+yubihsm-shell.exe --authkey $id -p foo123 -a change-authkey --new-password bar456; CheckExitStatus -ECode $?
+echo "=== Login using changed authentication key password"
+yubihsm-shell.exe --authkey $id -p bar456 -a get-object-info -i 1 -t authentication-key; CheckExitStatus -ECode $?
 echo "=== Delete new authentication key"
 yubihsm-shell.exe -p password -a delete-object -i $id -t authentication-key; CheckExitStatus -ECode $?
 
