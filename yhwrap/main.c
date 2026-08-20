@@ -321,8 +321,7 @@ int main(int argc, char *argv[]) {
       uint8_t key[YH_KEY_LEN * 2];
       bool ret =
         pkcs5_pbkdf2_hmac((const uint8_t *) password, password_len,
-                          (const uint8_t *) YH_DEFAULT_SALT, strlen(YH_DEFAULT_SALT),
-                          YH_DEFAULT_ITERS, _SHA256, key, sizeof(key));
+                          (const uint8_t *) YH_DEFAULT_SALT, strlen(YH_DEFAULT_SALT), YH_LEGACY_ITERS, _SHA256, key, sizeof(key));
       if (ret == false) {
         fprintf(stderr, "Unable to derive keys\n");
         goto main_exit;

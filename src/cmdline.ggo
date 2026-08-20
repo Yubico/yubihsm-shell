@@ -84,6 +84,7 @@ option "ykhsmauth-reader" r "Only use a matching YubiKey reader name" string opt
 
 option "delegated" - "Delegated capabilities" string optional default="0"
 option "new-password" - "New authentication password" string optional
+option "legacy-derive" - "Derive an authentication key from a password using the legacy salt (\"Yubico\") and iteration count (10000) instead of the current default (sha256(\"Yubico\") and 600000 iterations)" flag off
 option "algorithm" A "Operation algorithm" string optional default="any"
 option "oaep" - "OAEP algorithm. Used primarily with asymmetric wrap" string optional default="rsa-oaep-sha256"
 option "mgf1" - "MGF1 algorithm. Used primarily with asymmetric wrap" string optional default="mgf1-sha256"

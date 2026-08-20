@@ -477,14 +477,14 @@ static void create_command_list(CommandList *c) {
   register_subcommand(*c, (Command){"authkey", yh_com_put_authentication,
                                     "e:session,w:key_id,s:label,d:domains,c:"
                                     "capabilities,c:delegated_capabilities,i:"
-                                    "password=-",
+                                    "password=-,b:legacy_derive=0",
                                     fmt_password, fmt_nofmt,
                                     "Store an authentication key", NULL, NULL});
   register_subcommand(*c,
                       (Command){"authkey_asym", yh_com_put_authentication_asym,
                                 "e:session,w:key_id,s:label,d:domains,c:"
                                 "capabilities,c:delegated_capabilities,i:"
-                                "pubkey=-",
+                                "pubkey=-,b:legacy_derive=0",
                                 fmt_PEM, fmt_nofmt,
                                 "Store an asymmetric authentication key", NULL,
                                 NULL});
@@ -700,12 +700,13 @@ static void create_command_list(CommandList *c) {
 
   register_subcommand(*c,
                       (Command){"authkey", yh_com_change_authentication_key,
-                                "e:session,w:key_id,i:password=-", fmt_password,
-                                fmt_nofmt, "Change an authentication key", NULL,
-                                NULL});
+                                "e:session,w:key_id,i:password=-,b:"
+                                "legacy_derive=0",
+                                fmt_password, fmt_nofmt,
+                                "Change an authentication key", NULL, NULL});
   register_subcommand(*c, (Command){"authkey_asym",
                                     yh_com_change_authentication_key_asym,
-                                    "e:session,w:key_id,i:pubkey=-",
+                                    "e:session,w:key_id,i:pubkey=-,b:legacy_derive=0",
                                     fmt_PEM, fmt_nofmt,
                                     "Change an asymmetric authentication key",
                                     NULL, NULL});
@@ -2636,6 +2637,8 @@ int main(int argc, char *argv[]) {
 
           arg[6].x = (uint8_t *) args_info.new_password_arg;
           arg[6].len = strlen(args_info.new_password_arg);
+
+          arg[7].b = args_info.legacy_derive_given;
 
           comrc = yh_com_put_authentication(&g_ctx, arg, fmt_nofmt, fmt_nofmt);
           COM_SUCCEED_OR_DIE(comrc, "Unable to store authentication key");

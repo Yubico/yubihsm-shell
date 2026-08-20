@@ -614,15 +614,29 @@ yh_rc yh_send_secure_msg(yh_session *session, yh_cmd cmd, const uint8_t *data,
 }
 
 static yh_rc derive_key(const uint8_t *password, size_t password_len,
-                        uint8_t *key, size_t key_len) {
+                        uint8_t *key, size_t key_len, bool legacy) {
 
-  if (!pkcs5_pbkdf2_hmac(password, password_len,
-                         (const uint8_t *) YH_DEFAULT_SALT,
-                         strlen(YH_DEFAULT_SALT), YH_DEFAULT_ITERS, _SHA256,
-                         key, key_len)) {
-    return YHR_GENERIC_ERROR;
+  if (legacy) {
+    if (!pkcs5_pbkdf2_hmac(password, password_len,
+                           (const uint8_t *) YH_DEFAULT_SALT,
+                           strlen(YH_DEFAULT_SALT), YH_LEGACY_ITERS, _SHA256,
+                           key, key_len)) {
+      return YHR_GENERIC_ERROR;
+    }
+  } else {
+    uint8_t salt[32];
+    size_t salt_len = sizeof(salt);
+    if (!hash_bytes((const uint8_t *) YH_DEFAULT_SALT, strlen(YH_DEFAULT_SALT),
+                    _SHA256, salt, &salt_len)) {
+      DBG_ERR("Failed to calculate hash value of SALT");
+      return YHR_GENERIC_ERROR;
+    }
+
+    if (!pkcs5_pbkdf2_hmac(password, password_len, salt, salt_len,
+                           YH_DEFAULT_ITERS, _SHA256, key, key_len)) {
+      return YHR_GENERIC_ERROR;
+    }
   }
-
   return YHR_SUCCESS;
 }
 
@@ -636,13 +650,24 @@ yh_rc yh_create_session_derived(yh_connector *connector, uint16_t authkey_id,
   }
 
   uint8_t key[2 * SCP_KEY_LEN] = {0};
-  yh_rc yrc = derive_key(password, password_len, key, sizeof(key));
+  yh_rc yrc = derive_key(password, password_len, key, sizeof(key), false);
 
   if (yrc == YHR_SUCCESS) {
     yrc = yh_create_session(connector, authkey_id, key, SCP_KEY_LEN,
                             key + SCP_KEY_LEN, SCP_KEY_LEN, recreate, session);
+  }
+  insecure_memzero(key, sizeof(key));
+
+  if (yrc != YHR_SUCCESS) {
+    yrc = derive_key(password, password_len, key, sizeof(key), true);
+    if (yrc == YHR_SUCCESS) {
+      yrc = yh_create_session(connector, authkey_id, key, SCP_KEY_LEN,
+                              key + SCP_KEY_LEN, SCP_KEY_LEN, recreate,
+                              session);
+    }
     insecure_memzero(key, sizeof(key));
   }
+
   return yrc;
 }
 
@@ -1166,6 +1191,14 @@ yh_rc yh_util_get_device_pubkey(yh_connector *connector, uint8_t *device_pubkey,
 yh_rc yh_util_derive_ec_p256_key(const uint8_t *password, size_t password_len,
                                  uint8_t *privkey, size_t privkey_len,
                                  uint8_t *pubkey, size_t pubkey_len) {
+  return yh_util_derive_ec_p256_key_ex(password, password_len, privkey,
+                                       privkey_len, pubkey, pubkey_len, false);
+}
+
+yh_rc yh_util_derive_ec_p256_key_ex(const uint8_t *password,
+                                    size_t password_len, uint8_t *privkey,
+                                    size_t privkey_len, uint8_t *pubkey,
+                                    size_t pubkey_len, bool legacy_derive) {
 
   if (password == NULL || privkey == NULL || pubkey == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
@@ -1189,7 +1222,7 @@ yh_rc yh_util_derive_ec_p256_key(const uint8_t *password, size_t password_len,
   do {
     DBG_INFO("Deriving key with perturbation %u", pwd[password_len]);
     // We rely on the fact that a trailing zero doesn't change the derived key
-    yh_rc yrc = derive_key(pwd, password_len + 1, privkey, privkey_len);
+    yh_rc yrc = derive_key(pwd, password_len + 1, privkey, privkey_len, legacy_derive);
     if (yrc != YHR_SUCCESS) {
       insecure_memzero(pwd, password_len + 1);
       free(pwd);
@@ -3816,6 +3849,19 @@ yh_rc yh_util_import_authentication_key_derived(
   const yh_capabilities *delegated_capabilities, const uint8_t *password,
   size_t password_len) {
 
+  return yh_util_import_authentication_key_derived_ex(session, key_id, label,
+                                                      domains, capabilities,
+                                                      delegated_capabilities,
+                                                      password, password_len,
+                                                      false);
+}
+
+yh_rc yh_util_import_authentication_key_derived_ex(
+  yh_session *session, uint16_t *key_id, const char *label, uint16_t domains,
+  const yh_capabilities *capabilities,
+  const yh_capabilities *delegated_capabilities, const uint8_t *password,
+  size_t password_len, bool legacy_derive) {
+
   if (session == NULL || key_id == NULL || label == NULL ||
       strlen(label) > YH_OBJ_LABEL_LEN || capabilities == NULL ||
       delegated_capabilities == NULL || password == NULL) {
@@ -3825,7 +3871,8 @@ yh_rc yh_util_import_authentication_key_derived(
 
   uint8_t key[2 * SCP_KEY_LEN] = {0};
 
-  yh_rc yrc = derive_key(password, password_len, key, sizeof(key));
+  yh_rc yrc =
+    derive_key(password, password_len, key, sizeof(key), legacy_derive);
 
   if (yrc == YHR_SUCCESS) {
     yrc =
@@ -3901,6 +3948,16 @@ yh_rc yh_util_change_authentication_key_derived(yh_session *session,
                                                 uint16_t *key_id,
                                                 const uint8_t *password,
                                                 size_t password_len) {
+  return yh_util_change_authentication_key_derived_ex(session, key_id,
+                                                       password, password_len,
+                                                       false);
+}
+
+yh_rc yh_util_change_authentication_key_derived_ex(yh_session *session,
+                                                   uint16_t *key_id,
+                                                   const uint8_t *password,
+                                                   size_t password_len,
+                                                   bool legacy_derive) {
   if (session == NULL || key_id == NULL || password == NULL) {
     DBG_ERR("%s", yh_strerror(YHR_INVALID_PARAMETERS));
     return YHR_INVALID_PARAMETERS;
@@ -3908,7 +3965,8 @@ yh_rc yh_util_change_authentication_key_derived(yh_session *session,
 
   uint8_t key[2 * SCP_KEY_LEN] = {0};
 
-  yh_rc yrc = derive_key(password, password_len, key, sizeof(key));
+  yh_rc yrc =
+    derive_key(password, password_len, key, sizeof(key), legacy_derive);
 
   if (yrc == YHR_SUCCESS) {
     yrc = yh_util_change_authentication_key(session, key_id, key, SCP_KEY_LEN,

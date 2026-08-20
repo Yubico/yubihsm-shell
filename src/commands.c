@@ -1700,8 +1700,9 @@ int yh_com_open_session(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 
 // NOTE: Open a session with a connector using an Asymmetric
 // Authentication Key argc = 2 arg 0: w:authkey arg 1: i:password
-int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
-                             cmd_format in_fmt, cmd_format fmt) {
+static int open_session_asym(yubihsm_context *ctx, Argument *argv,
+                             cmd_format in_fmt, cmd_format fmt,
+                             bool legacy_derive) {
 
   UNUSED(fmt);
 
@@ -1716,8 +1717,10 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
 
   if (in_fmt == fmt_password) {
     uint8_t pubkey[YH_EC_P256_PUBKEY_LEN] = {0};
-    yrc = yh_util_derive_ec_p256_key(argv[1].x, argv[1].len, privkey,
-                                     sizeof(privkey), pubkey, sizeof(pubkey));
+    yrc = yh_util_derive_ec_p256_key_ex(argv[1].x, argv[1].len, privkey,
+                                        sizeof(privkey), pubkey, sizeof(pubkey),
+                                        legacy_derive);
+
     insecure_memzero(argv[1].x, argv[1].len);
     if (yrc != YHR_SUCCESS) {
       fprintf(stderr, "Failed to derive asymmetric authentication key: %s\n",
@@ -1809,7 +1812,27 @@ int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
 
   fprintf(stderr, "Created session %d\n", session_id);
 
-  return 0;
+  return YHR_SUCCESS;
+}
+
+// NOTE: Open a session with a connector using an Asymmetric
+// Authentication Key argc = 2 arg 0: w:authkey arg 1: i:password
+int yh_com_open_session_asym(yubihsm_context *ctx, Argument *argv,
+                             cmd_format in_fmt, cmd_format fmt) {
+
+  if (in_fmt != fmt_password) {
+    return open_session_asym(ctx, argv, in_fmt, fmt, false);
+  }
+
+  Argument args[32] = {{{0}, 0, 0}};
+  memcpy(args, argv, sizeof(Argument));
+  yh_rc yrc = open_session_asym(ctx, args, in_fmt, fmt, false);
+  if (yrc != YHR_SUCCESS) {
+    yrc = open_session_asym(ctx, argv, in_fmt, fmt, true);
+  } else {
+    insecure_memzero(argv[1].x, argv[1].len);
+  }
+  return yrc;
 }
 
 // NOTE: Open a session using a key stored on YubiKey
@@ -2154,7 +2177,7 @@ int yh_com_put_asymmetric(yubihsm_context *ctx, Argument *argv,
 }
 
 // NOTE(adma): Store an authentication key
-// argc = 7
+// argc = 8
 // arg 0: e:session
 // arg 1: w:key_id
 // arg 2: s:label
@@ -2162,6 +2185,7 @@ int yh_com_put_asymmetric(yubihsm_context *ctx, Argument *argv,
 // arg 4: c:capabilities
 // arg 5: c:delegated_capabilities
 // arg 6: x:password
+// arg 7: b:legacy_derive
 int yh_com_put_authentication(yubihsm_context *ctx, Argument *argv,
                               cmd_format in_fmt, cmd_format fmt) {
 
@@ -2170,9 +2194,12 @@ int yh_com_put_authentication(yubihsm_context *ctx, Argument *argv,
   UNUSED(fmt);
 
   yh_rc yrc =
-    yh_util_import_authentication_key_derived(argv[0].e, &argv[1].w, argv[2].s,
-                                              argv[3].w, &argv[4].c, &argv[5].c,
-                                              argv[6].x, argv[6].len);
+    yh_util_import_authentication_key_derived_ex(argv[0].e, &argv[1].w,
+                                                 argv[2].s, argv[3].w,
+                                                 &argv[4].c, &argv[5].c,
+                                                 argv[6].x, argv[6].len,
+                                                 argv[7].b);
+
   insecure_memzero(argv[6].x, argv[6].len);
   if (yrc != YHR_SUCCESS) {
     fprintf(stderr, "Failed to store authkey: %s\n", yh_strerror(yrc));
@@ -2185,7 +2212,7 @@ int yh_com_put_authentication(yubihsm_context *ctx, Argument *argv,
 }
 
 // NOTE: Store an asymmetric authentication key
-// argc = 7
+// argc = 8
 // arg 0: e:session
 // arg 1: w:key_id
 // arg 2: s:label
@@ -2193,6 +2220,7 @@ int yh_com_put_authentication(yubihsm_context *ctx, Argument *argv,
 // arg 4: c:capabilities
 // arg 5: c:delegated_capabilities
 // arg 6: x:password
+// arg 7: b:legacy_derive
 int yh_com_put_authentication_asym(yubihsm_context *ctx, Argument *argv,
                                    cmd_format in_fmt, cmd_format fmt) {
 
@@ -2205,8 +2233,9 @@ int yh_com_put_authentication_asym(yubihsm_context *ctx, Argument *argv,
 
   if (in_fmt == fmt_password) {
     uint8_t privkey[YH_EC_P256_PRIVKEY_LEN] = {0};
-    yrc = yh_util_derive_ec_p256_key(argv[6].x, argv[6].len, privkey,
-                                     sizeof(privkey), pubkey, sizeof(pubkey));
+    yrc = yh_util_derive_ec_p256_key_ex(argv[6].x, argv[6].len, privkey,
+                                        sizeof(privkey), pubkey, sizeof(pubkey),
+                                        argv[7].b);
     insecure_memzero(argv[6].x, argv[6].len);
     insecure_memzero(privkey, sizeof(privkey));
     if (yrc != YHR_SUCCESS) {
@@ -4109,10 +4138,11 @@ int yh_com_set_noproxy(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
 }
 
 // NOTE: Change authentication key
-// argc = 3
+// argc = 4
 // arg 0: e:session
 // arg 1: w:key_id
 // arg 2: i:password
+// arg 3: b:legacy_derive
 int yh_com_change_authentication_key(yubihsm_context *ctx, Argument *argv,
                                      cmd_format in_fmt, cmd_format fmt) {
 
@@ -4120,8 +4150,10 @@ int yh_com_change_authentication_key(yubihsm_context *ctx, Argument *argv,
   UNUSED(fmt);
   UNUSED(ctx);
 
-  yh_rc yrc = yh_util_change_authentication_key_derived(argv[0].e, &argv[1].w,
-                                                        argv[2].x, argv[2].len);
+  yh_rc yrc =
+    yh_util_change_authentication_key_derived_ex(argv[0].e, &argv[1].w,
+                                                 argv[2].x, argv[2].len,
+                                                 argv[3].b);
   insecure_memzero(argv[2].x, argv[2].len);
 
   if (yrc != YHR_SUCCESS) {
@@ -4136,10 +4168,11 @@ int yh_com_change_authentication_key(yubihsm_context *ctx, Argument *argv,
 }
 
 // NOTE: Change asymmetric authentication key
-// argc = 3
+// argc = 4
 // arg 0: e:session
 // arg 1: w:key_id
 // arg 2: i:password
+// arg 3: b:legacy_derive
 int yh_com_change_authentication_key_asym(yubihsm_context *ctx, Argument *argv,
                                           cmd_format in_fmt, cmd_format fmt) {
 
@@ -4151,8 +4184,9 @@ int yh_com_change_authentication_key_asym(yubihsm_context *ctx, Argument *argv,
 
   if (in_fmt == fmt_password) {
     uint8_t privkey[YH_EC_P256_PRIVKEY_LEN];
-    yrc = yh_util_derive_ec_p256_key(argv[2].x, argv[2].len, privkey,
-                                     sizeof(privkey), pubkey, sizeof(pubkey));
+    yrc = yh_util_derive_ec_p256_key_ex(argv[2].x, argv[2].len, privkey,
+                                        sizeof(privkey), pubkey, sizeof(pubkey),
+                                        argv[3].b);
     insecure_memzero(argv[2].x, argv[2].len);
     insecure_memzero(privkey, sizeof(privkey));
     if (yrc != YHR_SUCCESS) {
