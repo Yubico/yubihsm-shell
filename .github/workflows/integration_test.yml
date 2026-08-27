@@ -230,12 +230,19 @@ jobs:
           [openssl_init]
           providers = provider_sect
 
+          [strict_fips_init]
+          providers   = provider_sect
+          alg_section = algorithm_sect
+    
           [provider_sect]
           fips = fips_sect
           base = base_sect
 
           [base_sect]
           activate = 1
+  
+          [algorithm_sect]
+          default_properties = fips = yes
 
           EOF
           cat $FIPS_CNF >> $OPENSSL_CNF
