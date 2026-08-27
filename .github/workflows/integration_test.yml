@@ -198,18 +198,18 @@ jobs:
         run: |
           set -x
           cd $GITHUB_WORKSPACE
-          wget -nv https://github.com/openssl/openssl/archive/refs/tags/openssl-3.0.9.tar.gz
-          tar -xzf openssl-3.0.9.tar.gz
-          cd openssl-openssl-3.0.9
-          ./Configure enable-fips linux-x86_64 shared --prefix=$GITHUB_WORKSPACE/openssl --openssldir=$GITHUB_WORKSPACE/openssl/ssl --libdir=lib
+          wget -nv https://github.com/openssl/openssl/archive/refs/tags/openssl-3.5.8.tar.gz
+          tar -xzf openssl-3.5.8.tar.gz
+          cd openssl-openssl-3.5.8
+          ./Configure enable-fips linux-x86_64 shared --prefix=$GITHUB_WORKSPACE/openssl-fips --openssldir=$GITHUB_WORKSPACE/openssl-fips/ssl --libdir=lib
           make -j"$(nproc)"
-          sudo make install_sw install_ssldirs install_fips VERSION="3.0.9"
-          sudo chown -R $(id -u):$(id -g) $GITHUB_WORKSPACE/openssl
+          sudo make install_sw install_ssldirs install_fips VERSION="3.5.8"
+          sudo chown -R $(id -u):$(id -g) $GITHUB_WORKSPACE/openssl-fips
 
       - name: Configure OpenSSL to run in strict FIPS mode
         run: |
           set -x
-          OPENSSL_ROOT=$GITHUB_WORKSPACE/openssl
+          OPENSSL_ROOT=$GITHUB_WORKSPACE/openssl-fips
           OPENSSL_BIN=$OPENSSL_ROOT/bin/openssl
           FIPS_CNF=$OPENSSL_ROOT/ssl/fipsmodule.cnf
           OPENSSL_CNF=$OPENSSL_ROOT/ssl/openssl.cnf
@@ -271,12 +271,12 @@ jobs:
 
       - name: verify strict FIPS mode is actually enforced
         env:
-          OPENSSL_CONF: ${{ github.workspace }}/openssl/ssl/openssl.cnf
-          OPENSSL_MODULES: ${{ github.workspace }}/openssl/lib/ossl-modules
-          LD_LIBRARY_PATH: ${{ github.workspace }}/openssl/lib
+          OPENSSL_CONF: ${{ github.workspace }}/openssl-fips/ssl/openssl.cnf
+          OPENSSL_MODULES: ${{ github.workspace }}/openssl-fips/lib/ossl-modules
+          LD_LIBRARY_PATH: ${{ github.workspace }}/openssl-fips/lib
         run: |
           set -x
-          OPENSSL_BIN=$GITHUB_WORKSPACE/openssl/bin/openssl
+          OPENSSL_BIN=$GITHUB_WORKSPACE/openssl-fips/bin/openssl
 
           # loud diagnostics - confirm what this step actually sees before
           # asserting anything, since a missing/unreadable OPENSSL_CONF file
@@ -312,19 +312,15 @@ jobs:
 
       - name: Do build
         env:
-          OPENSSL_CONF: ${{ github.workspace }}/openssl/ssl/openssl.cnf
-          OPENSSL_MODULES: ${{ github.workspace }}/openssl/lib/ossl-modules
+          OPENSSL_CONF: ${{ github.workspace }}/openssl-fips/ssl/openssl.cnf
+          OPENSSL_MODULES: ${{ github.workspace }}/openssl-fips/lib/ossl-modules
         run: |
           set -x
           mkdir build; cd build
-          PKG_CONFIG_PATH=$GITHUB_WORKSPACE/openssl/lib/pkgconfig cmake .. -DVERBOSE_CMAKE=ON
+          PKG_CONFIG_PATH=$GITHUB_WORKSPACE/openssl-fips/lib/pkgconfig cmake .. -DVERBOSE_CMAKE=ON
           make
 
           ./src/yubihsm-shell --help | grep "Usage: yubihsm-shell"
-          
-          pwd
-          
-          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
 
       - name: prepare ghostunnel
         env:
@@ -353,9 +349,9 @@ jobs:
       - name: Test authentication
         working-directory: build/src
         env:
-          OPENSSL_CONF: ${{ github.workspace }}/openssl/ssl/openssl.cnf
-          OPENSSL_MODULES: ${{ github.workspace }}/openssl/lib/ossl-modules
-          LD_LIBRARY_PATH: ${{ github.workspace }}/openssl/lib
+          OPENSSL_CONF: ${{ github.workspace }}/openssl-fips/ssl/openssl.cnf
+          OPENSSL_MODULES: ${{ github.workspace }}/openssl-fips/lib/ossl-modules
+          LD_LIBRARY_PATH: ${{ github.workspace }}/openssl-fips/lib
         run: |
           ldd ./yubihsm-shell
           
@@ -372,9 +368,9 @@ jobs:
 
       - name: run sun pkcs11 tests
         env:
-          OPENSSL_CONF: ${{ github.workspace }}/openssl/ssl/openssl.cnf
-          OPENSSL_MODULES: ${{ github.workspace }}/openssl/lib/ossl-modules
-          LD_LIBRARY_PATH: ${{ github.workspace }}/openssl/lib
+          OPENSSL_CONF: ${{ github.workspace }}/openssl-fips/ssl/openssl.cnf
+          OPENSSL_MODULES: ${{ github.workspace }}/openssl-fips/lib/ossl-modules
+          LD_LIBRARY_PATH: ${{ github.workspace }}/openssl-fips/lib
         run: |
           # Set the YUBIHSM_PKCS11_MODULE environment variable to the path of the yubihsm_pkcs11.so file
           export YUBIHSM_PKCS11_MODULE="$GITHUB_WORKSPACE/build/pkcs11/yubihsm_pkcs11.so"
