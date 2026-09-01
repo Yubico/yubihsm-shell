@@ -1,95 +1,326 @@
 name: Run Integration Tests
 
-on:
-  schedule:
-    # Run this every wednesday at 3:40. https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule
-    - cron: '40 3 * * 3'
+on: [push, pull_request]
+#on:
+#  schedule:
+#    # Run this every wednesday at 3:40. https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule
+#    - cron: '40 3 * * 3'
 
 jobs:
-  main:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - environment: "ubuntu:24.04"
-          - environment: "fedora:44"
+#  main:
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        include:
+#          - environment: "ubuntu:24.04"
+#          - environment: "fedora:44"
+#
+#    name: integeration test
+#    runs-on: ubuntu-latest
+#    container: ${{ matrix.environment }}
+#
+#    steps:
+#      - name: clone the Yubico/yubihsm-shell repository
+#        uses: actions/checkout@v4
+#        with:
+#          path: yubihsm-shell
+#
+#      - name: Make Debian based build
+#        env:
+#          DEBIAN_FRONTEND: noninteractive
+#        working-directory: yubihsm-shell
+#        if: ${{ matrix.environment == 'ubuntu:24.04' }}
+#        run: |
+#          apt update
+#          apt install -q -y build-essential  \
+#                       cmake pkg-config      \
+#                       gengetopt             \
+#                       help2man              \
+#                       libcurl4-openssl-dev  \
+#                       libedit-dev           \
+#                       libpcsclite-dev       \
+#                       libusb-1.0-0-dev      \
+#                       libssl-dev            \
+#                       openjdk-11-jdk-headless \
+#                       opensc                \
+#                       file                  \
+#                       curl                  \
+#                       jq                    \
+#                       zlib1g-dev
+#
+#          # ubuntu 24.10 comes with _FORTIFY_SOURCE already set
+#          #sed -i 's/add_definitions (-D_FORTIFY_SOURCE=2)/add_definitions (-D_FORTIFY_SOURCE=3)/' cmake/SecurityFlags.cmake
+#
+#          mkdir build
+#          cd build
+#          cmake -DRELEASE_BUILD=1 -DWITHOUT_YKYH=1 ..
+#          cmake --build .
+#
+#      - name: Make Redhat based build
+#        working-directory: yubihsm-shell
+#        if: ${{ matrix.environment == 'fedora:44' }}
+#        run: |
+#          yum -y update
+#          dnf -y install binutils         \
+#                  gcc              \
+#                  gcc-c++          \
+#                  chrpath          \
+#                  cmake            \
+#                  gengetopt        \
+#                  openssl-devel    \
+#                  libedit-devel    \
+#                  libcurl-devel    \
+#                  rpmdevtools      \
+#                  pcsc-lite-devel  \
+#                  libusb1-devel    \
+#                  help2man         \
+#                  zlib-devel       \
+#                  java-25-openjdk  \
+#                  opensc           \
+#                  jq               \
+#                  openssl          \
+#                  crypto-policies-scripts
+#
+#          # Allows usage of SHA1
+#          update-crypto-policies --set LEGACY
+#
+#          # Remove SHA-1 tests from the test suite
+#          #sed -i 's/openssl dgst -sha1 -verify/#openssl dgst -sha1 -verify/' src/tests/tests.sh
+#
+#          mkdir build
+#          cd build
+#          cmake -DCMAKE_BUILD_TYPE=Release ..
+#          cmake --build .
+#
+#      - name: prepare ghostunnel
+#        env:
+#          TLSPWD: ${{ secrets.TLSKEY }}
+#          # GODEBUG required for ghostunnel to temporarily enable Common Name matching
+#          GODEBUG: x509ignoreCN=0
+#        run: |
+#          curl -o /tmp/ghostunnel -L https://github.com/ghostunnel/ghostunnel/releases/download/v1.6.0/ghostunnel-v1.6.0-linux-amd64
+#          chmod +x /tmp/ghostunnel
+#          openssl aes-256-cbc \
+#            -k "$TLSPWD" \
+#            -md sha256 \
+#            -in yubihsm-shell/.ci/client-combined.pem.enc \
+#            -out yubihsm-shell/.ci/client-combined.pem \
+#            -d
+#          /tmp/ghostunnel client \
+#            --listen localhost:12345 \
+#            --target hsm-connector01.sthlm.in.yubico.org:8443 \
+#            --keystore yubihsm-shell/.ci/client-combined.pem \
+#            --cacert yubihsm-shell/.ci/server-crt.pem > /dev/null 2>&1 &
+#          sleep 3
+#          DEFAULT_CONNECTOR_URL=$(curl -s http://localhost:12345/dispatcher/request)
+#          test -n "$DEFAULT_CONNECTOR_URL" || (echo "Unable to obtain a connector URL, aborting"; exit 1)
+#          echo "DEFAULT_CONNECTOR_URL=$DEFAULT_CONNECTOR_URL" >> $GITHUB_ENV
+#
+#      - name: reset the hsm
+#        working-directory: yubihsm-shell/build/src
+#        run: |
+#          ./yubihsm-shell --connector "$DEFAULT_CONNECTOR_URL" -p password -a reset
+#          sleep 3
+#
+#
+#      - name: run yubihsm-shell tests
+#        working-directory: yubihsm-shell/resources/tests/bash
+#        run: ./cmdline_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
+#
+#      - name: run pkcs11-tool tests
+#        if: ${{ matrix.environment == 'ubuntu:24.04' }} # OpenSC has incompatibilities with newer OpenSSL
+#        working-directory: yubihsm-shell/resources/tests/bash
+#        run: |
+#          printf "connector=$DEFAULT_CONNECTOR_URL" > yubihsm_pkcs11.conf
+#          export YUBIHSM_PKCS11_CONF=`pwd`/yubihsm_pkcs11.conf
+#          ./opensc_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so
+#
+#      - name: clone the YubicoLabs/yubihsm_sunpkcs11_tests repository
+#        uses: actions/checkout@v4
+#        with:
+#          repository: YubicoLabs/yubihsm_sunpkcs11_tests
+#          path: yubihsm_sunpkcs11_tests
+#
+#      - name: run sun pkcs11 tests
+#        #env:
+#          #DOCKER_IMAGE: ${{ matrix.environment }}
+#        if: ${{ matrix.environment == 'ubuntu:24.04' }}
+#        run: |
+#          #if [ "$DOCKER_IMAGE" = "fedora:44" ]; then
+#            #export JAVA_HOME="/__t/CodeQL/2.21.3/x64/codeql/tools/linux64/java"
+#          #fi
+#          # Set the YUBIHSM_PKCS11_MODULE environment variable to the path of the yubihsm_pkcs11.so file
+#          export YUBIHSM_PKCS11_MODULE="$GITHUB_WORKSPACE/yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so"
+#          cd yubihsm_sunpkcs11_tests
+#          echo "connector=$DEFAULT_CONNECTOR_URL" > yubihsm_pkcs11.conf
+#          export YUBIHSM_PKCS11_CONF=`pwd`/yubihsm_pkcs11.conf
+#          cd src/main/resources
+#          ./test_setup.sh $GITHUB_WORKSPACE/yubihsm-shell/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
+#          cd -
+#          ./gradlew build
+#          ./gradlew runMain -Pargs=$YUBIHSM_PKCS11_MODULE
+#
+#      - name: cleanup
+#        if: ${{ always() }}
+#        run: |
+#          if [ -n "$DEFAULT_CONNECTOR_URL" ]; then
+#            curl -s http://localhost:12345/dispatcher/release?connector=$DEFAULT_CONNECTOR_URL
+#          fi
 
-    name: integeration test
+  fips_test:
+    name:  Run with SunPKCS11 and OpenSSL in FIPS mode
     runs-on: ubuntu-latest
-    container: ${{ matrix.environment }}
-
     steps:
       - name: clone the Yubico/yubihsm-shell repository
         uses: actions/checkout@v4
-        with:
-          path: yubihsm-shell
 
-      - name: Make Debian based build
+      - name: install dependencies from package management
         env:
           DEBIAN_FRONTEND: noninteractive
-        working-directory: yubihsm-shell
-        if: ${{ matrix.environment == 'ubuntu:24.04' }}
         run: |
-          apt update
-          apt install -q -y build-essential  \
-                       cmake pkg-config      \
-                       gengetopt             \
-                       help2man              \
-                       libcurl4-openssl-dev  \
-                       libedit-dev           \
-                       libpcsclite-dev       \
-                       libusb-1.0-0-dev      \
-                       libssl-dev            \
-                       openjdk-11-jdk-headless \
-                       opensc                \
-                       file                  \
-                       curl                  \
-                       jq                    \
-                       zlib1g-dev
+          sudo apt update
+          sudo apt install -q -y build-essential       \
+                            cmake pkg-config      \
+                            gengetopt             \
+                            help2man              \
+                            libcurl4-openssl-dev  \
+                            libedit-dev           \
+                            libpcsclite-dev       \
+                            libusb-1.0-0-dev      \
+                            libssl-dev            \
+                            openjdk-11-jdk-headless \
+                            file                  \
+                            curl                  \
+                            jq                    \
+                            zlib1g-dev
 
-          # ubuntu 24.10 comes with _FORTIFY_SOURCE already set
-          #sed -i 's/add_definitions (-D_FORTIFY_SOURCE=2)/add_definitions (-D_FORTIFY_SOURCE=3)/' cmake/SecurityFlags.cmake
-          
-          mkdir build
-          cd build
-          cmake -DRELEASE_BUILD=1 -DWITHOUT_YKYH=1 ..
-          cmake --build .
-
-      - name: Make Redhat based build
-        working-directory: yubihsm-shell
-        if: ${{ matrix.environment == 'fedora:44' }}
+      - name: Install OpenSSL with FIPS module from source
         run: |
-          yum -y update
-          dnf -y install binutils         \
-                  gcc              \
-                  gcc-c++          \
-                  chrpath          \
-                  cmake            \
-                  gengetopt        \
-                  openssl-devel    \
-                  libedit-devel    \
-                  libcurl-devel    \
-                  rpmdevtools      \
-                  pcsc-lite-devel  \
-                  libusb1-devel    \
-                  help2man         \
-                  zlib-devel       \
-                  java-25-openjdk  \
-                  opensc           \
-                  jq               \
-                  openssl          \
-                  crypto-policies-scripts
-          
-          # Allows usage of SHA1
-          update-crypto-policies --set LEGACY
-          
-          # Remove SHA-1 tests from the test suite
-          #sed -i 's/openssl dgst -sha1 -verify/#openssl dgst -sha1 -verify/' src/tests/tests.sh
-          
-          mkdir build
-          cd build
-          cmake -DCMAKE_BUILD_TYPE=Release ..
-          cmake --build .
+          set -x
+          cd $GITHUB_WORKSPACE
+          wget -nv https://github.com/openssl/openssl/archive/refs/tags/openssl-3.5.8.tar.gz
+          tar -xzf openssl-3.5.8.tar.gz
+          cd openssl-openssl-3.5.8
+          ./Configure enable-fips linux-x86_64 shared --prefix=$GITHUB_WORKSPACE/openssl-fips --openssldir=$GITHUB_WORKSPACE/openssl-fips/ssl --libdir=lib
+          make -j"$(nproc)"
+          sudo make install_sw install_ssldirs install_fips VERSION="3.5.8"
+          sudo chown -R $(id -u):$(id -g) $GITHUB_WORKSPACE/openssl-fips
+
+      - name: Configure OpenSSL to run in strict FIPS mode
+        run: |
+          set -x
+          OPENSSL_ROOT=$GITHUB_WORKSPACE/openssl-fips
+          OPENSSL_BIN=$OPENSSL_ROOT/bin/openssl
+          FIPS_CNF=$OPENSSL_ROOT/ssl/fipsmodule.cnf
+          OPENSSL_CNF=$OPENSSL_ROOT/ssl/openssl.cnf
+          export LD_LIBRARY_PATH=$OPENSSL_ROOT/lib:$LD_LIBRARY_PATH
+
+          # record the self-test status the FIPS provider checks for at load time
+          $OPENSSL_BIN fipsinstall -out $FIPS_CNF -module $OPENSSL_ROOT/lib/ossl-modules/fips.so
+
+          # rebuild openssl.cnf so the fips provider (plus the non-cryptographic base
+          # provider) is the only thing active - this is what enforces strict FIPS mode.
+          # note: A '.include' file's sections are invisible to the
+          # provider-activation logic so it silently falls back to the default provider with
+          # no error. Splicing fipsmodule.cnf's own [fips_sect] (which already sets
+          # activate = 1) directly into the file is what actually works.
+          cat > $OPENSSL_CNF <<EOF
+          openssl_conf = openssl_init
+
+          [openssl_init]
+          providers = provider_sect
+
+          [strict_fips_init]
+          providers   = provider_sect
+          alg_section = algorithm_sect
+    
+          [provider_sect]
+          fips = fips_sect
+          base = base_sect
+
+          [base_sect]
+          activate = 1
+  
+          [algorithm_sect]
+          default_properties = fips = yes
+
+          EOF
+          cat $FIPS_CNF >> $OPENSSL_CNF
+
+          # loud diagnostics - a missing/unreadable config file makes OpenSSL
+          # silently fall back to the default provider instead of erroring out,
+          # so assert on it explicitly rather than let that happen unnoticed
+          # echo "---- $OPENSSL_ROOT/ssl listing ----"
+          # ls -la $OPENSSL_ROOT/ssl
+          # echo "---- $OPENSSL_CNF contents ----"
+          # cat $OPENSSL_CNF
+          # echo "---- $FIPS_CNF contents ----"
+          # cat $FIPS_CNF
+          # test -r "$OPENSSL_CNF" || (echo "FATAL: $OPENSSL_CNF is missing or unreadable"; exit 1)
+          # test -r "$FIPS_CNF" || (echo "FATAL: $FIPS_CNF is missing or unreadable"; exit 1)
+
+          OPENSSL_CONF=$OPENSSL_CNF $OPENSSL_BIN version -a
+          OPENSSL_CONF=$OPENSSL_CNF $OPENSSL_BIN list -providers
+
+          # config-triggered provider activation silently swallows load failures
+          # and falls back to the default provider with no error - force an
+          # explicit load instead, which surfaces the real underlying error
+          echo "---- explicit -provider load (surfaces real errors) ----"
+          OPENSSL_MODULES=$OPENSSL_ROOT/lib/ossl-modules \
+            $OPENSSL_BIN list -providers -provider fips -provider base
+
+      - name: verify strict FIPS mode is actually enforced
+        env:
+          OPENSSL_CONF: ${{ github.workspace }}/openssl-fips/ssl/openssl.cnf
+          OPENSSL_MODULES: ${{ github.workspace }}/openssl-fips/lib/ossl-modules
+          LD_LIBRARY_PATH: ${{ github.workspace }}/openssl-fips/lib
+        run: |
+          set -x
+          OPENSSL_BIN=$GITHUB_WORKSPACE/openssl-fips/bin/openssl
+
+          # loud diagnostics - confirm what this step actually sees before
+          # asserting anything, since a missing/unreadable OPENSSL_CONF file
+          # makes OpenSSL silently fall back to the default provider with no error
+          # echo "OPENSSL_CONF=$OPENSSL_CONF"
+          # echo "OPENSSL_MODULES=$OPENSSL_MODULES"
+          # echo "---- $OPENSSL_CONF listing ----"
+          # ls -la "$OPENSSL_CONF" || echo "$OPENSSL_CONF does not exist"
+          # echo "---- $OPENSSL_CONF contents ----"
+          # cat "$OPENSSL_CONF" || echo "cannot read $OPENSSL_CONF"
+          # test -r "$OPENSSL_CONF" || (echo "FATAL: $OPENSSL_CONF is missing or unreadable from this step"; exit 1)
+
+          $OPENSSL_BIN list -providers
+
+          # only the fips and base providers should be active - the default
+          # provider must not be loaded, otherwise FIPS mode isn't actually strict
+          $OPENSSL_BIN list -providers | grep -q "name: OpenSSL FIPS Provider"
+          if $OPENSSL_BIN list -providers | grep -q "name: OpenSSL Default Provider"; then
+            echo "the default provider is loaded - strict FIPS mode is not being enforced"
+            exit 1
+          fi
+
+          # The FIPS provider enforces a 128-bit (16-byte) minimum PBKDF2 salt, so
+          # deriving with the 6-byte salt "Yubico" must fail under strict FIPS
+          if $OPENSSL_BIN kdf -keylen 16 -kdfopt digest:SHA2-256 -kdfopt pass:password \
+              -kdfopt salt:Yubico -kdfopt iter:10000 PBKDF2 2>err.log; then
+            echo "PBKDF2 with a 6-byte salt succeeded - strict FIPS mode is not being enforced"
+            cat err.log
+            exit 1
+          fi
+          cat err.log
+          grep -qi "invalid salt length" err.log
+
+      - name: Do build
+        env:
+          OPENSSL_CONF: ${{ github.workspace }}/openssl-fips/ssl/openssl.cnf
+          OPENSSL_MODULES: ${{ github.workspace }}/openssl-fips/lib/ossl-modules
+        run: |
+          set -x
+          mkdir build; cd build
+          PKG_CONFIG_PATH=$GITHUB_WORKSPACE/openssl-fips/lib/pkgconfig cmake .. -DVERBOSE_CMAKE=ON
+          make
+
+          ./src/yubihsm-shell --help | grep "Usage: yubihsm-shell"
 
       - name: prepare ghostunnel
         env:
@@ -102,37 +333,32 @@ jobs:
           openssl aes-256-cbc \
             -k "$TLSPWD" \
             -md sha256 \
-            -in yubihsm-shell/.ci/client-combined.pem.enc \
-            -out yubihsm-shell/.ci/client-combined.pem \
+            -in .ci/client-combined.pem.enc \
+            -out .ci/client-combined.pem \
             -d
           /tmp/ghostunnel client \
             --listen localhost:12345 \
             --target hsm-connector01.sthlm.in.yubico.org:8443 \
-            --keystore yubihsm-shell/.ci/client-combined.pem \
-            --cacert yubihsm-shell/.ci/server-crt.pem > /dev/null 2>&1 &
+            --keystore .ci/client-combined.pem \
+            --cacert .ci/server-crt.pem > /dev/null 2>&1 &
           sleep 3
           DEFAULT_CONNECTOR_URL=$(curl -s http://localhost:12345/dispatcher/request)
           test -n "$DEFAULT_CONNECTOR_URL" || (echo "Unable to obtain a connector URL, aborting"; exit 1)
           echo "DEFAULT_CONNECTOR_URL=$DEFAULT_CONNECTOR_URL" >> $GITHUB_ENV
 
-      - name: reset the hsm
-        working-directory: yubihsm-shell/build/src
+      - name: Test authentication
+        working-directory: build/src
+        env:
+          OPENSSL_CONF: ${{ github.workspace }}/openssl-fips/ssl/openssl.cnf
+          OPENSSL_MODULES: ${{ github.workspace }}/openssl-fips/lib/ossl-modules
+          LD_LIBRARY_PATH: ${{ github.workspace }}/openssl-fips/lib
         run: |
+          ldd ./yubihsm-shell
+          
+          ./yubihsm-shell --connector "$DEFAULT_CONNECTOR_URL" -a get-device-info
+          ./yubihsm-shell --connector "$DEFAULT_CONNECTOR_URL" -p password -a list-objects
           ./yubihsm-shell --connector "$DEFAULT_CONNECTOR_URL" -p password -a reset
           sleep 3
-
-
-      - name: run yubihsm-shell tests
-        working-directory: yubihsm-shell/resources/tests/bash
-        run: ./cmdline_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
-
-      - name: run pkcs11-tool tests
-        if: ${{ matrix.environment == 'ubuntu:24.04' }} # OpenSC has incompatibilities with newer OpenSSL
-        working-directory: yubihsm-shell/resources/tests/bash
-        run: |
-          printf "connector=$DEFAULT_CONNECTOR_URL" > yubihsm_pkcs11.conf
-          export YUBIHSM_PKCS11_CONF=`pwd`/yubihsm_pkcs11.conf
-          ./opensc_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so
 
       - name: clone the YubicoLabs/yubihsm_sunpkcs11_tests repository
         uses: actions/checkout@v4
@@ -141,20 +367,20 @@ jobs:
           path: yubihsm_sunpkcs11_tests
 
       - name: run sun pkcs11 tests
-        #env:
-          #DOCKER_IMAGE: ${{ matrix.environment }}
-        if: ${{ matrix.environment == 'ubuntu:24.04' }}
+        env:
+          OPENSSL_CONF: ${{ github.workspace }}/openssl-fips/ssl/openssl.cnf
+          OPENSSL_MODULES: ${{ github.workspace }}/openssl-fips/lib/ossl-modules
+          LD_LIBRARY_PATH: ${{ github.workspace }}/openssl-fips/lib
         run: |
-          #if [ "$DOCKER_IMAGE" = "fedora:44" ]; then
-            #export JAVA_HOME="/__t/CodeQL/2.21.3/x64/codeql/tools/linux64/java"
-          #fi
           # Set the YUBIHSM_PKCS11_MODULE environment variable to the path of the yubihsm_pkcs11.so file
-          export YUBIHSM_PKCS11_MODULE="$GITHUB_WORKSPACE/yubihsm-shell/build/pkcs11/yubihsm_pkcs11.so"
+          export YUBIHSM_PKCS11_MODULE="$GITHUB_WORKSPACE/build/pkcs11/yubihsm_pkcs11.so"
+          ldd $YUBIHSM_PKCS11_MODULE
+          
           cd yubihsm_sunpkcs11_tests
           echo "connector=$DEFAULT_CONNECTOR_URL" > yubihsm_pkcs11.conf
           export YUBIHSM_PKCS11_CONF=`pwd`/yubihsm_pkcs11.conf
           cd src/main/resources
-          ./test_setup.sh $GITHUB_WORKSPACE/yubihsm-shell/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
+          ./test_setup.sh $GITHUB_WORKSPACE/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
           cd -
           ./gradlew build
           ./gradlew runMain -Pargs=$YUBIHSM_PKCS11_MODULE

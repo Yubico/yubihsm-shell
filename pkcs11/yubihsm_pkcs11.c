@@ -25,6 +25,9 @@
 #include <yubihsm.h>
 
 #include <openssl/rsa.h>
+#include <openssl/bio.h>
+#include <openssl/ec.h>
+#include <openssl/pem.h>
 
 #include "debug_p11.h"
 #include "util_pkcs11.h"
@@ -363,6 +366,45 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     list_append(&g_ctx.device_pubkeys, pk);
   }
 
+  list_create(&g_ctx.authkey_files, sizeof(yubihsm_pkcs11_authkey_file), NULL);
+  for (unsigned int i = 0; i < args_info.authkey_file_given; i++) {
+    const char *entry = args_info.authkey_file_arg[i];
+    size_t entry_len = strlen(entry);
+
+    uint16_t id = 0;
+    size_t id_len = sizeof(id);
+    char hex_id[5] = {0};
+    if (entry_len < 6 || entry[4] != ':') {
+      DBG_ERR("Invalid authkey-file entry '%s', expected "
+              "<4-hex-digit key ID>:<path>",
+              entry);
+      rv = CKR_ARGUMENTS_BAD;
+      goto c_i_failure;
+    }
+    memcpy(hex_id, entry, 4);
+
+    if (hex_decode(hex_id, (uint8_t *) &id, &id_len) == false ||
+        id_len != sizeof(id)) {
+      DBG_ERR("Invalid authkey-file key ID '%s'", hex_id);
+      rv = CKR_ARGUMENTS_BAD;
+      goto c_i_failure;
+    }
+    id = ntohs(id);
+
+    const char *path = entry + 5;
+    size_t path_len = entry_len - 5;
+    if (path_len == 0 || path_len >= YUBIHSM_PKCS11_AUTHKEY_FILE_PATH_LEN) {
+      DBG_ERR("Invalid authkey-file path for key ID %04x", id);
+      rv = CKR_ARGUMENTS_BAD;
+      goto c_i_failure;
+    }
+
+    yubihsm_pkcs11_authkey_file akf = {0};
+    akf.id = id;
+    memcpy(akf.path, path, path_len);
+    list_append(&g_ctx.authkey_files, &akf);
+  }
+
   cmdline_parser_free(&args_info);
   free(connector_list);
 
@@ -384,6 +426,7 @@ c_i_failure:
   list_iterate(&g_ctx.slots, destroy_slot_mutex);
   list_destroy(&g_ctx.slots);
   list_destroy(&g_ctx.device_pubkeys);
+  list_destroy(&g_ctx.authkey_files);
 
   if (connector_list) {
     for (unsigned int i = 0; i < args_info.connector_given; i++) {
@@ -420,6 +463,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pReserved) {
   list_iterate(&g_ctx.slots, destroy_slot_mutex);
   list_destroy(&g_ctx.slots);
   list_destroy(&g_ctx.device_pubkeys);
+  list_destroy(&g_ctx.authkey_files);
 
   if (g_ctx.mutex != NULL) {
     g_ctx.destroy_mutex(g_ctx.mutex);
@@ -6359,6 +6403,76 @@ out:
   return rv;
 }
 
+static const char *find_authkey_file(uint16_t key_id) {
+  for (ListItem *item = g_ctx.authkey_files.head; item != NULL;
+       item = item->next) {
+    yubihsm_pkcs11_authkey_file *akf = (yubihsm_pkcs11_authkey_file *) item->data;
+    if (akf->id == key_id) {
+      return akf->path;
+    }
+  }
+  return NULL;
+}
+
+// Loads an EC P256 private key from a password-protected PEM file, as
+// configured via the 'authkey-file' directive, and returns its raw private
+// scalar. `password` need not be NUL-terminated.
+static bool load_ec_p256_privkey_from_file(const char *path,
+                                           const uint8_t *password,
+                                           CK_ULONG password_len,
+                                           uint8_t *privkey,
+                                           size_t privkey_len) {
+  char pass_cstr[YUBIHSM_PKCS11_MAX_PIN_LEN + 1] = {0};
+  memcpy(pass_cstr, password, password_len);
+
+  BIO *bio = BIO_new_file(path, "r");
+  if (bio == NULL) {
+    DBG_ERR("Failed to open authentication key file '%s'", path);
+    insecure_memzero(pass_cstr, sizeof(pass_cstr));
+    return false;
+  }
+
+  EVP_PKEY *pkey = PEM_read_bio_PrivateKey(bio, NULL, NULL, pass_cstr);
+  BIO_free(bio);
+  insecure_memzero(pass_cstr, sizeof(pass_cstr));
+
+  if (pkey == NULL) {
+    DBG_ERR("Failed to read/decrypt private key file '%s'", path);
+    return false;
+  }
+
+  bool ret = false;
+  EC_KEY *ec_key = NULL;
+
+  if (EVP_PKEY_base_id(pkey) != EVP_PKEY_EC) {
+    DBG_ERR("Key in file '%s' is not an EC key", path);
+    goto out;
+  }
+
+  ec_key = EVP_PKEY_get1_EC_KEY(pkey);
+  if (ec_key == NULL) {
+    goto out;
+  }
+
+  if (EC_GROUP_get_curve_name(EC_KEY_get0_group(ec_key)) !=
+      NID_X9_62_prime256v1) {
+    DBG_ERR("Key in file '%s' is not EC P256", path);
+    goto out;
+  }
+
+  if (set_component(privkey, EC_KEY_get0_private_key(ec_key), privkey_len) ==
+      false) {
+    goto out;
+  }
+
+  ret = true;
+
+out:
+  EC_KEY_free(ec_key);
+  EVP_PKEY_free(pkey);
+  return ret;
+}
+
 CK_DEFINE_FUNCTION(CK_RV, C_LoginUser)
 (CK_SESSION_HANDLE hSession, /* the session's handle */
  CK_USER_TYPE userType,      /* the user type */
@@ -6490,12 +6604,23 @@ CK_DEFINE_FUNCTION(CK_RV, C_LoginUser)
     uint8_t sk_oce[YH_EC_P256_PRIVKEY_LEN], pk_oce[YH_EC_P256_PUBKEY_LEN],
       pk_sd[YH_EC_P256_PUBKEY_LEN];
     size_t pk_sd_len = sizeof(pk_sd);
-    yrc = yh_util_derive_ec_p256_key(pPin, ulPinLen, sk_oce, sizeof(sk_oce),
-                                     pk_oce, sizeof(pk_oce));
-    if (yrc != YHR_SUCCESS) {
-      DBG_ERR("Failed to derive asymmetric key: %s", yh_strerror(yrc));
-      rv = yrc_to_rv(yrc);
-      goto c_l_out;
+
+    const char *authkey_file = find_authkey_file(key_id);
+    if (authkey_file != NULL) {
+      if (load_ec_p256_privkey_from_file(authkey_file, pPin, ulPinLen, sk_oce,
+                                         sizeof(sk_oce)) == false) {
+        DBG_ERR("Failed to load asymmetric key from file '%s'", authkey_file);
+        rv = CKR_PIN_INCORRECT;
+        goto c_l_out;
+      }
+    } else {
+      yrc = yh_util_derive_ec_p256_key(pPin, ulPinLen, sk_oce, sizeof(sk_oce),
+                                       pk_oce, sizeof(pk_oce));
+      if (yrc != YHR_SUCCESS) {
+        DBG_ERR("Failed to derive asymmetric key: %s", yh_strerror(yrc));
+        rv = yrc_to_rv(yrc);
+        goto c_l_out;
+      }
     }
 
     yrc = yh_util_get_device_pubkey(session->slot->connector, pk_sd, &pk_sd_len,
@@ -6530,6 +6655,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_LoginUser)
     yrc = yh_create_session_asym(session->slot->connector, key_id, sk_oce,
                                  sizeof(sk_oce), pk_sd, pk_sd_len,
                                  &session->slot->device_session);
+    insecure_memzero(sk_oce, sizeof(sk_oce));
     if (yrc != YHR_SUCCESS) {
       DBG_ERR("Failed to create asymmetric session: %s", yh_strerror(yrc));
       if (yrc == YHR_SESSION_AUTHENTICATION_FAILED) {
