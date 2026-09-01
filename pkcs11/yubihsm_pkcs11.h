@@ -36,6 +36,7 @@
 #define AES_BLOCK_SIZE 16
 #endif
 #define CKA_ATTRIBUTE_VALUE_SIZE 256
+#define YUBIHSM_PKCS11_AUTHKEY_FILE_PATH_LEN 1024
 
 typedef enum {
   SESSION_RESERVED_RO = 1 << 0,
@@ -187,8 +188,14 @@ typedef struct {
 } yubihsm_pkcs11_op_info;
 
 typedef struct {
+  uint16_t id;
+  char path[YUBIHSM_PKCS11_AUTHKEY_FILE_PATH_LEN];
+} yubihsm_pkcs11_authkey_file;
+
+typedef struct {
   List slots;
   List device_pubkeys;
+  List authkey_files;
   CK_CREATEMUTEX create_mutex;
   CK_DESTROYMUTEX destroy_mutex;
   CK_LOCKMUTEX lock_mutex;
