@@ -126,7 +126,30 @@ static bool compare_ecdh_keys(void *data, void *item) {
 
 static void probe_device_session(void *data) {
   yubihsm_pkcs11_slot *slot = (yubihsm_pkcs11_slot *) data;
-  if (slot->device_session != NULL) {
+
+  if (slot->device_session == NULL) {
+    return;
+  }
+
+  if (g_ctx.lock_mutex != NULL && slot->mutex != NULL) {
+    if (g_ctx.lock_mutex(slot->mutex) != CKR_OK) {
+      return;
+    }
+  }
+
+
+  bool session_in_use = false;
+  for (ListItem *item = slot->pkcs11_sessions.head; item != NULL;
+       item = item->next) {
+    yubihsm_pkcs11_session *session = (yubihsm_pkcs11_session *) item->data;
+    if (session->session_state == SESSION_AUTHENTICATED_RO ||
+        session->session_state == SESSION_AUTHENTICATED_RW) {
+      session_in_use = true;
+      break;
+    }
+  }
+
+  if (!session_in_use && slot->device_session != NULL) {
     uint8_t echo_data = 0xff;
     uint8_t response[YH_MSG_BUF_SIZE];
     size_t response_len = sizeof(response);
@@ -139,6 +162,10 @@ static void probe_device_session(void *data) {
       yh_destroy_session(&slot->device_session);
       fprintf(stderr, "Failed to probe session. %s\n", yh_strerror(yrc));
     }
+  }
+
+  if (g_ctx.unlock_mutex != NULL && slot->mutex != NULL) {
+    g_ctx.unlock_mutex(slot->mutex);
   }
 }
 
@@ -509,8 +536,6 @@ CK_DEFINE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pReserved) {
 
   DIN;
 
-  stop_keepalive_thread();
-
   if (pReserved != NULL) {
     DBG_ERR("Finalized called with pReserved != NULL");
     return CKR_ARGUMENTS_BAD;
@@ -520,6 +545,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pReserved) {
     DBG_ERR("libyubihsm is not initialized or already finalized");
     return CKR_CRYPTOKI_NOT_INITIALIZED;
   }
+
+  stop_keepalive_thread();
 
   list_iterate(&g_ctx.slots, destroy_slot_mutex);
   list_destroy(&g_ctx.slots);
@@ -538,8 +565,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pReserved) {
 
   if (_YHP11_OUTPUT != stdout && _YHP11_OUTPUT != stderr &&
       _YHP11_OUTPUT != NULL) {
-    fclose(_YHP11_OUTPUT);
+    FILE *f = _YHP11_OUTPUT;
     _YHP11_OUTPUT = stderr;
+    yh_set_debug_output(NULL, stderr);
+    fclose(f);
+
   }
 
   return CKR_OK;
