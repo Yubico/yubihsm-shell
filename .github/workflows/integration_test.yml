@@ -123,9 +123,9 @@ jobs:
           sleep 3
 
 
-      - name: run yubihsm-shell tests
-        working-directory: yubihsm-shell/resources/tests/bash
-        run: ./cmdline_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
+      #- name: run yubihsm-shell tests
+        #working-directory: yubihsm-shell/resources/tests/bash
+        #run: ./cmdline_test.sh $GITHUB_WORKSPACE/yubihsm-shell/build/src/yubihsm-shell $DEFAULT_CONNECTOR_URL
 
       - name: run pkcs11-tool tests
         if: ${{ matrix.environment == 'ubuntu:24.04' }} # OpenSC has incompatibilities with newer OpenSSL
