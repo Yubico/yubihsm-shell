@@ -86,6 +86,11 @@ static yubihsm_pkcs11_context g_ctx;
 
 static void destroy_slot_mutex(void *data) {
   yubihsm_pkcs11_slot *slot = (yubihsm_pkcs11_slot *) data;
+
+  // NOTE: must happen while `slot->mutex` is still valid, since the
+  // keepalive thread locks it while probing the device session.
+  keepalive_stop(slot);
+
   if (slot->mutex != NULL) {
     g_ctx.destroy_mutex(slot->mutex);
   }
@@ -121,44 +126,32 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
 
   yh_dbg_init(false, false, 0, "stderr");
 
-  if (pInitArgs != NULL) {
-    if ((init_args->flags & CKF_OS_LOCKING_OK) == 0 &&
-        init_args->CreateMutex == NULL && init_args->DestroyMutex == NULL &&
-        init_args->LockMutex == NULL && init_args->UnlockMutex == NULL) {
-      // NOTE(adma): no threading required
-      // all is good, do nothing
-      g_ctx.create_mutex = NULL;
-      g_ctx.destroy_mutex = NULL;
-      g_ctx.lock_mutex = NULL;
-      g_ctx.unlock_mutex = NULL;
-    } else if ((init_args->flags & CKF_OS_LOCKING_OK) != 0 &&
-               init_args->CreateMutex == NULL &&
-               init_args->DestroyMutex == NULL &&
-               init_args->LockMutex == NULL && init_args->UnlockMutex == NULL) {
-      // NOTE(adma): threading with native OS locks
-      set_native_locking(&g_ctx);
-    } else if ((init_args->flags & CKF_OS_LOCKING_OK) == 0 &&
-               init_args->CreateMutex != NULL &&
-               init_args->DestroyMutex != NULL &&
-               init_args->LockMutex != NULL && init_args->UnlockMutex != NULL) {
-      // NOTE(adma): threading with supplied functions
-      g_ctx.create_mutex = init_args->CreateMutex;
-      g_ctx.destroy_mutex = init_args->DestroyMutex;
-      g_ctx.lock_mutex = init_args->LockMutex;
-      g_ctx.unlock_mutex = init_args->UnlockMutex;
-    } else if ((init_args->flags & CKF_OS_LOCKING_OK) != 0 &&
-               init_args->CreateMutex != NULL &&
-               init_args->DestroyMutex != NULL &&
-               init_args->LockMutex != NULL && init_args->UnlockMutex != NULL) {
-      // NOTE(adma): threading with native or supplied functions
-      g_ctx.create_mutex = init_args->CreateMutex;
-      g_ctx.destroy_mutex = init_args->DestroyMutex;
-      g_ctx.lock_mutex = init_args->LockMutex;
-      g_ctx.unlock_mutex = init_args->UnlockMutex;
-    } else {
+  bool have_mutex_callbacks =
+    pInitArgs != NULL &&
+    (init_args->CreateMutex != NULL || init_args->DestroyMutex != NULL ||
+     init_args->LockMutex != NULL || init_args->UnlockMutex != NULL);
+
+  if (have_mutex_callbacks) {
+    if (init_args->CreateMutex == NULL || init_args->DestroyMutex == NULL ||
+        init_args->LockMutex == NULL || init_args->UnlockMutex == NULL) {
       DBG_ERR("Invalid locking specified");
       return CKR_ARGUMENTS_BAD;
     }
+
+    // NOTE(adma): threading with application-supplied functions
+    g_ctx.create_mutex = init_args->CreateMutex;
+    g_ctx.destroy_mutex = init_args->DestroyMutex;
+    g_ctx.lock_mutex = init_args->LockMutex;
+    g_ctx.unlock_mutex = init_args->UnlockMutex;
+  } else {
+    // NOTE: the module needs its own internal locking to safely run a
+    // background keepalive thread (see keepalive_start()), so always fall
+    // back to native OS locking here, regardless of whether the application
+    // declared CKF_OS_LOCKING_OK, supplied its own callbacks, or even a
+    // pInitArgs at all. This is purely an implementation detail internal to
+    // the module and does not require any cooperation from the application,
+    // whether or not it promised single-threaded use of the library itself.
+    set_native_locking(&g_ctx);
   }
 
   CK_RV rv = CKR_OK;
@@ -262,6 +255,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     rv = CKR_ARGUMENTS_BAD;
     goto c_i_failure;
   }
+
+  if (args_info.keepalive_arg < 0 || args_info.keepalive_arg > UINT16_MAX) {
+    DBG_ERR("Invalid keepalive interval");
+    rv = CKR_ARGUMENTS_BAD;
+    goto c_i_failure;
+  }
+  g_ctx.keepalive_interval = (uint16_t) args_info.keepalive_arg;
 
   yh_rc yrc = yh_init();
   if (yrc != YHR_SUCCESS) {
@@ -938,6 +938,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CloseSession)(CK_SESSION_HANDLE hSession) {
   }
 
   yubihsm_pkcs11_session *session = 0;
+  void *keepalive_handle = NULL;
   CK_RV rv = get_session(&g_ctx, hSession, &session, SESSION_AUTHENTICATED);
   if (rv == CKR_OK) {
     if (session->slot->pkcs11_sessions.length == 1) {
@@ -955,6 +956,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_CloseSession)(CK_SESSION_HANDLE hSession) {
         // TODO: should we handle the error cases here better?
       }
       session->slot->device_session = NULL;
+      keepalive_handle = keepalive_stop_locked(session->slot);
     }
 
     release_session(&g_ctx, session);
@@ -972,6 +974,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_CloseSession)(CK_SESSION_HANDLE hSession) {
     DBG_ERR("Trying to close invalid session");
     return CKR_SESSION_HANDLE_INVALID;
   }
+
+  // NOTE: must run after release_session() drops slot->mutex, otherwise this
+  // could deadlock joining the keepalive thread.
+  keepalive_stop_join(keepalive_handle);
 
   DBG_INFO("Closing session %lu", hSession);
 
@@ -996,6 +1002,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_CloseAllSessions)(CK_SLOT_ID slotID) {
 
   DBG_INFO("Closing all sessions for slot %lu", slotID);
 
+  void *keepalive_handle = NULL;
+
   if (slot->device_session) {
     yh_rc yrc = yh_util_close_session(slot->device_session);
     if (yrc != YHR_SUCCESS) {
@@ -1008,12 +1016,17 @@ CK_DEFINE_FUNCTION(CK_RV, C_CloseAllSessions)(CK_SLOT_ID slotID) {
       DBG_ERR("Failed destroying device session: %s", yh_strerror(yrc));
     }
     slot->device_session = NULL;
+    keepalive_handle = keepalive_stop_locked(slot);
   }
 
   list_destroy(&slot->pkcs11_sessions);
   list_create(&slot->pkcs11_sessions, sizeof(yubihsm_pkcs11_session), NULL);
 
   release_slot(&g_ctx, slot);
+
+  // NOTE: must run after release_slot() drops slot->mutex, otherwise this
+  // could deadlock joining the keepalive thread.
+  keepalive_stop_join(keepalive_handle);
 
   DOUT;
   return CKR_OK;
@@ -1350,6 +1363,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Logout)(CK_SESSION_HANDLE hSession) {
     return rv;
   }
 
+  void *keepalive_handle = NULL;
+
   yh_rc yrc = yh_util_close_session(session->slot->device_session);
   if (yrc != YHR_SUCCESS) {
     DBG_ERR("Failed closing session: %s", yh_strerror(yrc));
@@ -1365,6 +1380,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Logout)(CK_SESSION_HANDLE hSession) {
   }
 
   session->slot->device_session = NULL;
+  keepalive_handle = keepalive_stop_locked(session->slot);
 
   list_iterate(&session->slot->pkcs11_sessions, logout_sessions);
 
@@ -1373,6 +1389,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_Logout)(CK_SESSION_HANDLE hSession) {
 c_l_out:
 
   release_session(&g_ctx, session);
+  // NOTE: must run after release_session() drops slot->mutex, otherwise
+  // this could deadlock joining the keepalive thread.
+  keepalive_stop_join(keepalive_handle);
 
   return rv;
 }
@@ -6565,6 +6584,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_LoginUser)
       goto c_l_out;
     }
   }
+
+  keepalive_start(&g_ctx, session->slot, g_ctx.keepalive_interval);
 
   list_iterate(&session->slot->pkcs11_sessions, login_sessions);
   populate_cache_with_data_opaques(session->slot);
