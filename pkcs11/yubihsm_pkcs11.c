@@ -568,8 +568,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pReserved) {
     FILE *f = _YHP11_OUTPUT;
     _YHP11_OUTPUT = stderr;
     yh_set_debug_output(NULL, stderr);
-    fclose(f);
-
+    fflush(old);
   }
 
   return CKR_OK;
