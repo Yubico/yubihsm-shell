@@ -20,6 +20,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include <cmdline.h>
 #include <yubihsm.h>
@@ -36,8 +37,11 @@
 
 #ifdef __WIN32
 #include <winsock.h>
+#include <windows.h>
 #else
 #include <arpa/inet.h>
+#include <pthread.h>
+#include <unistd.h>
 #endif
 
 #ifdef _MSVC
@@ -73,6 +77,19 @@
     }                                                                          \
   } while (0)
 
+
+#ifndef YUBIHSM_PKCS11_KEEPALIVE_SECONDS
+#define YUBIHSM_PKCS11_KEEPALIVE_SECONDS 15
+#endif
+
+#ifdef __WIN32
+static HANDLE keepalive_thread;
+#else
+static pthread_t keepalive_thread;
+#endif
+
+static volatile bool keepalive_running = false;
+
 static const CK_FUNCTION_LIST function_list;
 static const CK_FUNCTION_LIST_3_0 function_list_3;
 
@@ -105,6 +122,116 @@ static bool compare_ecdh_keys(void *data, void *item) {
   CK_OBJECT_HANDLE b = key->id;
 
   return *a == b;
+}
+
+static void probe_device_session(void *data) {
+  yubihsm_pkcs11_slot *slot = (yubihsm_pkcs11_slot *) data;
+
+  if (slot->device_session == NULL) {
+    return;
+  }
+
+  if (g_ctx.lock_mutex != NULL && slot->mutex != NULL) {
+    if (g_ctx.lock_mutex(slot->mutex) != CKR_OK) {
+      return;
+    }
+  }
+
+
+  bool session_in_use = false;
+  for (ListItem *item = slot->pkcs11_sessions.head; item != NULL;
+       item = item->next) {
+    yubihsm_pkcs11_session *session = (yubihsm_pkcs11_session *) item->data;
+    if (session->session_state == SESSION_AUTHENTICATED_RO ||
+        session->session_state == SESSION_AUTHENTICATED_RW) {
+      session_in_use = true;
+      break;
+    }
+  }
+
+  if (!session_in_use && slot->device_session != NULL) {
+    uint8_t echo_data = 0xff;
+    uint8_t response[YH_MSG_BUF_SIZE];
+    size_t response_len = sizeof(response);
+    yh_cmd response_cmd;
+    yh_rc yrc;
+
+    if ((yrc = yh_send_secure_msg(slot->device_session, YHC_ECHO, &echo_data, 1,
+                                  &response_cmd, response, &response_len)) !=
+        YHR_SUCCESS) {
+      yh_destroy_session(&slot->device_session);
+      fprintf(stderr, "Failed to probe session. %s\n", yh_strerror(yrc));
+    }
+  }
+
+  if (g_ctx.unlock_mutex != NULL && slot->mutex != NULL) {
+    g_ctx.unlock_mutex(slot->mutex);
+  }
+}
+
+#ifdef __WIN32
+static DWORD WINAPI
+keepalive_worker(LPVOID arg) {
+  (void) arg;
+
+  while (keepalive_running) {
+      (void) list_iterate(&g_ctx.slots, probe_device_session);
+
+    for (int i = 0; i < YUBIHSM_PKCS11_KEEPALIVE_SECONDS * 10 &&
+                      keepalive_running; i++) {
+      Sleep(100);
+    }
+  }
+
+  return 0;
+}
+#else
+static void *keepalive_worker(void *arg) {
+  (void) arg;
+
+  while (keepalive_running) {
+    /* Walk all slots and touch each live device_session */
+      (void) list_iterate(&g_ctx.slots, probe_device_session);
+
+    for (int i = 0; i < YUBIHSM_PKCS11_KEEPALIVE_SECONDS * 10 &&
+                      keepalive_running; i++) {
+      usleep(100000);
+    }
+  }
+
+  return NULL;
+}
+#endif
+
+static CK_RV start_keepalive_thread(void) {
+  keepalive_running = true;
+
+#ifdef __WIN32
+  keepalive_thread = CreateThread(NULL, 0, keepalive_worker, NULL, 0, NULL);
+  if (!keepalive_thread) {
+    keepalive_running = false;
+    return CKR_FUNCTION_FAILED;
+  }
+#else
+  if (pthread_create(&keepalive_thread, NULL, keepalive_worker, NULL) != 0) {
+    keepalive_running = false;
+    return CKR_FUNCTION_FAILED;
+  }
+#endif
+
+  return CKR_OK;
+}
+
+static void
+stop_keepalive_thread(void) {
+  keepalive_running = false;
+
+#ifdef __WIN32
+  WaitForSingleObject(keepalive_thread, INFINITE);
+  CloseHandle(keepalive_thread);
+#else
+  pthread_join(keepalive_thread, NULL);
+#endif
 }
 
 /* General Purpose */
@@ -373,6 +500,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
 
   g_yh_initialized = true;
 
+  start_keepalive_thread();
+
   DOUT;
   return CKR_OK;
 
@@ -417,6 +546,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pReserved) {
     return CKR_CRYPTOKI_NOT_INITIALIZED;
   }
 
+  stop_keepalive_thread();
+
   list_iterate(&g_ctx.slots, destroy_slot_mutex);
   list_destroy(&g_ctx.slots);
   list_destroy(&g_ctx.device_pubkeys);
@@ -434,8 +565,10 @@ CK_DEFINE_FUNCTION(CK_RV, C_Finalize)(CK_VOID_PTR pReserved) {
 
   if (_YHP11_OUTPUT != stdout && _YHP11_OUTPUT != stderr &&
       _YHP11_OUTPUT != NULL) {
-    fclose(_YHP11_OUTPUT);
+    FILE *f = _YHP11_OUTPUT;
     _YHP11_OUTPUT = stderr;
+    yh_set_debug_output(NULL, stderr);
+    fflush(old);
   }
 
   return CKR_OK;
