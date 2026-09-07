@@ -176,6 +176,14 @@ keyid=$(tail -1 resp.txt | awk '{print $4}')
 test "$BIN --authkey $keyid -p foo123 -a get-object-info -i 1 -t authentication-key" "   Login using new authetication key"
 test "$BIN -p password -a delete-object -i $keyid -t authentication-key" "   Delete new authentication key"
 
+test "openssl ecparam -genkey -name prime256v1 -noout -out authkey_asym_privkey.pem" "   Generate asymmetric authkey keypair with OpenSSL"
+test "openssl ec -in authkey_asym_privkey.pem -pubout -out authkey_asym_pubkey.pem" "   Extract asymmetric authkey public key with OpenSSL"
+test_with_resp "$BIN -p password -a put-authentication-key-asym -i 0 -l authkey_asym -d 1,2,3 -c all --delegated all --in authkey_asym_pubkey.pem" "   Create new asymmetric authentication key"
+asymkeyid=$(tail -1 resp.txt | awk '{print $5}')
+test "$BIN -p password -a get-object-info -i $asymkeyid -t authentication-key" "   Get info for new asymmetric authentication key"
+test "$BIN -p password -a delete-object -i $asymkeyid -t authentication-key" "   Delete new asymmetric authentication key"
+rm -f authkey_asym_privkey.pem authkey_asym_pubkey.pem
+
 cd ..
 rm -rf yubihsm-shell_test_dir
 

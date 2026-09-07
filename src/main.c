@@ -2641,6 +2641,38 @@ int main(int argc, char *argv[]) {
           COM_SUCCEED_OR_DIE(comrc, "Unable to store authentication key");
         } break;
 
+        case action_arg_putMINUS_authenticationMINUS_keyMINUS_asym: {
+          arg[1].w = args_info.object_id_arg;
+          arg[2].s = args_info.label_arg;
+          arg[2].len = strlen(args_info.label_arg);
+
+          yrc = yh_string_to_domains(args_info.domains_arg, &arg[3].w);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse domains: ");
+
+          memset(&arg[4].c, 0, sizeof(yh_capabilities));
+          yrc =
+            yh_string_to_capabilities(args_info.capabilities_arg, &arg[4].c);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse capabilities: ");
+
+          memset(&arg[5].c, 0, sizeof(yh_capabilities));
+          yrc = yh_string_to_capabilities(args_info.delegated_arg, &arg[5].c);
+          LIB_SUCCEED_OR_DIE(yrc, "Unable to parse capabilities: ");
+
+          cmd_format asym_in_fmt = g_in_fmt == fmt_nofmt ? fmt_PEM : g_in_fmt;
+          if (get_input_data(args_info.in_arg, &arg[6].x, &arg[6].len,
+                             asym_in_fmt) == false) {
+            fprintf(stderr, "Failed to get input data\n");
+            rc = EXIT_FAILURE;
+            break;
+          }
+
+          comrc =
+            yh_com_put_authentication_asym(&g_ctx, arg, asym_in_fmt, fmt_nofmt);
+          free(arg[6].x);
+          COM_SUCCEED_OR_DIE(comrc,
+                             "Unable to store asymmetric authentication key");
+        } break;
+
         case action_arg_putMINUS_asymmetricMINUS_key: {
           arg[1].w = args_info.object_id_arg;
           arg[2].s = args_info.label_arg;
