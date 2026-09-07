@@ -250,7 +250,7 @@ static ykhsmauth_rc send_data(ykhsmauth_state *state, const APDU *apdu,
 
     if (rc != SCARD_S_SUCCESS) {
       if (state->verbose) {
-        fprintf(stderr, "SCardTransmit failed: %s\n", pcsc_stringify_error(rc));
+        fprintf(stderr, "SCardTransmit failed: rc=%08x\n", (unsigned int) rc);
       }
       return YKHSMAUTHR_PCSC_ERROR;
     }
@@ -262,9 +262,14 @@ static ykhsmauth_rc send_data(ykhsmauth_state *state, const APDU *apdu,
       return YKHSMAUTHR_GENERIC_ERROR;
     }
 
-    // Update total length (subtract 2 for the previous SW that we're overwriting)
-    total_recv_len = total_recv_len - 2 + temp_recv_len;
     *sw = (recv_ptr[temp_recv_len - 2] << 8) | recv_ptr[temp_recv_len - 1];
+    if (temp_recv_len == 2 && (*sw & 0xFF00) == 0x6100) {
+      if (state->verbose) {
+        fprintf(stderr, "Chained response made no progress\n");
+      }
+      return YKHSMAUTHR_GENERIC_ERROR;
+    }
+    total_recv_len = total_recv_len - 2 + temp_recv_len;
 
     if (state->verbose) {
       fprintf(stderr, "APDU (recv chained): ");
@@ -641,7 +646,7 @@ ykhsmauth_rc ykhsmauth_list_keys(ykhsmauth_state *state,
   }
 
   APDU apdu = {{0, YKHSMAUTH_INS_LIST, 0, 0, 0, {0}}};
-  unsigned char data[1024] = {0};
+  unsigned char data[3072] = {0};
   DWORD recv_len = sizeof(data);
   uint16_t sw = 0;
 
