@@ -235,8 +235,8 @@ static ykhsmauth_rc send_data(ykhsmauth_state *state, const APDU *apdu,
     // Issue GET_RESPONSE (0x00 0xC0 0x00 0x00 LE)
     get_response_apdu[4] = le_byte;
 
-    if (state->verbose) {
-      fprintf(stderr, "APDU (send chained): ");
+    if (state->verbose > 1) {
+      fprintf(stderr, "> ");
       dump_hex(get_response_apdu, sizeof(get_response_apdu));
       fprintf(stderr, "\n");
     }
@@ -271,8 +271,8 @@ static ykhsmauth_rc send_data(ykhsmauth_state *state, const APDU *apdu,
     }
     total_recv_len = total_recv_len - 2 + temp_recv_len;
 
-    if (state->verbose) {
-      fprintf(stderr, "APDU (recv chained): ");
+    if (state->verbose > 1) {
+      fprintf(stderr, "< ");
       dump_hex(recv_ptr, temp_recv_len);
       fprintf(stderr, "\n");
       fprintf(stderr, "SW: %04x\n", *sw);
