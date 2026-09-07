@@ -200,7 +200,7 @@ static ykhsmauth_rc send_data(ykhsmauth_state *state, const APDU *apdu,
 
   if (chunk_len < 2) {
     if (state->verbose) {
-      fprintf(stderr, "Response too short: %lu bytes\n", chunk_len);
+      fprintf(stderr, "Response too short: %lu bytes\n", (unsigned long) chunk_len);
     }
     return YKHSMAUTHR_GENERIC_ERROR;
   }
@@ -227,7 +227,7 @@ static ykhsmauth_rc send_data(ykhsmauth_state *state, const APDU *apdu,
     if (total_recv_len >= *recv_len) {
       if (state->verbose) {
         fprintf(stderr, "Buffer overflow: received %lu, max %lu\n",
-                total_recv_len, *recv_len);
+                (unsigned long) total_recv_len, *recv_len);
       }
       return YKHSMAUTHR_MEMORY_ERROR;
     }
@@ -257,7 +257,7 @@ static ykhsmauth_rc send_data(ykhsmauth_state *state, const APDU *apdu,
 
     if (temp_recv_len < 2) {
       if (state->verbose) {
-        fprintf(stderr, "Response too short: %lu bytes\n", temp_recv_len);
+        fprintf(stderr, "Response too short: %lu bytes\n", (unsigned long) temp_recv_len);
       }
       return YKHSMAUTHR_GENERIC_ERROR;
     }
