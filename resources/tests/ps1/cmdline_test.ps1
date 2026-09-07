@@ -100,6 +100,17 @@ yubihsm-shell.exe --authkey $id -p foo123 -a get-object-info -i 1 -t authenticat
 echo "=== Delete new authentication key"
 yubihsm-shell.exe -p password -a delete-object -i $id -t authentication-key; CheckExitStatus -ECode $?
 
+echo "=== Create new asymmetric authentication key"
+$asymid=201
+openssl.exe ecparam -genkey -name secp256r1 -noout -out authkey_asym-keypair.pem; CheckExitStatus -ECode $?
+openssl.exe ec -in authkey_asym-keypair.pem -pubout -out authkey_asym-pubkey.pem; CheckExitStatus -ECode $?
+yubihsm-shell.exe -p password -a put-authentication-key-asym -i $asymid -l authkey_asym -d 1,2,3 -c all --in authkey_asym-pubkey.pem; CheckExitStatus -ECode $?
+yubihsm-shell.exe -p password -a get-object-info -i $asymid -t authentication-key; CheckExitStatus -ECode $?
+echo "=== Delete new asymmetric authentication key"
+yubihsm-shell.exe -p password -a delete-object -i $asymid -t authentication-key; CheckExitStatus -ECode $?
+rm authkey_asym-keypair.pem
+rm authkey_asym-pubkey.pem
+
 Remove-Item -Path "$TEST_DIR" -Recurse -ErrorAction SilentlyContinue
 
 Set-PSDebug -Trace 0

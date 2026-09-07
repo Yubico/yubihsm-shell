@@ -2225,7 +2225,7 @@ int yh_com_put_authentication_asym(yubihsm_context *ctx, Argument *argv,
       fprintf(stderr, "Failed to load public key\n");
       return -1;
     }
-    if (pubkey_len != sizeof(pubkey)) {
+    if (pubkey_len != sizeof(pubkey) || algo != YH_ALGO_EC_P256) {
       fprintf(stderr, "Invalid public key\n");
       return -1;
     }

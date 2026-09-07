@@ -1144,4 +1144,22 @@ setup_file() {
 
   run "${command_args[@]}" -p password -a delete-object -i "$keyid" -t authentication-key
       assert_success "Delete authentication key"
+
+  run openssl ecparam -genkey -name prime256v1 -noout -out authkey_asym-keypair.pem
+      assert_success "Generate asymmetric authkey keypair with openssl"
+
+  run openssl ec -in authkey_asym-keypair.pem -pubout -out authkey_asym-pubkey.pem
+      assert_success "Extract asymmetric authkey public key with openssl"
+
+  run "${command_args[@]}" -p password -a put-authentication-key-asym -i 0 -l authkey_asym -d 1,2,3 -c all --delegated all --in authkey_asym-pubkey.pem
+      assert_success "Create new asymmetric authentication key"
+
+  asymkeyid=$(echo "$output" | tail -1 | awk '{print $5}')
+  run "${command_args[@]}" -p password -a get-object-info -i "$asymkeyid" -t authentication-key
+      assert_success "Get info for new asymmetric authentication key"
+
+  run "${command_args[@]}" -p password -a delete-object -i "$asymkeyid" -t authentication-key
+      assert_success "Delete asymmetric authentication key"
+
+  rm -f authkey_asym-keypair.pem authkey_asym-pubkey.pem
 }
