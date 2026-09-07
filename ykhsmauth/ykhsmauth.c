@@ -227,7 +227,7 @@ static ykhsmauth_rc send_data(ykhsmauth_state *state, const APDU *apdu,
     if (total_recv_len >= *recv_len) {
       if (state->verbose) {
         fprintf(stderr, "Buffer overflow: received %lu, max %lu\n",
-                (unsigned long) total_recv_len, *recv_len);
+                (unsigned long) total_recv_len, (unsigned long) *recv_len);
       }
       return YKHSMAUTHR_MEMORY_ERROR;
     }
