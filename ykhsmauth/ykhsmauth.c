@@ -188,6 +188,8 @@ static ykhsmauth_rc send_data(ykhsmauth_state *state, const APDU *apdu,
   recv_ptr = data;
   chunk_len = *recv_len;
 
+  SCardBeginTransaction(state->card);
+
   int32_t rc = SCardTransmit(state->card, SCARD_PCI_T1, apdu_bytes, send_len,
                              NULL, recv_ptr, &chunk_len);
 
@@ -195,6 +197,7 @@ static ykhsmauth_rc send_data(ykhsmauth_state *state, const APDU *apdu,
     if (state->verbose) {
       fprintf(stderr, "SCardTransmit failed, rc=%08x\n", rc);
     }
+    SCardEndTransaction(state->card, SCARD_LEAVE_CARD);
     return YKHSMAUTHR_PCSC_ERROR;
   }
 
@@ -202,6 +205,7 @@ static ykhsmauth_rc send_data(ykhsmauth_state *state, const APDU *apdu,
     if (state->verbose) {
       fprintf(stderr, "Response too short: %lu bytes\n", (unsigned long) chunk_len);
     }
+    SCardEndTransaction(state->card, SCARD_LEAVE_CARD);
     return YKHSMAUTHR_GENERIC_ERROR;
   }
 
@@ -229,6 +233,7 @@ static ykhsmauth_rc send_data(ykhsmauth_state *state, const APDU *apdu,
         fprintf(stderr, "Buffer overflow: received %lu, max %lu\n",
                 (unsigned long) total_recv_len, (unsigned long) *recv_len);
       }
+      SCardEndTransaction(state->card, SCARD_LEAVE_CARD);
       return YKHSMAUTHR_MEMORY_ERROR;
     }
 
@@ -252,6 +257,7 @@ static ykhsmauth_rc send_data(ykhsmauth_state *state, const APDU *apdu,
       if (state->verbose) {
         fprintf(stderr, "SCardTransmit failed: rc=%08x\n", (unsigned int) rc);
       }
+      SCardEndTransaction(state->card, SCARD_LEAVE_CARD);
       return YKHSMAUTHR_PCSC_ERROR;
     }
 
@@ -259,6 +265,7 @@ static ykhsmauth_rc send_data(ykhsmauth_state *state, const APDU *apdu,
       if (state->verbose) {
         fprintf(stderr, "Response too short: %lu bytes\n", (unsigned long) temp_recv_len);
       }
+      SCardEndTransaction(state->card, SCARD_LEAVE_CARD);
       return YKHSMAUTHR_GENERIC_ERROR;
     }
 
@@ -267,6 +274,7 @@ static ykhsmauth_rc send_data(ykhsmauth_state *state, const APDU *apdu,
       if (state->verbose) {
         fprintf(stderr, "Chained response made no progress\n");
       }
+      SCardEndTransaction(state->card, SCARD_LEAVE_CARD);
       return YKHSMAUTHR_GENERIC_ERROR;
     }
     total_recv_len = total_recv_len - 2 + temp_recv_len;
@@ -278,6 +286,8 @@ static ykhsmauth_rc send_data(ykhsmauth_state *state, const APDU *apdu,
       fprintf(stderr, "SW: %04x\n", *sw);
     }
   }
+
+  SCardEndTransaction(state->card, SCARD_LEAVE_CARD);
 
   // Update the final receive length (without the 2-byte SW)
   *recv_len = total_recv_len - 2;
