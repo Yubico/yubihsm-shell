@@ -188,9 +188,17 @@ static ykhsmauth_rc send_data(ykhsmauth_state *state, const APDU *apdu,
   recv_ptr = data;
   chunk_len = *recv_len;
 
-  SCardBeginTransaction(state->card);
+  int32_t rc = SCardBeginTransaction(state->card);
+  if (rc != SCARD_S_SUCCESS) {
+    if (state->verbose) {
+      fprintf(stderr, "SCardBeginTransaction failed, rc=%08x\n", rc);
+    }
+    SCardEndTransaction(state->card, SCARD_LEAVE_CARD);
+    return YKHSMAUTHR_PCSC_ERROR;
+  }
 
-  int32_t rc = SCardTransmit(state->card, SCARD_PCI_T1, apdu_bytes, send_len,
+
+  rc = SCardTransmit(state->card, SCARD_PCI_T1, apdu_bytes, send_len,
                              NULL, recv_ptr, &chunk_len);
 
   if (rc != SCARD_S_SUCCESS) {
