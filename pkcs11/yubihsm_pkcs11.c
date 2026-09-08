@@ -393,7 +393,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
 
     const char *path = entry + 5;
     size_t path_len = entry_len - 5;
-    if (path_len == 0 || path_len >= YUBIHSM_PKCS11_AUTHKEY_FILE_PATH_LEN) {
+    if (path_len >= YUBIHSM_PKCS11_AUTHKEY_FILE_PATH_LEN) {
       DBG_ERR("Invalid authkey-file path for key ID %04x", id);
       rv = CKR_ARGUMENTS_BAD;
       goto c_i_failure;
