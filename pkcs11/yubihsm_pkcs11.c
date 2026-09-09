@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -402,7 +403,11 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
     yubihsm_pkcs11_authkey_file akf = {0};
     akf.id = id;
     memcpy(akf.path, path, path_len);
-    list_append(&g_ctx.authkey_files, &akf);
+    if (list_append(&g_ctx.authkey_files, &akf) == false) {
+        DBG_ERR("Failed to store authkey-file entry");
+        rv = CKR_HOST_MEMORY;
+        goto c_i_failure;
+    }
   }
 
   cmdline_parser_free(&args_info);
@@ -6601,8 +6606,9 @@ CK_DEFINE_FUNCTION(CK_RV, C_LoginUser)
     }
   } else if (prefix == '@') { // Asymmetric authentication
 
-    uint8_t sk_oce[YH_EC_P256_PRIVKEY_LEN], pk_oce[YH_EC_P256_PUBKEY_LEN],
-      pk_sd[YH_EC_P256_PUBKEY_LEN];
+    uint8_t sk_oce[YH_EC_P256_PRIVKEY_LEN] = {0};
+    uint8_t pk_oce[YH_EC_P256_PUBKEY_LEN] = {0};
+    uint8_t pk_sd[YH_EC_P256_PUBKEY_LEN] = {0};
     size_t pk_sd_len = sizeof(pk_sd);
 
     const char *authkey_file = find_authkey_file(key_id);
@@ -6626,12 +6632,14 @@ CK_DEFINE_FUNCTION(CK_RV, C_LoginUser)
     yrc = yh_util_get_device_pubkey(session->slot->connector, pk_sd, &pk_sd_len,
                                     NULL);
     if (yrc != YHR_SUCCESS) {
+      insecure_memzero(sk_oce, sizeof(sk_oce));
       DBG_ERR("Failed to get device public key: %s", yh_strerror(yrc));
       rv = yrc_to_rv(yrc);
       goto c_l_out;
     }
 
     if (pk_sd_len != YH_EC_P256_PUBKEY_LEN) {
+      insecure_memzero(sk_oce, sizeof(sk_oce));
       DBG_ERR("Invalid device public key");
       rv = CKR_DATA_LEN_RANGE;
       goto c_l_out;
@@ -6647,6 +6655,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_LoginUser)
     }
 
     if (g_ctx.device_pubkeys.length > 0 && hits == 0) {
+      insecure_memzero(sk_oce, sizeof(sk_oce));
       DBG_ERR("Failed to validate device public key");
       rv = CKR_DATA_LEN_RANGE;
       goto c_l_out;
