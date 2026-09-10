@@ -87,7 +87,7 @@ jobs:
 
         run: |
           Set-PSDebug -Trace 1
-          
+
           if($env:ARCH -eq "x86")
           {
             Invoke-WebRequest -Uri  https://github.com/OpenSC/OpenSC/releases/download/0.25.1/OpenSC-0.25.1_win32.msi -OutFile OpenSC.msi -UseBasicParsing
@@ -109,7 +109,7 @@ jobs:
           Set-PSDebug -Trace 1
 
           cd $env:GITHUB_WORKSPACE\release\win
-          
+
           # No actual connection, but this is enough to make sure that the PKCS11 module is found and loaded
           $PKCS11_CONFIG="connector=http://127.0.0.1:12345"
           $PKCS11_CONFIG | Out-File $env:GITHUB_WORKSPACE\yubihsm_pkcs11.conf

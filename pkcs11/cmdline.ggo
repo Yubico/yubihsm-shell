@@ -27,4 +27,5 @@ option "proxy" - "Proxy server to use for connector" string optional
 option "noproxy" - "Comma separated list of hosts ignore proxy for" string optional
 option "timeout" - "Timeout to use for initial connection to connector" int optional default="5"
 option "device-pubkey" - "List of device public keys allowed for asymmetric authentication" string optional multiple
+option "authkey-file" - "Map an authentication key ID to a password-protected file containing the corresponding EC P256 private key, format <4-hex-digit key ID>:<path>" string optional multiple
 
