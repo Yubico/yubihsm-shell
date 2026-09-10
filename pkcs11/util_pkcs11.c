@@ -27,9 +27,12 @@
 
 #ifdef __WIN32
 #include <winsock.h>
+#include <windows.h>
 #else
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <time.h>
+#include <errno.h>
 #endif
 
 #include <openssl/ec.h>
@@ -3907,6 +3910,198 @@ bool is_HMAC_sign_mechanism(CK_MECHANISM_TYPE m) {
   }
 
   return false;
+}
+
+struct keepalive_state {
+  yubihsm_pkcs11_context *ctx;
+  yubihsm_pkcs11_slot *slot;
+  uint16_t interval;
+#ifdef __WIN32
+  HANDLE thread;
+  HANDLE stop_event;
+#else
+  pthread_t thread;
+  pthread_mutex_t mutex;
+  pthread_cond_t cond;
+  bool stop;
+#endif
+};
+
+// NOTE: probes the device session the same way `slot->mutex` protects it
+// everywhere else in this module, so this can run concurrently with any
+// other PKCS#11 call without corrupting the secure channel state.
+static void keepalive_probe(struct keepalive_state *ka) {
+  yubihsm_pkcs11_slot *slot = get_slot(ka->ctx, ka->slot->id);
+  if (slot == NULL) {
+    return;
+  }
+
+  if (slot->device_session != NULL) {
+    uint8_t data = 0xff;
+    uint8_t response[YH_MSG_BUF_SIZE];
+    size_t response_len = sizeof(response);
+    yh_cmd response_cmd;
+
+    yh_rc yrc = yh_send_secure_msg(slot->device_session, YHC_ECHO, &data, 1,
+                                   &response_cmd, response, &response_len);
+    if (yrc != YHR_SUCCESS) {
+      DBG_ERR("Keepalive probe failed for slot %u: %s", slot->id,
+              yh_strerror(yrc));
+    }
+  }
+
+  release_slot(ka->ctx, slot);
+}
+
+#ifdef __WIN32
+static DWORD WINAPI keepalive_run(LPVOID arg) {
+  struct keepalive_state *ka = (struct keepalive_state *) arg;
+  while (WaitForSingleObject(ka->stop_event, ka->interval * 1000) ==
+         WAIT_TIMEOUT) {
+    keepalive_probe(ka);
+  }
+  return 0;
+}
+#else
+static void *keepalive_run(void *arg) {
+  struct keepalive_state *ka = (struct keepalive_state *) arg;
+
+  pthread_mutex_lock(&ka->mutex);
+  while (ka->stop == false) {
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    ts.tv_sec += ka->interval;
+
+    int rc = pthread_cond_timedwait(&ka->cond, &ka->mutex, &ts);
+    if (ka->stop == true) {
+      break;
+    }
+    if (rc == ETIMEDOUT) {
+      pthread_mutex_unlock(&ka->mutex);
+      keepalive_probe(ka);
+      pthread_mutex_lock(&ka->mutex);
+    }
+  }
+  pthread_mutex_unlock(&ka->mutex);
+
+  return NULL;
+}
+#endif
+
+void keepalive_start(yubihsm_pkcs11_context *ctx, yubihsm_pkcs11_slot *slot,
+                     uint16_t interval_seconds) {
+  if (interval_seconds == 0 || slot->keepalive != NULL) {
+    return;
+  }
+
+  // NOTE: without a real lock in place, a background thread touching
+  // `device_session` would race with the application's own calls into this
+  // module, so keepalive is only enabled when locking has actually been
+  // configured (native OS locking or supplied mutex callbacks).
+  if (ctx->lock_mutex == NULL || ctx->unlock_mutex == NULL ||
+      slot->mutex == NULL) {
+    DBG_INFO(
+      "Keepalive requested for slot %u but no locking is configured, "
+      "skipping",
+      slot->id);
+    return;
+  }
+
+  struct keepalive_state *ka = calloc(1, sizeof(struct keepalive_state));
+  if (ka == NULL) {
+    DBG_ERR("Failed allocating keepalive state for slot %u", slot->id);
+    return;
+  }
+
+  ka->ctx = ctx;
+  ka->slot = slot;
+  ka->interval = interval_seconds;
+
+#ifdef __WIN32
+  ka->stop_event = CreateEvent(NULL, TRUE, FALSE, NULL);
+  if (ka->stop_event == NULL) {
+    DBG_ERR("Failed creating keepalive stop event for slot %u", slot->id);
+    free(ka);
+    return;
+  }
+
+  ka->thread = CreateThread(NULL, 0, keepalive_run, ka, 0, NULL);
+  if (ka->thread == NULL) {
+    DBG_ERR("Failed creating keepalive thread for slot %u", slot->id);
+    CloseHandle(ka->stop_event);
+    free(ka);
+    return;
+  }
+#else
+  pthread_mutex_init(&ka->mutex, NULL);
+  pthread_cond_init(&ka->cond, NULL);
+
+  if (pthread_create(&ka->thread, NULL, keepalive_run, ka) != 0) {
+    DBG_ERR("Failed creating keepalive thread for slot %u", slot->id);
+    pthread_mutex_destroy(&ka->mutex);
+    pthread_cond_destroy(&ka->cond);
+    free(ka);
+    return;
+  }
+#endif
+
+  slot->keepalive = ka;
+  DBG_INFO("Started keepalive thread for slot %u with interval %u second(s)",
+           slot->id, interval_seconds);
+}
+
+// Clears `slot->keepalive` and signals the thread to stop, but does not wait
+// for it to actually exit. Must be called with `slot->mutex` held (or in a
+// context where no other call can race on `slot->keepalive`, e.g. teardown),
+// so that a keepalive_start() racing with a concurrent stop always sees an
+// up-to-date `slot->keepalive` and never leaves the slot without a thread.
+// The returned handle must be passed to keepalive_stop_join() once the lock
+// has been released, to avoid deadlocking against keepalive_probe() trying
+// to acquire that same lock.
+void *keepalive_stop_locked(yubihsm_pkcs11_slot *slot) {
+  struct keepalive_state *ka = (struct keepalive_state *) slot->keepalive;
+  if (ka == NULL) {
+    return NULL;
+  }
+
+  slot->keepalive = NULL;
+
+#ifdef __WIN32
+  SetEvent(ka->stop_event);
+#else
+  pthread_mutex_lock(&ka->mutex);
+  ka->stop = true;
+  pthread_cond_signal(&ka->cond);
+  pthread_mutex_unlock(&ka->mutex);
+#endif
+
+  return ka;
+}
+
+// Waits for a thread stopped with keepalive_stop_locked() to exit and frees
+// its state. Safe to call with `handle == NULL`.
+void keepalive_stop_join(void *handle) {
+  struct keepalive_state *ka = (struct keepalive_state *) handle;
+  if (ka == NULL) {
+    return;
+  }
+
+#ifdef __WIN32
+  WaitForSingleObject(ka->thread, INFINITE);
+  CloseHandle(ka->thread);
+  CloseHandle(ka->stop_event);
+#else
+  pthread_join(ka->thread, NULL);
+  pthread_mutex_destroy(&ka->mutex);
+  pthread_cond_destroy(&ka->cond);
+#endif
+
+  DBG_INFO("Stopped keepalive thread for slot %u", ka->slot->id);
+  free(ka);
+}
+
+void keepalive_stop(yubihsm_pkcs11_slot *slot) {
+  keepalive_stop_join(keepalive_stop_locked(slot));
 }
 
 static void free_pkcs11_slot(void *data) {

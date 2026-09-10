@@ -194,6 +194,7 @@ typedef struct {
   CK_LOCKMUTEX lock_mutex;
   CK_UNLOCKMUTEX unlock_mutex;
   void *mutex;
+  uint16_t keepalive_interval;
 } yubihsm_pkcs11_context;
 
 typedef struct {
@@ -206,6 +207,9 @@ typedef struct {
   List pkcs11_sessions;
   yubihsm_pkcs11_object_desc objects[YH_MAX_ITEMS_COUNT];
   void *mutex;
+  /// Opaque handle to a background thread probing `device_session` to keep
+  /// it from timing out, or NULL if keepalive is disabled/not running.
+  void *keepalive;
 } yubihsm_pkcs11_slot;
 
 typedef struct {

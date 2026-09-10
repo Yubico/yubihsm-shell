@@ -123,6 +123,12 @@ bool create_session(yubihsm_pkcs11_slot *slot, CK_FLAGS flags,
 void release_session(yubihsm_pkcs11_context *ctx,
                      yubihsm_pkcs11_session *session);
 
+void keepalive_start(yubihsm_pkcs11_context *ctx, yubihsm_pkcs11_slot *slot,
+                     uint16_t interval_seconds);
+void keepalive_stop(yubihsm_pkcs11_slot *slot);
+void *keepalive_stop_locked(yubihsm_pkcs11_slot *slot);
+void keepalive_stop_join(void *handle);
+
 CK_RV set_object_type(uint8_t *type, uint8_t expected_type);
 CK_RV set_template_attribute(yubihsm_pkcs11_attribute *attribute,
                              CK_BBOOL *value);
