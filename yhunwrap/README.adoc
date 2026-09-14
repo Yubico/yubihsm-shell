@@ -1,0 +1,41 @@
+== YubiHSM Unwrap
+
+YubiHSM Unwrap is a command-line tool to decrypt "offline wraps"
+from a YubiHSM 2 device. See `yubihsm-wrap` to create "offline wraps"
+or key backups encrypted with a wrap key.
+
+One of the functionalities supported by the YubiHSM is to import
+objects under wrap. The typical use is to generate an object on one
+device, export it under wrap using a Wrap Key and import it to a
+different device which has the same Wrap Key.
+
+At times it is also useful to be able to decrypt these keys under wrap
+on a computer, so that they can be encrypted using alternative methods and
+also easily sent to other types of devices for use.
+
+=== Example
+
+This example assumes that you created a wrapped object by exporting
+a key from a YubiHSM device or using the example in the `yubihsm-wrap`
+documentation. Make sure the wrap key is the binary format documented
+under `yubihsm-wrap`.
+
+For example the wrap key
+`00112233445566778899aabbccddeeff`
+
+can be saved as `wrap.key` by running
+
+[source, bash]
+----
+$ echo -en '\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xaa\xbb\xcc\xdd\xee\xff' >wrap.key
+----
+
+We can now use `yubihsm-unwrap` to produce the decrypted version of the
+private key.
+
+[source, bash]
+----
+$ yubihsm-unwrap --in private.yhw --wrapkey wrap.key --out private.pem
+----
+
+The output file `private.pem` is the unwrapped version of the key.
