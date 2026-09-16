@@ -1473,13 +1473,23 @@ static FILE *open_file(const char *name, bool input) {
 
 static bool get_input_data(const char *name, uint8_t **out, size_t *len,
                            cmd_format fmt) {
-  const char *fname = strncasecmp(name, "file:", 5) ? name : name + 5;
+  bool is_file = !strncasecmp(name, "file:", 5);
+  bool is_envvar = !strncasecmp(name, "env:", 4);
+  const char *fname = is_file ? name + 5 : name;
+  const char *envvar = is_envvar ? name + 4 : NULL;
   struct stat sb = {0};
   int st_res = stat(fname, &sb);
   if (st_res == 0 && S_ISREG(sb.st_mode)) {
     *len = sb.st_size;
+    is_file = true;
   } else {
     *len = ARGS_BUFFER_SIZE;
+  }
+  if (!is_file && !strcmp(name, "-")) {
+    is_file = true;
+  }
+  if (is_envvar) {
+    is_envvar = !!getenv(envvar);
   }
   *out = calloc(*len + 1, 1);
   if (*out == 0) {
@@ -1487,8 +1497,7 @@ static bool get_input_data(const char *name, uint8_t **out, size_t *len,
             fname);
     return false;
   }
-  if (!strcmp(name, "-") || fname != name ||
-      (st_res == 0 && S_ISREG(sb.st_mode))) {
+  if (is_file) {
     bool ret = false;
     FILE *file = open_file(fname, true);
     if (!file) {
@@ -1526,6 +1535,15 @@ static bool get_input_data(const char *name, uint8_t **out, size_t *len,
     }
     if (ret == false) {
       return ret;
+    }
+  } else if (is_envvar) {
+    const char *data = getenv(envvar);
+    size_t dlen = strlen(data);
+    if (dlen < *len) {
+      memcpy(*out, data, dlen);
+      *len = dlen;
+    } else {
+      return false;
     }
   } else {
     if (strlen(name) < *len) {
