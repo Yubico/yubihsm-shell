@@ -3945,8 +3945,20 @@ static void keepalive_probe(struct keepalive_state *ka) {
     yh_rc yrc = yh_send_secure_msg(slot->device_session, YHC_ECHO, &data, 1,
                                    &response_cmd, response, &response_len);
     if (yrc != YHR_SUCCESS) {
-      DBG_ERR("Keepalive probe failed for slot %u: %s", slot->id,
-              yh_strerror(yrc));
+      DBG_ERR("Keepalive probe failed for slot %u: %s, invalidating device "
+              "session",
+              slot->id, yh_strerror(yrc));
+
+      // NOTE: the device session is confirmed dead. It must be torn down
+      // and every PKCS#11 session on this slot demoted out of
+      // AUTHENTICATED_*, same as C_Logout() does. Nothing downstream
+      // NULL-checks `slot->device_session` before using it, so leaving the
+      // sessions marked authenticated with a NULL/dangling device session
+      // would crash (or worse) on the caller's next command instead of
+      // cleanly returning CKR_USER_NOT_LOGGED_IN.
+      yh_destroy_session(&slot->device_session);
+      slot->device_session = NULL;
+      list_iterate(&slot->pkcs11_sessions, logout_sessions);
     }
   }
 

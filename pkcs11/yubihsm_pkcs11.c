@@ -1140,7 +1140,7 @@ static void login_sessions(void *data) {
   }
 }
 
-static void logout_sessions(void *data) {
+void logout_sessions(void *data) {
   yubihsm_pkcs11_session *session = (yubihsm_pkcs11_session *) data;
   switch (session->session_state) {
     case SESSION_AUTHENTICATED_RO:

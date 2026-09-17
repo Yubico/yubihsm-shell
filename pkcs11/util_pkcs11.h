@@ -129,6 +129,10 @@ void keepalive_stop(yubihsm_pkcs11_slot *slot);
 void *keepalive_stop_locked(yubihsm_pkcs11_slot *slot);
 void keepalive_stop_join(void *handle);
 
+// Defined in yubihsm_pkcs11.c; flips AUTHENTICATED_* sessions on a slot back
+// to RESERVED_*, mirroring what C_Logout() does to its own slot's sessions.
+void logout_sessions(void *data);
+
 CK_RV set_object_type(uint8_t *type, uint8_t expected_type);
 CK_RV set_template_attribute(yubihsm_pkcs11_attribute *attribute,
                              CK_BBOOL *value);
