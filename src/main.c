@@ -1466,7 +1466,7 @@ static FILE *open_file(const char *name, bool input) {
     if (strcmp(name, "-") == 0) {
       return stdout;
     } else {
-      return fopen(name, "ab");
+      return fopen(name, "wb");
     }
   }
 }
