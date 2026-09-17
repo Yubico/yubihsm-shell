@@ -84,12 +84,22 @@ static bool g_yh_initialized = false;
 
 static yubihsm_pkcs11_context g_ctx;
 
+bool is_cka_extractable_always = false;
+bool is_cka_modifiable_ignore = false;
+
+static bool parse_config_bool(const char *value) {
+  if (value == NULL) {
+    return false;
+  }
+  return strcmp(value, "true") == 0 || strcmp(value, "TRUE") == 0 ||
+         strcmp(value, "1") == 0;
+}
+
 static void destroy_slot_mutex(void *data) {
   yubihsm_pkcs11_slot *slot = (yubihsm_pkcs11_slot *) data;
   if (slot->mutex != NULL) {
     g_ctx.destroy_mutex(slot->mutex);
   }
-
   slot->mutex = NULL;
 }
 
@@ -255,6 +265,20 @@ CK_DEFINE_FUNCTION(CK_RV, C_Initialize)(CK_VOID_PTR pInitArgs) {
   yh_dbg_init(args_info.debug_flag, args_info.dinout_flag,
               args_info.libdebug_flag, args_info.debug_file_arg);
 
+  is_cka_extractable_always =
+    args_info.always_extractable_given &&
+    parse_config_bool(args_info.always_extractable_arg);
+  is_cka_modifiable_ignore = args_info.ignore_modifiable_given &&
+                             parse_config_bool(args_info.ignore_modifiable_arg);
+  if (is_cka_extractable_always) {
+    DBG_INFO("always-extractable enabled: generated key pairs will be forced "
+             "extractable");
+  }
+  if (is_cka_modifiable_ignore) {
+    DBG_INFO("ignore-modifiable enabled: CKA_MODIFIABLE will be ignored in key "
+             "templates");
+  }
+  
   // NOTE(adma): it's better to set the argument optional and check its presence
   // here
   if (args_info.connector_given == 0) {
@@ -5498,7 +5522,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_GenerateKeyPair)
   yh_capabilities capabilities = {{0}};
   yh_rc rc = YHR_SUCCESS;
 
-  if (template.exportable == ATTRIBUTE_TRUE) {
+  if ((template.exportable == ATTRIBUTE_TRUE) || is_cka_extractable_always) {
     rc = yh_string_to_capabilities("exportable-under-wrap", &capabilities);
     if (rc != YHR_SUCCESS) {
       rv = yrc_to_rv(rc);
