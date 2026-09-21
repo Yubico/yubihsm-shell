@@ -19,6 +19,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 //#include <ykhsmauth-version.h>
 
@@ -37,6 +38,7 @@ extern "C" {
 #define YKHSMAUTH_INS_PUT_MGMKEY 0x08
 #define YKHSMAUTH_INS_GET_MGMKEY_RETRIES 0x09
 #define YKHSMAUTH_INS_GET_PUBKEY 0x0a
+#define YKHSMAUTH_INS_CHANGE_CRED_PWD 0x0b
 
 // P1 bytes
 #define YKHSMAUTH_P1_RESET 0xde
@@ -187,6 +189,10 @@ ykhsmauth_rc ykhsmauth_get_mgmkey_retries(ykhsmauth_state *state,
 ykhsmauth_rc ykhsmauth_put_mgmkey(ykhsmauth_state *state, uint8_t *mgmkey,
                                   size_t mgmkey_len, uint8_t *new_mgmkey,
                                   size_t new_mgmkey_len, uint8_t *retries);
+ykhsmauth_rc ykhsmauth_change_credpwd(ykhsmauth_state *state, const char *label,
+                                      bool use_mgmkey, const uint8_t *authkey,
+                                      size_t authkey_len, const uint8_t *new_pw,
+                                      size_t new_pw_len);
 
 #ifdef __cplusplus
 }
