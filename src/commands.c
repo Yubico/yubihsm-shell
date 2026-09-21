@@ -287,6 +287,13 @@ int yh_com_connect(yubihsm_context *ctx, Argument *argv, cmd_format in_fmt,
         break;
       }
     }
+    if (ctx->passwd) {
+      if (yh_set_connector_option(ctx->connector, YH_CONNECTOR_HTTPS_PASSWD,
+                                  ctx->passwd) != YHR_SUCCESS) {
+        fprintf(stderr, "Failed setting HTTPS key password\n");
+        break;
+      }
+    }
     if (ctx->proxy) {
       if (yh_set_connector_option(ctx->connector, YH_CONNECTOR_PROXY_SERVER,
                                   ctx->proxy) != YHR_SUCCESS) {
