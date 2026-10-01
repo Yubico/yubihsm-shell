@@ -31,6 +31,7 @@ typedef struct _hash_ctx {
   BCRYPT_ALG_HANDLE hAlg;
   BCRYPT_HASH_HANDLE hHash;
   PBYTE pbHashObj;
+  DWORD cbHashObj;
   bool fFinal;
   size_t cbHash;
 #else
@@ -246,6 +247,7 @@ bool hash_create(_hash_ctx **ctx, hash_t hash) {
   if (!(ctx_temp->pbHashObj = (PBYTE) malloc(cbHashObj))) {
     goto cleanup;
   }
+  ctx_temp->cbHashObj = cbHashObj;
 
   if (!BCRYPT_SUCCESS(status =
                         BCryptGetProperty(ctx_temp->hAlg, BCRYPT_HASH_LENGTH,
@@ -401,6 +403,49 @@ bool hash_final(_hash_ctx *ctx, uint8_t *out, size_t *pcb_out) {
 #endif
 
   return true;
+}
+
+bool hash_copy(_hash_ctx *dst, _hash_ctx *src) {
+  if (!dst || !src) {
+    return false;
+  }
+
+#ifdef _WIN32_BCRYPT
+  NTSTATUS status = 0;
+
+  if (!src->hHash) {
+    return false;
+  }
+
+  if (dst->hHash) {
+    BCryptDestroyHash(dst->hHash);
+    dst->hHash = 0;
+  }
+
+  if (!BCRYPT_SUCCESS(status = BCryptDuplicateHash(src->hHash, &dst->hHash,
+                                                    dst->pbHashObj,
+                                                    dst->cbHashObj, 0))) {
+    return false;
+  }
+
+  dst->fFinal = true;
+  dst->cbHash = src->cbHash;
+
+  return true;
+
+#else
+  if (!dst->mdctx || !src->mdctx) {
+    return false;
+  }
+
+  if (EVP_MD_CTX_copy_ex(dst->mdctx, src->mdctx) != 1) {
+    return false;
+  }
+
+  dst->md = src->md;
+
+  return true;
+#endif
 }
 
 bool hash_destroy(_hash_ctx *ctx) {
