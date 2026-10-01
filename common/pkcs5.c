@@ -254,14 +254,33 @@ cleanup:
   hmac_ready = true;
   digest_len = hmac.digest_len;
 
-  num_blocks = (uint32_t)((cb_key + digest_len - 1) / digest_len);
+  /* ceil(cb_key / digest_len), computed via truncated division + remainder
+   * check so the intermediate can't overflow the way (cb_key + digest_len -
+   * 1) could. RFC 8018 5.2 caps the number of blocks at 2^32 - 1; reject
+   * anything above that instead of silently truncating the uint32_t count
+   * (which could wrap to 0 and return "success" having written nothing). */
+  {
+    size_t num_blocks_sz = cb_key / digest_len;
+    if (cb_key % digest_len != 0) {
+      num_blocks_sz++;
+    }
+    if (num_blocks_sz > UINT32_MAX) {
+      DBG_ERR("Requested PBKDF2 output length exceeds the 2^32-1 block limit");
+      goto cleanup;
+    }
+    num_blocks = (uint32_t) num_blocks_sz;
+  }
 
   if (!(salt_block = malloc(cb_salt + 4))) {
     goto cleanup;
   }
   memcpy(salt_block, salt, cb_salt);
 
-  for (uint32_t block_idx = 1; block_idx <= num_blocks; block_idx++) {
+  /* block_idx64 is wider than num_blocks so that when num_blocks is the
+   * maximum legal value (UINT32_MAX) the loop still terminates instead of
+   * wrapping a uint32_t counter back through 0. */
+  for (uint64_t block_idx64 = 1; block_idx64 <= num_blocks; block_idx64++) {
+    uint32_t block_idx = (uint32_t) block_idx64;
     size_t offset = (block_idx - 1) * digest_len;
     size_t cb_copy = digest_len;
 
