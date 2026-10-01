@@ -307,7 +307,7 @@ cleanup:
       }
     }
 
-    if (offset + cb_copy > cb_key) {
+    if (cb_copy > cb_key - offset) {
       cb_copy = cb_key - offset;
     }
     memcpy(key + offset, t, cb_copy);

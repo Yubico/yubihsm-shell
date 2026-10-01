@@ -64,17 +64,17 @@ static void test_pbkdf2_vectors(void) {
      (const uint8_t
         *) "\x56\xfa\x6a\xa7\x55\x48\x09\x9d\xcc\x37\xd7\xf0\x34\x25\xe0\xc3",
      16},
-    /* RFC 7914 Appendix A, PBKDF2-HMAC-SHA256 */
+    /* PBKDF2-HMAC-SHA256 known-answer vector */
     {(const uint8_t *) "password", 8, (const uint8_t *) "salt", 4, 1,
      _SHA256,
      (const uint8_t *) "\x12\x0f\xb6\xcf\xfc\xf8\xb3\x2c\x43\xe7\x22\x52\x56"
                        "\xc4\xf8\x37\xa8\x65\x48\xc9\x2c\xcc\x35\x48\x08\x05"
                        "\x98\x7c\xb7\x0b\xe1\x7b",
      32},
-    /* Same RFC 7914 key material as above, requested 48 bytes instead of 32
-     * so the derivation spans two digest blocks (digest_len=32). The first
-     * 32 bytes match the published vector exactly; all 48 bytes were cross-
-     * checked against Python's hashlib.pbkdf2_hmac (OpenSSL-backed). */
+    /* Same password and salt as above, using 4096 iterations and requesting
+     * 48 bytes so the derivation spans two digest blocks (digest_len=32).
+     * All 48 bytes were cross-checked against Python's hashlib.pbkdf2_hmac
+     * (OpenSSL-backed). */
     {(const uint8_t *) "password", 8, (const uint8_t *) "salt", 4, 4096,
      _SHA256,
      (const uint8_t *) "\xc5\xe4\x78\xd5\x92\x88\xc8\x41\xaa\x53\x0d\xb6\x84"
