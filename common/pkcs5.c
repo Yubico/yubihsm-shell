@@ -20,6 +20,7 @@
 
 #include "pkcs5.h"
 #include "hash.h"
+#include "insecure_memzero.h"
 #include "../lib/debug_lib.h"
 
 #ifdef _WIN32_BCRYPT
@@ -75,6 +76,11 @@ static bool hmac_sha(hash_t hash, const uint8_t *key, size_t cb_key,
     return false;
   }
 
+  if (digest_len > sizeof(inner_digest) || block_len > sizeof(key_block)) {
+    DBG_ERR("Hash sizes exceed HMAC scratch buffer capacity");
+    return false;
+  }
+
   if (*cb_out < digest_len) {
     return false;
   }
@@ -83,7 +89,7 @@ static bool hmac_sha(hash_t hash, const uint8_t *key, size_t cb_key,
   if (cb_key > block_len) {
     len = sizeof(key_block);
     if (!hash_bytes(key, cb_key, hash, key_block, &len)) {
-      return false;
+      goto cleanup;
     }
   } else {
     memcpy(key_block, key, cb_key);
@@ -96,19 +102,18 @@ static bool hmac_sha(hash_t hash, const uint8_t *key, size_t cb_key,
 
   len = sizeof(inner_digest);
   if (!hash_create(&ctx, hash)) {
-    return false;
+    goto cleanup;
   }
   if (!hash_init(ctx) || !hash_update(ctx, ipad, block_len) ||
       !hash_update(ctx, data, cb_data) ||
       !hash_final(ctx, inner_digest, &len)) {
-    hash_destroy(ctx);
-    return false;
+    goto cleanup;
   }
   hash_destroy(ctx);
   ctx = NULL;
 
   if (!hash_create(&ctx, hash)) {
-    return false;
+    goto cleanup;
   }
   len = *cb_out;
   if (!hash_init(ctx) || !hash_update(ctx, opad, block_len) ||
@@ -121,7 +126,13 @@ static bool hmac_sha(hash_t hash, const uint8_t *key, size_t cb_key,
   res = true;
 
 cleanup:
-  hash_destroy(ctx);
+  if (ctx) {
+    hash_destroy(ctx);
+  }
+  insecure_memzero(key_block, sizeof(key_block));
+  insecure_memzero(ipad, sizeof(ipad));
+  insecure_memzero(opad, sizeof(opad));
+  insecure_memzero(inner_digest, sizeof(inner_digest));
   return res;
 }
 
@@ -183,6 +194,11 @@ cleanup:
     return false;
   }
 
+  if (cb_salt > SIZE_MAX - 4) {
+    DBG_ERR("Salt too large for PBKDF2");
+    return false;
+  }
+
   num_blocks = (uint32_t)((cb_key + digest_len - 1) / digest_len);
 
   if (!(salt_block = malloc(cb_salt + 4))) {
@@ -227,7 +243,12 @@ cleanup:
   res = true;
 
 cleanup:
-  free(salt_block);
+  if (salt_block) {
+    insecure_memzero(salt_block, cb_salt + 4);
+    free(salt_block);
+  }
+  insecure_memzero(u, sizeof(u));
+  insecure_memzero(t, sizeof(t));
 
 #endif
   return res;
