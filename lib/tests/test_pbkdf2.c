@@ -64,6 +64,34 @@ static void test_pbkdf2_vectors(void) {
      (const uint8_t
         *) "\x56\xfa\x6a\xa7\x55\x48\x09\x9d\xcc\x37\xd7\xf0\x34\x25\xe0\xc3",
      16},
+    /* RFC 7914 Appendix A, PBKDF2-HMAC-SHA256 */
+    {(const uint8_t *) "password", 8, (const uint8_t *) "salt", 4, 1,
+     _SHA256,
+     (const uint8_t *) "\x12\x0f\xb6\xcf\xfc\xf8\xb3\x2c\x43\xe7\x22\x52\x56"
+                       "\xc4\xf8\x37\xa8\x65\x48\xc9\x2c\xcc\x35\x48\x08\x05"
+                       "\x98\x7c\xb7\x0b\xe1\x7b",
+     32},
+    /* Same RFC 7914 key material as above, requested 48 bytes instead of 32
+     * so the derivation spans two digest blocks (digest_len=32). The first
+     * 32 bytes match the published vector exactly; all 48 bytes were cross-
+     * checked against Python's hashlib.pbkdf2_hmac (OpenSSL-backed). */
+    {(const uint8_t *) "password", 8, (const uint8_t *) "salt", 4, 4096,
+     _SHA256,
+     (const uint8_t *) "\xc5\xe4\x78\xd5\x92\x88\xc8\x41\xaa\x53\x0d\xb6\x84"
+                       "\x5c\x4c\x8d\x96\x28\x93\xa0\x01\xce\x4e\x11\xa4\x96"
+                       "\x38\x73\xaa\x98\x13\x4a\xf7\xad\x98\xc1\xb4\x58\xce"
+                       "\x3f\xd7\x4c\xa3\x5b\xeb\xa3\xcd\xa7",
+     48},
+    /* Password longer than the SHA-256 block size (64 bytes), exercising
+     * the HMAC key-compression path. Cross-checked against Python's
+     * hashlib.pbkdf2_hmac (OpenSSL-backed). */
+    {(const uint8_t *) "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+                       "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+     80, (const uint8_t *) "salt", 4, 1000, _SHA256,
+     (const uint8_t *) "\x12\x29\x83\x86\x83\xb5\xc5\x44\x7d\x04\xfa\x21\xe5"
+                       "\x1a\x42\xe4\x72\x8c\xbe\x4e\xa1\x7c\x8e\x5e\x51\xe1"
+                       "\x9c\x03\xa6\x56\xb2\x96",
+     32},
   };
 
   for (size_t i = 0; i < sizeof(vectors) / sizeof(vectors[0]); i++) {
