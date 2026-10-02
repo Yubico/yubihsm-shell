@@ -43,17 +43,19 @@ make install DESTDIR="$OUTPUT"
 ## Copy licenses
 mkdir -p $LICENSE_DIR
 cp $SOURCE_DIR/LICENSE $LICENSE_DIR/yubihsm-shell
-cp $BREW_LIB/openssl/LICENSE.txt $LICENSE_DIR/openssl
 cp $BREW_LIB/libusb/COPYING $LICENSE_DIR/libusb
-cp $BREW_LIB/zlib/LICENSE $LICENSE_DIR/zlib
+OPENSSL_PREFIX="$(brew --prefix openssl@3)"
+cp $OPENSSL_PREFIX/LICENSE.txt $LICENSE_DIR/openssl
+ZLIB_PREFIX="$(brew --prefix zlib)"
+cp $ZLIB_PREFIX/LICENSE $LICENSE_DIR/zlib
 
 
 ## Copy third party libraries and headers included in the release
 cd $OUTPUT/$CMAKE_INSTALL_PREFIX
-cp -r $BREW_LIB/openssl/include/openssl include/
-cp $BREW_LIB/openssl/lib/libcrypto.3.dylib lib/
+cp -r $OPENSSL_PREFIX/include/openssl include/
+cp $OPENSSL_PREFIX/lib/libcrypto.3.dylib lib/
 cp $BREW_LIB/libusb/lib/libusb-1.0.0.dylib lib/
-cp $BREW_LIB/zlib/lib/libz.1.dylib lib/
+cp $ZLIB_PREFIX/lib/libz.1.dylib lib/
 
 ## Fix file permissions of the third party libraries
 chmod +w $OUTPUT/$CMAKE_INSTALL_PREFIX/lib/libcrypto.3.dylib
@@ -65,31 +67,31 @@ install_name_tool -id @rpath/libcrypto.3.dylib lib/libcrypto.3.dylib
 install_name_tool -id @rpath/libusb-1.0.0.dylib lib/libusb-1.0.0.dylib
 install_name_tool -id @rpath/libz.1.dylib lib/libz.1.dylib
 
-install_name_tool -change $BREW_LIB/openssl@3/lib/libcrypto.3.dylib @rpath/libcrypto.3.dylib lib/libyubihsm.$VERSION.dylib
-install_name_tool -change /usr/lib/libz.1.dylib @rpath/libz.1.dylib lib/libyubihsm.$VERSION.dylib
+install_name_tool -change $OPENSSL_PREFIX/lib/libcrypto.3.dylib @rpath/libcrypto.3.dylib lib/libyubihsm.$VERSION.dylib
+install_name_tool -change $ZLIB_PREFIX/lib/libz.1.dylib @rpath/libz.1.dylib lib/libyubihsm.$VERSION.dylib
 otool -L lib/libyubihsm.$VERSION.dylib
 
 install_name_tool -change $BREW_LIB/libusb/lib/libusb-1.0.0.dylib  @rpath/libusb-1.0.0.dylib lib/libyubihsm_usb.$VERSION.dylib
 otool -L lib/libyubihsm_usb.$VERSION.dylib
 
-install_name_tool -change $BREW_LIB/openssl@3/lib/libcrypto.3.dylib @rpath/libcrypto.3.dylib lib/pkcs11/yubihsm_pkcs11.dylib
-install_name_tool -change /usr/lib/libz.1.dylib @rpath/libz.1.dylib lib/pkcs11/yubihsm_pkcs11.dylib
+install_name_tool -change $OPENSSL_PREFIX/lib/libcrypto.3.dylib @rpath/libcrypto.3.dylib lib/pkcs11/yubihsm_pkcs11.dylib
+install_name_tool -change $ZLIB_PREFIX/lib/libz.1.dylib @rpath/libz.1.dylib lib/pkcs11/yubihsm_pkcs11.dylib
 otool -L lib/pkcs11/yubihsm_pkcs11.dylib
 otool -l lib/pkcs11/yubihsm_pkcs11.dylib | grep LC_RPATH -A 3
 
 otool -L lib/libykhsmauth.dylib
 otool -l lib/libykhsmauth.dylib | grep LC_RPATH -A 3
 
-install_name_tool -change $BREW_LIB/openssl@3/lib/libcrypto.3.dylib @rpath/libcrypto.3.dylib bin/yubihsm-shell
-install_name_tool -change /usr/lib/libz.1.dylib @rpath/libz.1.dylib bin/yubihsm-shell
+install_name_tool -change $OPENSSL_PREFIX/lib/libcrypto.3.dylib @rpath/libcrypto.3.dylib bin/yubihsm-shell
+install_name_tool -change $ZLIB_PREFIX/lib/libz.1.dylib @rpath/libz.1.dylib bin/yubihsm-shell
 otool -L bin/yubihsm-shell
 otool -l bin/yubihsm-shell | grep LC_RPATH -A 3
 
-install_name_tool -change $BREW_LIB/openssl@3/lib/libcrypto.3.dylib @rpath/libcrypto.3.dylib bin/yubihsm-wrap
-install_name_tool -change /usr/lib/libz.1.dylib @rpath/libz.1.dylib bin/yubihsm-wrap
+install_name_tool -change $OPENSSL_PREFIX/lib/libcrypto.3.dylib @rpath/libcrypto.3.dylib bin/yubihsm-wrap
+install_name_tool -change $ZLIB_PREFIX/lib/libz.1.dylib @rpath/libz.1.dylib bin/yubihsm-wrap
 otool -L bin/yubihsm-wrap
 otool -l bin/yubihsm-wrap | grep LC_RPATH -A 3
 
-install_name_tool -change $BREW_LIB/openssl@3/lib/libcrypto.3.dylib @rpath/libcrypto.3.dylib bin/yubihsm-auth
+install_name_tool -change $OPENSSL_PREFIX/lib/libcrypto.3.dylib @rpath/libcrypto.3.dylib bin/yubihsm-auth
 otool -L bin/yubihsm-auth
 otool -l bin/yubihsm-auth | grep LC_RPATH -A 3

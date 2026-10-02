@@ -54,6 +54,7 @@ bool YH_INTERNAL hash_create(hash_ctx *ctx, hash_t hash);
 bool YH_INTERNAL hash_init(hash_ctx ctx);
 bool YH_INTERNAL hash_update(hash_ctx ctx, const uint8_t *in, size_t cb_in);
 bool YH_INTERNAL hash_final(hash_ctx ctx, uint8_t *out, size_t *pcb_out);
+bool YH_INTERNAL hash_copy(hash_ctx dst, hash_ctx src);
 bool YH_INTERNAL hash_destroy(hash_ctx ctx);
 
 #ifndef _WIN32_BCRYPT
