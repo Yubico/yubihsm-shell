@@ -1783,6 +1783,13 @@ CK_DEFINE_FUNCTION(CK_RV, C_CreateObject)
     } else {
       algo = YH_ALGO_OPAQUE_DATA;
     }
+
+    rc = yh_string_to_capabilities("exportable-under-wrap", &capabilities);
+    if (rc != YHR_SUCCESS) {
+        rv = yrc_to_rv(rc);
+        goto c_co_out;
+    }
+
     for (CK_ULONG i = 0; i < ulCount; i++) {
       switch (pTemplate[i].type) {
         case CKA_VALUE:
