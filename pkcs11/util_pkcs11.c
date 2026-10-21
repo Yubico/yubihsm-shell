@@ -1284,12 +1284,16 @@ static CK_RV get_key_type_attribute(yh_algorithm object_algorithm, CK_KEY_TYPE *
     switch (object_algorithm) {
       case YH_ALGO_HMAC_SHA1:
         *value =  CKK_SHA_1_HMAC;
+        break;
       case YH_ALGO_HMAC_SHA256:
         *value =  CKK_SHA256_HMAC;
+        break;
       case YH_ALGO_HMAC_SHA384:
         *value =  CKK_SHA384_HMAC;
+        break;
       case YH_ALGO_HMAC_SHA512:
         *value =  CKK_SHA512_HMAC;
+        break;
       default:
         return CKR_FUNCTION_FAILED;
     }
