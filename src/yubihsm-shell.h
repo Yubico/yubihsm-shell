@@ -54,6 +54,7 @@ typedef struct {
   char *cacert;
   char *cert;
   char *key;
+  char *passwd;
   char *proxy;
   char *noproxy;
 } yubihsm_context;

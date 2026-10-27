@@ -574,6 +574,9 @@ typedef enum {
   /// Comma separated list of hosts ignoring proxy, `*` to disable proxy.
   /// Not implemented on Windows
   YH_CONNECTOR_NOPROXY = 5,
+  /// Password for file with client certificate key (const char *).
+  /// Not implemented on Windows
+  YH_CONNECTOR_HTTPS_PASSWD = 6,
 } yh_connector_option;
 
 /**
