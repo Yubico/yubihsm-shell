@@ -46,6 +46,14 @@ set (
 if(MSVC)
   set(SOURCE_UTIL ${SOURCE_UTIL} ../../common/time_win.c)
 endif(MSVC)
+if(NOT WIN32)
+  # The connect error classification test exercises the curl backend, which
+  # is not built on Windows.
+  set (
+    SOURCE_CONNECT_ERRORS
+    test_connect_errors.c
+    )
+endif(NOT WIN32)
 include_directories (
   ${CMAKE_CURRENT_SOURCE_DIR}/../lib
   )
@@ -72,3 +80,12 @@ target_link_libraries (
 target_link_libraries (test_usb_url ${ADDITIONAL_LIBRARY})
 
 target_link_libraries (test_util ${ADDITIONAL_LIBRARY})
+
+if(NOT WIN32)
+  add_executable (test_connect_errors ${SOURCE_CONNECT_ERRORS})
+
+  target_link_libraries (
+    test_connect_errors
+    yubihsm
+    )
+endif(NOT WIN32)

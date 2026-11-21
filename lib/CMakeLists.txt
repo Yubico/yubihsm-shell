@@ -214,6 +214,14 @@ add_test(
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/lib/tests/
   )
 
+if(NOT WIN32)
+  add_test(
+    NAME connect_errors
+    COMMAND test_connect_errors
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/lib/tests/
+    )
+endif(NOT WIN32)
+
 add_test(
   NAME attest
   COMMAND attest

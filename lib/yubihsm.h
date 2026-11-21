@@ -926,6 +926,11 @@ yh_rc yh_set_connector_option(yh_connector *connector, yh_connector_option opt,
  *
  * @return #YHR_SUCCESS if successful.
  *         #YHR_INVALID_PARAMETERS if the connector does not exist.
+ *         #YHR_CONNECTOR_NOT_FOUND if the connector could not be reached or
+ *         has no device connected.
+ *         #YHR_CONNECTION_ERROR if a connection was established but the TLS
+ *         handshake or certificate verification failed (HTTP backend with
+ *         libcurl).
  *         See #yh_rc for other possible errors
  **/
 yh_rc yh_connect(yh_connector *connector, int timeout);

@@ -121,6 +121,14 @@ static yh_rc backend_connect(yh_connector *connector, int timeout) {
     } else {
       DBG_ERR("Failure when connecting: '%s'", curl_easy_strerror(rc));
     }
+    // A TLS handshake or certificate verification failure means something
+    // was listening at the URL but a secure connection could not be
+    // established. Report that as a connection error so that callers can
+    // tell it apart from a connector that is absent or has no device.
+    if (rc == CURLE_SSL_CONNECT_ERROR || rc == CURLE_PEER_FAILED_VERIFICATION ||
+        rc == CURLE_SSL_CACERT_BADFILE) {
+      return YHR_CONNECTION_ERROR;
+    }
     return YHR_CONNECTOR_NOT_FOUND;
   }
 
